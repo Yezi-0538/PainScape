@@ -290,7 +290,7 @@ const translations = {
     result: {
       tabs: {
         partner: "伴侣",
-        work: "请假",
+        work: "请假/推约",
         doctor: "医生",
         self: "自愈",
       },
@@ -301,9 +301,37 @@ const translations = {
         copyAction: "📋 复制实操指令",
       },
       work: {
-        title: "请假模板",
-        description: "客观描述生理状况，不卑不亢，并留出交接空间。",
-        copyTemplate: "📋 复制请假模板",
+        title: "智能声明与推约引擎", // 大标题不再局限于职场
+      description: "客观陈述生理期急性痛楚状态，无论是面对职场还是社交邀约，都能坦诚且得体地表达缺席意愿。",
+      copyTemplate: "📋 复制声明/推约文本",
+      recipients: {
+        manager: "💼 领导/HR",
+        teacher: "🏫 学校老师",
+        client: "👥 客户/合作方",
+        friend: "🫂 好友/同学" // 新增
+      },
+      tones: {
+        polite: "🌸 遗憾委婉", // 社交语境下 poltie 代表遗憾
+        objective: "📊 直接陈述"
+      },
+        templates: {
+          manager: {
+            polite: "尊敬的领导/HR您好：\n本人因今日行经生理期严重不适（{{pain}}），伴随阵发性剧烈收缩痉挛、冷汗及虚脱，目前体力状态确实无法支持高强度专注工作。特申请今日病假/居家整休一天。在此期间若有紧急要务，我将在身体状况允许时通过微信及时回复。非常感谢您的理解与批准。\n\n申请人：[您的姓名]",
+            objective: "领导/HR您好：\n本人今日突发急性生理期痛经（{{pain}}），痛感深在且躯体透支明显，特申请今日病假一天。今日原定紧急业务已安排妥善交接。我会在明日身体状况恢复后第一时间销假并跟进工作，感谢批准。\n\n申请人：[您的姓名]"
+          },
+          teacher: {
+            polite: "尊敬的 [老师姓名] 老师您好：\n我是学生 [您的姓名]。因今日身体突发经期下腹剧烈痉挛性绞痛（{{pain}}）并伴有虚脱，状态欠佳确实无法前往教室上课。特向您请假 [1] 天。因请假落下的功课和课堂重点，我会在身体好转后主动向同学和老师补齐，望老师批准。非常感谢。\n\n学生：[您的姓名]",
+            objective: "老师您好：\n学生 [您的姓名] 因今日生理期严重痉挛性痛经（{{pain}}），目前无法维持正常的课堂听课状态，特申请今天请假一天，望批准。\n\n学生：[您的姓名]"
+          },
+          client: {
+            polite: "您好：\n由于本人今日突发身体生理期严重不适（{{pain}}），目前体能及思维专注力受到极大限制。为了确保我们的沟通效果与项目交付质量，特在此向您说明，可能需要将今日原定的对接/会议稍作顺延，或者更改为文字异步留言。给您带来不便我深表歉意，非常感谢您的体谅与支持。\n\n[您的姓名]",
+            objective: "您好：\n因本人今日突发急性期生理性痛经（{{pain}}），痛感较强，今日需紧急请假调理。我们原定今日的跟进计划我已交由同事协助，或推迟至明日处理，感谢您的理解。\n\n[您的姓名]"
+          },
+           friend: {
+          polite: "亲爱的：\n真的很抱歉，我原本超级期待今天的聚会，但我今天生理期痛经突然发作得非常厉害（{{pain}}），现在整个人虚脱得只能躺在床上，实在没法出门见大家了。🥺 你们玩得开心点，别管我，等我这两天活过来了，一定要找时间单独找你们补上这一顿！真的太遗憾了，求原谅～\n\n[您的姓名]",
+          objective: "嘿：\n由于今天经期突发严重绞痛（{{pain}}），我现在状态很差，今天的聚会/约会我就先不参加了，得在家躺着缓一缓。你们好好玩，咱们改天再约时间聚哈！\n\n[您的姓名]"
+        }
+        }
       },
       doctor: {
         title: "医疗就诊沟通辅助单",
@@ -318,7 +346,7 @@ const translations = {
       },
       self: {
         title: "自愈与社群互助",
-        comfort: "亲爱的，你画出了你的风暴。痛不是你的错，允许自己今天做一个废物，好好休息吧。",
+        comfort: "亲爱的，你画出了你的风暴。痛不是你的错，允许自己今天好好休息。躺着不叫懒，这是一种积极的身体自愈。 ⚠️ 注意：任何自愈方案或体位调节若引起您额外的不适或强烈痛感，请立即停止！回归您觉得最舒服的姿势，并保持静卧休养。",
         copyAdvice: "📋 复制建议保存",
       },
       science: {
@@ -517,35 +545,35 @@ const translations = {
           "想象把一条湿毛巾用力拧干，一圈一圈绞紧，从肚脐一直拧到后腰——那种闷痛从里面往外钻。",
         med: "患者自述下腹部持续性绞痛，呈阵发性加重，伴腰骶部放射痛，月经第1-2天为甚，影响日常功能。建议排查子宫痉挛及盆腔充血。",
         selfCare:
-          "✨ 尝试【婴儿蜷缩式】侧卧，双膝抱向胸口，放松盆底肌\n✨ 热水袋敷于小腹和后腰，温度40-45°C，每次20分钟\n✨ 缓慢腹式呼吸：吸气4秒-屏住4秒-呼气6秒\n✨ 补充镁元素（坚果/深绿蔬菜）助肌肉放松\n✨ 允许自己蜷缩在被子里，痛经不是你的错",
+          "✨ 尝试【婴儿蜷缩式】侧卧，双膝抱向胸口，放松盆底肌\n✨ 热水袋敷于小腹和后腰，温度40-45°C，每次20分钟\n✨ 缓慢式腹式呼吸：吸气4秒-屏住4秒-呼气6秒\n✨ 补充镁元素（坚果/深绿蔬菜）助肌肉放松\n✨ 允许自己蜷缩在被子里，痛经不是你的错\n✨ 穴位按压：强力按压【三阴交穴】（位于双侧小腿内侧，内踝尖上直上4横指，骨骼边缘后方凹陷处）1-2分钟。临床证明它能有效阻断子宫痉挛痛觉并加速血液循环\n✨ 温水足浴(若不便接水，请好好休息！）：使用40-42℃的热水泡脚15-20分钟。下肢远端温热能反射性地引起下腹及盆腔血管扩张，缓解平滑肌缺血性痉挛",
       },
       pierce: {
         analogy:
           "想象不打麻药进行根管治疗——那种电钻般的锐痛突然扎进下腹，又麻又刺，像有人拿针在盆腔里搅动。",
         med: "患者自述下腹部锐利刺痛，呈一过性钻痛，可放射至大腿内侧，疼痛突发突止，伴冷汗。建议排查神经性疼痛及子宫内膜异位症。",
         selfCare:
-          "✨ 刺痛发作时立即侧卧，避免压迫疼痛点\n✨ 用温热毛巾轻敷（不要太烫，刺痛区域更敏感）\n✨ 听白噪音或轻音乐转移注意力\n✨ 备好温水，小口慢饮保持体温\n✨ 发作间隙可轻微活动脚踝促进循环",
+          "✨ 刺痛发作时立即侧卧，避免压迫疼痛点\n✨ 用温热毛巾轻敷（不要太烫，刺痛区域更敏感）\n✨ 听白噪音或轻音乐转移注意力\n✨ 备好温水，小口慢饮保持体温\n✨ 发作间隙可轻微活动脚踝促进循环\n✨ 渐进式肌肉放松（PMR）：有意识地将双腿、臀部肌肉“用力收紧10秒”，然后再“彻底松弛释放”。这能打破因突然刺痛产生的‘防御性肌肉紧绷’恶性循环\n✨ 触觉闸门阻断（Gate Control）：在刺痛区域的外围（避开痛点中心）进行轻柔、大面积的皮肤抚摸。这能激活A-β触觉纤维，在脊髓层面“关闭闸门”，阻断锐痛信号向大脑传导",
       },
       heavy: {
         analogy:
           "像在腹部绑了5公斤沙袋往下坠，站着就想蹲下，坐下又想躺平——那种沉重感从子宫一直拖到膝盖。",
         med: "患者自述下腹部严重坠胀感，站立时加重，平卧可稍缓解，伴腰骶部酸沉。建议排查盆腔充血、子宫腺肌症可能。",
         selfCare:
-          "✨ 尝试【臀部垫高平躺】：用枕头垫高臀部15-20cm\n✨ 减少站立和行走，避免提重物\n✨ 穿着高腰宽松内裤，减少腹部束缚\n✨ 温补饮食：桂圆红枣茶、红糖姜水\n✨ 告诉自己：今天辛苦了，躺着不叫懒",
+          "✨ 尝试【臀部垫高平躺】：用枕头垫高臀部15-20cm\n✨ 减少站立和行走，避免提重物\n✨ 穿着高腰宽松内裤，减少腹部束缚\n✨ 温补饮食：桂圆红枣茶、红糖姜水\n✨ 告诉自己：今天辛苦了，躺着不叫懒\n✨ 尝试【倒立贴墙式（Viparita Karani）】：平躺，将双腿垂直贴紧墙壁上抬，保持10-15分钟。利用重力帮助淤积在盆腔静脉中的血液和组织液回流，可最快缓解重度下坠坠胀感\n✨床上骨盆贴床运动：平躺在床上，双腿微屈踩在床垫上。吸气时让后腰微微拱起离开床垫，呼气时将腰椎死死贴紧床垫。不用下地，在床上就能放松拉扯后腰的子宫骶骨韧带 ",
       },
       wave: {
         analogy:
           "像肚子里有个气球在不断充气又放气，一阵一阵地胀，有时蔓延到整个腹部，连呼吸都觉得憋闷。",
         med: "患者自述腹部弥漫性酸胀痛，呈阵发性加重，伴肠胀气感，疼痛范围不固定。建议排查水肿、肠胀气及盆腔炎症。",
         selfCare:
-          "✨ 穿着极宽松的衣物，解开所有束缚\n✨ 顺时针轻揉腹部（力度要轻，感觉到皮肉即可）\n✨ 避免产气食物：豆类、碳酸饮料、生冷瓜果\n✨ 温敷整个腹部，用毯子营造温暖环境\n✨ 放慢节奏，节奏慢下来，疼痛也会缓下来",
+          "✨ 穿着极宽松的衣物，解开所有束缚\n✨ 顺时针轻揉腹部（力度要轻，感觉到皮肉即可）\n✨ 避免产气食物：豆类、碳酸饮料、生冷瓜果\n✨ 温敷整个腹部，用毯子营造温暖环境\n✨ 放慢节奏，节奏慢下来，疼痛也会缓下来\n✨ 尝试【排气式（Pavanamuktasana）】：平躺，双臂抱住双膝并紧贴胸口，微幅向左右摇摆。这能温和挤压肠道，帮助释放积聚的胀气，快速降低盆腔和腹腔的内压\n✨ 穴位按压：按揉双侧【足三里穴】（外膝眼下4横指，胫骨外侧旁开1横指）。这能有效调节胃肠平滑肌蠕动，缓解经期伴随的胃肠酸胀、坠痛与腹胀感",
       },
       scrape: {
         analogy:
           "像一颗未成熟的果实被强行剥皮，那种撕裂感从子宫内部向外刮——每动一下都像被砂纸打磨。",
         med: "患者自述下腹部强烈撕裂样锐痛，活动时加剧，伴里急后重感。建议紧急排查组织粘连、子宫内膜异位囊肿破裂可能。",
         selfCare:
-          "✨ 这是最耗费体力的痛感，优先静卧休息\n✨ 绝对避免腹部按摩，减少任何体位变化\n✨ 口服温蜂蜜水补充能量（勿空腹服药）\n✨ 用温和声音和自己对话：'我听见了，我在陪你'\n✨ 疼痛稍缓后，记录下这次发作的细节",
+          "✨ 这是最耗费体力的痛感，优先静卧休息\n✨ 绝对避免腹部按摩，减少任何体位变化\n✨ 口服温蜂蜜水补充能量（勿空腹服药）\n✨ 用温和声音和自己对话：'我听见了，我在陪你'\n✨ 疼痛稍缓后，记录下这次发作的细节\n✨ 尝试【胸肋式呼吸】：吸气时专注于让肋骨向两侧横向扩张，保持中下腹起伏幅度降到最低。这能显著减少脏器在腹盆腔内的物理滑移与病灶牵拉，避免撕裂创面因呼吸反复摩擦\n✨ 尝试【抱枕支撑儿童式】：在大腿前侧垫一个高枕头，上半身完全趴在枕头上，双膝打开，臀部向后坐。这能利用重力让腹腔脏器向前悬垂，避免它们在盆腔深处相互压迫和摩擦，给撕裂创面营造一个无压的静养环境",
       },
     },
     healing: {
@@ -936,10 +964,37 @@ const translations = {
         copyAction: "📋 Copy Action List",
       },
       work: {
-        title: "Smart Leave Request Template",
-        description:
-          "Objectively describes physical condition, dignified, with transition space.",
-        copyTemplate: "📋 Copy Leave Request",
+        title: "Smart Leave Request Generator",
+        description: "Objectively describes your physical condition, maintaining standard limits while offering transition space for delegating tasks.",
+        copyTemplate: "📋 Copy Leave Request Text",
+        recipients: {
+          manager: "💼 Manager/HR",
+          teacher: "🏫 Professor/Teacher",
+          client: "👥 Client/Partner",
+          friend: "🫂 Friend/Peer"
+        },
+        tones: {
+          polite: "🌸 Warm & Polite",
+          objective: "📊 Objective & Brief"
+        },
+        templates: {
+          manager: {
+            polite: "Dear Manager/HR,\nI hope you are well. I am writing to request a sick leave for today due to an acute dysmenorrhea episode (severe {{pain}}), which has caused severe spasmodic cramping and physical exhaustion. I will ensure all pending urgent tasks are caught up as soon as I return. Thank you very much for your understanding.\n\nSincerely,\n[Your Name]",
+            objective: "Dear Manager/HR,\nPlease accept this request for sick leave today. I am experiencing severe menstrual cramping ({{pain}}) and am physically unfit to maintain normal focus. Urgent matters have been delegated. Thank you for your support.\n\nSincerely,\n[Your Name]"
+          },
+          teacher: {
+            polite: "Dear Professor/Teacher [Name],\nI am writing to inform you that I am unable to attend class today due to an acute and severe dysmenorrhea episode ({{pain}}). I will review the class materials and catch up on any assignments as soon as I recover. Thank you for your understanding and approval.\n\nRespectfully,\n[Your Name]",
+            objective: "Dear Professor/Teacher,\nPlease accept this absence request today as I am unable to attend class due to severe menstrual pelvic pain ({{pain}}). Thank you.\n\nSincerely,\n[Your Name]"
+          },
+          client: {
+            polite: "Hi,\nI would like to kindly request rescheduling our planned meeting today. I have suddenly developed an acute health issue (severe {{pain}}) and am physically unable to maintain normal communication focus. I apologize for any inconvenience caused and deeply appreciate your kind understanding.\n\nBest regards,\n[Your Name]",
+            objective: "Hi,\nPlease be informed that I need to take a personal sick leave today due to sudden menstrual pain ({{pain}}). I will follow up on our pending items as soon as I return tomorrow. Thank you for your patience.\n\nSincerely,\n[Your Name]"
+          },
+           friend: {
+          polite: "Hey! I'm so incredibly sorry, but I won't be able to make it to our hangout today. My period cramps hit me really hard ({{pain}}), and I'm currently stuck in bed with a heat pad. 🥺 I was so looking forward to seeing everyone! Please have a blast without me, and I'll definitely check in once I'm feeling human again to reschedule a raincheck. So sorry for the last-minute change! \n\nBest, [Your Name]",
+          objective: "Hey, I have to bail on today's plan. Dealing with some pretty severe period pain ({{pain}}) and need to stay home and rest. Hope you guys have a great time, and let's catch up another day! \n\n[Your Name]"
+        }
+        }
       },
       doctor: {
         title: "Medical Aid Report",
@@ -955,8 +1010,7 @@ const translations = {
       },
       self: {
         title: "Self-care & Community Support",
-        comfort:
-          "Dear one, you've drawn your storm. Pain is not your fault. You're allowed to be unproductive today—rest well.",
+        comfort: "Dear one, you've drawn your storm. Pain is not your fault. Rest well today—resting is an active form of self-healing. ⚠️ NOTICE: Please stop any self-care method or physical adjustment immediately if it causes you additional discomfort or pain! Return to your most comfortable resting position and remain still.",
         copyAdvice: "📋 Copy Self-care Tips",
       },
       science: {
@@ -1151,39 +1205,39 @@ const translations = {
     painTemplates: {
       twist: {
         analogy:
-          "Imagine wringing out a thick, soaking wet towel—twisting tighter and tighter from your navel all the way to your lower back. That dull, deep ache that radiates outward from within.",
-        med: "Patient reports persistent cramping pain in the lower abdomen, episodic exacerbation with lumbosacral radiation, most severe on days 1-2 of menstruation, affecting daily function. Recommend evaluation for uterine spasms and pelvic congestion.",
+          "Imagine wringing out a thick, soaking wet towel—twisting tighter and tighter from your navel all the way to your lower back. That suffocating, deep squeeze in your lower abdomen.",
+        med: "Patient reports persistent cramping pain in the lower abdomen, episodic exacerbation with lumbosacral radiation, most severe on days 1-2 of menstruation. Recommend evaluation for uterine smooth muscle spasms and pelvic congestion.",
         selfCare:
-          "✨ Try fetal position: lie on your side, knees to chest, relax pelvic floor\n✨ Heating pad on lower belly and back, 40-45°C, 20 min each session\n✨ Slow belly breathing: inhale 4s - hold 4s - exhale 6s\n✨ Magnesium-rich foods (nuts, dark greens) to ease muscle tension\n✨ You're allowed to curl up in bed. Pain is not your fault",
+          "✨ Try fetal position: lie on your side, knees to chest, to relax pelvic floor muscle tension.\n✨ Apply a heating pad on lower belly and back (40-45°C) for 20 minutes.\n✨ Slow abdominal breathing: inhale for 4s - hold for 4s - exhale slowly for 6s.\n✨ Eat magnesium-rich foods (nuts, dark greens) to naturally ease muscle contractions.\n✨ You are allowed to curl up in bed. Pain is not your fault.\n✨ Acupressure: Firmly press the Sanyinjiao (SP6) acupoint (located on the inner side of your lower leg, 4 finger-widths above the tip of the inner ankle bone, in the depression behind the tibia bone) for 1-2 minutes. Clinically shown to relieve spasmodic uterine tension and promote pelvic blood flow.\n✨ Warm Foot Bath: Soak feet in warm water (40-42°C) for 15-20 minutes. Warming the lower extremities reflexively dilates lower abdominal vessels to relieve ischemic pelvic spasms."
       },
       pierce: {
         analogy:
           "Imagine getting a root canal without anesthesia—that electric, drilling sharp pain suddenly jabs into your lower abdomen, numb and stinging, like someone stirring a needle inside your pelvis.",
         med: "Patient reports sharp, stabbing pain in lower abdomen, transient drilling sensation radiating to inner thighs, sudden onset and offset, accompanied by cold sweats. Recommend evaluation for neuropathic pain and endometriosis.",
         selfCare:
-          "✨ Lie on your side immediately when pain strikes, avoid pressure points\n✨ Apply warm (not hot) compress—stabbing areas are more sensitive\n✨ White noise or soft music to redirect attention\n✨ Keep warm water nearby, sip slowly to maintain body heat\n✨ Between episodes, gently move ankles to improve circulation",
+          "✨ Lie on your side immediately when pain strikes, avoiding any physical pressure points.\n✨ Apply a warm (not hot) compress—sensitized nerve endings are highly reactive to extreme heat.\n✨ Redirect your focus with white noise or calming ambient music.\n✨ Keep warm water nearby, sip slowly to stabilize autonomic body temperature.\n✨ Between episodes, gently rotate or move your ankles to encourage lower pelvic circulation.\n✨ Progressive Muscle Relaxation (PMR): Intentionally tense your leg and gluteal muscles tightly for 10 seconds, then release completely. This helps break the defensive muscle-clenching loop triggered by sudden stabbing pain.\n✨ Tactile Gate Control: Gently stroke the skin in a wide circle around the stabbing area (avoiding the direct pain center). This activates non-nociceptive A-beta sensory fibers, which physically block sharp pain signals at the spinal cord level."
       },
       heavy: {
         analogy:
           "Like tying a 5kg sandbag to your abdomen—standing makes you want to crouch, sitting makes you want to lie flat. That heavy, dragging sensation from your uterus all the way down to your knees.",
         med: "Patient reports severe heavy, dragging sensation in lower abdomen, worsens when standing, slightly relieved lying down, with lumbosacral soreness. Recommend evaluation for pelvic congestion and possible adenomyosis.",
         selfCare:
-          "✨ Try elevated hip position: prop hips 15-20cm with pillows, lie flat\n✨ Minimize standing/walking, avoid lifting anything heavy\n✨ Wear high-waist loose underwear, reduce abdominal pressure\n✨ Warm nourishing drinks: red date tea, ginger brown sugar water\n✨ Tell yourself: today was hard, resting isn't laziness",
+          "✨ Elevated hip posture: prop hips 15-20cm up with pillows and lie flat.\n✨ Minimize standing or walking, and absolutely avoid lifting any heavy weights.\n✨ Wear high-waist, seamless, loose underwear to avoid restrictive abdominal pressure.\n✨ Sip warm comforting drinks like ginger brown sugar water or red date tea.\n✨ Tell yourself: today was hard, resting is not laziness.\n✨ Viparita Karani (Legs-Up-The-Wall Pose): Lie flat and raise your legs vertically against a wall for 10-15 minutes. Gravity assists in draining pooled pelvic venous blood and fluids, quickly relieving heavy pelvic congestion.\n✨ Bedside Pelvic Tilts: Lie flat with knees bent, feet flat on the mattress. Inhale to gently arch lower back off the bed, exhale to press lower back flat into the mattress. This relaxes the uterosacral ligaments without leaving your bed."
       },
       wave: {
         analogy:
           "Like a balloon inside your belly constantly inflating and deflating—waves of bloating that spread across your entire abdomen, making even breathing feel suffocating.",
-        med: "Patient reports diffuse bloating pain in abdomen, episodic exacerbation with intestinal gas sensation, pain location not fixed. Recommend evaluation for edema, intestinal bloating, and pelvic inflammation.",
+        med: "Patient reports diffuse bloating pain in abdomen, episodic exacerbation with intestinal gas sensation, pain location not fixed. Recommend evaluation for pelvic edema, intestinal bloating, and pelvic inflammation.",
         selfCare:
-          "✨ Wear the loosest clothes you own, undo all waistbands\n✨ Gentle clockwise abdominal massage (very light pressure only)\n✨ Avoid gas-producing foods: beans, carbonated drinks, raw cold foods\n✨ Heat pad over entire belly, create a warm cocoon with blankets\n✨ Slow everything down—when you slow down, pain slows too",
+          "✨ Wear the loosest garments you own, releasing any waistbands completely.\n✨ Gentle clockwise abdominal massage (using feather-light, extremely soft pressure on the skin).\n✨ Avoid gas-producing foods: beans, dairy, carbonated beverages, raw cold foods.\n✨ Apply a heat pack over the entire abdomen, wrapping yourself in a warm blanket cocoon.\n✨ Slow everything down—when you slow down, the sensory volume of pain decreases.\n✨ Pavanamuktasana (Wind-Relieving Pose): Lie flat, clasp hands around both knees and hug them tightly to your chest, gently rocking left to right. This gently massages the colon to release trapped gas, lowering intra-abdominal pressure.\n✨ Acupressure: Press and massage the Zusanli (ST36) acupoint (located 4 finger-widths below the outer knee cap, 1 finger-width lateral to the tibia bone). This regulates gastrointestinal motility to relieve bloating and cramps."
       },
       scrape: {
         analogy:
           "Like an unripe fruit being forcefully peeled—that tearing sensation scraping from inside your uterus outward. Every movement feels like sandpaper grinding against raw flesh.",
         med: "Patient reports intense tearing sharp pain in lower abdomen, worsens with movement, accompanied by tenesmus. Recommend urgent evaluation for tissue adhesions and possible ruptured endometriotic cyst.",
         selfCare:
-          "✨ This is the most draining type of pain—prioritize absolute rest\n✨ Absolutely no abdominal massage, minimize any position changes\n✨ Sip warm honey water for energy (don't take meds on empty stomach)\n✨ Talk to yourself gently: 'I hear you, I'm here with you'\n✨ Once pain eases, jot down details of this episode",
-      },
+          "✨ This is the most exhausting type of pain—prioritize absolute, motionless rest.\n✨ Absolutely avoid any abdominal rubbing or massage, and minimize all body position changes.\n✨ Sip warm honey water to replenish energy (avoid taking painkillers on an empty stomach).\n✨ Use a gentle, compassionate inner voice to comfort yourself.\n✨ Record the pain dynamics once the intensity subsides.\n✨ Intercostal (Chest) Breathing: Inhale to expand your ribcage laterally, keeping your lower belly completely still. This reduces the sliding movement of abdominal organs, preventing friction on sensitive raw tissues.\n✨ Bolster-Supported Child's Pose: Place a thick bolster or pillow between your thighs and lay your torso completely over it. Keep knees wide and sit hips back. This uses gravity to suspend abdominal organs forward, preventing mutual compression on painful pelvic adhesion sites."
+      }
     },
     healing: {
       breathing: {

@@ -632,6 +632,8 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
       return null;
     }
   };
+  const [leaveRecipient, setLeaveRecipient] = useState("manager"); // 'manager' | 'teacher' | 'client'
+  const [leaveTone, setLeaveTone] = useState("polite"); // 'polite' | 'objective'
 
   // === 【动态统计分类】：实时计算真实的帖子分布与周统计，剔除 Mock 数据 ===
   const getDynamicCommunityStats = () => {
@@ -803,7 +805,17 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
     localStorage.setItem("painscape_med_bg", JSON.stringify(medicalBackground));
   }, [medicalBackground]);
 
-
+  // 监听语境接收人和语气偏好，并在多语言切换时实时动态转译
+  useEffect(() => {
+    if (page === 'result') {
+      const activePain = currentReportData?.pain || t(`painNames.${getDominantPain()}`) || "绞痛";
+      const template = t(`result.work.templates.${leaveRecipient}.${leaveTone}`);
+      if (template) {
+        const computedText = template.replace(/{{pain}}/g, activePain);
+        setEditedContents(prev => ({ ...prev, workText: computedText }));
+      }
+    }
+  }, [leaveRecipient, leaveTone, page, targetLanguage, currentReportData]);
   const captureFullCanvas = (side) => {
     const p5 = p5Ref.current;
     if (!p5) return document.createElement('canvas');
@@ -1444,11 +1456,20 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
       }
     }, { passive: false });
 
-    // === 【对齐修复】：统一设为 1:1 视口坐标系，彻底消除双倍位移差 ===
+    // 🌟 创建正面与背面画布图层
     pgFrontRef.current = p5.createGraphics(window.innerWidth, window.innerHeight);
     pgBackRef.current = p5.createGraphics(window.innerWidth, window.innerHeight);
+
+    // 🌟 【核心修复】：必须立即执行一次强制擦除（clear），确保背景 100% 透明，不留黑色残影
+    pgFrontRef.current.clear();
+    pgBackRef.current.clear();
+
+    // 初始化相机视口居中参数
     camRef.current.x = 0;
     camRef.current.y = 0;
+    camRef.current.zoom = 1.0;
+
+    // 捕获并推进第一个历史快照
     if (!hasSavedInitial.current) {
       undoStackRef.current.push(captureState());
       hasSavedInitial.current = true;
@@ -3711,38 +3732,108 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
                   {identity === 'work' && (
                     <>
                       <h3 style={{ color: '#ff9800', margin: '0 0 15px 0' }}>{t('result.work.title')}</h3>
-                      <p style={{ color: '#888', fontSize: '12px', marginBottom: '10px', whiteSpace: 'pre-wrap' }}>{t('result.work.description')}</p>
-                      <div style={{ background: 'rgba(255,152,0,0.05)', padding: '12px', borderRadius: '8px', border: '1px solid rgba(255,152,0,0.3)' }}>
-                        <EditableBlock fieldKey="workText" defaultValue={content.workText} color="#ccc" />
+                      <p style={{ color: '#888', fontSize: '12px', marginBottom: '16px', lineHeight: '1.5' }}>
+                        {t('result.work.description')}
+                      </p>
+
+                      {/* 对象选择器部分 */}
+                      <div style={{ marginBottom: '14px' }}>
+                        <span style={{ color: '#666', fontSize: '11px', display: 'block', marginBottom: '6px' }}>
+                          📢 {targetLanguage === 'en' ? 'Recipient / Context:' : '发送对象 / 场景：'}
+                        </span>
+                        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                          {/* 这里增加 'friend' 项 */}
+                          {['manager', 'teacher', 'client', 'friend'].map(key => (
+                            <button
+                              key={key}
+                              onClick={() => setLeaveRecipient(key)}
+                              style={{
+                                flex: '1 0 45%', // 让按钮在窄屏下自动换行排列，更美观
+                                padding: '8px 0',
+                                fontSize: '11px',
+                                borderRadius: '8px',
+                                border: leaveRecipient === key ? '1px solid #ff9800' : '1px solid #333',
+                                background: leaveRecipient === key ? 'rgba(255, 152, 0, 0.1)' : '#1e1e1e',
+                                color: leaveRecipient === key ? '#fff' : '#888',
+                                cursor: 'pointer',
+                                transition: 'all 0.2s',
+                                marginBottom: '4px'
+                              }}
+                            >
+                              {t(`result.work.recipients.${key}`)}
+                            </button>
+                          ))}
+                        </div>
                       </div>
+
+                      {/* 2. 表达语气倾向选择器 */}
+                      <div style={{ marginBottom: '20px' }}>
+                        <span style={{ color: '#666', fontSize: '11px', display: 'block', marginBottom: '6px' }}>
+                          🎭 {targetLanguage === 'en' ? 'Tone Style:' : '表达语气倾向：'}
+                        </span>
+                        <div style={{ display: 'flex', gap: '8px' }}>
+                          {['polite', 'objective'].map(key => (
+                            <button
+                              key={key}
+                              onClick={() => setLeaveTone(key)}
+                              style={{
+                                flex: 1,
+                                padding: '8px 0',
+                                fontSize: '11px',
+                                borderRadius: '8px',
+                                border: leaveTone === key ? '1px solid #ff9800' : '1px solid #333',
+                                background: leaveTone === key ? 'rgba(255, 152, 0, 0.1)' : '#1e1e1e',
+                                color: leaveTone === key ? '#fff' : '#888',
+                                cursor: 'pointer',
+                                transition: 'all 0.2s'
+                              }}
+                            >
+                              {t(`result.work.tones.${key}`)}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* 3. 动态文本显示与可编辑区域 */}
+                      <div style={{ background: 'rgba(255,152,0,0.05)', padding: '14px', borderRadius: '12px', border: '1px solid rgba(255,152,0,0.2)' }}>
+                        <EditableBlock
+                          fieldKey="workText"
+                          defaultValue={getEditedOrDefault('workText', '')}
+                          color="#eee"
+                        />
+                      </div>
+
                       <button
-                        onClick={() => handleCopy(getEditedOrDefault('workText', content.workText))}
-                        style={{ marginTop: '15px', width: '100%', padding: '10px', background: 'transparent', border: '1px dashed #ff9800', color: '#ffcc80', borderRadius: '8px', cursor: 'pointer' }}
+                        onClick={() => handleCopy(getEditedOrDefault('workText', ''))}
+                        style={{ marginTop: '16px', width: '100%', padding: '12px', background: 'transparent', border: '1px dashed #ff9800', color: '#ffcc80', borderRadius: '10px', cursor: 'pointer', fontWeight: '500', fontSize: '13px' }}
                       >
                         {t('result.work.copyTemplate')}
                       </button>
-                      <div style={{ marginTop: '25px', paddingTop: '15px', borderTop: '1px solid #333' }}>
-                        <p style={{ color: '#888', fontSize: '12px', margin: '0 0 10px 0' }}>{t('result.refine.prompt')}</p>
+
+                      {/* 4. AI 调谐语气反馈层 */}
+                      <div style={{ marginTop: '25px', paddingTop: '15px', borderTop: '1px solid #2d2d2d' }}>
+                        <p style={{ color: '#888', fontSize: '11px', margin: '0 0 10px 0' }}>{t('result.refine.prompt')}</p>
                         <div style={{ display: 'flex', gap: '8px' }}>
                           <input
-                            placeholder={getRefinePlaceholder('work')}
+                            placeholder={targetLanguage === 'en' ? "e.g., add that I will check Slack in the afternoon..." : "例如：添加我下午会定时在线处理信息..."}
                             value={refineInput}
                             onChange={(e) => setRefineInput(e.target.value)}
                             style={{ flex: 1, background: '#111', border: '1px solid #333', color: '#fff', borderRadius: '8px', padding: '10px', fontSize: '12px' }}
                             onKeyDown={(e) => {
-                              if (e.key === 'Enter') handleRefine('work');
+                              if (e.key === 'Enter') handleRefine('workText');
                             }}
                           />
                           <button
-                            onClick={() => handleRefine('work')}
-                            disabled={refiningField === 'work'}
+                            onClick={() => handleRefine('workText')}
+                            disabled={refiningField === 'workText'}
                             style={{
-                              background: refiningField === 'work' ? '#555' : '#d32f2f',
+                              background: refiningField === 'workText' ? '#555' : '#ff9800',
                               color: '#fff', border: 'none', borderRadius: '8px', padding: '0 15px',
-                              cursor: refiningField === 'work' ? 'not-allowed' : 'pointer',
-                              fontSize: '12px', whiteSpace: 'nowrap'
-                            }}>
-                            {refiningField === 'work' ? t('result.refine.optimizing') : t('result.refine.optimize')}
+                              cursor: refiningField === 'workText' ? 'not-allowed' : 'pointer',
+                              fontSize: '12px', whiteSpace: 'nowrap', fontWeight: 'bold'
+                            }}
+                          >
+                            {refiningField === 'workText' ? t('result.refine.optimizing') : t('result.refine.optimize')}
                           </button>
                         </div>
                       </div>
