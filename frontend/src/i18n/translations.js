@@ -496,6 +496,7 @@ const translations = {
       noRecords: "暂无记录可导出",
       saveExperienceRequired: "请写下你的经验",
       postRequired: "写下你的感受吧~",
+      recordDeleted: "🗑️ 该痛感档案已从本地永久物理删除",
       refineSuccess: "✨ 内容已优化",
       refineEmpty: "AI 返回了空内容，请重试",
       refineFailed: "❌ AI 优化失败，可能接口未部署或网络异常",
@@ -1131,6 +1132,7 @@ const translations = {
       noRecords: "No records to export",
       saveExperienceRequired: "Please write down your experience",
       postRequired: "Share your feelings~",
+      recordDeleted: "🗑️ Record has been permanently deleted from local storage",
       refineSuccess: "✨ Content optimized",
       refineEmpty: "AI returned empty content, please try again",
       refineFailed:

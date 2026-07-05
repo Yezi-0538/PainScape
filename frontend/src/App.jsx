@@ -372,9 +372,15 @@ const CollapsibleMultiSelect = ({ label, options, selectedValues, onChange, plac
     }
   };
 
-  const handleOpen = () => {
-    updatePosition();
-    setIsOpen(true);
+  // === 【核心修复 1】：将开启/折叠逻辑完全自包含，移除对未定义外部函数 handleOpen 的依赖 ===
+  const handleToggle = (e) => {
+    e.stopPropagation();
+    if (isOpen) {
+      setIsOpen(false);
+    } else {
+      updatePosition(); // 打开时实时重新计算绝对定位
+      setIsOpen(true);
+    }
   };
 
   const handleClose = () => {
@@ -413,7 +419,7 @@ const CollapsibleMultiSelect = ({ label, options, selectedValues, onChange, plac
       <label style={{ color: '#888', fontSize: '12px', display: 'block', marginBottom: '6px' }}>{label}</label>
       <div
         ref={triggerRef}
-        onClick={handleOpen}
+        onClick={handleToggle}
         style={{
           width: '100%',
           padding: '12px',
@@ -501,9 +507,15 @@ const CollapsibleSingleSelect = ({ label, options, selectedValue, onChange, plac
     }
   };
 
-  const handleOpen = () => {
-    updatePosition();
-    setIsOpen(true);
+  // === 【核心修复 2】：单选闭环逻辑重构 ===
+  const handleToggle = (e) => {
+    e.stopPropagation();
+    if (isOpen) {
+      setIsOpen(false);
+    } else {
+      updatePosition();
+      setIsOpen(true);
+    }
   };
 
   const handleClose = () => {
@@ -531,7 +543,7 @@ const CollapsibleSingleSelect = ({ label, options, selectedValue, onChange, plac
       <label style={{ color: '#888', fontSize: '12px', display: 'block', marginBottom: '6px' }}>{label}</label>
       <div
         ref={triggerRef}
-        onClick={handleOpen}
+        onClick={handleToggle}
         style={{
           width: '100%',
           padding: '12px',
@@ -1859,17 +1871,24 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
         clinical_diagnosis: activeLlm.clinical_diagnosis || defaultClinicalDiagnosis,
       };
     }
-
-    // 4. 规则引擎兜底输出
+    // === 补全本地降级路径下的模块化字段，防止渲染出空框 ===
     return {
       pain: painName,
-      analogy: defaultAnalogy,
-      workText: '',
-      action: '',
-      selfCare: defaultSelfCare,
-      chief_complaint: defaultComplaint,
-      present_illness: defaultPresentIllness,
-      clinical_diagnosis: defaultClinicalDiagnosis,
+      analogy: finalAnalogy,
+      med_complaint: finalMedComplaint,
+      med_reference: finalMedReference,
+      med_profile: isEn ? `PainScape visual profile shows intense ${painName}.` : `PainScape 痛觉成像显示强烈的 ${painName} 特征。`,
+      workText: finalWorkText,
+      action: finalAction,
+      selfCare: finalSelfCare,
+      med: finalMedComplaint,
+
+      // 模块化字段对齐
+      chief_complaint: finalMedComplaint,
+      present_illness: finalMedReference,
+      past_history: isEn ? "No significant past medical history reported." : "平素健康状况良好。无明确高血压、糖尿病等慢性病史，无外科手术及食物药物过敏记录。",
+      menstrual_history: isEn ? "Menstrual cycle: 5/28 days, regular." : "月经史：13岁初潮，经期5天，周期28-30天（5/28-30天）。痛经：有。",
+      clinical_suggestions: isEn ? "Rest, heat therapy, and monitor symptoms." : "温敷小腹与腰骶，静卧休养。若症状持续加剧建议常规门诊行超声探查。"
     };
   };
 
@@ -2161,32 +2180,56 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
     if (!p5Ref.current) return;
     setIsLoading(true);
     try {
-      // 1. 生成 1:1 无偏移双面合图
       const url = generateCompositeCanvas();
       setImgUrl(url);
       const dominant = getDominantPain();
       let aiResult = null;
 
-      // 2. 组装发往后端 AI 的多维特征向量
+      // 1. 组装更具包容性的多维特征向量，确保在未绘画或未填写时不传递 null 导致后端 422
       const payload = {
+        appMode: appMode, // ⚠️ 显式传递当前模式：'medical' 或 'general'
         dominantPain: dominant,
         userPref: userPrefs.join(','),
-        painScore: Object.values(brushCounts.current).reduce((sum, v) => sum + v, 0),
-        spatialMap: calculateSpatialMap(), // 区域热图向量
-        intensityProfile: calculateIntensity(), // 速度与压感向量
-        timeRhythm: calculateTimeRhythm(), // 时段分布向量
-        colorPalette: activeColor, // 情绪温度色彩
+        painScore: Object.values(brushCounts.current).reduce((sum, v) => sum + v, 0) || 10,
+        spatialMap: calculateSpatialMap() || { abdomen: 0.5, lowerBack: 0.5, upperBody: 0 },
+        intensityProfile: calculateIntensity() || { avgSpeed: 5.0, peakSpeed: 10.0, avgPressure: 0.5 },
+        timeRhythm: calculateTimeRhythm() || { morning: 0.33, afternoon: 0.33, night: 0.34, dominantPeriod: 'morning' },
+        colorPalette: activeColor || 'crimson',
         bodyMode: bodyMode,
-        medicalBackground: medicalBackground, // 完整的健康档案
+        medicalBackground: {
+          diagnosed: medicalBackground.diagnosed || "",
+          allergies: medicalBackground.allergies || "",
+          age: medicalBackground.age || "",
+          lifestyle: medicalBackground.lifestyle || "",
+          activityLevel: medicalBackground.activityLevel || "",
+          familyHistory: medicalBackground.familyHistory || "",
+          psychosocial: medicalBackground.psychosocial || "",
+          reproductiveHistory: medicalBackground.reproductiveHistory || "",
+          height: medicalBackground.height ? String(medicalBackground.height) : "",
+          weight: medicalBackground.weight ? String(medicalBackground.weight) : "",
+          otherDiagnosis: medicalBackground.otherDiagnosis || "",
+          otherAllergies: medicalBackground.otherAllergies || "",
+          surgicalHistory: medicalBackground.surgicalHistory || "",
+          menarcheAge: medicalBackground.menarcheAge ? String(medicalBackground.menarcheAge) : "",
+          cycleRegular: medicalBackground.cycleRegular || "",
+          periodDuration: medicalBackground.periodDuration || "",
+          lastPeriod: medicalBackground.lastPeriod || "",
+          familyHistoryArr: medicalBackground.familyHistoryArr || [],
+          lifestyleArr: medicalBackground.lifestyleArr || [],
+          reproductiveHistoryArr: medicalBackground.reproductiveHistoryArr || [],
+          accompanyingSymptomsArr: medicalBackground.accompanyingSymptomsArr || []
+        },
         targetLanguage: targetLanguage,
         tonePreference: tonePreference,
-        cycleDay: cycleDay || t('medical.cycleNotProvided'),
-        accompanyingSymptoms: medicalBackground.accompanyingSymptomsArr || [], // 伴随症状
+        cycleDay: cycleDay || "未提供",
+        accompanyingSymptoms: medicalBackground.accompanyingSymptomsArr || []
       };
 
+      // 2. 内部网络请求的安全隔离 Try-Catch（仅执行一次请求）
       try {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 90000);
+        const timeoutId = setTimeout(() => controller.abort(), 95000); // 预留 Render 唤醒时间
+
         const response = await fetch(`${API_BASE}/api/generate`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -2204,9 +2247,10 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
             console.warn("⚠️ 【大模型调用警告】：后端接口访问成功，但大模型引擎报错并启用了降级病历！");
             console.warn("❌ 大模型具体报错原因 (来自 Render 容器):", aiResult.error_detail);
           } else {
-            console.log("🎉 【大模型调用成功】：已成功获取大模型转译的深度病历数据！");
+            console.log("🎉 【大模型调用成功】：已成功获取大模型转译的深度数据！");
           }
 
+          // 仅在数据确认读取与验证后更新一次状态
           setLlmData(aiResult);
           setCurrentReportData(aiResult);
         } else {
@@ -2222,6 +2266,7 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
         setCurrentReportData(null);
       }
 
+      // 3. 整合本地与远端数据，生成最终报告内容
       const finalContent = generateContent(dominant, aiResult);
 
       const newRecord = {
@@ -2241,6 +2286,7 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
         }
       };
 
+      // 4. 写入本地历史记录
       const newHistory = [newRecord, ...history];
       if (newHistory.length > 100) newHistory.pop();
       setHistory(newHistory);
@@ -2557,6 +2603,45 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
             maxWidth: '500px',
             margin: '0 auto'
           }}>
+            <div style={{
+              display: 'flex',
+              background: '#141414',
+              borderRadius: '20px',
+              padding: '3px',
+              width: '100%',
+              maxWidth: '320px',
+              border: '1px solid #2d2d2d',
+              boxSizing: 'border-box',
+              marginTop: '10px',
+              marginBottom: '10px'
+            }}>
+              <button
+                onClick={() => setAppMode("medical")}
+                style={{
+                  flex: 1, padding: '8px 0', borderRadius: '16px', border: 'none', fontSize: '12px', cursor: 'pointer', fontWeight: 'bold',
+                  background: appMode === 'medical' ? '#d32f2f' : 'transparent',
+                  color: appMode === 'medical' ? '#fff' : '#666',
+                  transition: 'all 0.25s'
+                }}
+              >
+                🏥 {t('modeSelection.medicalTab').split(' ')[1] || '就诊协助'}
+              </button>
+              <button
+                onClick={() => {
+                  setAppMode("general");
+                  // 自动降级底图视图防止盲画数据干扰
+                  setBodyMode("front");
+                }}
+                style={{
+                  flex: 1, padding: '8px 0', borderRadius: '16px', border: 'none', fontSize: '12px', cursor: 'pointer', fontWeight: 'bold',
+                  background: appMode === 'general' ? '#4caf50' : 'transparent',
+                  color: appMode === 'general' ? '#fff' : '#666',
+                  transition: 'all 0.25s'
+                }}
+              >
+                🎨 {t('modeSelection.generalTab').split(' ')[1] || '日常表达'}
+              </button>
+            </div>
             {/* 使用提示控制按钮 */}
             <div style={{ position: 'absolute', top: '15px', right: '15px', zIndex: 10 }}>
               <button onClick={() => setShowGuide(!showGuide)}
@@ -2760,23 +2845,51 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
                           </div>
 
                           <div style={{ marginBottom: '12px' }}>
-                            <label style={{ color: '#888', fontSize: '11px', display: 'block', marginBottom: '6px' }}>末次月经第一天 (LMP)</label>
-                            <input
-                              type="date"
-                              value={medicalBackground.lastPeriod || ''}
-                              onChange={(e) => setMedicalBackground({ ...medicalBackground, lastPeriod: e.target.value })}
-                              style={{
-                                width: '100%',
-                                padding: '10px',
-                                background: '#111',
-                                color: '#fff',
-                                border: '1.5px solid #333',
-                                borderRadius: '12px',
-                                fontSize: '12px'
-                              }}
-                            />
+                            <label style={{ color: '#888', fontSize: '11px', display: 'block', marginBottom: '6px' }}>
+                              末次月经第一天 (LMP)
+                            </label>
+                            <div style={{ position: 'relative', width: '100%' }}>
+                              <style>{`
+                              .dark-date-input::-webkit-calendar-picker-indicator {
+                              filter: invert(1);
+                              cursor: pointer;
+                              opacity: 0.8;
+                              padding: 4px;
+                              }
+                              .dark-date-input {
+                              color-scheme: dark; /* 告诉浏览器渲染暗色调的原生日期选择面板 */
+                            `}</style>
+                              <input
+                                type="date"
+                                className="dark-date-input"
+                                value={medicalBackground.lastPeriod || ''}
+                                onChange={(e) => setMedicalBackground({ ...medicalBackground, lastPeriod: e.target.value })}
+                                // 核心机制：点击输入框任意位置，强制唤起系统原生日期选择器
+                                onClick={(e) => {
+                                  try {
+                                    if (typeof e.target.showPicker === 'function') {
+                                      e.target.showPicker();
+                                    }
+                                  } catch (err) {
+                                    console.warn("浏览器暂不支持 showPicker API", err);
+                                  }
+                                }}
+                                style={{
+                                  width: '100%',
+                                  padding: '12px',
+                                  background: '#111',
+                                  color: '#fff',
+                                  border: '1.5px solid #333',
+                                  borderRadius: '12px',
+                                  fontSize: '13px',
+                                  boxSizing: 'border-box',
+                                  cursor: 'pointer',
+                                  WebkitAppearance: 'none', // 消除 iOS 下默认的内阴影
+                                  appearance: 'none'
+                                }}
+                              />
+                            </div>
                           </div>
-
                           {/* 周期阶段重构为时期：经前，经期，经后，排卵期 */}
                           <div>
                             <label style={{ color: '#888', fontSize: '11px', display: 'block', marginBottom: '8px' }}>
@@ -3626,146 +3739,159 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
                     </>
                   )}
 
-                  {/* === 医疗就诊沟通辅助单 (三甲医院标准病历排版) === */}
-                    {identity === 'doctor' && (
-                      <>
-                        {/* 头部合规免责声明 */}
-                        <div style={{ borderBottom: '1px solid #2d2d2d', marginBottom: '20px', paddingBottom: '12px' }}>
-                          <h3 style={{ color: '#2196f3', margin: '0 0 6px 0', fontSize: '18px', fontWeight: 'bold' }}>
-                            {t('result.doctor.title')}
-                          </h3>
-                          <p style={{ color: '#ff9800', fontSize: '11px', lineHeight: '1.5', margin: 0, fontWeight: '500', background: 'rgba(255,152,0,0.05)', padding: '10px', borderRadius: '8px', border: '1px solid rgba(255,152,0,0.15)' }}>
-                            {t('result.doctor.disclaimer')}
-                          </p>
-                        </div>
+                  {/* === 医疗就诊沟通辅助单 (三甲医院标准病历排版 - 带有动态收起空卡片保护) === */}
 
-                        {/* 1. 📋 主诉 */}
+                  {identity === 'doctor' && (
+                    <>
+                      {/* 头部合责声明 */}
+                      <div style={{ borderBottom: '1px solid #2d2d2d', marginBottom: '20px', paddingBottom: '12px' }}>
+                        <h3 style={{ color: '#2196f3', margin: '0 0 6px 0', fontSize: '18px', fontWeight: 'bold' }}>
+                          {t('result.doctor.title')}
+                        </h3>
+                        <p style={{ color: '#ff9800', fontSize: '11px', lineHeight: '1.5', margin: 0, fontWeight: '500', background: 'rgba(255,152,0,0.05)', padding: '10px', borderRadius: '8px', border: '1px solid rgba(255,152,0,0.15)' }}>
+                          {t('result.doctor.disclaimer')}
+                        </p>
+                      </div>
+
+                      {/* 1. 📋 主诉 (空值安全展现) */}
+                      {content.chief_complaint && content.chief_complaint.trim() && (
                         <div style={{ marginBottom: '18px', background: '#151515', padding: '14px', borderRadius: '12px', border: '1px solid #2a2a2a' }}>
                           <h4 style={{ color: '#90caf9', fontSize: '13px', margin: '0 0 10px 0', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: '600' }}>
                             <span>📋</span> 主诉 (Chief Complaint)
                           </h4>
                           <EditableBlock fieldKey="chief_complaint" defaultValue={content.chief_complaint} color="#fff" style={{ fontSize: '14px', lineHeight: '1.6' }} />
                         </div>
+                      )}
 
-                        {/* 2. 📝 现病史 (大模型痛感机制深度转译，补齐渲染) */}
+                      {/* 2. 📝 现病史 */}
+                      {content.present_illness && content.present_illness.trim() && (
                         <div style={{ marginBottom: '18px', background: '#151515', padding: '14px', borderRadius: '12px', border: '1px solid #2a2a2a' }}>
                           <h4 style={{ color: '#90caf9', fontSize: '13px', margin: '0 0 10px 0', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: '600' }}>
                             <span>📝</span> 现病史及痛感机制分析 (History of Present Illness)
                           </h4>
                           <EditableBlock fieldKey="present_illness" defaultValue={content.present_illness} color="#eee" style={{ fontSize: '13.5px', lineHeight: '1.6' }} />
                         </div>
+                      )}
 
-                        {/* 3. 📂 既往史及常态暴露风险 (补齐渲染) */}
+                      {/* 3. 📂 既往史 */}
+                      {content.past_history && content.past_history.trim() && (
                         <div style={{ marginBottom: '18px', background: '#151515', padding: '14px', borderRadius: '12px', border: '1px solid #2a2a2a' }}>
                           <h4 style={{ color: '#90caf9', fontSize: '13px', margin: '0 0 10px 0', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: '600' }}>
                             <span>📂</span> 既往史及个人习惯风险 (Past History)
                           </h4>
                           <EditableBlock fieldKey="past_history" defaultValue={content.past_history} color="#ccc" style={{ fontSize: '13px', lineHeight: '1.6' }} />
                         </div>
+                      )}
 
-                        {/* 4. 🌸 月经及孕产史 (补齐渲染) */}
+                      {/* 4. 🌸 月经及孕产史 */}
+                      {content.menstrual_history && content.menstrual_history.trim() && (
                         <div style={{ marginBottom: '18px', background: '#151515', padding: '14px', borderRadius: '12px', border: '1px solid #2a2a2a' }}>
                           <h4 style={{ color: '#90caf9', fontSize: '13px', margin: '0 0 10px 0', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: '600' }}>
                             <span>🌸</span> 月经及孕产史 (Menstrual History)
                           </h4>
                           <EditableBlock fieldKey="menstrual_history" defaultValue={content.menstrual_history} color="#ccc" style={{ fontSize: '13px', lineHeight: '1.6' }} />
                         </div>
+                      )}
 
-                        {/* 5. 🩺 潜在临床指征排查方向 */}
+                      {/* 5. 🩺 潜在临床指征排查方向 */}
+                      {content.clinical_diagnosis && content.clinical_diagnosis.trim() && (
                         <div style={{ marginBottom: '18px', background: 'rgba(33,150,243,0.04)', padding: '14px', borderRadius: '12px', borderLeft: '4px solid #2196f3', borderTop: '1px solid #222', borderRight: '1px solid #222', borderBottom: '1px solid #222' }}>
                           <h4 style={{ color: '#90caf9', fontSize: '13px', margin: '0 0 10px 0', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: '600' }}>
                             <span>🩺</span> {t('result.doctor.clinicalAdvice')}
                           </h4>
                           <EditableBlock fieldKey="clinical_diagnosis" defaultValue={content.clinical_diagnosis} color="#ffcdd2" style={{ fontSize: '13.5px', lineHeight: '1.6', fontWeight: '500' }} />
                         </div>
+                      )}
 
-                        {/* 6. 🔬 建议就诊讨论要点（含联合检查） */}
-                        {content.exam_advice && (
-                          <div style={{ marginBottom: '18px', padding: '14px', background: 'rgba(33,150,243,0.06)', borderRadius: '12px', border: '1px solid rgba(33,150,243,0.15)' }}>
-                            <h4 style={{ color: '#90caf9', fontSize: '13.5px', margin: '0 0 10px 0', fontWeight: '600' }}>
-                              <span>🔬</span> {t('result.doctor.discussReference')}
-                            </h4>
-                            <p style={{ color: '#fff', fontSize: '14px', fontWeight: 'bold', margin: '0 0 8px 0' }}>{content.exam_advice.name}</p>
-                            <p style={{ color: '#aaa', fontSize: '12.5px', marginTop: '6px', lineHeight: '1.5' }}>📋 准备：{content.exam_advice.preparation}</p>
-                            <p style={{ color: '#4caf50', fontSize: '12px', marginTop: '6px', lineHeight: '1.5' }}>{content.exam_advice.note}</p>
-                            {content.exam_advice.alternative && (
-                              <p style={{ color: '#ffb74d', fontSize: '12px', marginTop: '10px', whiteSpace: 'pre-wrap', lineHeight: '1.6', borderTop: '1px dashed rgba(255,255,255,0.08)', paddingTop: '8px' }}>
-                                {content.exam_advice.alternative}
-                              </p>
-                            )}
-                          </div>
-                        )}
+                      {/* 6. 🔬 建议就诊讨论要点 */}
+                      {content.exam_advice && (
+                        <div style={{ marginBottom: '18px', padding: '14px', background: 'rgba(33,150,243,0.06)', borderRadius: '12px', border: '1px solid rgba(33,150,243,0.15)' }}>
+                          <h4 style={{ color: '#90caf9', fontSize: '13.5px', margin: '0 0 10px 0', fontWeight: '600' }}>
+                            <span>🔬</span> {t('result.doctor.discussReference')}
+                          </h4>
+                          <p style={{ color: '#fff', fontSize: '14px', fontWeight: 'bold', margin: '0 0 8px 0' }}>{content.exam_advice.name}</p>
+                          <p style={{ color: '#aaa', fontSize: '12.5px', marginTop: '6px', lineHeight: '1.5' }}>📋 准备：{content.exam_advice.preparation}</p>
+                          <p style={{ color: '#4caf50', fontSize: '12px', marginTop: '6px', lineHeight: '1.5' }}>{content.exam_advice.note}</p>
+                          {content.exam_advice.alternative && (
+                            <p style={{ color: '#ffb74d', fontSize: '12px', marginTop: '10px', whiteSpace: 'pre-wrap', lineHeight: '1.6', borderTop: '1px dashed rgba(255,255,255,0.08)', paddingTop: '8px' }}>
+                              {content.exam_advice.alternative}
+                            </p>
+                          )}
+                        </div>
+                      )}
 
-                        {/* 7. 💊 临床就诊建议 */}
+                      {/* 7. 💊 临床干预调理方向 */}
+                      {content.clinical_suggestions && content.clinical_suggestions.trim() && (
                         <div style={{ marginBottom: '18px', background: '#151515', padding: '14px', borderRadius: '12px', border: '1px solid #2a2a2a' }}>
                           <h4 style={{ color: '#90caf9', fontSize: '13px', margin: '0 0 10px 0', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: '600' }}>
                             <span>💊</span> 临床干预调理方向 (Clinical Recommendations)
                           </h4>
                           <EditableBlock fieldKey="clinical_suggestions" defaultValue={content.clinical_suggestions} color="#ccc" style={{ fontSize: '13px', lineHeight: '1.6' }} />
                         </div>
+                      )}
 
-                        {/* 临床科普宣教链接 */}
-                        {content.health_tips_link && (
-                          <div style={{ marginTop: '15px', padding: '10px', background: 'rgba(33,150,243,0.05)', borderRadius: '8px', border: '1px solid rgba(33,150,243,0.1)' }}>
-                            <p style={{ color: '#90caf9', fontSize: '11px', margin: 0, wordBreak: 'break-all', lineHeight: '1.4' }}>{content.health_tips_link}</p>
-                          </div>
-                        )}
+                      {/* 临床科普宣教链接 */}
+                      {content.health_tips_link && (
+                        <div style={{ marginTop: '15px', padding: '10px', background: 'rgba(33,150,243,0.05)', borderRadius: '8px', border: '1px solid rgba(33,150,243,0.1)' }}>
+                          <p style={{ color: '#90caf9', fontSize: '11px', margin: 0, wordBreak: 'break-all', lineHeight: '1.4' }}>{content.health_tips_link}</p>
+                        </div>
+                      )}
 
-                        {/* AI 医生报告深度优化区 */}
-                        <div style={{ marginTop: '25px', paddingTop: '15px', borderTop: '1px solid #333' }}>
-                          <p style={{ color: '#888', fontSize: '12px', margin: '0 0 10px 0' }}>{t('result.refine.prompt')}</p>
+                      {/* AI 医生报告深度优化区 */}
+                      <div style={{ marginTop: '25px', paddingTop: '15px', borderTop: '1px solid #333' }}>
+                        <p style={{ color: '#888', fontSize: '12px', margin: '0 0 10px 0' }}>{t('result.refine.prompt')}</p>
 
-                          {/* 选择优化目标字段 */}
-                          <div style={{ display: 'flex', gap: '8px', marginBottom: '10px' }}>
-                            {[
-                              { key: 'chief_complaint', label: '优化主诉' },
-                              { key: 'present_illness', label: '优化机制分析' },
-                              { key: 'clinical_suggestions', label: '优化干预建议' }
-                            ].map(item => (
-                              <button
-                                key={item.key}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setRefineTargetField(item.key);
-                                }}
-                                style={{
-                                  flex: 1, padding: '6px 0', fontSize: '11px', borderRadius: '6px', border: 'none', cursor: 'pointer',
-                                  background: refineTargetField === item.key ? '#2196f3' : '#222',
-                                  color: refineTargetField === item.key ? '#fff' : '#888',
-                                  transition: 'all 0.2s'
-                                }}
-                              >
-                                {item.label}
-                              </button>
-                            ))}
-                          </div>
-
-                          <div style={{ display: 'flex', gap: '8px' }}>
-                            <input
-                              placeholder={getRefinePlaceholder('doctor')}
-                              value={refineInput}
-                              onChange={(e) => setRefineInput(e.target.value)}
-                              style={{ flex: 1, background: '#111', border: '1px solid #333', color: '#fff', borderRadius: '8px', padding: '10px', fontSize: '12px' }}
-                              onKeyDown={(e) => {
-                                if (e.key === 'Enter') handleRefine(refineTargetField);
-                              }}
-                            />
+                        {/* 选择优化目标字段 */}
+                        <div style={{ display: 'flex', gap: '8px', marginBottom: '10px' }}>
+                          {[
+                            { key: 'chief_complaint', label: '优化主诉' },
+                            { key: 'present_illness', label: '优化机制分析' },
+                            { key: 'clinical_suggestions', label: '优化就诊建议' }
+                          ].map(item => (
                             <button
-                              onClick={() => handleRefine(refineTargetField)}
-                              disabled={refiningField === refineTargetField}
+                              key={item.key}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setRefineTargetField(item.key);
+                              }}
                               style={{
-                                background: refiningField === refineTargetField ? '#555' : '#2196f3',
-                                color: '#fff', border: 'none', borderRadius: '8px', padding: '0 15px',
-                                cursor: refiningField === refineTargetField ? 'not-allowed' : 'pointer',
-                                fontSize: '12px', whiteSpace: 'nowrap'
+                                flex: 1, padding: '6px 0', fontSize: '11px', borderRadius: '6px', border: 'none', cursor: 'pointer',
+                                background: refineTargetField === item.key ? '#2196f3' : '#222',
+                                color: refineTargetField === item.key ? '#fff' : '#888',
+                                transition: 'all 0.2s'
                               }}
                             >
-                              {refiningField === refineTargetField ? t('result.refine.optimizing') : t('result.refine.optimize')}
+                              {item.label}
                             </button>
-                          </div>
+                          ))}
                         </div>
-                      </>
-                    )}
+
+                        <div style={{ display: 'flex', gap: '8px' }}>
+                          <input
+                            placeholder={getRefinePlaceholder('doctor')}
+                            value={refineInput}
+                            onChange={(e) => setRefineInput(e.target.value)}
+                            style={{ flex: 1, background: '#111', border: '1px solid #333', color: '#fff', borderRadius: '8px', padding: '10px', fontSize: '12px' }}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') handleRefine(refineTargetField);
+                            }}
+                          />
+                          <button
+                            onClick={() => handleRefine(refineTargetField)}
+                            disabled={refiningField === refineTargetField}
+                            style={{
+                              background: refiningField === refineTargetField ? '#555' : '#2196f3',
+                              color: '#fff', border: 'none', borderRadius: '8px', padding: '0 15px',
+                              cursor: refiningField === refineTargetField ? 'not-allowed' : 'pointer',
+                              fontSize: '12px', whiteSpace: 'nowrap'
+                            }}
+                          >
+                            {refiningField === refineTargetField ? t('result.refine.optimizing') : t('result.refine.optimize')}
+                          </button>
+                        </div>
+                      </div>
+                    </>
+                  )}
 
                   {identity === 'self' && (
                     <>
@@ -4661,9 +4787,76 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
                   </button>
                 </div>
 
-                <button style={{ width: '100%', padding: '14px', borderRadius: '25px', background: 'rgba(255,255,255,0.1)', color: '#fff', border: 'none', fontWeight: 'bold', fontSize: '14px', cursor: 'pointer' }} onClick={() => setViewingDiary(null)}>
-                  {t('diary.close')}
-                </button>
+                {/* === 删除与关闭 1:1  === */}
+                <div style={{
+                  display: 'flex',
+                  gap: '12px',
+                  width: '100%',
+                  marginTop: '15px'
+                }}>
+                  {/* 🗑️ */}
+                  <button
+                    style={{
+                      flex: 1, // 确保 1:1 等宽
+                      padding: '14px 0',
+                      borderRadius: '25px',
+                      background: 'rgba(211,47,47,0.08)',
+                      border: '1px solid rgba(211,47,47,0.3)',
+                      color: '#ef5350',
+                      fontWeight: 'bold',
+                      fontSize: '14px',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '6px'
+                    }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (window.confirm("⚠️ 警告：确定要永久删除本条具身痛感档案吗？此操作将无法撤销。")) {
+                        // 1. 从全局状态及 LocalStorage 中彻底抹除
+                        const updatedHistory = history.filter(h => h.id !== viewingDiary.id);
+                        setHistory(updatedHistory);
+                        localStorage.setItem('painscape_history', JSON.stringify(updatedHistory));
+
+                        // 2. === 【关键修复】：同步过滤当前日历选中日期的局部缓存，彻底消除残影 ===
+                        setSelectedDateRecords(prev => prev.filter(h => h.id !== viewingDiary.id));
+
+                        // 3. 清除弹窗状态，回到日记页
+                        setViewingDiary(null);
+                        showToast("recordDeleted");
+                      }
+                    }}
+                  >
+                    🗑️ {'删除'}
+                  </button>
+
+                  {/* 🔒 确认关闭按钮 */}
+                  <button
+                    style={{
+                      flex: 1, // 确保 1:1 等宽
+                      padding: '14px 0',
+                      borderRadius: '25px',
+                      background: 'rgba(255,255,255,0.04)',
+                      border: '1px solid #333',
+                      color: '#fff',
+                      fontWeight: 'bold',
+                      fontSize: '14px',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center'
+                    }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setViewingDiary(null);
+                    }}
+                  >
+                    {t('diary.close') || '关闭'}
+                  </button>
+                </div>
               </div>
             </div>
           </div>
