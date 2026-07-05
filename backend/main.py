@@ -329,25 +329,70 @@ def build_triage_advice(
             else "🏠 Home Self-Care: Mild symptoms. Manage with rest and local thermotherapy."
         )
 
-
+# === 【深度合规重构】：多项目联合动态排查建议，严格遵循合规探讨语气，不破坏 React 接口 ===
 def build_exam_advice(mb: Optional[MedicalBackgroundModel], lang: str) -> Dict:
+    # 1. 默认首选盆腔彩超作为初筛基准
     exam = {
         "name": (
-            "妇科盆腔超声（子宫及附件彩色多普勒超声）"
+            "妇科盆腔超声（彩色多普勒超声检查）"
             if lang == "zh"
             else "Pelvic Color Doppler Ultrasound"
         ),
         "preparation": (
-            "需在检查前1小时内饮水500-800ml，保持充盈膀胱（憋尿）。"
+            "经阴道彩超需在检查前排空小便（无性生活史者禁用）；经腹部彩超需提前憋尿，可在检查前1小时内饮水500-800ml以充盈膀胱。"
             if lang == "zh"
-            else "Drink 500-800ml water 1 hour prior to scan; keep bladder comfortably full."
+            else "Empty bladder for transvaginal ultrasound. For patients without sexual history, abdominal ultrasound is used instead (requires drinking 500-800ml water 1 hour prior to keep bladder full)."
         ),
         "note": (
-            "✅ 门诊首选无创初筛，用于评估子宫腺肌症、子宫肌瘤、内膜厚度及附件囊肿。"
+            "💡 临床上医生常考虑作为首选无创初筛手段。实际检查方案需由您的主治医师根据临床体征决定。"
             if lang == "zh"
-            else "✅ First-line non-invasive screening to evaluate adenomyosis, uterine fibroids, and ovarian cysts."
+            else "💡 Commonly considered as an initial non-invasive screening. The actual examination protocol must be determined by your physician."
         ),
+        "alternative": ""
     }
+
+    if not mb:
+        return exam
+
+    alternatives = []
+    diagnosed = mb.diagnosed or ""
+    regular = mb.cycleRegular or ""
+    family_arr = mb.familyHistoryArr or []
+    surgical = mb.surgicalHistory or ""
+
+    # 🧬 动态排查方向 1：若疑似/确诊内异症或腺肌症，或有家族遗传，推荐讨论 CA125 检测
+    if diagnosed in ["endometriosis", "adenomyosis"] or "mother" in family_arr or "sister" in family_arr:
+        alternatives.append(
+            "血清 CA125 / CA199 联合检测（就诊时可向医生咨询。临床意义：协助评估子宫内膜异位或子宫腺肌症病灶的活动度及炎性状态；准备：晨起空腹抽血。）"
+            if lang == "zh"
+            else "Serum CA125 / CA199 Assay (Consult with your doctor. Clinical significance: Helps evaluate endometriosis activity; Prep: Fasting morning blood draw.)"
+        )
+
+    # 🧬 动态排查方向 2：若月经不规律或患有多囊，推荐讨论性激素六项
+    if regular == "irregular" or diagnosed == "pcos":
+        alternatives.append(
+            "性激素六项检测（就诊时可向医生咨询。临床意义：排查下丘脑-垂体-卵巢轴功能异常或多囊卵巢综合征等内分泌诱因；准备：建议在行经期第2-3天清晨空腹抽血。）"
+            if lang == "zh"
+            else "Hormone Panel (Consult with your doctor. Clinical significance: Investigates HPO-axis dysfunction or PCOS; Prep: Fasting blood draw on menstrual cycle day 2-3.)"
+        )
+
+    # 🧬 动态排查方向 3：若有既往腺肌症且有盆腔手术史，推荐讨论盆腔核磁共振 (MRI)
+    if diagnosed in ["endometriosis", "adenomyosis"] and surgical in ["abdominal", "pelvic"]:
+        alternatives.append(
+            "盆腔核磁共振 / MRI 扫描（就诊时可向医生咨询。临床意义：具备极佳的软组织对比度，用于精准排查盆腔深部浸润型内异症及术后粘连；准备：需去除身上所有金属物品，检查前禁食4小时。）"
+            if lang == "zh"
+            else "Pelvic MRI Scan (Consult with your doctor. Clinical significance: Outstanding soft-tissue contrast to map deep infiltrating endometriosis; Prep: Remove all metallic objects.)"
+        )
+
+    # 4. 如果触发了联合排查，拼装到 alternative 中输出给前端
+    if alternatives:
+        prefix = (
+            "🎯 根据您的健康背景，就诊时主治医生可能还会考虑以下联合排查方案："
+            if lang == "zh"
+            else "🎯 Based on your clinical background, the physician may also explore these joint options:"
+        )
+        exam["alternative"] = prefix + "\n" + "\n".join(f"- {alt}" for alt in alternatives)
+
     return exam
 
 
@@ -586,23 +631,22 @@ async def generate_pain_report(data: PainData):
     # ═══════════════════════════════════════════════════════════
     FEW_SHOT_EXAMPLE_ZH = """
 {
-  "chief_complaint": "行经期第2天突发急性下腹痉挛性绞痛，伴恶心呕吐与后背放射感1天。",
-  "present_illness": "患者既往月经规律。今日处于行经期第2天，前列腺素水平达峰，子宫平滑肌高频强烈收缩，突发急性下腹部持续性收紧绞痛，呈阵发性剧烈加重。伴有乳房酸胀痛及腰骶部明显坠胀。今日未自行服用药物。由于患者既往对布洛芬过敏，本次发作未进行NSAIDs类药物镇痛。病期无发热、无休克、无昏厥。尚未进行本次急症超声定位检查。",
-  "past_history": "既往确诊‘子宫内膜异位症’病史。既往行剖宫产术2次。否认高血压、心脑血管病史。明确对布洛芬（NSAIDs）类药物过敏。",
-  "menstrual_history": "月经初潮13岁。经期持续5天，周期28-30天，规律。末次月经（LMP）为2026年6月1日。当前处于经期急性疼痛高发阶段。",
-  "clinical_diagnosis": "原发性痛经或继发性痛经发作（子宫内膜异位症引起可能）",
-  "clinical_suggestions": "鉴于布洛芬过敏史，严禁临床处方NSAIDs药物，可遵医嘱替代为对乙酰氨基酚温水送服。居家应避免站立负重，卧床蜷缩侧卧休息，热敷下腹。建议尽快挂常规妇科门诊行超声探查，排查局部子宫粘连与巧克力囊肿大小。",
+   "chief_complaint": "痛经进行性加重5年，伴经期延长、下腹坠痛10天。",
+  "present_illness": "患者既往月经规律。5年前无明显诱因出现经期下腹部痉挛性绞痛，呈进行性加重，疼痛向腰骶部放射，经期第1-2天最剧，VAS评分最高达8分，口服布洛芬可部分缓解。10天前无明显诱因出现经期延长，经血淋漓不尽，量中等，色暗红，伴间断性下腹坠痛，无发热，无肛门坠胀感，无尿频、尿急、尿痛。查盆腔彩超提示：子宫增大，肌壁回声不均，符合子宫腺肌病合并腺肌瘤声像图表现，子宫平滑肌瘤。现为求进一步诊治，以“痛经原因待查（子宫腺肌病可能）”收入院。自发病以来，患者精神可，食眠正常，大小便正常，体重无明显变化。",
+  "past_history": "平素健康状况一般。既往患抑郁症5年，规律口服度洛西汀、劳拉西泮治疗，目前病情控制尚平稳。手术史：有剖宫产术2次，行腹腔镜下子宫肌瘤剥除术1次。否认高血压、糖尿病、冠心病等慢性病史。无明确食物及药物过敏史。",
+  "menstrual_history": "月经初潮13岁，经期5天，周期28-30天（5/28-30天），末次月经（LMP）：2025年12月1日。痛经：有，呈进行性加重。孕产史：适龄结婚，G3P2，剖宫产2次，人工流产1次，配偶及子女健康状况良好。",
+  "clinical_diagnosis": "1. 继发性痛经（子宫内膜异位症合并子宫腺肌病待查）\\n2. 子宫平滑肌瘤\\n3. 剖宫产术后\\n4. 抑郁状态",
+  "clinical_suggestions": "【建议就诊时与医生讨论的要点】：\\n1. 结合既往剖宫产及肌瘤剥除手术史，就诊时应重点请医生评估盆腔粘连风险及子宫瘢痕弹性。\\n2. 建议完善血清CA125（糖类抗原125）检测及盆腔核磁共振（MRI），以进一步明确子宫腺肌病病灶累及范围。\\n\\n🔬 【就诊检查须知与消除恐惧】：\\n1. 盆腔经阴道超声检查：建议在月经干净后3-7天内进行复查。检查前需排空小便。若无性生活史，请务必提前告知医分诊台，将为您调整为经腹部超声检查（此检查需要提前憋尿）。\\n2. 消除您的检查焦虑：妇科彩超及阴道内诊是非常常规的基础妇科排查。检查使用的特制探头非常细小（直径约1.5-2cm），且医生会涂抹无菌、温和的医用偶联剂进行充分润滑。操作时，随着您的缓慢深呼吸并放松盆底肌肉，探头探入时仅会有轻微的顶胀和冰凉感，不会产生剧烈痛。医生在检查时会严格遵循医疗隐私保护规范，并在屏风/遮挡帘后进行操作，您的身体边界会得到绝对的尊重与物理保护。明确病灶性质是实现精准治疗、摆脱慢性痛经折磨的首要科学步骤，请放心配合接诊医师。",
   "analogy": "像是肚子里有一把冰冷的铁钳子，正用力夹住子宫死死拧绞，每拧一下，后腰就跟着一阵发木发胀，连呼吸都觉得被生生拽住。",
-  "work": "因今日突发重度生理期绞痛及全身虚脱，无法支持工作，特申请病假休息一天，紧急事务已妥善交接。",
+  "work": "因今天经期突发急性坠胀严重绞痛且无法站立，申请病假休整一天，特此交接工作。",
   "action": [
-    "☑️ 搓热手掌贴在她小腹上轻轻捂热，或放置温热的热水袋，温度不可过高以免烫伤。",
-    "☑️ 由于她布洛芬过敏，切勿擅自准备布洛芬！可以倒一杯温开水并准备好对乙酰氨基酚，督促她温服。",
-    "☑️ 主动承担今天所有家务，关好房门和灯光，让她在安静低照度的被窝里静卧休息。"
+    "☑️ 准备一个温热的热水袋，帮她放置在下腹部或后腰处进行物理热敷理疗。",
+    "☑️ 帮她倒一杯温热的饮用水，并准备好安全的镇痛药。",
+    "☑️ 主动替她分担今日所有的繁杂家务，保持室内环境安静温和。"
   ],
   "selfCare": [
-    "✨ 痛经是身体内部平滑肌痉挛引起的切实物理伤害。请允许自己今天躺平，不生产任何价值也无需抱有任何愧疚感。",
-    "✨ 采用侧卧婴儿蜷缩位，用松软枕头夹在双侧膝盖之间，能够最快释放盆腔及骶骨处的充血张力，缓解绞痛。",
-    "✨ 缓慢腹式深吸气（4秒吸气，8秒拉长呼气），长呼气可以调动副交感神经，使子宫血管松弛缓解缺血。"
+    "✨ 采用侧卧婴儿蜷缩式，膝盖之间夹枕头，放松紧绷的盆腔肌肉。",
+    "✨ 尽量拉长呼吸，吸气4秒、平稳呼气8秒，能帮过度兴奋的盆底肌肉尽快放松下来。"
   ]
 }
 """
@@ -621,13 +665,18 @@ You are an expert clinical gynecological medical assistant. Translate the visual
 """
     else:
         sys_prompt = f"""
-你是一名严谨的妇产科门诊电子病历转译助手。你需要将用户填写的医疗档案和绘制的动态痛觉矢量指标，重构翻译成符合医院门诊入院记录（规范病历）和自愈指令的结构。
+你是一名在三甲医院妇产科门诊工作、具有极高专业素养和规范化病历书写标准的主治医师助理。你需要将患者填写的档案和痛觉通感指标，翻译重构为一份完全符合中国卫健委病历书写规范的住院/门诊病历档案。
 
-【严格防幻觉与规范化硬性要求】
-1. 【绝对禁止无中生有】！如果用户未提供药物过敏，就写“无已知药物过敏”；未填手术史，就写“无明确大型手术史”；未提供年龄就不要提及患者的具体年龄数值！
-2. 术语规范：采用妇科临床医学规范化中文。严禁口语化或晦涩古板，如“月事”一律使用“行经期”、“月经周期”。
-3. 药物防错红线：对布洛芬或NSAIDs过敏者，【绝对禁止】在其‘action’或‘clinical_suggestions’中出现任何布洛芬、阿司匹林、双氯烟酸等处方建议，必须明确指导使用“对乙酰氨基酚”！
-4. 周期作息融合：结合用户当前所处的经期生理阶段特征，给出合理的运动和睡眠休养建议。
+【病历书写硬性合规防错指令】
+1. 【严禁生造词与软件工具词汇】！病历正文（chief_complaint, present_illness, past_history, menstrual_history, clinical_diagnosis）中【绝对不允许】出现“画笔”、“画布行为”、“分值评分”、“痛觉矢量图谱”、“绘图定位”、“前端”等任何软件专有名词。
+   - 必须将其翻译为标准医学词汇。例如：将“重按/大面积重压画笔”翻译为“持续性下腹重度胀痛，VAS评分：7分”；将“锯齿/刺钻画笔”翻译为“局部阵发性痉挛性绞痛”。
+2. 【严格写入阴性症状进行鉴别诊断】：仿照参考病历，在‘present_illness’（现病史）中必须清晰写入鉴别指标，如：“无肛门坠胀感，无尿频尿急。起病以来食眠正常，二便正常，体重无明显变化。”
+3. 【病史公式化对齐】：月经史（menstrual_history）必须使用标准月经史公式格式，如：13岁初潮，经期5天，周期30天，应书写为“5/30天”，并标明末次月经（LMP）。
+4. 【大模型转译硬性指令 - 严禁偷懒缩水】
+   - 【患者基础信息重构 (past_history)】：将患者的年龄段、身高体重、既往确诊史、手术史、过敏药物以及“生活作息”（久坐、熬夜等不良习惯）、“家族遗传暴露风险”完美融合，用一段极其详尽的文字整理出来。
+   - 【痛感病生理机制分析 (present_illness)】：不要一句话概括！请深度剖析患者绘制的“画笔类型”和“时间节律”在生理期发作时的病理机制。详细分析前列腺素水平波动、子宫平滑肌痉挛、盆腔充血、内脏神经会聚反射导致腰骶放射痛的内在医学逻辑，告诉她“为什么会这样痛”，字数必须饱满。
+   - 【就诊检查须知与消除恐惧 (clinical_suggestions)】：请用极为温柔、中立、尊重身体边界的科学语言，向患者详细解释妇科阴道检查和医生操作的专业规范，告诉她探头的规格（非常细小）和润滑、如何通过呼吸配合放松肌肉以彻底打消她的检查恐惧与耻感，给予她强大的心理支持，字数不得少于300字。
+5. 【药物安全红线】：如患者对布洛芬或NSAIDs过敏，严禁在任何地方推荐使用布洛芬！必须明确说明其用药风险，并推荐使用“对乙酰氨基酚”！
 
 {FEW_SHOT_EXAMPLE_ZH}
 """
