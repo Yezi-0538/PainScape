@@ -268,11 +268,11 @@ const translations = {
       purple: { label: "🔮" },
       blue: { label: "❄️" },
     },
-    colorDescriptions: {
-      crimson: "深红：急性锐痛/充血",
-      dark: "暗灰：沉重钝痛/抑郁",
-      purple: "紫：神经性放射痛",
-      blue: "冰蓝：发冷/发僵",
+   colorDescriptions: {
+      crimson: "红色：热热胀胀的涌动感，直接关联着体内经血的流注与高度充血",
+      dark: "暗灰：闷闷抑郁的下沉感，伴随深度疲惫无力，痛楚中局部发麻、仿佛失去生命活性",
+      purple: "紫色：难以形容的隐约酸楚与绵软无力，易诱发情绪脆弱与哭泣，与深层盆腔神经敏化相关",
+      blue: "冰蓝：寒冷与眩晕。手脚冰凉，肚子无法暖热。仿佛被一股不属于身体的异质力量冰封干扰，或处于缺血状态",
     },
 
     // ============ 画板页 ============
@@ -301,7 +301,7 @@ const translations = {
         copyAction: "📋 复制实操指令",
       },
       work: {
-        title: "智能声明与推约引擎", // 大标题不再局限于职场
+        title: "社交请假模板", 
       description: "客观陈述生理期急性痛楚状态，无论是面对职场还是社交邀约，都能坦诚且得体地表达缺席意愿。",
       copyTemplate: "📋 复制声明/推约文本",
       recipients: {
@@ -566,12 +566,12 @@ const translations = {
           "像肚子里有个气球在不断充气又放气，一阵一阵地胀，有时蔓延到整个腹部，连呼吸都觉得憋闷。",
         med: "患者自述腹部弥漫性酸胀痛，呈阵发性加重，伴肠胀气感，疼痛范围不固定。建议排查水肿、肠胀气及盆腔炎症。",
         selfCare:
-          "✨ 穿着极宽松的衣物，解开所有束缚\n✨ 顺时针轻揉腹部（力度要轻，感觉到皮肉即可）\n✨ 避免产气食物：豆类、碳酸饮料、生冷瓜果\n✨ 温敷整个腹部，用毯子营造温暖环境\n✨ 放慢节奏，节奏慢下来，疼痛也会缓下来\n✨ 尝试【排气式（Pavanamuktasana）】：平躺，双臂抱住双膝并紧贴胸口，微幅向左右摇摆。这能温和挤压肠道，帮助释放积聚的胀气，快速降低盆腔和腹腔的内压\n✨ 穴位按压：按揉双侧【足三里穴】（外膝眼下4横指，胫骨外侧旁开1横指）。这能有效调节胃肠平滑肌蠕动，缓解经期伴随的胃肠酸胀、坠痛与腹胀感",
+          "✨ 穿着宽松的衣物，解开所有束缚\n✨ 顺时针轻揉腹部（力度要轻，感觉到皮肉即可）\n✨ 避免产气食物：豆类、碳酸饮料、生冷瓜果\n✨ 温敷整个腹部，用毯子营造温暖环境\n✨ 放慢节奏，节奏慢下来，疼痛也会缓下来\n✨ 尝试【排气式（Pavanamuktasana）】：平躺，双臂抱住双膝并紧贴胸口，微幅向左右摇摆。这能温和挤压肠道，帮助释放积聚的胀气，快速降低盆腔和腹腔的内压\n✨ 穴位按压：按揉双侧【足三里穴】（外膝眼下4横指，胫骨外侧旁开1横指）。这能有效调节胃肠平滑肌蠕动，缓解经期伴随的胃肠酸胀、坠痛与腹胀感",
       },
       scrape: {
         analogy:
           "像一颗未成熟的果实被强行剥皮，那种撕裂感从子宫内部向外刮——每动一下都像被砂纸打磨。",
-        med: "患者自述下腹部强烈撕裂样锐痛，活动时加剧，伴里急后重感。建议紧急排查组织粘连、子宫内膜异位囊肿破裂可能。",
+        med: "患者自述下腹部锐痛，活动时加剧，伴里急后重感。建议紧急排查组织粘连、子宫内膜异位囊肿破裂可能。",
         selfCare:
           "✨ 这是最耗费体力的痛感，优先静卧休息\n✨ 绝对避免腹部按摩，减少任何体位变化\n✨ 口服温蜂蜜水补充能量（勿空腹服药）\n✨ 用温和声音和自己对话：'我听见了，我在陪你'\n✨ 疼痛稍缓后，记录下这次发作的细节\n✨ 尝试【胸肋式呼吸】：吸气时专注于让肋骨向两侧横向扩张，保持中下腹起伏幅度降到最低。这能显著减少脏器在腹盆腔内的物理滑移与病灶牵拉，避免撕裂创面因呼吸反复摩擦\n✨ 尝试【抱枕支撑儿童式】：在大腿前侧垫一个高枕头，上半身完全趴在枕头上，双膝打开，臀部向后坐。这能利用重力让腹腔脏器向前悬垂，避免它们在盆腔深处相互压迫和摩擦，给撕裂创面营造一个无压的静养环境",
       },
@@ -936,10 +936,10 @@ const translations = {
       blue: { label: "❄️" },
     },
     colorDescriptions: {
-      crimson: "Crimson: Acute sharp pain/congestion",
-      dark: "Dark Gray: Heavy dull pain/depression",
-      purple: "Purple: Neuropathic radiating pain",
-      blue: "Ice Blue: Cold/Stiffness",
+      crimson: "Crimson: A warm, surging, bloated sensation; directly associated with the flow of blood and active physical congestion.",
+      dark: "Dark Gray: A heavy, depressed sinking sensation; deeply fatiguing and weak, where the painful area feels numb, cold, and lacks vital energy.",
+      purple: "Purple: An indescribable, faint yet persistent ache; accompanied by weakness and emotional vulnerability (feeling like weeping), linked to neuropathic sensitivity.",
+      blue: "Ice Blue: Chills and vertigo; hands and feet are freezing, and the abdomen cannot be warmed, as if an alien, non-biological force is interfering, representing severe ischemia.",
     },
 
     canvas: {

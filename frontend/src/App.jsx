@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import Sketch from "react-p5";
 import { I18nProvider, useI18n } from "./i18n/i18nContext";
 import { PAIN_NAME_MAP, BRUSHES, PALETTES, EXAM_DATABASE, QUOTES } from "./i18n/translationsConstants";
+import SomaticHealingSpace from './SomaticHealingSpace';
 
 const API_BASE = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
   ? 'http://127.0.0.1:8000'
@@ -655,6 +656,7 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
     return { total, topPainKey };
   };
   const [showHealingModal, setShowHealingModal] = useState(false);
+  const [healingState, setHealingState] = useState({ isOpen: false, activeTab: 'breathing' });
   const [healingTipType, setHealingTipType] = useState('breathing');
   const publishToCommunity = async (newPost) => {
     try {
@@ -3089,12 +3091,12 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
                 <div style={{ background: '#1c1c1c', borderRadius: '20px', padding: '20px', border: '1px solid #333' }}>
                   <div style={{ textAlign: 'center', marginBottom: '16px' }}>
                     <span style={{ fontSize: '28px' }}>🎯</span>
-                    <h3 style={{ color: '#fff', fontSize: '16px', margin: '8px 0 4px 0', fontWeight: '500' }}>舒缓干预偏好设定</h3>
+                    <h3 style={{ color: '#fff', fontSize: '16px', margin: '8px 0 4px 0', fontWeight: '500' }}>偏好设定</h3>
                   </div>
 
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
                     <div>
-                      <p style={{ color: '#888', fontSize: '12px', marginBottom: '12px', textAlign: 'center' }}>发作期间，您希望外界提供什么样的干预援助？</p>
+                      <p style={{ color: '#888', fontSize: '12px', marginBottom: '12px', textAlign: 'center' }}>痛经时，您希望他人怎么做？</p>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                         {['alone', 'care', 'comfort'].map((p, i) => (
                           <button key={p} onClick={() => togglePref(p)} style={{
@@ -3113,7 +3115,7 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
 
                     <div>
                       <p style={{ color: '#888', fontSize: '12px', marginBottom: '8px', textAlign: 'center' }}>
-                        报告的智能转译语言语气
+                        智能转译语言语气
                       </p>
                       <div style={{ display: 'flex', gap: '12px' }}>
                         <button onClick={() => setTonePreference('gentle')} style={{
@@ -3742,13 +3744,12 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
                           📢 {targetLanguage === 'en' ? 'Recipient / Context:' : '发送对象 / 场景：'}
                         </span>
                         <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                          {/* 这里增加 'friend' 项 */}
                           {['manager', 'teacher', 'client', 'friend'].map(key => (
                             <button
                               key={key}
                               onClick={() => setLeaveRecipient(key)}
                               style={{
-                                flex: '1 0 45%', // 让按钮在窄屏下自动换行排列，更美观
+                                flex: '1 0 45%',
                                 padding: '8px 0',
                                 fontSize: '11px',
                                 borderRadius: '8px',
@@ -3994,104 +3995,52 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
                     </>
                   )}
 
+                  {/*  self (自愈) 模块部分 */}
                   {identity === 'self' && (
                     <>
                       <h3 style={{ color: '#9c27b0', margin: '0 0 15px 0' }}>{t('result.self.title')}</h3>
-                      <p style={{ color: '#ccc', fontSize: '13px', lineHeight: '1.6', marginBottom: '15px' }}>
-                        {t('result.self.comfort')}
+                      <p style={{ color: '#ccc', fontSize: '13px', lineHeight: '1.6', marginBottom: '20px', textAlign: 'justify' }}>
+                        {content.comfort}
                       </p>
 
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                         {[
-                          { key: 'breathing', icon: '🌬️', title: '疗愈呼吸法', subtitle: '4-7-8呼吸法，缓解紧张', color: '#4caf50' },
-                          { key: 'heatPack', icon: '🔥', title: '热敷疗法', subtitle: '温暖小腹，缓解痉挛', color: '#ff9800' },
-                          { key: 'meditation', icon: '🧘', title: '正念冥想', subtitle: '接纳疼痛，平静内心', color: '#9c27b0' },
-                          { key: 'warmDrink', icon: '🍵', title: '温暖饮品', subtitle: '红糖姜茶，温暖身心', color: '#f44336' }
-                        ].map((tip, index) => (
+                          { key: 'breathing', icon: '🌬️', title: '一起认真呼吸', subtitle: '配声学潮汐呼吸引导，放松盆底肌群', color: '#4caf50' },
+                          { key: 'posture', icon: '🧘', title: '做个简易拉伸', subtitle: '静心空灵环境音，缓解子宫韧带牵拉', color: '#ab47bc' },
+                          { key: 'acupressure', icon: '💆', title: '快速穴位按揉', subtitle: '60 BPM 节拍节奏引导，阻断痉挛锐痛', color: '#2196f3' },
+                          { key: 'thermal', icon: '🔥', title: '热敷与食补', subtitle: '柴火燃烧白噪音，心理升温理疗', color: '#ff9800' }
+                        ].map((tip) => (
                           <div
-                            key={index}
+                            key={tip.key}
                             onClick={() => {
-                              setHealingTipType(tip.key);
-                              setShowHealingModal(true);
+                              setHealingState({ isOpen: true, activeTab: tip.key });
                             }}
                             style={{
-                              background: 'rgba(156,39,176,0.1)',
-                              padding: '14px 16px',
-                              borderRadius: '12px',
-                              borderLeft: `3px solid ${tip.color}`,
+                              background: 'rgba(255,255,255,0.02)',
+                              padding: '16px',
+                              borderRadius: '16px',
+                              border: '1px solid rgba(255,255,255,0.06)',
+                              borderLeft: `4px solid ${tip.color}`,
                               cursor: 'pointer',
-                              transition: 'transform 0.2s, background 0.2s'
+                              transition: 'all 0.2s'
                             }}
+                            onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.05)'}
+                            onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.02)'}
                           >
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                              <span style={{ fontSize: '24px' }}>{tip.icon}</span>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                              <span style={{ fontSize: '26px' }}>{tip.icon}</span>
                               <div>
                                 <div style={{ color: '#fff', fontWeight: 'bold', fontSize: '14px' }}>{tip.title}</div>
-                                <div style={{ color: '#ccc', fontSize: '12px', marginTop: '4px' }}>{tip.subtitle}</div>
+                                <div style={{ color: '#aaa', fontSize: '11.5px', marginTop: '4px' }}>{tip.subtitle}</div>
                               </div>
-                              <span style={{ marginLeft: 'auto', color: '#666' }}>›</span>
+                              <span style={{ marginLeft: 'auto', color: '#666', fontSize: '18px' }}>›</span>
                             </div>
                           </div>
                         ))}
                       </div>
-
-                      <button
-                        onClick={() => handleCopy(getEditedOrDefault('selfCare', content.selfCare))}
-                        style={{ marginTop: '20px', width: '100%', padding: '10px', background: 'transparent', border: '1px dashed #9c27b0', color: '#e1bee7', borderRadius: '8px', cursor: 'pointer' }}
-                      >
-                        {t('result.self.copyAdvice')}
-                      </button>
-                      <div style={{ marginTop: '24px', paddingTop: '16px', borderTop: '1px solid #2d2d2d' }}>
-                        <h4 style={{
-                          color: '#ab47bc',
-                          fontSize: '14px',
-                          fontWeight: '600',
-                          margin: '0 0 16px 0',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '6px',
-                          letterSpacing: '0.5px'
-                        }}>
-                          🌿 健康小百科
-                        </h4>
-
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                          {randomSelfCareTips.map((tip, idx) => (
-                            <div key={idx} style={{
-                              background: 'linear-gradient(145deg, #1c1c1c, #141414)',
-                              borderRadius: '16px',
-                              padding: '18px',
-                              border: '1px solid rgba(255, 255, 255, 0.05)',
-                              borderLeft: '4px solid #ab47bc',
-                              boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-                              transition: 'transform 0.2s ease'
-                            }}>
-                              <div style={{
-                                color: '#ffffff',
-                                fontSize: '15px',
-                                fontWeight: '600',
-                                marginBottom: '10px',
-                                lineHeight: '1.4',
-                                letterSpacing: '0.3px'
-                              }}>
-                                {tip.title}
-                              </div>
-                              <div style={{
-                                color: '#b0b0b0',
-                                fontSize: '13px',
-                                margin: 0,
-                                lineHeight: '1.65',
-                                textAlign: 'justify'
-                              }}>
-                                {tip.desc}
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
                     </>
                   )}
-                  {showHealingModal && (() => {
+                  {/* {showHealingModal && (() => {
                     const healingContentMap = {
                       breathing: {
                         title: "🌬️ 疗愈呼吸法",
@@ -4171,7 +4120,7 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
                         </div>
                       </div>
                     );
-                  })()}
+                  })()} */}
                 </div>
 
                 <div style={{ display: 'flex', gap: '10px', width: '100%', maxWidth: '350px', marginTop: '30px', marginBottom: '40px' }}>
@@ -5364,7 +5313,20 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
             </div>
           </div>
         )}
-
+        {/* BreathingGuide 挂载点 */}
+        <SomaticHealingSpace
+          isOpen={healingState.isOpen}
+          activeTab={healingState.activeTab}
+          onClose={() => setHealingState(prev => ({ ...prev, isOpen: false }))}
+          language={targetLanguage}
+          aiSelfCareTips={
+            currentReportData?.selfCare && Array.isArray(currentReportData.selfCare)
+              ? currentReportData.selfCare
+              : (typeof currentReportData?.selfCare === 'string'
+                ? currentReportData.selfCare.split('\n').filter(Boolean)
+                : [])
+          }
+        />
         {/* === 全局 Loading 遮罩层 === */}
         {isLoading && (
           <div style={{
