@@ -513,6 +513,25 @@ const translations = {
       defaultDoctorContent: "已记录具身痛觉图谱",
       defaultContent: "正在经历 {{pain}}",
     },
+    shareText: {
+      partner: {
+        title: "📢 她的痛觉声明 · 伴侣请即刻执行：",
+        action: "💡 照护实操指令："
+      },
+      work: {
+        title: "📄 状态声明与请假/推约模板："
+      },
+      doctor: {
+        title: "🩺 医疗就诊沟通辅助单：",
+        profile: "📍 痛觉特征分析：",
+        complaint: "📋 临床主诉参考：",
+        reference: "🔬 现病史参考："
+      },
+      self: {
+        title: "🌿 她的痛觉具身隐喻：",
+        solution: "🧘 推荐自愈方案："
+      }
+    },
 
     // ============ Toast 消息 ============
     toast: {
@@ -1176,7 +1195,25 @@ const translations = {
       defaultDoctorContent: "Embodied pain map recorded",
       defaultContent: "Currently experiencing {{pain}}",
     },
-
+    shareText: {
+      partner: {
+        title: "📢 Her Pain Statement · Action Required:",
+        action: "💡 Care Instructions:"
+      },
+      work: {
+        title: "📄 Absence & Raincheck Template:"
+      },
+      doctor: {
+        title: "🩺 Medical Aid Report:",
+        profile: "📍 Pain Profile Analysis:",
+        complaint: "📋 Clinical Complaint Reference:",
+        reference: "🔬 History of Present Illness:"
+      },
+      self: {
+        title: "🌿 Her Embodied Metaphor:",
+        solution: "🧘 Recommended Self-Care:"
+      }
+    },
     toast: {
       copySuccess: "Text copied to clipboard!",
       copyFailed: "Copy failed, please try again",

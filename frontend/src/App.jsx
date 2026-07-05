@@ -1519,17 +1519,21 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
     return false;
   };
 
+  // 🌟 1. 重构：根据请假身份与语气，动态输出无泄漏的分享文案
   const getFullShareText = (idty, content) => {
-    const safeAction = content.action?.replace(/🛑|🥣|🫂|❤️|复合指令：|偏好指令：/g, '').trim() || '';
-    const safeSelfCare = content.selfCare?.replace(/✨/g, '•').trim() || '';
+    // 安全清洗 Markdown 符号
+    const safeAction = (content.action || '').replace(/☑️|✨|•/g, '•').trim();
+    const safeSelfCare = (content.selfCare || '').replace(/✨|•/g, '•').trim();
 
     switch (idty) {
       case 'partner':
         return `${t('shareText.partner.title')}\n${content.analogy || ''}\n\n${t('shareText.partner.action')}\n${safeAction}`;
       case 'work':
-        return `${t('shareText.work.title')}\n${content.workText || ''}`;
+        // 动态获取当前用户在前端选择的请假身份文本，防止生成默认死模板
+        const activeLeaveText = getEditedOrDefault('workText', content.workText || '');
+        return `${t('shareText.work.title')}\n${activeLeaveText}`;
       case 'doctor':
-        return `${t('shareText.doctor.profile')}\n${content.med_profile || ''}\n\n${t('shareText.doctor.complaint')}\n${content.med_complaint || ''}\n\n${t('shareText.doctor.reference')}\n${content.med_reference || ''}`;
+        return `${t('shareText.doctor.title')}\n${t('shareText.doctor.complaint')}\n${getEditedOrDefault('chief_complaint', content.chief_complaint || '')}\n\n${t('shareText.doctor.reference')}\n${getEditedOrDefault('present_illness', content.present_illness || '')}`;
       case 'self':
         return `${t('shareText.self.title')}\n${content.analogy || ''}\n\n${t('shareText.self.solution')}\n${safeSelfCare}`;
       default:
@@ -1537,6 +1541,169 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
     }
   };
 
+  // 🌟 2. 准备分享预览（精确同步当前的请假接收对象与语气）
+  const prepareSharePreview = (content) => {
+    setShareContent({
+      ...content,
+      analogy: getEditedOrDefault('analogy', content.analogy),
+      action: getEditedOrDefault('action', content.action),
+      workText: getEditedOrDefault('workText', content.workText), // 确保获取当前编辑后的内容
+      selfCare: getEditedOrDefault('selfCare', content.selfCare),
+      identity: identity // 传入当前激活的 Tab 身份 (partner / work / doctor / self)
+    });
+    setShowSharePreview(true);
+  };
+
+  // 🌟 3. 微信级画板卡片高精细排版渲染引擎
+  const confirmShare = async () => {
+    if (!shareContent) return;
+    setIsLoading(true);
+
+    try {
+      const cvs = document.createElement('canvas');
+      const ctx = cvs.getContext('2d');
+      const fullText = getFullShareText(shareContent.identity, shareContent);
+
+      // 高端微信海报黄金比例宽度与自适应高度计算
+      cvs.width = 640;
+      const textPadding = 40;
+      const maxTextWidth = cvs.width - (textPadding * 2);
+
+      // 预估文字高度以防溢出
+      ctx.font = '16px "Microsoft YaHei", -apple-system, sans-serif';
+      const lines = [];
+      fullText.split('\n').forEach(p => {
+        let currentLine = '';
+        for (let i = 0; i < p.length; i++) {
+          let testLine = currentLine + p[i];
+          if (ctx.measureText(testLine).width > maxTextWidth) {
+            lines.push(currentLine);
+            currentLine = p[i];
+          } else {
+            currentLine = testLine;
+          }
+        }
+        lines.push(currentLine);
+      });
+
+      const cardBodyY = 560;
+      const cardHeight = lines.length * 28 + 140;
+      cvs.height = cardBodyY + cardHeight + 100; // 总高度
+
+      // 背景色：采用纯高级暗黑氛围
+      ctx.fillStyle = '#0a0a0a';
+      ctx.fillRect(0, 0, cvs.width, cvs.height);
+
+      // 加载绘制的痛感图谱
+      const mainImg = new Image();
+      await new Promise((resolve, reject) => {
+        mainImg.onload = resolve;
+        mainImg.onerror = reject;
+        mainImg.src = shareContent.historyImg || imgUrl;
+      });
+
+      // 痛觉图谱：居中高对比度排版
+      const imgDim = 480;
+      const imgX = (cvs.width - imgDim) / 2;
+      ctx.drawImage(mainImg, imgX, 40, imgDim, imgDim);
+
+      // 绘制圆角体感声明卡片（卡片外壳）
+      ctx.fillStyle = '#141414';
+      ctx.strokeStyle = '#2d2d2d';
+      ctx.lineWidth = 1;
+      roundRect(ctx, 30, cardBodyY, cvs.width - 60, cardHeight, 20);
+      ctx.fill();
+      ctx.stroke();
+
+      // 卡片侧边装饰色条：根据不同身份 Tab 赋予不同视觉情绪色
+      const barColors = {
+        partner: '#ef5350', // 伴侣：温暖红
+        work: '#ff9800',    // 请假：警戒橙
+        doctor: '#2196f3',  // 医生：科技蓝
+        self: '#9c27b0'     // 自愈：疗愈紫
+      };
+      ctx.fillStyle = barColors[shareContent.identity] || '#ff9800';
+      ctx.fill();
+
+      // 绘制卡片标题
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 18px "Microsoft YaHei", -apple-system, sans-serif';
+      const titleMap = {
+        partner: t('shareCard.titles.partner'),
+        work: t('shareCard.titles.work'),
+        doctor: t('shareCard.titles.doctor'),
+        self: t('shareCard.titles.self')
+      };
+      ctx.fillText(titleMap[shareContent.identity] || "PainScape 痛觉声明", 60, cardBodyY + 45);
+
+      // 绘制卡片内部文字
+      ctx.fillStyle = '#b0b0b0';
+      ctx.font = '15px "Microsoft YaHei", -apple-system, sans-serif';
+      let textY = cardBodyY + 85;
+      lines.forEach(line => {
+        ctx.fillText(line, 60, textY);
+        textY += 28;
+      });
+
+      // 页脚：PainScape 署名
+      ctx.fillStyle = '#444444';
+      ctx.font = '12px "Microsoft YaHei", sans-serif';
+      ctx.fillText("PainScape - 让不可见的痛苦被看见", 60, cvs.height - 40);
+
+      const finalUrl = cvs.toDataURL('image/jpeg', 0.9);
+      const blob = await (await fetch(finalUrl)).blob();
+      const file = new File([blob], 'painscape_share.jpg', { type: 'image/jpeg' });
+
+      // 唤起原生或执行保存下载
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        try {
+          await navigator.share({
+            title: t('sharePreview.shareTitle'),
+            files: [file]
+          });
+          setShowSharePreview(false);
+        } catch (e) {
+          if (e.name === 'AbortError') return;
+          downloadFallback(finalUrl);
+        }
+      } else {
+        downloadFallback(finalUrl);
+      }
+    } catch (e) {
+      console.error("生成微信分享卡片失败:", e);
+      alert(t('toast.shareFailed'));
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const downloadFallback = (url) => {
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `PainScape_SomaticCard_${Date.now()}.jpg`;
+    link.click();
+    showToast("shareSaved");
+    setShowSharePreview(false);
+  };
+
+  // 支持指定圆角配置的 roundRect
+  const roundRect = (ctx, x, y, w, h, r) => {
+    let tl = r, tr = r, br = r, bl = r;
+    if (typeof r === 'object') {
+      tl = r.tl || 0; tr = r.tr || 0; br = r.br || 0; bl = r.bl || 0;
+    }
+    ctx.beginPath();
+    ctx.moveTo(x + tl, y);
+    ctx.lineTo(x + w - tr, y);
+    ctx.quadraticCurveTo(x + w, y, x + w, y + tr);
+    ctx.lineTo(x + w, y + h - br);
+    ctx.quadraticCurveTo(x + w, y + h, x + w - br, y + h);
+    ctx.lineTo(x + bl, y + h);
+    ctx.quadraticCurveTo(x, y + h, x, y + h - bl);
+    ctx.lineTo(x, y + tl);
+    ctx.quadraticCurveTo(x, y, x + tl, y);
+    ctx.closePath();
+  };
   const draw = (p5) => {
     p5.background(0);
     if (page !== 'canvas') return;
@@ -1662,125 +1829,6 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
   };
   const [showSharePreview, setShowSharePreview] = useState(false);
   const [shareContent, setShareContent] = useState(null);
-
-  const prepareSharePreview = (content) => {
-    setShareContent({
-      ...content,
-      analogy: getEditedOrDefault('analogy', content.analogy),
-      action: getEditedOrDefault('action', content.action),
-      workText: getEditedOrDefault('workText', content.workText),
-      med_complaint: getEditedOrDefault('med_complaint', content.med_complaint),
-      med_reference: getEditedOrDefault('med_reference', content.med_reference),
-      selfCare: getEditedOrDefault('selfCare', content.selfCare),
-      identity: identity
-    });
-    setShowSharePreview(true);
-  };
-
-  const confirmShare = async () => {
-    if (!shareContent) return;
-    setIsLoading(true);
-
-    try {
-      const cvs = document.createElement('canvas');
-      const ctx = cvs.getContext('2d');
-      const fullText = getFullShareText(shareContent.identity, shareContent, t);
-
-      const textWidth = 480;
-      const charPerLine = 22;
-      const estimatedLines = Math.ceil(fullText.length / charPerLine) + (fullText.split('\n').length * 1.5);
-      const textHeight = estimatedLines * 28 + 150;
-
-      cvs.width = 600;
-      cvs.height = 600 + textHeight;
-
-      ctx.fillStyle = '#0a0a0a';
-      ctx.fillRect(0, 0, cvs.width, cvs.height);
-
-      const mainImg = new Image();
-      await new Promise((resolve, reject) => {
-        mainImg.onload = resolve;
-        mainImg.onerror = reject;
-        mainImg.src = shareContent.historyImg || imgUrl;
-      });
-
-      const maxDim = 520;
-      const ratio = Math.min(maxDim / mainImg.width, maxDim / mainImg.height);
-      const drawW = mainImg.width * ratio;
-      const drawH = mainImg.height * ratio;
-      const drawX = 40 + (maxDim - drawW) / 2;
-      const drawY = 40 + (maxDim - drawH) / 2;
-      ctx.drawImage(mainImg, drawX, drawY, drawW, drawH);
-
-      ctx.fillStyle = '#1c1c1c';
-      roundRect(ctx, 30, 580, 540, textHeight - 40, 20);
-      ctx.fill();
-
-      ctx.fillStyle = '#ff9800';
-      ctx.font = 'bold 26px sans-serif';
-      const titleMap = {
-        partner: t('shareCard.titles.partner'),
-        work: t('shareCard.titles.work'),
-        doctor: t('shareCard.titles.doctor'),
-        self: t('shareCard.titles.self')
-      };
-      ctx.fillText(titleMap[shareContent.identity], 60, 630);
-
-      ctx.fillStyle = '#eee';
-      ctx.font = '16px "Microsoft YaHei", sans-serif';
-      wrapText(ctx, fullText, 60, 680, 480, 30);
-
-      ctx.fillStyle = '#444';
-      ctx.font = '12px sans-serif';
-      ctx.fillText(t('shareCard.footer'), 60, cvs.height - 40);
-
-      const finalUrl = cvs.toDataURL('image/jpeg', 0.9);
-      const blob = await (await fetch(finalUrl)).blob();
-      const file = new File([blob], 'painscape_share.jpg', { type: 'image/jpeg' });
-
-      if (navigator.canShare && navigator.canShare({ files: [file] })) {
-        try {
-          await navigator.share({
-            title: t('sharePreview.shareTitle'),
-            files: [file]
-          });
-          setShowSharePreview(false);
-        } catch (e) {
-          if (e.name === 'AbortError') return;
-          const link = document.createElement('a');
-          link.href = finalUrl;
-          link.download = `PainScape_${Date.now()}.jpg`;
-          link.click();
-        }
-      } else {
-        const link = document.createElement('a');
-        link.href = finalUrl;
-        link.download = `PainScape_${Date.now()}.jpg`;
-        link.click();
-        alert(t('toast.shareSaved'));
-        setShowSharePreview(false);
-      }
-    } catch (e) {
-      console.error("生成分享卡片失败:", e);
-      alert(t('toast.shareFailed'));
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const roundRect = (ctx, x, y, w, h, r) => {
-    ctx.beginPath();
-    ctx.moveTo(x + r, y);
-    ctx.lineTo(x + w - r, y);
-    ctx.quadraticCurveTo(x + w, y, x + w, y + r);
-    ctx.lineTo(x + w, y + h - r);
-    ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
-    ctx.lineTo(x + r, y + h);
-    ctx.quadraticCurveTo(x, y + h, x, y + h - r);
-    ctx.lineTo(x, y + r);
-    ctx.quadraticCurveTo(x, y, x + r, y);
-    ctx.closePath();
-  };
 
   const isSideEmpty = (side) => {
     const totalCount = Object.values(brushCounts.current).reduce((a, b) => a + b, 0);
@@ -3087,54 +3135,99 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
               )}
 
               {/* === STEP 3: 自愈与舒缓干预偏好 === */}
-              {showContent === 'preference' && (
-                <div style={{ background: '#1c1c1c', borderRadius: '20px', padding: '20px', border: '1px solid #333' }}>
-                  <div style={{ textAlign: 'center', marginBottom: '16px' }}>
-                    <span style={{ fontSize: '28px' }}>🎯</span>
-                    <h3 style={{ color: '#fff', fontSize: '16px', margin: '8px 0 4px 0', fontWeight: '500' }}>偏好设定</h3>
+              {showContent === 'preference' && appMode === 'general' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', width: '100%' }}>
+
+                  {/* 🧘 1. 顶部：安神吸气呼吸球（保留您最喜欢的丝滑呼吸动态） */}
+                  <div style={{
+                    background: 'rgba(255,255,255,0.02)',
+                    border: '1px solid rgba(255,255,255,0.04)',
+                    borderRadius: '24px',
+                    padding: '24px',
+                    textAlign: 'center',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center'
+                  }}>
+                    <div style={{
+                      width: '80px',
+                      height: '80px',
+                      borderRadius: '50%',
+                      background: 'rgba(76, 175, 80, 0.08)',
+                      border: '1.5px solid rgba(76, 175, 80, 0.3)',
+                      boxShadow: '0 0 30px rgba(76, 175, 80, 0.1)',
+                      // 🌟 注入原生 CSS 呼吸动效，无限温柔闪烁，安抚情绪
+                      animation: 'pulse 4s infinite ease-in-out',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      marginBottom: '16px'
+                    }}>
+                      <span style={{ fontSize: '24px' }}>🌬️</span>
+                    </div>
+                    <h4 style={{ color: '#fff', fontSize: '14px', margin: '0 0 6px 0', fontWeight: 'bold' }}>
+                      {targetLanguage === 'en' ? 'Somatic Self-Care Space' : '自愈表达模式已就绪'}
+                    </h4>
+                    <p style={{ color: '#666', fontSize: '11px', margin: 0, lineHeight: '1.5' }}>
+                      {targetLanguage === 'en'
+                        ? 'Paint your pelvic discomfort with dynamic somatic brushes.'
+                        : '稍后您将在画布中，通过拧、刺、压、胀、撕 5 种具身体感画笔倾诉您的痛苦。'}
+                    </p>
                   </div>
 
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                    <div>
-                      <p style={{ color: '#888', fontSize: '12px', marginBottom: '12px', textAlign: 'center' }}>痛经时，您希望他人怎么做？</p>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                        {['alone', 'care', 'comfort'].map((p, i) => (
-                          <button key={p} onClick={() => togglePref(p)} style={{
-                            padding: '14px', borderRadius: '14px', textAlign: 'center',
-                            background: userPrefs.includes(p) ? 'rgba(211, 47, 47, 0.1)' : '#111',
-                            border: userPrefs.includes(p) ? '1.5px solid #d32f2f' : '1.5px solid #333',
-                            color: userPrefs.includes(p) ? '#fff' : '#888',
-                            cursor: 'pointer', transition: 'all 0.2s',
-                            fontSize: '14px', fontWeight: userPrefs.includes(p) ? 'bold' : 'normal'
-                          }}>
-                            {t(`onboarding.preferences.${i}.title`)}
-                          </button>
-                        ))}
-                      </div>
+                  {/* 🎨 2. 中部：具身痛觉画笔矩阵，丰富页面元素，拒绝单调空旷 */}
+                  <div style={{
+                    background: '#121212',
+                    border: '1px solid #222',
+                    borderRadius: '20px',
+                    padding: '20px'
+                  }}>
+                    <h4 style={{ color: '#4caf50', fontSize: '13px', margin: '0 0 14px 0', fontWeight: 'bold' }}>
+                      🖌️ {targetLanguage === 'en' ? 'Somatic Brushes' : '即将启用的痛觉画笔质地：'}
+                    </h4>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                      {[
+                        { key: 'twist', emoji: '🌀', label: '绞 / 拧' },
+                        { key: 'pierce', emoji: '⚡', label: '针 / 刺' },
+                        { key: 'heavy', emoji: '🪨', label: '坠 / 压' },
+                        { key: 'wave', emoji: '〰️', label: '胀 / 闷' }
+                      ].map(item => (
+                        <div key={item.key} style={{
+                          background: 'rgba(255,255,255,0.01)',
+                          border: '1px solid rgba(255,255,255,0.03)',
+                          borderRadius: '12px',
+                          padding: '12px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '10px'
+                        }}>
+                          <span style={{ fontSize: '18px' }}>{item.emoji}</span>
+                          <span style={{ color: '#bbb', fontSize: '12px', fontWeight: '500' }}>
+                            {t(`brushes.${item.key}.label`)}
+                          </span>
+                        </div>
+                      ))}
                     </div>
+                  </div>
 
-                    <div>
-                      <p style={{ color: '#888', fontSize: '12px', marginBottom: '8px', textAlign: 'center' }}>
-                        智能转译语言语气
-                      </p>
-                      <div style={{ display: 'flex', gap: '12px' }}>
-                        <button onClick={() => setTonePreference('gentle')} style={{
-                          flex: 1, padding: '12px', borderRadius: '12px', fontSize: '14px', cursor: 'pointer',
-                          background: tonePreference === 'gentle' ? 'rgba(76, 175, 80, 0.15)' : '#111',
-                          color: tonePreference === 'gentle' ? '#fff' : '#888',
-                          border: tonePreference === 'gentle' ? '1.5px solid #4caf50' : '1.5px solid #333'
+                  {/* 🎯 3. 下部：干预照护偏好配置 */}
+                  <div style={{ background: '#1c1c1c', borderRadius: '20px', padding: '20px', border: '1px solid #333' }}>
+                    <p style={{ color: '#888', fontSize: '11.5px', marginBottom: '14px', textAlign: 'center' }}>
+                      {t('onboarding.preferenceHint')}
+                    </p>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                      {['alone', 'care', 'comfort'].map((p, i) => (
+                        <button key={p} onClick={() => togglePref(p)} style={{
+                          padding: '12px 14px', borderRadius: '12px', textAlign: 'center',
+                          background: userPrefs.includes(p) ? 'rgba(76, 175, 80, 0.08)' : '#111',
+                          border: userPrefs.includes(p) ? '1.5px solid #4caf50' : '1.5px solid #333',
+                          color: userPrefs.includes(p) ? '#fff' : '#888',
+                          cursor: 'pointer', transition: 'all 0.2s',
+                          fontSize: '13px', fontWeight: userPrefs.includes(p) ? 'bold' : 'normal'
                         }}>
-                          {t('onboarding.toneGentle')}
+                          {t(`onboarding.preferences.${i}.title`)}
                         </button>
-                        <button onClick={() => setTonePreference('direct')} style={{
-                          flex: 1, padding: '12px', borderRadius: '12px', fontSize: '14px', cursor: 'pointer',
-                          background: tonePreference === 'direct' ? 'rgba(33, 150, 243, 0.15)' : '#111',
-                          color: tonePreference === 'direct' ? '#fff' : '#888',
-                          border: tonePreference === 'direct' ? '1.5px solid #2196f3' : '1.5px solid #333'
-                        }}>
-                          {t('onboarding.toneDirect')}
-                        </button>
-                      </div>
+                      ))}
                     </div>
                   </div>
                 </div>
@@ -5314,11 +5407,14 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
           </div>
         )}
         {/* BreathingGuide 挂载点 */}
+        {/* App.jsx 底部挂载处修改 */}
         <SomaticHealingSpace
           isOpen={healingState.isOpen}
           activeTab={healingState.activeTab}
           onClose={() => setHealingState(prev => ({ ...prev, isOpen: false }))}
           language={targetLanguage}
+          // 🌟 传入主导痛觉大标（如“痉挛性收缩绞痛”），便于生成格式化帖子
+          dominantPainName={t(`painNames.${getDominantPain()}`) || "绞痛"}
           aiSelfCareTips={
             currentReportData?.selfCare && Array.isArray(currentReportData.selfCare)
               ? currentReportData.selfCare
@@ -5326,6 +5422,33 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
                 ? currentReportData.selfCare.split('\n').filter(Boolean)
                 : [])
           }
+          // 🌟 核心：打通闭合回响！接收自愈舱一键分享，自动向 JSONBin 及本地发帖
+          onPublishSharedTip={async (shareText, activeTabKey) => {
+            const dominant = getDominantPain();
+            const newPost = {
+              text: shareText,
+              img: imgUrl || "", // 自动携带绘制的痛觉图像
+              painTags: [dominant],
+              group: "friend", // 默认归入社交好友/推托圈子
+              analogy: getEditedOrDefault('analogy', currentReportData?.analogy || ""),
+              lang: targetLanguage,
+              likes: 1, // 自己发布默认给 1 个赞支持
+              hugs: 0,
+              helpfulVotes: 1, // 🌟 初始获得 1 个“亲测有用”标记！
+              userExperience: shareText,
+              experienceTags: [t(`painNames.${dominant}`), "自愈缓解"]
+            };
+
+            // 发布到云端（JSONBin）
+            const updatedPosts = await publishToCommunity(newPost);
+            if (updatedPosts) {
+              setPosts(updatedPosts);
+            } else {
+              // 降级本地写入，防止断网时丢失
+              setPosts(prev => [{ ...newPost, id: Date.now(), createdAt: new Date().toISOString() }, ...prev]);
+            }
+            showToast("shareSuccess");
+          }}
         />
         {/* === 全局 Loading 遮罩层 === */}
         {isLoading && (
