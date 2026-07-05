@@ -763,24 +763,48 @@ You are an expert clinical gynecological medical assistant. Translate the visual
         if start != -1 and end != -1:
             cleaned_text = cleaned_text[start : end + 1]
 
+        # 解析出的大模型 JSON
         parsed_json = json.loads(cleaned_text, strict=False)
+        print("✅ JSON 解析成功，进入前后端数据双向安全合并环路...")
 
-        print("✅ JSON 解析成功且符合 Few-Shot 门诊标准病历模版!")
+        # 获取默认的医学降级包，作为 LLM 漏掉/生成空字段时的强力兜底
+        fb = _fallback_response(lang, painkiller)
 
+        # 辅助清理函数：确保 LLM 生成的列表或字符串非空
+        def get_safe_field(json_data, key, fallback_val):
+            val = json_data.get(key)
+            if not val:
+                return fallback_head_or_val(fallback_body=fallback, key=key)
+            if isinstance(val, list) and len(val) == 0:
+                return fallback_body_list(fallback, key)
+            if isinstance(val, str) and not val.strip():
+                return fallback_val_str(fallback, key)
+            return val
+
+        def fallback_head_or_val(fallback_body, key):
+            return fallback_body.get(key, "")
+
+        def fallback_body_list(fallback_body, key):
+            return fallback_body.get(key, [])
+
+        def fallback_val_str(fallback_body, key):
+            return fallback_body.get(key, "")
+
+        # 智能合并（LLM 成功则用 LLM，漏掉或生成空则用本地数据）
         return {
             "status": "success",
             "language": lang,
-            "chief_complaint": parsed_json.get("chief_complaint", ""),
-            "present_illness": parsed_json.get("present_illness", ""),
-            "past_history": parsed_json.get("past_history", ""),
-            "menstrual_history": parsed_json.get("menstrual_history", ""),
-            "clinical_diagnosis": parsed_json.get("clinical_diagnosis", ""),
-            "clinical_suggestions": parsed_json.get("clinical_suggestions", ""),
-            "analogy": parsed_json.get("analogy", ""),
-            "work": parsed_json.get("work", ""),
-            "action": parsed_json.get("action", []),
-            "selfCare": parsed_json.get("selfCare", []),
-            # 规则强保障模块
+            "chief_complaint": get_safe_field(parsed_json, "chief_complaint", fb["chief_complaint"]),
+            "present_illness": get_safe_field(parsed_json, "present_illness", fb["present_illness"]),
+            "past_history": get_safe_field(parsed_json, "past_history", fb["past_history"]),
+            "menstrual_history": get_safe_field(parsed_json, "menstrual_history", fb["menstrual_history"]),
+            "clinical_diagnosis": get_safe_field(parsed_json, "clinical_diagnosis", fb["clinical_diagnosis"]),
+            "clinical_suggestions": get_safe_field(parsed_json, "clinical_suggestions", fb["clinical_suggestions"]),
+            "analogy": get_safe_field(parsed_json, "analogy", fb["analogy"]),
+            "work": get_safe_field(parsed_json, "work", fb["work"]),
+            "action": get_safe_field(parsed_json, "action", fb["action"]),
+            "selfCare": get_safe_field(parsed_json, "selfCare", fb["selfCare"]),
+            # 规则强保障物理特征
             "pain_location": pain_location_desc,
             "accompanying_symptoms": accompanying_desc,
             "risk_warning": risk_warning,

@@ -3626,105 +3626,146 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
                     </>
                   )}
 
-                  {identity === 'doctor' && (
-                    <>
-                      <div style={{ borderBottom: '1px solid #333', marginBottom: '15px', paddingBottom: '8px' }}>
-                        <h3 style={{ color: '#2196f3', margin: '0 0 5px 0' }}>{t('result.doctor.title')}</h3>
-                        <p style={{ color: '#ef5350', fontSize: '11px', lineHeight: '1.4', margin: 0, fontWeight: 'bold' }}>
-                          {t('result.doctor.disclaimer')}
-                        </p>
-                      </div>
-
-                      {/* 主诉 */}
-                      <div style={{ marginBottom: '12px' }}>
-                        <h4 style={{ color: '#90caf9', fontSize: '13px' }}>📋 主诉</h4>
-                        <EditableBlock fieldKey="chief_complaint" defaultValue={content.chief_complaint} color="#fff" />
-                      </div>
-
-                      <div style={{ marginBottom: '12px', background: 'rgba(33,150,243,0.05)', padding: '10px', borderRadius: '12px', borderLeft: '3.5px solid #2196f3' }}>
-                        <h4 style={{ color: '#90caf9', fontSize: '13px' }}>{t('result.doctor.clinicalAdvice')}</h4>
-                        <EditableBlock fieldKey="clinical_diagnosis" defaultValue={content.clinical_diagnosis} color="#ffcdd2" />
-                      </div>
-
-                      {content.exam_advice && (
-                        <div style={{ marginBottom: '12px', padding: '12px', background: 'rgba(33,150,243,0.08)', borderRadius: '8px' }}>
-                          <h4 style={{ color: '#90caf9', fontSize: '13px' }}>{t('result.doctor.discussReference')}</h4>
-                          <p style={{ color: '#fff', fontSize: '13px', fontWeight: 'bold' }}>{content.exam_advice.name}</p>
-                          <p style={{ color: '#aaa', fontSize: '12px', marginTop: '6px' }}>📋 准备：{content.exam_advice.preparation}</p>
-                          {/* ... */}
+                  {/* === 医疗就诊沟通辅助单 (三甲医院标准病历排版) === */}
+                    {identity === 'doctor' && (
+                      <>
+                        {/* 头部合规免责声明 */}
+                        <div style={{ borderBottom: '1px solid #2d2d2d', marginBottom: '20px', paddingBottom: '12px' }}>
+                          <h3 style={{ color: '#2196f3', margin: '0 0 6px 0', fontSize: '18px', fontWeight: 'bold' }}>
+                            {t('result.doctor.title')}
+                          </h3>
+                          <p style={{ color: '#ff9800', fontSize: '11px', lineHeight: '1.5', margin: 0, fontWeight: '500', background: 'rgba(255,152,0,0.05)', padding: '10px', borderRadius: '8px', border: '1px solid rgba(255,152,0,0.15)' }}>
+                            {t('result.doctor.disclaimer')}
+                          </p>
                         </div>
-                      )}
-                      <div style={{ marginBottom: '12px' }}>
-                        <h4 style={{ color: '#90caf9', fontSize: '13px' }}>💊 临床建议</h4>
-                        <EditableBlock fieldKey="clinical_suggestions" defaultValue={content.clinical_suggestions} color="#ccc" />
-                      </div>
 
-                      {content.health_tips_link && (
-                        <div style={{ marginTop: '15px', padding: '8px', background: 'rgba(156,39,176,0.08)', borderRadius: '8px' }}>
-                          <p style={{ color: '#ce93d8', fontSize: '11px', margin: 0 }}>{content.health_tips_link}</p>
+                        {/* 1. 📋 主诉 */}
+                        <div style={{ marginBottom: '18px', background: '#151515', padding: '14px', borderRadius: '12px', border: '1px solid #2a2a2a' }}>
+                          <h4 style={{ color: '#90caf9', fontSize: '13px', margin: '0 0 10px 0', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: '600' }}>
+                            <span>📋</span> 主诉 (Chief Complaint)
+                          </h4>
+                          <EditableBlock fieldKey="chief_complaint" defaultValue={content.chief_complaint} color="#fff" style={{ fontSize: '14px', lineHeight: '1.6' }} />
                         </div>
-                      )}
 
-                      <div style={{ marginTop: '25px', paddingTop: '15px', borderTop: '1px solid #333' }}>
-                        <p style={{ color: '#888', fontSize: '12px', margin: '0 0 10px 0' }}>{t('result.refine.prompt')}</p>
+                        {/* 2. 📝 现病史 (大模型痛感机制深度转译，补齐渲染) */}
+                        <div style={{ marginBottom: '18px', background: '#151515', padding: '14px', borderRadius: '12px', border: '1px solid #2a2a2a' }}>
+                          <h4 style={{ color: '#90caf9', fontSize: '13px', margin: '0 0 10px 0', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: '600' }}>
+                            <span>📝</span> 现病史及痛感机制分析 (History of Present Illness)
+                          </h4>
+                          <EditableBlock fieldKey="present_illness" defaultValue={content.present_illness} color="#eee" style={{ fontSize: '13.5px', lineHeight: '1.6' }} />
+                        </div>
 
-                        {/* 选择具体优化哪个医疗字段 */}
-                        <div style={{ display: 'flex', gap: '8px', marginBottom: '10px' }}>
-                          {[
-                            { key: 'chief_complaint', label: '优化主诉' },
-                            { key: 'present_illness', label: '优化机制分析' },
-                            { key: 'clinical_suggestions', label: '优化就诊建议' }
-                          ].map(item => (
-                            <button
-                              key={item.key}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setRefineTargetField(item.key);
+                        {/* 3. 📂 既往史及常态暴露风险 (补齐渲染) */}
+                        <div style={{ marginBottom: '18px', background: '#151515', padding: '14px', borderRadius: '12px', border: '1px solid #2a2a2a' }}>
+                          <h4 style={{ color: '#90caf9', fontSize: '13px', margin: '0 0 10px 0', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: '600' }}>
+                            <span>📂</span> 既往史及个人习惯风险 (Past History)
+                          </h4>
+                          <EditableBlock fieldKey="past_history" defaultValue={content.past_history} color="#ccc" style={{ fontSize: '13px', lineHeight: '1.6' }} />
+                        </div>
+
+                        {/* 4. 🌸 月经及孕产史 (补齐渲染) */}
+                        <div style={{ marginBottom: '18px', background: '#151515', padding: '14px', borderRadius: '12px', border: '1px solid #2a2a2a' }}>
+                          <h4 style={{ color: '#90caf9', fontSize: '13px', margin: '0 0 10px 0', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: '600' }}>
+                            <span>🌸</span> 月经及孕产史 (Menstrual History)
+                          </h4>
+                          <EditableBlock fieldKey="menstrual_history" defaultValue={content.menstrual_history} color="#ccc" style={{ fontSize: '13px', lineHeight: '1.6' }} />
+                        </div>
+
+                        {/* 5. 🩺 潜在临床指征排查方向 */}
+                        <div style={{ marginBottom: '18px', background: 'rgba(33,150,243,0.04)', padding: '14px', borderRadius: '12px', borderLeft: '4px solid #2196f3', borderTop: '1px solid #222', borderRight: '1px solid #222', borderBottom: '1px solid #222' }}>
+                          <h4 style={{ color: '#90caf9', fontSize: '13px', margin: '0 0 10px 0', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: '600' }}>
+                            <span>🩺</span> {t('result.doctor.clinicalAdvice')}
+                          </h4>
+                          <EditableBlock fieldKey="clinical_diagnosis" defaultValue={content.clinical_diagnosis} color="#ffcdd2" style={{ fontSize: '13.5px', lineHeight: '1.6', fontWeight: '500' }} />
+                        </div>
+
+                        {/* 6. 🔬 建议就诊讨论要点（含联合检查） */}
+                        {content.exam_advice && (
+                          <div style={{ marginBottom: '18px', padding: '14px', background: 'rgba(33,150,243,0.06)', borderRadius: '12px', border: '1px solid rgba(33,150,243,0.15)' }}>
+                            <h4 style={{ color: '#90caf9', fontSize: '13.5px', margin: '0 0 10px 0', fontWeight: '600' }}>
+                              <span>🔬</span> {t('result.doctor.discussReference')}
+                            </h4>
+                            <p style={{ color: '#fff', fontSize: '14px', fontWeight: 'bold', margin: '0 0 8px 0' }}>{content.exam_advice.name}</p>
+                            <p style={{ color: '#aaa', fontSize: '12.5px', marginTop: '6px', lineHeight: '1.5' }}>📋 准备：{content.exam_advice.preparation}</p>
+                            <p style={{ color: '#4caf50', fontSize: '12px', marginTop: '6px', lineHeight: '1.5' }}>{content.exam_advice.note}</p>
+                            {content.exam_advice.alternative && (
+                              <p style={{ color: '#ffb74d', fontSize: '12px', marginTop: '10px', whiteSpace: 'pre-wrap', lineHeight: '1.6', borderTop: '1px dashed rgba(255,255,255,0.08)', paddingTop: '8px' }}>
+                                {content.exam_advice.alternative}
+                              </p>
+                            )}
+                          </div>
+                        )}
+
+                        {/* 7. 💊 临床就诊建议 */}
+                        <div style={{ marginBottom: '18px', background: '#151515', padding: '14px', borderRadius: '12px', border: '1px solid #2a2a2a' }}>
+                          <h4 style={{ color: '#90caf9', fontSize: '13px', margin: '0 0 10px 0', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: '600' }}>
+                            <span>💊</span> 临床干预调理方向 (Clinical Recommendations)
+                          </h4>
+                          <EditableBlock fieldKey="clinical_suggestions" defaultValue={content.clinical_suggestions} color="#ccc" style={{ fontSize: '13px', lineHeight: '1.6' }} />
+                        </div>
+
+                        {/* 临床科普宣教链接 */}
+                        {content.health_tips_link && (
+                          <div style={{ marginTop: '15px', padding: '10px', background: 'rgba(33,150,243,0.05)', borderRadius: '8px', border: '1px solid rgba(33,150,243,0.1)' }}>
+                            <p style={{ color: '#90caf9', fontSize: '11px', margin: 0, wordBreak: 'break-all', lineHeight: '1.4' }}>{content.health_tips_link}</p>
+                          </div>
+                        )}
+
+                        {/* AI 医生报告深度优化区 */}
+                        <div style={{ marginTop: '25px', paddingTop: '15px', borderTop: '1px solid #333' }}>
+                          <p style={{ color: '#888', fontSize: '12px', margin: '0 0 10px 0' }}>{t('result.refine.prompt')}</p>
+
+                          {/* 选择优化目标字段 */}
+                          <div style={{ display: 'flex', gap: '8px', marginBottom: '10px' }}>
+                            {[
+                              { key: 'chief_complaint', label: '优化主诉' },
+                              { key: 'present_illness', label: '优化机制分析' },
+                              { key: 'clinical_suggestions', label: '优化干预建议' }
+                            ].map(item => (
+                              <button
+                                key={item.key}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setRefineTargetField(item.key);
+                                }}
+                                style={{
+                                  flex: 1, padding: '6px 0', fontSize: '11px', borderRadius: '6px', border: 'none', cursor: 'pointer',
+                                  background: refineTargetField === item.key ? '#2196f3' : '#222',
+                                  color: refineTargetField === item.key ? '#fff' : '#888',
+                                  transition: 'all 0.2s'
+                                }}
+                              >
+                                {item.label}
+                              </button>
+                            ))}
+                          </div>
+
+                          <div style={{ display: 'flex', gap: '8px' }}>
+                            <input
+                              placeholder={getRefinePlaceholder('doctor')}
+                              value={refineInput}
+                              onChange={(e) => setRefineInput(e.target.value)}
+                              style={{ flex: 1, background: '#111', border: '1px solid #333', color: '#fff', borderRadius: '8px', padding: '10px', fontSize: '12px' }}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') handleRefine(refineTargetField);
                               }}
+                            />
+                            <button
+                              onClick={() => handleRefine(refineTargetField)}
+                              disabled={refiningField === refineTargetField}
                               style={{
-                                flex: 1,
-                                padding: '6px 0',
-                                fontSize: '11.5px',
-                                borderRadius: '6px',
-                                border: 'none',
-                                cursor: 'pointer',
-                                background: refineTargetField === item.key ? '#2196f3' : '#222',
-                                color: refineTargetField === item.key ? '#fff' : '#888',
-                                fontWeight: refineTargetField === item.key ? 'bold' : 'normal',
-                                transition: 'all 0.2s'
+                                background: refiningField === refineTargetField ? '#555' : '#2196f3',
+                                color: '#fff', border: 'none', borderRadius: '8px', padding: '0 15px',
+                                cursor: refiningField === refineTargetField ? 'not-allowed' : 'pointer',
+                                fontSize: '12px', whiteSpace: 'nowrap'
                               }}
                             >
-                              {item.label}
+                              {refiningField === refineTargetField ? t('result.refine.optimizing') : t('result.refine.optimize')}
                             </button>
-                          ))}
+                          </div>
                         </div>
-
-                        <div style={{ display: 'flex', gap: '8px' }}>
-                          <input
-                            placeholder={getRefinePlaceholder('doctor')}
-                            value={refineInput}
-                            onChange={(e) => setRefineInput(e.target.value)}
-                            style={{ flex: 1, background: '#111', border: '1px solid #333', color: '#fff', borderRadius: '8px', padding: '10px', fontSize: '12px' }}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter') handleRefine(refineTargetField);
-                            }}
-                          />
-                          <button
-                            onClick={() => handleRefine(refineTargetField)}
-                            disabled={refiningField === refineTargetField}
-                            style={{
-                              background: refiningField === refineTargetField ? '#555' : '#2196f3',
-                              color: '#fff', border: 'none', borderRadius: '8px', padding: '0 15px',
-                              cursor: refiningField === refineTargetField ? 'not-allowed' : 'pointer',
-                              fontSize: '12px', whiteSpace: 'nowrap'
-                            }}
-                          >
-                            {refiningField === refineTargetField ? t('result.refine.optimizing') : t('result.refine.optimize')}
-                          </button>
-                        </div>
-                      </div>
-                    </>
-                  )}
+                      </>
+                    )}
 
                   {identity === 'self' && (
                     <>
