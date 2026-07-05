@@ -790,18 +790,21 @@ You are an expert clinical gynecological medical assistant. Translate the visual
         }
 
     except Exception as e:
-        print(f"❌ 大模型处理报错，触发无缝安全降级。错误详情: {str(e)}")
+        error_msg = str(e)
+        print(f"❌ 大模型处理报错，触发无缝安全降级。错误详情: {error_msg}")
         fallback = _fallback_response(lang, painkiller)
-        fallback.update(
-            {
-                "pain_location": pain_location_desc,
-                "accompanying_symptoms": accompanying_desc,
-                "risk_warning": risk_warning,
-                "triage_advice": triage_advice,
-                "exam_advice": exam_advice,
-                "health_tips_link": health_tips_link,
-            }
-        )
+        
+        # === 【关键安全探针】：将真实报错信息送回前端，消除静默屏蔽 ===
+        fallback.update({
+            "is_fallback": True,
+            "error_detail": error_msg,
+            "pain_location": pain_location_desc,
+            "accompanying_symptoms": accompanying_desc,
+            "risk_warning": risk_warning,
+            "triage_advice": triage_advice,
+            "exam_advice": exam_advice,
+            "health_tips_link": health_tips_link,
+        })
         return fallback
 
 

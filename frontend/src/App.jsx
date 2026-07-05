@@ -5,8 +5,8 @@ import { I18nProvider, useI18n } from "./i18n/i18nContext";
 import { PAIN_NAME_MAP, BRUSHES, PALETTES, EXAM_DATABASE, QUOTES } from "./i18n/translationsConstants";
 
 const API_BASE = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
-    ? 'http://127.0.0.1:8000'
-    : 'https://painscape-api.onrender.com';
+  ? 'http://127.0.0.1:8000'
+  : 'https://painscape-api.onrender.com';
 
 
 class ErrorBoundary extends React.Component {
@@ -2195,13 +2195,29 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
         });
 
         clearTimeout(timeoutId);
+
         if (response.ok) {
           aiResult = await response.json();
+
+          // === 【诊断锁 1】：检测后端是否因大模型报错启动了静默降级 ===
+          if (aiResult && aiResult.is_fallback) {
+            console.warn("⚠️ 【大模型调用警告】：后端接口访问成功，但大模型引擎报错并启用了降级病历！");
+            console.warn("❌ 大模型具体报错原因 (来自 Render 容器):", aiResult.error_detail);
+          } else {
+            console.log("🎉 【大模型调用成功】：已成功获取大模型转译的深度病历数据！");
+          }
+
           setLlmData(aiResult);
           setCurrentReportData(aiResult);
+        } else {
+          // === 【诊断锁 2】：检测并打印 FastAPI 的 Pydantic 422/500 校验错误体 ===
+          const errBody = await response.json();
+          console.error(`❌ 【后端响应错误 (HTTP ${response.status})】：请求被 FastAPI 拒绝。校验失败详情:`, errBody);
+          setLlmData(null);
+          setCurrentReportData(null);
         }
       } catch (err) {
-        console.warn("后端解析请求失败，已转入本地混合规则引擎进行转译", err);
+        console.error("❌ 【网络连接失败】：无法穿透连接至 Render 服务器，转入本地模式", err);
         setLlmData(null);
         setCurrentReportData(null);
       }
@@ -3609,7 +3625,7 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
                       </div>
                     </>
                   )}
-                  
+
                   {identity === 'doctor' && (
                     <>
                       <div style={{ borderBottom: '1px solid #333', marginBottom: '15px', paddingBottom: '8px' }}>
