@@ -4,6 +4,11 @@ import Sketch from "react-p5";
 import { I18nProvider, useI18n } from "./i18n/i18nContext";
 import { PAIN_NAME_MAP, BRUSHES, PALETTES, EXAM_DATABASE, QUOTES } from "./i18n/translationsConstants";
 
+const API_BASE = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+    ? 'http://127.0.0.1:8000'
+    : 'https://painscape-api.onrender.com';
+
+
 class ErrorBoundary extends React.Component {
   state = { hasError: false };
   static getDerivedStateFromError() { return { hasError: true }; }
@@ -615,7 +620,7 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
       return null;
     }
   };
- 
+
   // === 【动态统计分类】：实时计算真实的帖子分布与周统计，剔除 Mock 数据 ===
   const getDynamicCommunityStats = () => {
     if (!posts || posts.length === 0) return { total: 0, topPainKey: 'twist' };
@@ -1316,12 +1321,12 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
   const [bgScale, setBgScale] = useState(1.0); // 范围 0.5 - 2.0
   const bgScaleRef = useRef(1.0);
 
-   const [tipVisible, setTipVisible] = useState(false);
+  const [tipVisible, setTipVisible] = useState(false);
   useEffect(() => {
-  setTipVisible(true);
-  const timer = setTimeout(() => setTipVisible(false), 1500);
-  return () => clearTimeout(timer);
-}, [bodyMode]);
+    setTipVisible(true);
+    const timer = setTimeout(() => setTipVisible(false), 1500);
+    return () => clearTimeout(timer);
+  }, [bodyMode]);
 
   useEffect(() => {
     bgScaleRef.current = bgScale;
@@ -2006,10 +2011,6 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
     const maxVal = Math.max(...Object.values(counts));
     return maxVal > 0 ? Object.keys(counts).reduce((a, b) => counts[a] > counts[b] ? a : b) : 'twist';
   };
-
-  const API_BASE = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
-    ? 'http://127.0.0.1:8000'
-    : 'https://painscape-api.onrender.com';
 
   const handleRefine = async (fieldKey) => {
     if (!refineInput.trim() || refiningField) return;
@@ -3608,8 +3609,7 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
                       </div>
                     </>
                   )}
-
-                  {/* 在 Result 页面的医生身份卡片（identity === 'doctor'）中，替换声明与小标题 */}
+                  
                   {identity === 'doctor' && (
                     <>
                       <div style={{ borderBottom: '1px solid #333', marginBottom: '15px', paddingBottom: '8px' }}>
@@ -3625,13 +3625,11 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
                         <EditableBlock fieldKey="chief_complaint" defaultValue={content.chief_complaint} color="#fff" />
                       </div>
 
-                      {/* 将原来的【临床诊断】替换为【潜在指征排查方向】 */}
                       <div style={{ marginBottom: '12px', background: 'rgba(33,150,243,0.05)', padding: '10px', borderRadius: '12px', borderLeft: '3.5px solid #2196f3' }}>
                         <h4 style={{ color: '#90caf9', fontSize: '13px' }}>{t('result.doctor.clinicalAdvice')}</h4>
                         <EditableBlock fieldKey="clinical_diagnosis" defaultValue={content.clinical_diagnosis} color="#ffcdd2" />
                       </div>
 
-                      {/* 将原来的【建议检查】标题换为【讨论要点】 */}
                       {content.exam_advice && (
                         <div style={{ marginBottom: '12px', padding: '12px', background: 'rgba(33,150,243,0.08)', borderRadius: '8px' }}>
                           <h4 style={{ color: '#90caf9', fontSize: '13px' }}>{t('result.doctor.discussReference')}</h4>
@@ -3640,6 +3638,75 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
                           {/* ... */}
                         </div>
                       )}
+                      <div style={{ marginBottom: '12px' }}>
+                        <h4 style={{ color: '#90caf9', fontSize: '13px' }}>💊 临床建议</h4>
+                        <EditableBlock fieldKey="clinical_suggestions" defaultValue={content.clinical_suggestions} color="#ccc" />
+                      </div>
+
+                      {content.health_tips_link && (
+                        <div style={{ marginTop: '15px', padding: '8px', background: 'rgba(156,39,176,0.08)', borderRadius: '8px' }}>
+                          <p style={{ color: '#ce93d8', fontSize: '11px', margin: 0 }}>{content.health_tips_link}</p>
+                        </div>
+                      )}
+
+                      <div style={{ marginTop: '25px', paddingTop: '15px', borderTop: '1px solid #333' }}>
+                        <p style={{ color: '#888', fontSize: '12px', margin: '0 0 10px 0' }}>{t('result.refine.prompt')}</p>
+
+                        {/* 选择具体优化哪个医疗字段 */}
+                        <div style={{ display: 'flex', gap: '8px', marginBottom: '10px' }}>
+                          {[
+                            { key: 'chief_complaint', label: '优化主诉' },
+                            { key: 'present_illness', label: '优化机制分析' },
+                            { key: 'clinical_suggestions', label: '优化就诊建议' }
+                          ].map(item => (
+                            <button
+                              key={item.key}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setRefineTargetField(item.key);
+                              }}
+                              style={{
+                                flex: 1,
+                                padding: '6px 0',
+                                fontSize: '11.5px',
+                                borderRadius: '6px',
+                                border: 'none',
+                                cursor: 'pointer',
+                                background: refineTargetField === item.key ? '#2196f3' : '#222',
+                                color: refineTargetField === item.key ? '#fff' : '#888',
+                                fontWeight: refineTargetField === item.key ? 'bold' : 'normal',
+                                transition: 'all 0.2s'
+                              }}
+                            >
+                              {item.label}
+                            </button>
+                          ))}
+                        </div>
+
+                        <div style={{ display: 'flex', gap: '8px' }}>
+                          <input
+                            placeholder={getRefinePlaceholder('doctor')}
+                            value={refineInput}
+                            onChange={(e) => setRefineInput(e.target.value)}
+                            style={{ flex: 1, background: '#111', border: '1px solid #333', color: '#fff', borderRadius: '8px', padding: '10px', fontSize: '12px' }}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') handleRefine(refineTargetField);
+                            }}
+                          />
+                          <button
+                            onClick={() => handleRefine(refineTargetField)}
+                            disabled={refiningField === refineTargetField}
+                            style={{
+                              background: refiningField === refineTargetField ? '#555' : '#2196f3',
+                              color: '#fff', border: 'none', borderRadius: '8px', padding: '0 15px',
+                              cursor: refiningField === refineTargetField ? 'not-allowed' : 'pointer',
+                              fontSize: '12px', whiteSpace: 'nowrap'
+                            }}
+                          >
+                            {refiningField === refineTargetField ? t('result.refine.optimizing') : t('result.refine.optimize')}
+                          </button>
+                        </div>
+                      </div>
                     </>
                   )}
 
