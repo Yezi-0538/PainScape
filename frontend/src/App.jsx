@@ -1578,7 +1578,37 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
       return () => { clearTimeout(timer1); clearTimeout(timer2); };
     }
   }, [page]);
-
+  // App.jsx 内部
+  // 🌟 核心修复：移动端画板防晃动及视口弹性手势锁定引擎
+  useEffect(() => {
+    if (page === 'canvas') {
+      // 进入画布页面，彻底锁死底层页面回弹和下拉刷新
+      document.body.style.overflow = 'hidden';
+      document.body.style.position = 'fixed'; // 针对 iOS Safari 的双重保障
+      document.body.style.width = '100%';
+      document.body.style.height = '100%';
+      document.body.style.overscrollBehavior = 'none';
+      document.documentElement.style.overflow = 'hidden';
+      document.documentElement.style.overscrollBehavior = 'none';
+    } else {
+      // 离开画布页面，完全恢复各子页面的自然滑动
+      document.body.style.overflow = '';
+      document.body.style.position = '';
+      document.body.style.width = '';
+      document.body.style.height = '';
+      document.body.style.overscrollBehavior = '';
+      document.documentElement.style.overflow = '';
+      document.documentElement.style.overscrollBehavior = '';
+    }
+    
+    // 销毁时恢复默认状态，防止内存泄漏
+    return () => {
+      document.body.style.overflow = '';
+      document.body.style.position = '';
+      document.body.style.overscrollBehavior = '';
+      document.documentElement.style.overflow = '';
+    };
+  }, [page]);
   useEffect(() => {
     if (page === 'community') {
       // 如果刚刚发布了帖子（hasLoadedCommunity 为真）且 posts 已经有数据，
