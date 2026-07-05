@@ -620,6 +620,7 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
   const JSONBIN_API_KEY = '$2a$10$tAISFkFwGQjiyJXWHNRTKOTqCND35OcoGtJxUvKYK5vdnxVKdyJqy';
   const JSONBIN_URL = `https://api.jsonbin.io/v3/b/${JSONBIN_BIN_ID}`;
 
+  const [generatedCardUrl, setGeneratedCardUrl] = useState(null);
   const loadCommunityPosts = async () => {
     try {
       const res = await fetch(`${JSONBIN_URL}/latest`, {
@@ -633,6 +634,57 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
       return null;
     }
   };
+  const [hasLoadedCommunity, setHasLoadedCommunity] = useState(false);
+  const getFallbackImgUrl = () => {
+  const canvas = document.createElement('canvas');
+  canvas.width = 300;
+  canvas.height = 300;
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#0f0f0f';
+  ctx.fillRect(0, 0, 300, 300);
+  ctx.strokeStyle = '#4caf50';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.arc(150, 150, 45, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.fillStyle = '#666';
+  ctx.font = '11px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText("PainScape Somatic Space", 150, 154);
+  return canvas.toDataURL("image/jpeg", 0.5);
+};
+  const dataURLtoBlob = (dataurl) => {
+    const arr = dataurl.split(',');
+    const mime = arr[0].match(/:(.*?);/)[1];
+    const bstr = atob(arr[1]);
+    let n = bstr.length;
+    const u8arr = new Uint8Array(n);
+    while (n--) {
+      u8arr[n] = bstr.charCodeAt(n);
+    }
+    return new Blob([u8arr], { type: mime });
+  };
+
+  const getContextTitle = (idty, recipient = 'manager') => {
+    const isEn = targetLanguage === 'en';
+    if (idty === 'partner') return isEn ? "Somatic Companion Guide" : "经期陪伴指南";
+
+    // 针对 work 场景下不同的身份角色，映射对应的卡片标题
+    if (idty === 'work') {
+      const recipientLabels = {
+        manager: isEn ? "Leave Request (To Manager)" : "体感请假条 (致领导)",
+        teacher: isEn ? "Leave Request (To Teacher)" : "体感请假条 (致老师)",
+        client: isEn ? "Leave Request (To Client)" : "体感请假条 (致客户)",
+        friend: isEn ? "Somatic Status (To Friend)" : "体感情况说明 (致朋友)"
+      };
+      return recipientLabels[recipient] || (isEn ? "Somatic Leave Statement" : "体感请假说明");
+    }
+
+    if (idty === 'doctor') return isEn ? "Clinical Consultation Aid" : "临床就诊协助单";
+    if (idty === 'self') return isEn ? "Self-Healing Somatic Log" : "自愈理疗手记";
+    return isEn ? "Somatic Pain Declaration" : "体感痛觉声明";
+  };
+
   const [leaveRecipient, setLeaveRecipient] = useState("manager"); // 'manager' | 'teacher' | 'client'
   const [leaveTone, setLeaveTone] = useState("polite"); // 'polite' | 'objective'
 
@@ -751,7 +803,8 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
 
   const [page, setPage] = useState("splash");
   const [appMode, setAppMode] = useState("medical"); // 'medical' (就诊协助) | 'general' (日常表达)
-
+  
+  const [viewingDiary, setViewingDiary] = useState(null);
   const [quote] = useState(() => {
     const quotes = t('splash.quotes', {});
     if (Array.isArray(quotes) && quotes.length > 0) {
@@ -809,15 +862,22 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
 
   // 监听语境接收人和语气偏好，并在多语言切换时实时动态转译
   useEffect(() => {
+  if (page === 'result' || page === 'history') {
+    // 动态提取当前激活的痛感名称
+    let activePain = "绞痛";
     if (page === 'result') {
-      const activePain = currentReportData?.pain || t(`painNames.${getDominantPain()}`) || "绞痛";
-      const template = t(`result.work.templates.${leaveRecipient}.${leaveTone}`);
-      if (template) {
-        const computedText = template.replace(/{{pain}}/g, activePain);
-        setEditedContents(prev => ({ ...prev, workText: computedText }));
-      }
+      activePain = currentReportData?.pain || t(`painNames.${getDominantPain()}`) || "绞痛";
+    } else if (page === 'history' && viewingDiary) {
+      activePain = viewingDiary.content?.pain || viewingDiary.painName || "绞痛";
     }
-  }, [leaveRecipient, leaveTone, page, targetLanguage, currentReportData]);
+
+    const template = t(`result.work.templates.${leaveRecipient}.${leaveTone}`);
+    if (template) {
+      const computedText = template.replace(/{{pain}}/g, activePain);
+      setEditedContents(prev => ({ ...prev, workText: computedText }));
+    }
+  }
+}, [leaveRecipient, leaveTone, page, targetLanguage, currentReportData, viewingDiary]);
   const captureFullCanvas = (side) => {
     const p5 = p5Ref.current;
     if (!p5) return document.createElement('canvas');
@@ -1226,106 +1286,173 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
   const [refineInput, setRefineInput] = useState('');
 
   const exportHistoryPDF = async () => {
-    if (history.length === 0) return showToast("noRecords");
-    setIsLoading(true);
-    showToast("pdfGenerating");
-    try {
-      const { jsPDF } = window.jspdf;
-      const doc = new jsPDF('p', 'mm', 'a4');
-      const pageWidth = doc.internal.pageSize.getWidth();
-      const pageHeight = doc.internal.pageSize.getHeight();
-      let yPos = 20;
+  if (history.length === 0) return showToast("noRecords");
+  setIsLoading(true);
+  showToast("pdfGenerating");
+  try {
+    const { jsPDF } = window.jspdf;
+    
+    // 初始化 A4 (210mm x 297mm) 标准尺寸文档
+    const doc = new jsPDF('p', 'mm', 'a4');
+    const pageWidth = 210;
+    const pageHeight = 297;
 
-      const checkPageBreak = (heightNeeded) => {
-        if (yPos + heightNeeded > pageHeight - 20) {
-          doc.addPage();
-          yPos = 20;
-          doc.setFontSize(8);
-          doc.setTextColor(150);
-          doc.text(t('pdf.disclaimer1'), pageWidth / 2, pageHeight - 10, { align: 'center' });
-        }
-      };
+    // 辅助函数：将单个日记记录转化为高清离屏画布图像，避免 jsPDF 字体乱码
+    const renderPageToCanvas = async (record, index) => {
+      const canvas = document.createElement('canvas');
+      // 保持 2x 高清印刷比例 (A4 黄金比例: 1:1.414)
+      canvas.width = 1200;
+      canvas.height = 1697;
+      const ctx = canvas.getContext('2d');
 
-      doc.setFontSize(24);
-      doc.setTextColor(40);
-      doc.text("PainScape", pageWidth / 2, 40, { align: 'center' });
+      // 背景粉刷
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-      doc.setFontSize(16);
-      doc.text("Patient Pain Profile", pageWidth / 2, 50, { align: 'center' });
+      // 页眉横线
+      ctx.strokeStyle = '#e0e0e0';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(80, 160);
+      ctx.lineTo(1120, 160);
+      ctx.stroke();
 
-      doc.setFontSize(12);
-      doc.setTextColor(100);
-      doc.text(`Report Range: ${history[history.length - 1].date} - ${history[0].date}`, pageWidth / 2, 65, { align: 'center' });
-      doc.text(`Total Records: ${history.length}`, pageWidth / 2, 73, { align: 'center' });
+      // 序号与日期
+      ctx.fillStyle = '#111111';
+      ctx.font = 'bold 36px "Microsoft YaHei", -apple-system, sans-serif';
+      ctx.fillText(`PainScape Patient Report - Record ${index + 1}`, 80, 100);
 
-      doc.setFontSize(10);
-      doc.setTextColor(150);
-      doc.text("This document is generated by AI based on patient's visual drawing.", pageWidth / 2, 90, { align: 'center' });
-      doc.text("Please present this to your gynecologist.", pageWidth / 2, 96, { align: 'center' });
+      ctx.fillStyle = '#666666';
+      ctx.font = '24px "Microsoft YaHei", sans-serif';
+      ctx.fillText(`Date: ${record.date} ${record.time || ''}`, 80, 145);
 
-      for (let i = 0; i < history.length; i++) {
-        const record = history[i];
-        doc.addPage();
-        yPos = 20;
+      // 主导痛觉
+      ctx.fillStyle = '#d32f2f';
+      ctx.font = 'bold 28px "Microsoft YaHei", sans-serif';
+      ctx.fillText(`Dominant Pain / 痛觉主导: ${record.painName || 'Unknown'}`, 80, 220);
 
-        doc.setFontSize(14);
-        doc.setTextColor(40);
-        doc.text(`Record ${i + 1}: ${record.date}`, 15, yPos);
-
-        doc.setFontSize(12);
-        doc.setTextColor(211, 47, 47);
-        doc.text(`Dominant Pain: ${record.painName || 'Unknown'}`, 15, yPos + 8);
-        yPos += 18;
-
-        if (record.img) {
-          try {
-            doc.addImage(record.img, 'JPEG', 15, yPos, 80, 80);
-            yPos += 85;
-          } catch (e) {
-            console.warn("图片加载失败", e);
-          }
-        }
-
-        checkPageBreak(40);
-        doc.setFontSize(11);
-        doc.setTextColor(80);
-        doc.text("Medical Complaint:", 15, yPos);
-        yPos += 6;
-
-        doc.setFontSize(10);
-        doc.setTextColor(120);
-        const complaintText = record.content?.med_complaint || "No data";
-        const splitComplaint = doc.splitTextToSize(complaintText, pageWidth - 30);
-        doc.text(splitComplaint, 15, yPos);
-        yPos += splitComplaint.length * 5 + 10;
-
-        checkPageBreak(30);
-        doc.setFontSize(11);
-        doc.setTextColor(80);
-        doc.text("Medical Reference:", 15, yPos);
-        yPos += 6;
-
-        doc.setFontSize(10);
-        doc.setTextColor(120);
-        const refText = (record.content?.med_reference || "No data").substring(0, 300);
-        const splitRef = doc.splitTextToSize(refText, pageWidth - 30);
-        doc.text(splitRef, 15, yPos);
-
-        doc.setFontSize(8);
-        doc.setTextColor(150);
-        doc.text("PainScape - Generated Report", pageWidth / 2, pageHeight - 10, { align: 'center' });
+      // 如果有痛觉图，则高质嵌入
+      let imageOffset = 0;
+      if (record.img) {
+        const img = new Image();
+        img.src = record.img;
+        await new Promise((resolve) => {
+          img.onload = () => {
+            const imgWidth = 480;
+            const imgHeight = 480;
+            const imgX = (canvas.width - imgWidth) / 2;
+            ctx.drawImage(img, imgX, 260, imgWidth, imgHeight);
+            
+            // 给绘图周边加上精美细灰色边框
+            ctx.strokeStyle = '#e0e0e0';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(imgX, 260, imgWidth, imgHeight);
+            resolve();
+          };
+          img.onerror = () => resolve();
+        });
+        imageOffset = 520; // 留出画板空间
       }
 
-      doc.save(`PainScape_Report_${new Date().toLocaleDateString().replace(/\//g, '-')}.pdf`);
-      showToast("pdfSuccess");
+      let textY = 260 + imageOffset + 40;
 
-    } catch (err) {
-      console.error("PDF 生成失败:", err);
-      showToast("pdfFailed");
-    } finally {
-      setIsLoading(false);
+      // 智能文字多行折行包装器，解决原本排版溢出和不换行的毛病
+      const drawSection = (title, text, color = '#333333') => {
+        ctx.fillStyle = '#555555';
+        ctx.font = 'bold 24px "Microsoft YaHei", sans-serif';
+        ctx.fillText(title, 80, textY);
+        textY += 38;
+
+        ctx.fillStyle = color;
+        ctx.font = '20px "Microsoft YaHei", sans-serif';
+        
+        const words = (text || 'No data').split('');
+        let line = '';
+        const maxW = canvas.width - 160; // 左右各留 80 边距
+
+        for (let n = 0; n < words.length; n++) {
+          let testLine = line + words[n];
+          let metrics = ctx.measureText(testLine);
+          if (metrics.width > maxW && n > 0) {
+            ctx.fillText(line, 80, textY);
+            line = words[n];
+            textY += 32;
+          } else {
+            line = testLine;
+          }
+        }
+        ctx.fillText(line, 80, textY);
+        textY += 70; // 预留区块下外边距
+      };
+
+      // 绘制主诉 (Complaint)
+      const complaintText = record.content?.chief_complaint || record.content?.med_complaint || "No data.";
+      drawSection("Medical Complaint / 门诊主诉:", complaintText, '#111111');
+
+      // 绘制现病史与自愈建议 (Present Illness / Healing reference)
+      const referenceText = record.content?.present_illness || record.content?.med_reference || "No data.";
+      drawSection("Clinical Reference & Somatic Pattern / 体感特征与临床病史:", referenceText, '#444444');
+
+      // 页脚签名
+      ctx.fillStyle = '#999999';
+      ctx.font = '16px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText("PainScape - Generated dynamically by Somatic AI Engine", canvas.width / 2, canvas.height - 60);
+
+      return canvas.toDataURL('image/jpeg', 0.85);
+    };
+
+    // 1. 生成并绘制漂亮的 PDF Cover 封面页
+    const coverCanvas = document.createElement('canvas');
+    coverCanvas.width = 1200;
+    coverCanvas.height = 1697;
+    const cCtx = coverCanvas.getContext('2d');
+    cCtx.fillStyle = '#ffffff';
+    cCtx.fillRect(0, 0, 1200, 1697);
+
+    cCtx.fillStyle = '#111111';
+    cCtx.font = 'bold 54px "Microsoft YaHei", sans-serif';
+    cCtx.textAlign = 'center';
+    cCtx.fillText("PainScape Patient Report", 600, 420);
+
+    cCtx.fillStyle = '#d32f2f';
+    cCtx.font = '28px sans-serif';
+    cCtx.fillText("Clinical History & Somatic Pain Profile", 600, 500);
+
+    cCtx.fillStyle = '#666666';
+    cCtx.font = '22px sans-serif';
+    cCtx.fillText(`Report Range: ${history[history.length - 1].date} - ${history[0].date}`, 600, 600);
+    cCtx.fillText(`Total Records Captured: ${history.length} somatic logs`, 600, 640);
+
+    cCtx.fillStyle = '#555555';
+    cCtx.font = '20px "Microsoft YaHei", sans-serif';
+    cCtx.fillText("本医疗沟通协助报告由 AI 整合痛觉体感映射画布生成。", 600, 880);
+    cCtx.fillText("就诊时请向您的妇科临床医师出示此报告进行病因筛查与讨论。", 600, 920);
+
+    cCtx.fillStyle = '#999999';
+    cCtx.font = '16px sans-serif';
+    cCtx.fillText("PainScape Co-resonate Project", 600, 1600);
+
+    const coverImg = coverCanvas.toDataURL('image/jpeg', 0.9);
+    doc.addImage(coverImg, 'JPEG', 0, 0, pageWidth, pageHeight);
+
+    // 2. 逐页生成患者的具体日记分析，并无缝写入 PDF
+    for (let i = 0; i < history.length; i++) {
+      doc.addPage();
+      const pageImg = await renderPageToCanvas(history[i], i);
+      doc.addImage(pageImg, 'JPEG', 0, 0, pageWidth, pageHeight);
     }
-  };
+
+    // 3. 安全保存文件
+    doc.save(`PainScape_Somatic_Report_${new Date().toLocaleDateString().replace(/\//g, '-')}.pdf`);
+    showToast("pdfSuccess");
+  } catch (err) {
+    console.error("PDF 导出发育故障:", err);
+    showToast("pdfFailed");
+  } finally {
+    setIsLoading(false);
+  }
+};
   const getDaysInMonth = (year, month) => {
     return new Date(year, month + 1, 0).getDate();
   };
@@ -1372,7 +1499,6 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
 
   const [postText, setPostText] = useState("");
   const [showPostModal, setShowPostModal] = useState(false);
-  const [viewingDiary, setViewingDiary] = useState(null);
   const [viewingPost, setViewingPost] = useState(null);
   const [groupFilter, setGroupFilter] = useState("all");
   const [painFilter, setPainFilter] = useState("all");
@@ -1406,14 +1532,15 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
   }, [page]);
 
   useEffect(() => {
-    if (page === 'community') {
+    if (page === 'community' && !hasLoadedCommunity) {
       loadCommunityPosts().then(cloudPosts => {
         if (cloudPosts && cloudPosts.length > 0) {
           setPosts(cloudPosts);
+          setHasLoadedCommunity(true);
         }
       });
     }
-  }, [page]);
+  }, [page, hasLoadedCommunity]);
 
   useEffect(() => {
     const pd = (e) => e.preventDefault();
@@ -1519,42 +1646,54 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
     return false;
   };
 
-  // 🌟 1. 重构：根据请假身份与语气，动态输出无泄漏的分享文案
-  const getFullShareText = (idty, content) => {
-    // 安全清洗 Markdown 符号
-    const safeAction = (content.action || '').replace(/☑️|✨|•/g, '•').trim();
-    const safeSelfCare = (content.selfCare || '').replace(/✨|•/g, '•').trim();
+ 
+const ensureString = (val) => {
+  if (val === null || val === undefined) return '';
+  if (Array.isArray(val)) return val.join('\n'); // 自动将数组元素按行拼接
+  if (typeof val === 'object') return JSON.stringify(val);
+  return String(val);
+};
 
-    switch (idty) {
-      case 'partner':
-        return `${t('shareText.partner.title')}\n${content.analogy || ''}\n\n${t('shareText.partner.action')}\n${safeAction}`;
-      case 'work':
-        // 动态获取当前用户在前端选择的请假身份文本，防止生成默认死模板
-        const activeLeaveText = getEditedOrDefault('workText', content.workText || '');
-        return `${t('shareText.work.title')}\n${activeLeaveText}`;
-      case 'doctor':
-        return `${t('shareText.doctor.title')}\n${t('shareText.doctor.complaint')}\n${getEditedOrDefault('chief_complaint', content.chief_complaint || '')}\n\n${t('shareText.doctor.reference')}\n${getEditedOrDefault('present_illness', content.present_illness || '')}`;
-      case 'self':
-        return `${t('shareText.self.title')}\n${content.analogy || ''}\n\n${t('shareText.self.solution')}\n${safeSelfCare}`;
-      default:
-        return "";
-    }
-  };
+// 2. 升级后的高防御性 getFullShareText 方法
+const getFullShareText = (idty, content) => {
+  const rawAction = ensureString(content.action);
+  const rawSelfCare = ensureString(content.selfCare);
+  const rawAnalogy = ensureString(content.analogy);
+  const rawWorkText = ensureString(content.workText);
 
-  // 🌟 2. 准备分享预览（精确同步当前的请假接收对象与语气）
+  // 安全进行正则替换，绝不报错
+  const safeAction = rawAction.replace(/☑️|✨|•/g, '•').trim();
+  const safeSelfCare = rawSelfCare.replace(/✨|•/g, '•').trim();
+
+  switch (idty) {
+    case 'partner':
+      return `${t('shareText.partner.title')}\n${rawAnalogy}\n\n${t('shareText.partner.action')}\n${safeAction}`;
+    case 'work':
+      const activeLeaveText = getEditedOrDefault('workText', rawWorkText);
+      return `${t('shareText.work.title')}\n${activeLeaveText}`;
+    case 'doctor':
+      return `${t('shareText.doctor.title')}\n${t('shareText.doctor.complaint')}\n${getEditedOrDefault('chief_complaint', ensureString(content.chief_complaint))}\n\n${t('shareText.doctor.reference')}\n${getEditedOrDefault('present_illness', ensureString(content.present_illness))}`;
+    case 'self':
+      return `${t('shareText.self.title')}\n${rawAnalogy}\n\n${t('shareText.self.solution')}\n${safeSelfCare}`;
+    default:
+      return "";
+  }
+};
+  //  准备分享预览（精确同步当前的请假接收对象与语气）
   const prepareSharePreview = (content) => {
     setShareContent({
       ...content,
       analogy: getEditedOrDefault('analogy', content.analogy),
       action: getEditedOrDefault('action', content.action),
-      workText: getEditedOrDefault('workText', content.workText), // 确保获取当前编辑后的内容
+      workText: getEditedOrDefault('workText', content.workText),
       selfCare: getEditedOrDefault('selfCare', content.selfCare),
-      identity: identity // 传入当前激活的 Tab 身份 (partner / work / doctor / self)
+      identity: identity,
+      // 注入当前选择的请假身份角色 (manager / teacher / client / friend)
+      leaveRecipient: leaveRecipient
     });
     setShowSharePreview(true);
   };
-
-  // 🌟 3. 微信级画板卡片高精细排版渲染引擎
+  // 微信级画板卡片高精细排版渲染引擎
   const confirmShare = async () => {
     if (!shareContent) return;
     setIsLoading(true);
@@ -1564,12 +1703,10 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
       const ctx = cvs.getContext('2d');
       const fullText = getFullShareText(shareContent.identity, shareContent);
 
-      // 高端微信海报黄金比例宽度与自适应高度计算
       cvs.width = 640;
       const textPadding = 40;
       const maxTextWidth = cvs.width - (textPadding * 2);
 
-      // 预估文字高度以防溢出
       ctx.font = '16px "Microsoft YaHei", -apple-system, sans-serif';
       const lines = [];
       fullText.split('\n').forEach(p => {
@@ -1588,26 +1725,25 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
 
       const cardBodyY = 560;
       const cardHeight = lines.length * 28 + 140;
-      cvs.height = cardBodyY + cardHeight + 100; // 总高度
+      cvs.height = cardBodyY + cardHeight + 100;
 
-      // 背景色：采用纯高级暗黑氛围
       ctx.fillStyle = '#0a0a0a';
       ctx.fillRect(0, 0, cvs.width, cvs.height);
 
-      // 加载绘制的痛感图谱
+      // 确保读取有效图片，没有则使用兜底图
+      const activeImgSrc = shareContent.historyImg || imgUrl || getFallbackImgUrl();
       const mainImg = new Image();
       await new Promise((resolve, reject) => {
         mainImg.onload = resolve;
         mainImg.onerror = reject;
-        mainImg.src = shareContent.historyImg || imgUrl;
+        mainImg.src = activeImgSrc;
       });
 
-      // 痛觉图谱：居中高对比度排版
       const imgDim = 480;
       const imgX = (cvs.width - imgDim) / 2;
       ctx.drawImage(mainImg, imgX, 40, imgDim, imgDim);
 
-      // 绘制圆角体感声明卡片（卡片外壳）
+      // 绘制圆角体感声明卡片（外壳）
       ctx.fillStyle = '#141414';
       ctx.strokeStyle = '#2d2d2d';
       ctx.lineWidth = 1;
@@ -1615,28 +1751,21 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
       ctx.fill();
       ctx.stroke();
 
-      // 卡片侧边装饰色条：根据不同身份 Tab 赋予不同视觉情绪色
       const barColors = {
-        partner: '#ef5350', // 伴侣：温暖红
-        work: '#ff9800',    // 请假：警戒橙
-        doctor: '#2196f3',  // 医生：科技蓝
-        self: '#9c27b0'     // 自愈：疗愈紫
+        partner: '#ef5350',
+        work: '#ff9800',
+        doctor: '#2196f3',
+        self: '#9c27b0'
       };
-      ctx.fillStyle = barColors[shareContent.identity] || '#ff9800';
-      ctx.fill();
 
-      // 绘制卡片标题
+      // 【绘制左侧条，避免无路径 ctx.fill() 导致卡片被纯色覆盖
+      ctx.fillStyle = barColors[shareContent.identity] || '#ff9800';
+      ctx.fillRect(45, cardBodyY + 28, 4, 22);
+
       ctx.fillStyle = '#ffffff';
       ctx.font = 'bold 18px "Microsoft YaHei", -apple-system, sans-serif';
-      const titleMap = {
-        partner: t('shareCard.titles.partner'),
-        work: t('shareCard.titles.work'),
-        doctor: t('shareCard.titles.doctor'),
-        self: t('shareCard.titles.self')
-      };
-      ctx.fillText(titleMap[shareContent.identity] || "PainScape 痛觉声明", 60, cardBodyY + 45);
+      ctx.fillText(getContextTitle(shareContent.identity), 60, cardBodyY + 45);
 
-      // 绘制卡片内部文字
       ctx.fillStyle = '#b0b0b0';
       ctx.font = '15px "Microsoft YaHei", -apple-system, sans-serif';
       let textY = cardBodyY + 85;
@@ -1645,32 +1774,24 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
         textY += 28;
       });
 
-      // 页脚：PainScape 署名
-      ctx.fillStyle = '#444444';
+      
+  const recipient = shareContent.leaveRecipient || 'manager';
+  const cardTitle = getContextTitle(shareContent.identity, recipient);
+  ctx.fillStyle = '#444444';
       ctx.font = '12px "Microsoft YaHei", sans-serif';
+     
+
+  ctx.font = 'bold 18px "Microsoft YaHei", -apple-system, sans-serif';
+  
+  // 3. 将其绘制在卡片中
+  ctx.fillText(cardTitle, 60, cardBodyY + 45);
       ctx.fillText("PainScape - 让不可见的痛苦被看见", 60, cvs.height - 40);
 
-      const finalUrl = cvs.toDataURL('image/jpeg', 0.9);
-      const blob = await (await fetch(finalUrl)).blob();
-      const file = new File([blob], 'painscape_share.jpg', { type: 'image/jpeg' });
-
-      // 唤起原生或执行保存下载
-      if (navigator.canShare && navigator.canShare({ files: [file] })) {
-        try {
-          await navigator.share({
-            title: t('sharePreview.shareTitle'),
-            files: [file]
-          });
-          setShowSharePreview(false);
-        } catch (e) {
-          if (e.name === 'AbortError') return;
-          downloadFallback(finalUrl);
-        }
-      } else {
-        downloadFallback(finalUrl);
-      }
+      const finalUrl = cvs.toDataURL('image/jpeg', 0.95);
+      setGeneratedCardUrl(finalUrl);
+      setShowSharePreview(false);
     } catch (e) {
-      console.error("生成微信分享卡片失败:", e);
+      console.error("生成卡片失败:", e);
       alert(t('toast.shareFailed'));
     } finally {
       setIsLoading(false);
@@ -2685,44 +2806,50 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
             margin: '0 auto'
           }}>
             <div style={{
-              display: 'flex',
-              background: '#141414',
-              borderRadius: '20px',
-              padding: '3px',
-              width: '100%',
-              maxWidth: '320px',
-              border: '1px solid #2d2d2d',
-              boxSizing: 'border-box',
-              marginTop: '10px',
-              marginBottom: '10px'
-            }}>
-              <button
-                onClick={() => setAppMode("medical")}
-                style={{
-                  flex: 1, padding: '8px 0', borderRadius: '16px', border: 'none', fontSize: '12px', cursor: 'pointer', fontWeight: 'bold',
-                  background: appMode === 'medical' ? '#d32f2f' : 'transparent',
-                  color: appMode === 'medical' ? '#fff' : '#666',
-                  transition: 'all 0.25s'
-                }}
-              >
-                🏥 {t('modeSelection.medicalTab').split(' ')[1] || '就诊协助'}
-              </button>
-              <button
-                onClick={() => {
-                  setAppMode("general");
-                  // 自动降级底图视图防止盲画数据干扰
-                  setBodyMode("front");
-                }}
-                style={{
-                  flex: 1, padding: '8px 0', borderRadius: '16px', border: 'none', fontSize: '12px', cursor: 'pointer', fontWeight: 'bold',
-                  background: appMode === 'general' ? '#4caf50' : 'transparent',
-                  color: appMode === 'general' ? '#fff' : '#666',
-                  transition: 'all 0.25s'
-                }}
-              >
-                🎨 {t('modeSelection.generalTab').split(' ')[1] || '日常表达'}
-              </button>
-            </div>
+  display: 'flex',
+  background: '#141414',
+  borderRadius: '20px',
+  padding: '3px',
+  width: '100%',
+  maxWidth: '320px',
+  border: '1px solid #2d2d2d',
+  boxSizing: 'border-box',
+  marginTop: '10px',
+  marginBottom: '10px'
+}}>
+  {/* 🏥 就诊协助按钮 */}
+  <button
+    onClick={() => {
+      setAppMode("medical");
+      setShowContent("basicInfo"); // 【关键修复点】：切换就诊时，强制跳转至第一步档案，让用户输入病史
+    }}
+    style={{
+      flex: 1, padding: '8px 0', borderRadius: '16px', border: 'none', fontSize: '12px', cursor: 'pointer', fontWeight: 'bold',
+      background: appMode === 'medical' ? '#d32f2f' : 'transparent',
+      color: appMode === 'medical' ? '#fff' : '#666',
+      transition: 'all 0.2s'
+    }}
+  >
+    🏥 {t('modeSelection.medicalTab').split(' ')[1] || '就诊协助'}
+  </button>
+  
+  {/* 🎨 日常表达按钮 */}
+  <button
+    onClick={() => {
+      setAppMode("general");
+      setBodyMode("front");
+      setShowContent("preference"); // 【关键修复点】：切换自愈时，强制跳转至第三步，直接展现照护与语气偏好选择！
+    }}
+    style={{
+      flex: 1, padding: '8px 0', borderRadius: '16px', border: 'none', fontSize: '12px', cursor: 'pointer', fontWeight: 'bold',
+      background: appMode === 'general' ? '#4caf50' : 'transparent',
+      color: appMode === 'general' ? '#fff' : '#666',
+      transition: 'all 0.2s'
+    }}
+  >
+    🎨 {t('modeSelection.generalTab').split(' ')[1] || '日常表达'}
+  </button>
+</div>
             {/* 使用提示控制按钮 */}
             <div style={{ position: 'absolute', top: '15px', right: '15px', zIndex: 10 }}>
               <button onClick={() => setShowGuide(!showGuide)}
@@ -3135,102 +3262,206 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
               )}
 
               {/* === STEP 3: 自愈与舒缓干预偏好 === */}
-              {showContent === 'preference' && appMode === 'general' && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', width: '100%' }}>
+              {showContent === 'preference' && (
+                appMode === 'general' ? (
+                  // 🎨 1. 日常表达/自愈模式：优雅的体感引导主屏（保留您喜欢的呼吸球、画笔介绍与偏好选择）
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', width: '100%' }}>
 
-                  {/* 🧘 1. 顶部：安神吸气呼吸球（保留您最喜欢的丝滑呼吸动态） */}
-                  <div style={{
-                    background: 'rgba(255,255,255,0.02)',
-                    border: '1px solid rgba(255,255,255,0.04)',
-                    borderRadius: '24px',
-                    padding: '24px',
-                    textAlign: 'center',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center'
-                  }}>
+                    {/* 安神吸气呼吸球 */}
                     <div style={{
-                      width: '80px',
-                      height: '80px',
-                      borderRadius: '50%',
-                      background: 'rgba(76, 175, 80, 0.08)',
-                      border: '1.5px solid rgba(76, 175, 80, 0.3)',
-                      boxShadow: '0 0 30px rgba(76, 175, 80, 0.1)',
-                      // 🌟 注入原生 CSS 呼吸动效，无限温柔闪烁，安抚情绪
-                      animation: 'pulse 4s infinite ease-in-out',
+                      background: 'rgba(255,255,255,0.02)',
+                      border: '1px solid rgba(255,255,255,0.04)',
+                      borderRadius: '24px',
+                      padding: '24px',
+                      textAlign: 'center',
                       display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      marginBottom: '16px'
+                      flexDirection: 'column',
+                      alignItems: 'center'
                     }}>
-                      <span style={{ fontSize: '24px' }}>🌬️</span>
+                      <div style={{
+                        width: '80px',
+                        height: '80px',
+                        borderRadius: '50%',
+                        background: 'rgba(76, 175, 80, 0.08)',
+                        border: '1.5px solid rgba(76, 175, 80, 0.3)',
+                        boxShadow: '0 0 30px rgba(76, 175, 80, 0.1)',
+                        animation: 'pulse 4s infinite ease-in-out',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        marginBottom: '16px'
+                      }}>
+                        <span style={{ fontSize: '24px' }}>🌬️</span>
+                      </div>
+                      <h4 style={{ color: '#fff', fontSize: '14px', margin: '0 0 6px 0', fontWeight: 'bold' }}>
+                        {targetLanguage === 'en' ? 'Somatic Self-Care Space' : '自愈表达模式已就绪'}
+                      </h4>
+                      <p style={{ color: '#666', fontSize: '11px', margin: 0, lineHeight: '1.5' }}>
+                        {targetLanguage === 'en'
+                          ? 'Paint your pelvic discomfort with dynamic somatic brushes later.'
+                          : '稍后您将在画布中，通过拧、刺、压、胀、撕 5 种具身体感画笔倾诉您的痛苦。'}
+                      </p>
                     </div>
-                    <h4 style={{ color: '#fff', fontSize: '14px', margin: '0 0 6px 0', fontWeight: 'bold' }}>
-                      {targetLanguage === 'en' ? 'Somatic Self-Care Space' : '自愈表达模式已就绪'}
-                    </h4>
-                    <p style={{ color: '#666', fontSize: '11px', margin: 0, lineHeight: '1.5' }}>
-                      {targetLanguage === 'en'
-                        ? 'Paint your pelvic discomfort with dynamic somatic brushes.'
-                        : '稍后您将在画布中，通过拧、刺、压、胀、撕 5 种具身体感画笔倾诉您的痛苦。'}
-                    </p>
-                  </div>
 
-                  {/* 🎨 2. 中部：具身痛觉画笔矩阵，丰富页面元素，拒绝单调空旷 */}
-                  <div style={{
-                    background: '#121212',
-                    border: '1px solid #222',
-                    borderRadius: '20px',
-                    padding: '20px'
-                  }}>
-                    <h4 style={{ color: '#4caf50', fontSize: '13px', margin: '0 0 14px 0', fontWeight: 'bold' }}>
-                      🖌️ {targetLanguage === 'en' ? 'Somatic Brushes' : '即将启用的痛觉画笔质地：'}
-                    </h4>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                      {[
-                        { key: 'twist', emoji: '🌀', label: '绞 / 拧' },
-                        { key: 'pierce', emoji: '⚡', label: '针 / 刺' },
-                        { key: 'heavy', emoji: '🪨', label: '坠 / 压' },
-                        { key: 'wave', emoji: '〰️', label: '胀 / 闷' }
-                      ].map(item => (
-                        <div key={item.key} style={{
-                          background: 'rgba(255,255,255,0.01)',
-                          border: '1px solid rgba(255,255,255,0.03)',
-                          borderRadius: '12px',
-                          padding: '12px',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '10px'
-                        }}>
-                          <span style={{ fontSize: '18px' }}>{item.emoji}</span>
-                          <span style={{ color: '#bbb', fontSize: '12px', fontWeight: '500' }}>
-                            {t(`brushes.${item.key}.label`)}
-                          </span>
-                        </div>
-                      ))}
+                    {/* 具身痛觉画笔矩阵 */}
+                    <div style={{
+                      background: '#121212',
+                      border: '1px solid #222',
+                      borderRadius: '20px',
+                      padding: '20px'
+                    }}>
+                      <h4 style={{ color: '#4caf50', fontSize: '13px', margin: '0 0 14px 0', fontWeight: 'bold' }}>
+                        🖌️ {targetLanguage === 'en' ? 'Somatic Brushes' : '即将启用的体感画笔质地：'}
+                      </h4>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                        {[
+                          { key: 'twist', emoji: '🌀' },
+                          { key: 'pierce', emoji: '⚡' },
+                          { key: 'heavy', emoji: '🪨' },
+                          { key: 'wave', emoji: '〰️' },
+                          { key: 'scrape', emoji: '🔪' },
+                        ].map(item => (
+                          <div key={item.key} style={{
+                            background: 'rgba(255,255,255,0.01)',
+                            border: '1px solid rgba(255,255,255,0.03)',
+                            borderRadius: '12px',
+                            padding: '12px 14px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px'
+                          }}>
+                            <span style={{ fontSize: '16px' }}>{item.emoji}</span>
+                            <span style={{ color: '#ccc', fontSize: '12px' }}>{t(`brushes.${item.key}.label`)}</span>
+                          </div>
+                        ))}
+                      </div>
                     </div>
-                  </div>
 
-                  {/* 🎯 3. 下部：干预照护偏好配置 */}
-                  <div style={{ background: '#1c1c1c', borderRadius: '20px', padding: '20px', border: '1px solid #333' }}>
-                    <p style={{ color: '#888', fontSize: '11.5px', marginBottom: '14px', textAlign: 'center' }}>
-                      {t('onboarding.preferenceHint')}
-                    </p>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                      {['alone', 'care', 'comfort'].map((p, i) => (
-                        <button key={p} onClick={() => togglePref(p)} style={{
-                          padding: '12px 14px', borderRadius: '12px', textAlign: 'center',
-                          background: userPrefs.includes(p) ? 'rgba(76, 175, 80, 0.08)' : '#111',
-                          border: userPrefs.includes(p) ? '1.5px solid #4caf50' : '1.5px solid #333',
-                          color: userPrefs.includes(p) ? '#fff' : '#888',
-                          cursor: 'pointer', transition: 'all 0.2s',
-                          fontSize: '13px', fontWeight: userPrefs.includes(p) ? 'bold' : 'normal'
-                        }}>
-                          {t(`onboarding.preferences.${i}.title`)}
+                    {/* 照护偏好 */}
+                    <div style={{ background: '#1c1c1c', borderRadius: '20px', padding: '20px', border: '1px solid #333' }}>
+                      <p style={{ color: '#888', fontSize: '11.5px', marginBottom: '14px', textAlign: 'center' }}>
+                        {t('onboarding.preferenceHint')}
+                      </p>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                        {['alone', 'care', 'comfort'].map((p, i) => (
+                          <button key={p} onClick={() => togglePref(p)} style={{
+                            padding: '12px 14px', borderRadius: '12px', textAlign: 'center',
+                            background: userPrefs.includes(p) ? 'rgba(76, 175, 80, 0.08)' : '#111',
+                            border: userPrefs.includes(p) ? '1.5px solid #4caf50' : '1.5px solid #333',
+                            color: userPrefs.includes(p) ? '#fff' : '#888',
+                            cursor: 'pointer', transition: 'all 0.2s',
+                            fontSize: '13px', fontWeight: userPrefs.includes(p) ? 'bold' : 'normal'
+                          }}>
+                            {t(`onboarding.preferences.${i}.title`)}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <div style={{ background: '#1c1c1c', borderRadius: '20px', padding: '20px', border: '1px solid #333' }}>
+        <p style={{ color: '#888', fontSize: '12px', marginBottom: '12px', textAlign: 'center' }}>
+          {t('onboarding.toneTitle') || '语气偏好倾向'}
+        </p>
+        <div style={{ display: 'flex', gap: '12px' }}>
+          <button
+            onClick={() => setTonePreference('gentle')}
+            style={{
+              flex: 1, padding: '12px', borderRadius: '12px', fontSize: '13px', cursor: 'pointer',
+              background: tonePreference === 'gentle' ? 'rgba(76, 175, 80, 0.15)' : '#111',
+              color: tonePreference === 'gentle' ? '#fff' : '#888',
+              border: tonePreference === 'gentle' ? '1.5px solid #4caf50' : '1.5px solid #333',
+              transition: 'all 0.2s'
+            }}
+          >
+            {t('onboarding.toneGentle') || '温和舒缓'}
+          </button>
+          <button
+            onClick={() => setTonePreference('direct')}
+            style={{
+              flex: 1, padding: '12px', borderRadius: '12px', fontSize: '13px', cursor: 'pointer',
+              background: tonePreference === 'direct' ? 'rgba(33, 150, 243, 0.15)' : '#111',
+              color: tonePreference === 'direct' ? '#fff' : '#888',
+              border: tonePreference === 'direct' ? '1.5px solid #2196f3' : '1.5px solid #333',
+              transition: 'all 0.2s'
+            }}
+          >
+            {t('onboarding.toneDirect') || '直接客观'}
+          </button>
+        </div>
+        <p style={{ color: '#555', fontSize: '11px', marginTop: '8px', textAlign: 'center', lineHeight: '1.4' }}>
+          {t('onboarding.toneHint') || '语气选择将决定AI为您推荐的自愈调理方案话术风格'}
+        </p>
+      </div>
+    </div>
+  ) : (
+                  // 🏥 2. 医疗协助模式：全量展示照护偏好 + 自愈转译语气选择（温和 / 直接）
+                  <div style={{ background: '#1c1c1c', borderRadius: '20px', padding: '20px', border: '1px solid #333', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+
+                    {/* 头部面板 */}
+                    <div style={{ textAlign: 'center' }}>
+                      <span style={{ fontSize: '28px' }}>🎯</span>
+                      <h3 style={{ color: '#fff', fontSize: '16px', margin: '8px 0 4px 0', fontWeight: '500' }}>
+                        {t('onboarding.step3')}
+                      </h3>
+                    </div>
+
+                    {/* 照护方式选择 */}
+                    <div>
+                      <p style={{ color: '#888', fontSize: '12px', marginBottom: '12px', textAlign: 'center' }}>
+                        {t('onboarding.preferenceHint')}
+                      </p>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                        {['alone', 'care', 'comfort'].map((p, i) => (
+                          <button key={p} onClick={() => togglePref(p)} style={{
+                            padding: '14px', borderRadius: '14px', textAlign: 'center',
+                            background: userPrefs.includes(p) ? 'rgba(211, 47, 47, 0.1)' : '#111',
+                            border: userPrefs.includes(p) ? '1.5px solid #d32f2f' : '1.5px solid #333',
+                            color: userPrefs.includes(p) ? '#fff' : '#888',
+                            cursor: 'pointer', transition: 'all 0.2s',
+                            fontSize: '13px', fontWeight: userPrefs.includes(p) ? 'bold' : 'normal'
+                          }}>
+                            {t(`onboarding.preferences.${i}.title`)}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* 🌟 语气偏好选择（完美保留并美化） */}
+                    <div style={{ borderTop: '1px solid #2d2d2d', paddingTop: '16px' }}>
+                      <p style={{ color: '#888', fontSize: '12px', marginBottom: '12px', textAlign: 'center' }}>
+                        {t('onboarding.toneTitle')}
+                      </p>
+                      <div style={{ display: 'flex', gap: '12px' }}>
+                        <button
+                          onClick={() => setTonePreference('gentle')}
+                          style={{
+                            flex: 1, padding: '12px', borderRadius: '12px', fontSize: '13px', cursor: 'pointer',
+                            background: tonePreference === 'gentle' ? 'rgba(76, 175, 80, 0.15)' : '#111',
+                            color: tonePreference === 'gentle' ? '#fff' : '#888',
+                            border: tonePreference === 'gentle' ? '1.5px solid #4caf50' : '1.5px solid #333',
+                            transition: 'all 0.2s'
+                          }}
+                        >
+                          {t('onboarding.toneGentle')}
                         </button>
-                      ))}
+                        <button
+                          onClick={() => setTonePreference('direct')}
+                          style={{
+                            flex: 1, padding: '12px', borderRadius: '12px', fontSize: '13px', cursor: 'pointer',
+                            background: tonePreference === 'direct' ? 'rgba(33, 150, 243, 0.15)' : '#111',
+                            color: tonePreference === 'direct' ? '#fff' : '#888',
+                            border: tonePreference === 'direct' ? '1.5px solid #2196f3' : '1.5px solid #333',
+                            transition: 'all 0.2s'
+                          }}
+                        >
+                          {t('onboarding.toneDirect')}
+                        </button>
+                      </div>
+                      <p style={{ color: '#555', fontSize: '11px', marginTop: '8px', textAlign: 'center', lineHeight: '1.4' }}>
+                        {t('onboarding.toneHint')}
+                      </p>
                     </div>
                   </div>
-                </div>
+                )
               )}
             </div>
 
@@ -3716,20 +3947,20 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
                 {/* 2. 陪伴/请假/就诊/自愈 场景多端分流 Tab 面板 */}
                 <div style={{ display: 'flex', gap: '8px', margin: '24px 0 16px 0', width: '100%', maxWidth: identity === 'doctor' ? '580px' : '380px', transition: 'max-width 0.25s cubic-bezier(0.4, 0, 0.2, 1)' }}>
                   {['partner', 'work', appMode === 'medical' && 'doctor', 'self'].filter(Boolean).map(tab => (
-                    <button 
-                      key={tab} 
-                      style={{ 
-                        flex: 1, 
-                        padding: '12px 0', 
-                        background: identity === tab ? '#222' : 'rgba(20,20,20,0.6)', 
-                        color: identity === tab ? '#fff' : '#666', 
-                        border: identity === tab ? '1.5px solid #444' : '1px solid #222', 
-                        borderRadius: '12px', 
-                        fontSize: '13px', 
+                    <button
+                      key={tab}
+                      style={{
+                        flex: 1,
+                        padding: '12px 0',
+                        background: identity === tab ? '#222' : 'rgba(20,20,20,0.6)',
+                        color: identity === tab ? '#fff' : '#666',
+                        border: identity === tab ? '1.5px solid #444' : '1px solid #222',
+                        borderRadius: '12px',
+                        fontSize: '13px',
                         fontWeight: identity === tab ? 'bold' : 'normal',
                         cursor: 'pointer',
                         transition: 'all 0.2s'
-                      }} 
+                      }}
                       onClick={() => setIdentity(tab)}
                     >
                       {t(`result.tabs.${tab}`)}
@@ -3738,15 +3969,15 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
                 </div>
 
                 {/* 3. 主内容卡片壳 (就诊标签页下宽屏化 580px 处理，其他页保持精美 380px) */}
-                <div 
-                  className="info-card" 
-                  style={{ 
-                    background: '#121212', 
-                    padding: '24px', 
-                    borderRadius: '20px', 
-                    width: '100%', 
-                    maxWidth: identity === 'doctor' ? '580px' : '380px', 
-                    border: '1px solid #222', 
+                <div
+                  className="info-card"
+                  style={{
+                    background: '#121212',
+                    padding: '24px',
+                    borderRadius: '20px',
+                    width: '100%',
+                    maxWidth: identity === 'doctor' ? '580px' : '380px',
+                    border: '1px solid #222',
                     boxShadow: '0 12px 40px rgba(0,0,0,0.6)',
                     transition: 'max-width 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
                     boxSizing: 'border-box'
@@ -4717,211 +4948,251 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
           );
         })()}
         {/* === 日记详情 Modal === */}
+        
         {viewingDiary && (
-          <div
-            style={{
-              position: 'fixed',
-              zIndex: 500,
-              top: 0,
-              left: 0,
-              width: '100vw',
-              height: '100vh',
-              background: 'rgba(0,0,0,0.95)',
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              justifyContent: 'center',
-              padding: '20px',
-              boxSizing: 'border-box',
-              overflow: 'hidden'
-            }}
-            onClick={() => setViewingDiary(null)}
-          >
-            <div
-              style={{
-                width: '100%',
-                maxWidth: '400px',
-                maxHeight: '90vh',
-                overflowY: 'auto'
-              }}
-              onClick={(e) => e.stopPropagation()}
-            >
-              <img src={viewingDiary.img} style={{ width: '100%', borderRadius: '12px', border: '1px solid #444' }} alt="diary" />
+  <div
+    style={{
+      position: 'fixed',
+      zIndex: 500,
+      top: 0,
+      left: 0,
+      width: '100vw',
+      height: '100vh',
+      background: 'rgba(0,0,0,0.95)',
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: '20px',
+      boxSizing: 'border-box',
+      overflow: 'hidden'
+    }}
+    onClick={() => setViewingDiary(null)}
+  >
+    <div
+      style={{
+        width: '100%',
+        maxWidth: '400px',
+        maxHeight: '90vh',
+        overflowY: 'auto'
+      }}
+      onClick={(e) => e.stopPropagation()}
+    >
+      <img src={viewingDiary.img} style={{ width: '100%', borderRadius: '12px', border: '1px solid #444' }} alt="diary" />
 
-              {viewingDiary.meta && (
-                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '12px' }}>
-                  {viewingDiary.meta.colorPalette && (
-                    <span style={{
-                      display: 'inline-flex', alignItems: 'center', gap: '5px',
-                      background: 'rgba(255,255,255,0.07)', borderRadius: '12px',
-                      padding: '3px 10px', fontSize: '11px', color: '#ccc'
-                    }}>
-                      <span style={{
-                        width: '10px', height: '10px', borderRadius: '50%',
-                        background: `rgb(${(PALETTES[viewingDiary.meta.colorPalette]?.color || [200, 50, 50]).join(',')})`,
-                        display: 'inline-block'
-                      }} />
-                      {viewingDiary.meta.colorPalette === 'crimson' ? t('colorDescriptions.crimson').split('：')[0] :
-                        viewingDiary.meta.colorPalette === 'dark' ? t('colorDescriptions.dark').split('：')[0] :
-                          viewingDiary.meta.colorPalette === 'purple' ? t('colorDescriptions.purple').split('：')[0] :
-                            t('colorDescriptions.blue').split('：')[0]}
-                    </span>
-                  )}
-                  {viewingDiary.meta.painScore > 0 && (
-                    <span style={{ background: 'rgba(211,47,47,0.15)', borderRadius: '12px', padding: '3px 10px', fontSize: '11px', color: '#ffcdd2' }}>
-                      {t('diary.brushCount', { count: viewingDiary.meta.painScore })}
-                    </span>
-                  )}
-                  {viewingDiary.meta.bodyMode && viewingDiary.meta.bodyMode !== 'none' && (
-                    <span style={{ background: 'rgba(76,175,80,0.12)', borderRadius: '12px', padding: '3px 10px', fontSize: '11px', color: '#a5d6a7' }}>
-                      {viewingDiary.meta.bodyMode === 'front' ? t('diary.bodyFront') :
-                        viewingDiary.meta.bodyMode === 'back' ? t('diary.bodyBack') : t('diary.bodyBoth')}
-                    </span>
-                  )}
-                </div>
-              )}
+      {viewingDiary.meta && (
+        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '12px' }}>
+          {viewingDiary.meta.colorPalette && (
+            <span style={{
+              display: 'inline-flex', alignItems: 'center', gap: '5px',
+              background: 'rgba(255,255,255,0.07)', borderRadius: '12px',
+              padding: '3px 10px', fontSize: '11px', color: '#ccc'
+            }}>
+              <span style={{
+                width: '10px', height: '10px', borderRadius: '50%',
+                background: `rgb(${(PALETTES[viewingDiary.meta.colorPalette]?.color || [200, 50, 50]).join(',')})`,
+                display: 'inline-block'
+              }} />
+              {viewingDiary.meta.colorPalette === 'crimson' ? t('colorDescriptions.crimson').split('：')[0] :
+                viewingDiary.meta.colorPalette === 'dark' ? t('colorDescriptions.dark').split('：')[0] :
+                  viewingDiary.meta.colorPalette === 'purple' ? t('colorDescriptions.purple').split('：')[0] :
+                    t('colorDescriptions.blue').split('：')[0]}
+            </span>
+          )}
+          {viewingDiary.meta.painScore > 0 && (
+            <span style={{ background: 'rgba(211,47,47,0.15)', borderRadius: '12px', padding: '3px 10px', fontSize: '11px', color: '#ffcdd2' }}>
+              {t('diary.brushCount', { count: viewingDiary.meta.painScore })}
+            </span>
+          )}
+          {viewingDiary.meta.bodyMode && viewingDiary.meta.bodyMode !== 'none' && (
+            <span style={{ background: 'rgba(76,175,80,0.12)', borderRadius: '12px', padding: '3px 10px', fontSize: '11px', color: '#a5d6a7' }}>
+              {viewingDiary.meta.bodyMode === 'front' ? t('diary.bodyFront') :
+                viewingDiary.meta.bodyMode === 'back' ? t('diary.bodyBack') : t('diary.bodyBoth')}
+            </span>
+          )}
+        </div>
+      )}
 
-              <h3 style={{ color: '#fff', marginTop: '20px', marginBottom: '10px' }}>
-                {viewingDiary.date} {viewingDiary.time}
-                <span style={{ marginLeft: '12px', color: '#d32f2f', fontSize: '16px', background: 'rgba(211, 47, 47, 0.15)', padding: '4px 12px', borderRadius: '12px' }}>
-                  {viewingDiary.painName}
-                </span>
-              </h3>
+      <h3 style={{ color: '#fff', marginTop: '20px', marginBottom: '10px' }}>
+        {viewingDiary.date} {viewingDiary.time}
+        <span style={{ marginLeft: '12px', color: '#d32f2f', fontSize: '16px', background: 'rgba(211, 47, 47, 0.15)', padding: '4px 12px', borderRadius: '12px' }}>
+          {viewingDiary.painName}
+        </span>
+      </h3>
 
-              <div style={{ background: 'rgba(28,28,28,0.9)', padding: '18px', borderRadius: '12px', marginTop: '10px', border: '1px solid #444' }}>
-                <p style={{ color: '#ccc', fontSize: '14px', lineHeight: '1.6', margin: '0 0 12px 0' }}>
-                  {viewingDiary.content?.analogy}
-                </p>
-                <p style={{ color: '#4caf50', fontSize: '13px', lineHeight: '1.6', margin: 0 }}>
-                  {viewingDiary.content?.selfCare}
-                </p>
-              </div>
+      <div style={{ background: 'rgba(28,28,28,0.9)', padding: '18px', borderRadius: '12px', marginTop: '10px', border: '1px solid #444' }}>
+        <p style={{ color: '#ccc', fontSize: '14px', lineHeight: '1.6', margin: '0 0 12px 0' }}>
+          {viewingDiary.content?.analogy}
+        </p>
+        <p style={{ color: '#4caf50', fontSize: '13px', lineHeight: '1.6', margin: 0 }}>
+          {viewingDiary.content?.selfCare}
+        </p>
+      </div>
 
-              <div style={{ background: 'rgba(255,255,255,0.05)', padding: '20px', borderRadius: '12px', marginTop: '20px', border: '1px solid #333', display: 'flex', flexDirection: 'column', gap: '15px' }}>
-                <div style={{ textAlign: 'center' }}>
-                  <p style={{ color: '#888', fontSize: '12px', marginBottom: '12px' }}>{t('diary.shareContext')}</p>
-                  <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
-                    {['partner', 'work', appMode === 'medical' && 'doctor', 'self'].filter(Boolean).map(tab => (
-                      <button
-                        key={tab}
-                        onClick={(e) => { e.stopPropagation(); setDiaryShareIdentity(tab); }}
-                        style={{
-                          flex: 1, padding: '10px 0', fontSize: '12px', borderRadius: '8px', border: 'none', cursor: 'pointer',
-                          background: diaryShareIdentity === tab ? '#d32f2f' : '#222',
-                          color: diaryShareIdentity === tab ? '#fff' : '#888',
-                          minWidth: '60px'
-                        }}
-                      >
-                        {t(`result.tabs.${tab}`)}
-                      </button>
-                    ))}
-                  </div>
-                </div>
+      <div style={{ background: 'rgba(255,255,255,0.05)', padding: '20px', borderRadius: '12px', marginTop: '20px', border: '1px solid #333', display: 'flex', flexDirection: 'column', gap: '15px' }}>
+        <div style={{ textAlign: 'center' }}>
+          <p style={{ color: '#888', fontSize: '12px', marginBottom: '12px' }}>{t('diary.shareContext')}</p>
+          <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
+            {['partner', 'work', appMode === 'medical' && 'doctor', 'self'].filter(Boolean).map(tab => (
+              <button
+                key={tab}
+                onClick={(e) => { e.stopPropagation(); setDiaryShareIdentity(tab); }}
+                style={{
+                  flex: 1, padding: '10px 0', fontSize: '12px', borderRadius: '8px', border: 'none', cursor: 'pointer',
+                  background: diaryShareIdentity === tab ? '#d32f2f' : '#222',
+                  color: diaryShareIdentity === tab ? '#fff' : '#888',
+                  minWidth: '60px'
+                }}
+              >
+                {t(`result.tabs.${tab}`)}
+              </button>
+            ))}
+          </div>
+        </div>
 
-                <div style={{ display: 'flex', gap: '12px' }}>
-                  <button
-                    style={{ flex: 1, padding: '14px', borderRadius: '25px', background: '#4caf50', color: '#fff', border: 'none', fontWeight: 'bold', fontSize: '14px', cursor: 'pointer' }}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setShareContent({
-                        ...viewingDiary.content,
-                        identity: diaryShareIdentity,
-                        historyImg: viewingDiary.img,
-                        pain: viewingDiary.painName
-                      });
-                      setShowSharePreview(true);
-                      setViewingDiary(null);
-                    }}
-                  >
-                    {t('diary.share')}
-                  </button>
-
-                  <button
-                    style={{ flex: 1, padding: '14px', borderRadius: '25px', background: 'rgba(167, 119, 224, 0.99)', color: '#fff', border: 'none', fontWeight: 'bold', fontSize: '14px', cursor: 'pointer' }}
-                    onClick={() => {
-                      setImgUrl(viewingDiary.img);
-                      setShowPostModal(true);
-                      setViewingDiary(null);
-                    }}
-                  >
-                    {t('diary.publish')}
-                  </button>
-                </div>
-
-                {/* === 删除与关闭 1:1  === */}
-                <div style={{
-                  display: 'flex',
-                  gap: '12px',
-                  width: '100%',
-                  marginTop: '15px'
-                }}>
-                  {/* 🗑️ */}
-                  <button
-                    style={{
-                      flex: 1, // 确保 1:1 等宽
-                      padding: '14px 0',
-                      borderRadius: '25px',
-                      background: 'rgba(211,47,47,0.08)',
-                      border: '1px solid rgba(211,47,47,0.3)',
-                      color: '#ef5350',
-                      fontWeight: 'bold',
-                      fontSize: '14px',
-                      cursor: 'pointer',
-                      transition: 'all 0.2s',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: '6px'
-                    }}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      if (window.confirm("⚠️ 警告：确定要永久删除本条具身痛感档案吗？此操作将无法撤销。")) {
-                        // 1. 从全局状态及 LocalStorage 中彻底抹除
-                        const updatedHistory = history.filter(h => h.id !== viewingDiary.id);
-                        setHistory(updatedHistory);
-                        localStorage.setItem('painscape_history', JSON.stringify(updatedHistory));
-
-                        // 2. === 【关键修复】：同步过滤当前日历选中日期的局部缓存，彻底消除残影 ===
-                        setSelectedDateRecords(prev => prev.filter(h => h.id !== viewingDiary.id));
-
-                        // 3. 清除弹窗状态，回到日记页
-                        setViewingDiary(null);
-                        showToast("recordDeleted");
-                      }
-                    }}
-                  >
-                    🗑️ {'删除'}
-                  </button>
-
-                  {/* 🔒 确认关闭按钮 */}
-                  <button
-                    style={{
-                      flex: 1, // 确保 1:1 等宽
-                      padding: '14px 0',
-                      borderRadius: '25px',
-                      background: 'rgba(255,255,255,0.04)',
-                      border: '1px solid #333',
-                      color: '#fff',
-                      fontWeight: 'bold',
-                      fontSize: '14px',
-                      cursor: 'pointer',
-                      transition: 'all 0.2s',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center'
-                    }}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setViewingDiary(null);
-                    }}
-                  >
-                    {t('diary.close') || '关闭'}
-                  </button>
-                </div>
-              </div>
+        {/* 如果选中的是请假公事，则在下方展示具体身份角色与语气选择器 */}
+        {diaryShareIdentity === 'work' && (
+          <div style={{ marginTop: '12px', display: 'flex', flexDirection: 'column', gap: '10px', borderTop: '1px solid #333', paddingTop: '12px' }}>
+            <span style={{ color: '#888', fontSize: '11.5px', alignSelf: 'flex-start' }}>📢 发送对象：</span>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
+              {['manager', 'teacher', 'client', 'friend'].map(key => (
+                <button
+                  key={key}
+                  onClick={(e) => { e.stopPropagation(); setLeaveRecipient(key); }}
+                  style={{
+                    padding: '8px 0', fontSize: '11px', borderRadius: '6px',
+                    border: leaveRecipient === key ? '1px solid #ff9800' : '1px solid #333',
+                    background: leaveRecipient === key ? 'rgba(255, 152, 0, 0.08)' : '#222',
+                    color: leaveRecipient === key ? '#fff' : '#888',
+                    cursor: 'pointer'
+                  }}
+                >
+                  {t(`result.work.recipients.${key}`)}
+                </button>
+              ))}
+            </div>
+            
+            <span style={{ color: '#888', fontSize: '11.5px', alignSelf: 'flex-start', marginTop: '6px' }}>🎭 表达语气：</span>
+            <div style={{ display: 'flex', gap: '6px' }}>
+              {['polite', 'objective'].map(key => (
+                <button
+                  key={key}
+                  onClick={(e) => { e.stopPropagation(); setLeaveTone(key); }}
+                  style={{
+                    flex: 1, padding: '8px 0', fontSize: '11px', borderRadius: '6px',
+                    border: leaveTone === key ? '1px solid #ff9800' : '1px solid #333',
+                    background: leaveTone === key ? 'rgba(255, 152, 0, 0.08)' : '#222',
+                    color: leaveTone === key ? '#fff' : '#888',
+                    cursor: 'pointer'
+                  }}
+                >
+                  {t(`result.work.tones.${key}`)}
+                </button>
+              ))}
             </div>
           </div>
         )}
+
+        {/* 【关键排版修复】: 重新使用水平 flexbox 包裹以下两个并排按钮 */}
+        <div style={{ display: 'flex', gap: '12px', width: '100%', marginTop: '5px' }}>
+          <button
+            style={{ flex: 1, padding: '14px', borderRadius: '25px', background: '#4caf50', color: '#fff', border: 'none', fontWeight: 'bold', fontSize: '14px', cursor: 'pointer' }}
+            onClick={(e) => {
+              e.stopPropagation();
+              setShareContent({
+                ...viewingDiary.content,
+                identity: diaryShareIdentity,
+                historyImg: viewingDiary.img,
+                pain: viewingDiary.painName,
+                workText: getEditedOrDefault('workText', viewingDiary.content?.workText),
+                leaveRecipient: leaveRecipient 
+              });
+              setShowSharePreview(true);
+              setViewingDiary(null);
+            }}
+          >
+            {t('diary.share')}
+          </button>
+
+          <button
+            style={{ flex: 1, padding: '14px', borderRadius: '25px', background: 'rgba(167, 119, 224, 0.99)', color: '#fff', border: 'none', fontWeight: 'bold', fontSize: '14px', cursor: 'pointer' }}
+            onClick={() => {
+              setImgUrl(viewingDiary.img);
+              setShowPostModal(true);
+              setViewingDiary(null);
+            }}
+          >
+            {t('diary.publish')}
+          </button>
+        </div>
+      </div>
+
+      {/* === 删除与关闭 1:1  === */}
+      <div style={{
+        display: 'flex',
+        gap: '12px',
+        width: '100%',
+        marginTop: '15px'
+      }}>
+        <button
+          style={{
+            flex: 1,
+            padding: '14px 0',
+            borderRadius: '25px',
+            background: 'rgba(211,47,47,0.08)',
+            border: '1px solid rgba(211,47,47,0.3)',
+            color: '#ef5350',
+            fontWeight: 'bold',
+            fontSize: '14px',
+            cursor: 'pointer',
+            transition: 'all 0.2s',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '6px'
+          }}
+          onClick={(e) => {
+            e.stopPropagation();
+            if (window.confirm("⚠️ 警告：确定要永久删除本条具身痛感档案吗？此操作将无法撤销。")) {
+              const updatedHistory = history.filter(h => h.id !== viewingDiary.id);
+              setHistory(updatedHistory);
+              localStorage.setItem('painscape_history', JSON.stringify(updatedHistory));
+              setSelectedDateRecords(prev => prev.filter(h => h.id !== viewingDiary.id));
+              setViewingDiary(null);
+              showToast("recordDeleted");
+            }
+          }}
+        >
+          🗑️ {'删除'}
+        </button>
+
+        <button
+          style={{
+            flex: 1,
+            padding: '14px 0',
+            borderRadius: '25px',
+            background: 'rgba(255,255,255,0.04)',
+            border: '1px solid #333',
+            color: '#fff',
+            fontWeight: 'bold',
+            fontSize: '14px',
+            cursor: 'pointer',
+            transition: 'all 0.2s',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center'
+          }}
+          onClick={(e) => {
+            e.stopPropagation();
+            setViewingDiary(null);
+          }}
+        >
+          {t('diary.close') || '关闭'}
+        </button>
+      </div>
+    </div>
+  </div>
+)}
 
         {/* === 社区帖子 Modal === */}
         {viewingPost && (
@@ -5283,35 +5554,37 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
               <div style={{ background: '#0a0a0a', borderRadius: '12px', padding: '15px', marginBottom: '20px', display: 'flex', justifyContent: 'center' }}>
                 <img src={shareContent.historyImg || imgUrl} style={{ width: '100%', maxWidth: '300px', borderRadius: '8px', border: '1px solid #444' }} alt="preview" />
               </div>
-
               {(() => {
-                const getPreviewText = () => {
-                  switch (shareContent.identity) {
-                    case 'partner':
-                      return { title: t('shareCard.titles.partner'), content: shareContent.analogy?.slice(0, 80) + '...' };
-                    case 'work':
-                      return { title: t('shareCard.titles.work'), content: shareContent.workText?.slice(0, 80) + '...' };
-                    case 'doctor':
-                      return { title: t('shareCard.titles.doctor'), content: (shareContent.med_complaint || t('sharePreview.defaultDoctorContent'))?.slice(0, 80) + '...' };
-                    case 'self':
-                      return { title: t('shareCard.titles.self'), content: shareContent.selfCare?.slice(0, 80) + '...' };
-                    default:
-                      return { title: t('sharePreview.defaultTitle'), content: t('sharePreview.defaultContent', { pain: shareContent.pain || '' }) };
-                  }
-                };
+  const getPreviewText = () => {
+    // 获取当期分享的请假接收人
+    const recipient = shareContent.leaveRecipient || 'manager';
+    switch (shareContent.identity) {
+      case 'partner':
+        return { title: getContextTitle('partner'), content: shareContent.analogy?.slice(0, 80) + '...' };
+      case 'work':
+        // 预览标题同步更新为致具体身份的标题
+        return { title: getContextTitle('work', recipient), content: shareContent.workText?.slice(0, 80) + '...' };
+      case 'doctor':
+        return { title: getContextTitle('doctor'), content: (shareContent.med_complaint || t('sharePreview.defaultDoctorContent'))?.slice(0, 80) + '...' };
+      case 'self':
+        return { title: getContextTitle('self'), content: shareContent.selfCare?.slice(0, 80) + '...' };
+      default:
+        return { title: getContextTitle(shareContent.identity), content: t('sharePreview.defaultContent', { pain: shareContent.pain || '' }) };
+    }
+  };
 
-                const previewText = getPreviewText();
-                return (
-                  <div style={{ background: 'rgba(0,0,0,0.3)', borderRadius: '12px', padding: '15px', marginBottom: '20px' }}>
-                    <p style={{ color: '#ff9800', fontSize: '14px', fontWeight: 'bold', margin: '0 0 10px 0' }}>
-                      {previewText.title}
-                    </p>
-                    <p style={{ color: '#ccc', fontSize: '13px', margin: 0 }}>
-                      {previewText.content}
-                    </p>
-                  </div>
-                );
-              })()}
+  const previewText = getPreviewText();
+  return (
+    <div style={{ background: 'rgba(0,0,0,0.3)', borderRadius: '12px', padding: '15px', marginBottom: '20px' }}>
+      <p style={{ color: '#ff9800', fontSize: '14px', fontWeight: 'bold', margin: '0 0 10px 0' }}>
+        {previewText.title}
+      </p>
+      <p style={{ color: '#ccc', fontSize: '13px', margin: 0 }}>
+        {previewText.content}
+      </p>
+    </div>
+  );
+})()}
 
               <div style={{ display: 'flex', gap: '12px' }}>
                 <button style={{ flex: 1, padding: '14px', borderRadius: '25px', background: 'rgba(255,255,255,0.1)', border: '1px solid #555', color: '#fff', cursor: 'pointer', fontSize: '14px' }} onClick={() => setShowSharePreview(false)}>
@@ -5368,6 +5641,55 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
             showToast("shareSuccess");
           }}
         />
+        {generatedCardUrl && (
+          <div
+            style={{
+              position: 'fixed', zIndex: 12000, top: 0, left: 0, width: '100vw', height: '100vh',
+              background: 'rgba(0,0,0,0.95)', display: 'flex', flexDirection: 'column',
+              alignItems: 'center', justifyContent: 'center', padding: '20px', boxSizing: 'border-box'
+            }}
+            onClick={() => setGeneratedCardUrl(null)}
+          >
+            <div style={{ width: '100%', maxWidth: '400px', display: 'flex', flexDirection: 'column', gap: '15px' }} onClick={e => e.stopPropagation()}>
+              <h3 style={{ color: '#fff', textAlign: 'center', margin: 0, fontSize: '15px' }}>
+                {targetLanguage === 'en' ? 'Somatic Card Generated' : '已成功生成体感卡片'}
+              </h3>
+              <p style={{ color: '#aaa', fontSize: '12px', textAlign: 'center', margin: 0 }}>
+                {targetLanguage === 'en' ? '💡 Long-press the card below to save or send to friends' : '💡 长按下方卡片即可 保存图片 或 直接发送给伴侣/朋友'}
+              </p>
+              <img
+                src={generatedCardUrl}
+                style={{ width: '100%', borderRadius: '16px', border: '1.5px solid #333', boxShadow: '0 8px 30px rgba(0,0,0,0.6)' }}
+                alt="Generated Card"
+              />
+              <div style={{ display: 'flex', gap: '10px' }}>
+                {navigator.share && (
+                  <button
+                    onClick={async () => {
+                      try {
+                        const blob = dataURLtoBlob(generatedCardUrl);
+                        const file = new File([blob], 'painscape_share.jpg', { type: 'image/jpeg' });
+                        await navigator.share({
+                          title: 'PainScape Somatic Card',
+                          files: [file]
+                        });
+                      } catch (e) { }
+                    }}
+                    style={{ flex: 1, padding: '12px', background: '#4caf50', border: 'none', borderRadius: '25px', color: '#fff', fontSize: '13px', fontWeight: 'bold', cursor: 'pointer' }}
+                  >
+                    {targetLanguage === 'en' ? 'System Share' : '调用系统分享'}
+                  </button>
+                )}
+                <button
+                  onClick={() => setGeneratedCardUrl(null)}
+                  style={{ flex: 1, padding: '12px', background: '#333', border: 'none', borderRadius: '25px', color: '#fff', fontSize: '13px', cursor: 'pointer' }}
+                >
+                  {targetLanguage === 'en' ? 'Close' : '关闭'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
         {/* === 全局 Loading 遮罩层 === */}
         {isLoading && (
           <div style={{

@@ -123,7 +123,7 @@ const SomaticHealingSpace = ({
       { step: "第 3 步：促进血液回流", desc: "平躺在床上，用枕头垫高臀部 15-20 厘米，这能帮助小盆腔中淤积的静脉血顺畅回流，迅速舒缓前列腺素引起的子宫平滑肌缺血性痉挛。" }
     ]
   };
-
+  
   const startHealing = () => {
     setIsPlaying(true);
     if (!audioRef.current) {
@@ -494,11 +494,11 @@ const SomaticHealingSpace = ({
 
             {evaluationResult === 'helped' && (
               <>
-                <p style={{ color: '#4caf50', fontSize: '24px', margin: '0 0 12px 0' }}>🤗</p>
-                <p style={{ color: '#ccc', fontSize: '13px', lineHeight: '1.6', marginBottom: '24px', textAlign: 'justify' }}>
-                  {t.disclaimer.includes(' stop') 
-                    ? "Great! Your somatic experience is precious. Would you like to share this relief recipe with other sisters in the Resonance Square to help them find relief?"
-                    : "太好了！亲历的经验最为珍贵。你愿意将这次非常有用的自愈方法“一键发布”到共鸣广场吗？这能让其他承受相似痛楚的姐妹快速找到缓解答案。"}
+                 <p style={{ color: '#4caf50', fontSize: '24px', margin: '0 0 12px 0' }}>🤗</p>
+    <p style={{ color: '#ccc', fontSize: '13px', lineHeight: '1.6', marginBottom: '24px', textAlign: 'justify' }}>
+      {language === 'en' 
+        ? "Great! Your somatic experience is precious. Would you like to share this relief recipe with other sisters in the Resonance Square to help them find relief?"
+        : "太好了！亲历的经验最为珍贵。你愿意将这次非常有用的自愈方法“一键发布”到共鸣广场吗？这能让其他承受相似痛楚的姐妹快速找到缓解答案。"}
                 </p>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                   <button 
