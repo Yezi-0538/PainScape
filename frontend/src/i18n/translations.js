@@ -336,12 +336,12 @@ const translations = {
       doctor: {
         title: "医疗就诊沟通辅助单",
         disclaimer: "⚠️ 声明：本报告由 AI 基于您的主诉与具身绘图生成，不能代替执业医生的诊断。具体病症及治疗方案必须由妇科医生进行专业临床检查后确诊。",
-        clinicalAdvice: "🩺 患者主诉参考",
+        clinicalAdvice: "患者主诉参考",
         examNotice: "💡 患者检查须知：",
         preparation: "准备：",
         purpose: "目的：",
         attachedMap: "本次多维痛觉图谱已附在报告后方，可向接诊医生展示。",
-        discussReference: "📋 供您与医生讨论参考：",
+        discussReference: "供您与医生讨论参考：",
         copyReport: "📋 复制完整报告",
       },
       self: {

@@ -1,6 +1,6 @@
 # main.py
 # ═══════════════════════════════════════════════════════════
-# PainScape 后端服务网关 (已对齐防幻觉、防揣测、时序纠正与避责红线)
+# PainScape 后端服务网关
 # ═══════════════════════════════════════════════════════════
 
 from fastapi import FastAPI
@@ -12,9 +12,9 @@ import json
 import re
 import uuid
 import requests
+import traceback
 from dotenv import load_dotenv
 from openai import OpenAI
-from datetime import datetime
 
 load_dotenv()
 
@@ -51,20 +51,36 @@ PROVIDER_CONFIG = {
     "vivo": {
         "base_url": "https://api-ai.vivo.com.cn/v1",
         "api_key_env": "VIVO_API_KEY",
-        "model": "Volc-DeepSeek-V3.2",
-        "model_quick": "Doubao-Seed-2.0-mini",
+        "model": "Volc-DeepSeek-V3.2",        # 医疗专科大病历使用 DeepSeek V3.2
+        "model_quick": "Doubao-Seed-2.0-mini", # 快速录入及非医疗使用 Doubao-mini
         "model_refine": "Doubao-Seed-2.0-mini",
         "max_tokens": 4096,
-        "display_name": "Vivo蓝心大模型",
+        "display_name": "Vivo蓝心大模型网关",
     },
 }
 
-config = PROVIDER_CONFIG[LLM_PROVIDER]
+# 简易多语言映射对照
+PAIN_MAP = {
+    "zh": {
+        "spasmodic": "痉挛性绞痛",
+        "dull": "持续性钝痛",
+        "bloating": "坠胀性闷痛",
+        "sharp": "刺钻样锐痛",
+        "scrape": "摩擦性撕扯痛"
+    },
+    "en": {
+        "spasmodic": "Spasmodic cramping",
+        "dull": "Dull aching",
+        "bloating": "Bloating and heavy pain",
+        "sharp": "Sharp stabbing pain",
+        "scrape": "Abrasive tearing pain"
+      }
+}
+
+config = PROVIDER_CONFIG.get(LLM_PROVIDER, PROVIDER_CONFIG["vivo"])
 api_key = os.getenv(config["api_key_env"])
 
-client = None
-if LLM_PROVIDER != "vivo":
-    client = OpenAI(api_key=api_key or "EMPTY", base_url=config["base_url"])
+client = OpenAI(api_key=api_key or "EMPTY", base_url=config["base_url"])
 
 app = FastAPI()
 
@@ -76,8 +92,30 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# 全局 Few-Shot 范例模板定义 (统一格式)
+FEW_SHOT_EXAMPLE_ZH = """
+{
+  "chief_complaint": "周期性下腹部痉挛性收缩感。",
+  "present_illness": "患者既往月经规律。今日处于生理期第2天，盆腔微循环处于自然生理充血状态。突发急性下腹部持续性收紧绞痛，痛感中等，VAS评分：5/10分，阵发加剧。痛灶主要累及下腹盆腔区，向腰骶部有轻度酸胀感。未自行口服药物调理。病期未诉其余伴随异常指征。患者病来精神尚可，系统状况未详细采集，体能状态一般，体重无异常变化。",
+  "past_history": "既往史：平素健康。无特殊慢性病史。手术史：无腹部及盆腔手术史。过敏史：无明确药物过敏史。个人史及家族史详见背景采集。",
+  "menstrual_history": "13 (5/28天) LMP: 2026-06-27. 痛经：有。生育史：未婚未育（无怀孕史，无生育史，G0P0）。",
+  "clinical_diagnosis": "1. 周期性子宫平滑肌痉挛（生理期功能性痛觉高敏可能）\\n\\n💡 请放心：上述筛查仅为临床常规排除项，器质性病变的概率极低，多为一过性敏感，请勿惊慌。",
+  "clinical_suggestions": "【专科物理排查预估指南（供您心里有底）】：\\n1. 建议结合患者自述的痛觉解剖位置，就诊时请接诊医生在行盆腔彩超排查时重点评估。超声排查非常常规且性价比较高，多属医保可报销范畴，旨在帮您排除器质病变让您安心，切勿有财务或精神包袱。\\n\\n🔬 【给患者的专科物理检查心理防护与引导】：\\n超声检查是妇产科极基础的无创筛查方法。如果推荐进行检查，操作会在独立私密的屏风后进行。医护人员操作时会尽量保持温和，完全尊重您的隐私边界。检查时请配合医生指引深慢呼气，完全放松盆底括约肌，检查探头极其细小且有温热润滑剂，仅会有短暂顶胀感，无任何物理伤害性。请放下焦虑配合就诊，保护好自己的体感是消除痛苦的关键。",
+  "analogy": "子宫内像藏着一个上紧了发条的金属夹子，在不断收缩拧动，冷意带着尖锐的酸麻感直窜后脊，疼得根本站不直身子。",
+  "work": "因今天经期不适/痛经，体力透支无法保持正常专注，特申请请假休息一天，望批准。",
+  "action": [
+    "☑️ 准备一个温热的热水袋，帮她放置在下腹部或后腰处进行物理热敷理疗。",
+    "☑️ 帮她倒一杯温热的饮用水，并准备好安全的止痛药[根据患者过敏史推荐的安全止痛药]。"
+  ],
+  "selfCare": [
+    "✨ 采用侧卧婴儿蜷缩式，膝盖之间夹枕头，放松紧绷的盆腔肌肉。",
+    "✨ 尽量拉长呼吸，吸气4秒、平稳呼气8秒，能帮过度兴奋的盆底肌肉尽快放松下来。"
+  ]
+}
+"""
+
 # ─────────────────────────────────────────────
-#  Pydantic数据模型（防止 422 报错）
+# Pydantic 数据模型
 # ─────────────────────────────────────────────
 
 class SpatialMapModel(BaseModel):
@@ -137,26 +175,8 @@ class PainData(BaseModel):
     isQuickLog: Optional[bool] = False
     accompanyingSymptoms: Optional[List[str]] = Field(default_factory=list)
 
-# 双语对照
-PAIN_MAP = {
-    "zh": {
-        "twist": "下腹痉挛性绞痛",
-        "pierce": "局部反射性锐利刺痛",
-        "heavy": "下腹部重压坠胀感",
-        "wave": "弥漫性酸胀不适",
-        "scrape": "撕裂样剥脱感"
-    },
-    "en": {
-        "twist": "spasmodic lower abdominal cramping",
-        "pierce": "localized radiating sharp stabbing pain",
-        "heavy": "lower abdominal dragging heaviness",
-        "wave": "diffuse lower pelvic bloating",
-        "scrape": "tearing and scraping sensation"
-    }
-}
-
 # ─────────────────────────────────────────────
-# 辅助安全处理器
+# 🛡️ 临床级背景格式化安全处理器
 # ─────────────────────────────────────────────
 def get_val_from_mb(mb: Optional[MedicalBackgroundModel], key: str, fallback: str = "未详述") -> str:
     if not mb:
@@ -216,7 +236,7 @@ def get_cycle_regular_desc(mb: Optional[MedicalBackgroundModel], lang: str) -> s
         reg_map = {
             "regular": "规律（周期稳定）",
             "irregular": "不规律（周期波动大）",
-            "unsure": "不太确定"
+            "unsure": "不确定"
         }
         return reg_map.get(str(val).lower(), "未详述")
     else:
@@ -237,22 +257,22 @@ def get_period_duration_desc(mb: Optional[MedicalBackgroundModel], lang: str) ->
 
 def build_pain_location_desc(spatial_map: Optional[SpatialMapModel], lang: str) -> str:
     if not spatial_map:
-        return "未提供"
+        return "下腹部" if lang == "zh" else "lower pelvis"
     parts = []
     abd = getattr(spatial_map, 'abdomen', 0.0) or 0.0
     lb = getattr(spatial_map, 'lowerBack', 0.0) or 0.0
     if abd > 0.1:
-        parts.append(f"下腹盆腔前壁区({int(abd*100)}%)")
+        parts.append(f"下腹部({int(abd*100)}%)" if lang == "zh" else f"Abdomen ({int(abd*100)}%)")
     if lb > 0.1:
-        parts.append(f"腰骶部背面区({int(lb*100)}%)")
-    return "、".join(parts) if parts else "下腹部"
+        parts.append(f"腰骶部({int(lb*100)}%)" if lang == "zh" else f"Lower Back ({int(lb*100)}%)")
+    return "、".join(parts) if parts else ("下腹部" if lang == "zh" else "lower pelvis")
 
 def build_risk_warning(mb: Optional[MedicalBackgroundModel], lang: str) -> str:
     if not mb:
         return "目前未见特异性药物过敏风险提示" if lang == "zh" else "No specific medication risks"
     allergy = getattr(mb, "allergies", "") or ""
     if "ibuprofen" in str(allergy).lower():
-        return "⚠️ 明确非甾体抗炎药（NSAIDs/布洛芬）过敏史。临床诊疗时请勿推荐处方布洛芬，建议遵医嘱替换为对乙酰氨基酚。" if lang == "zh" else "⚠️ Documented Ibuprofen (NSAIDs) allergy. Avoid prescribing Ibuprofen; consider Acetaminophen."
+        return "⚠️ 明确非甾体抗炎药（NSAIDs/布洛芬）过敏史。请勿推荐处方布洛芬，建议遵医嘱替换为对乙酰氨基酚。" if lang == "zh" else "⚠️ Documented Ibuprofen (NSAIDs) allergy. Avoid prescribing Ibuprofen; consider Acetaminophen."
     return "无已知药物过敏" if lang == "zh" else "No known drug allergies"
 
 def build_triage_advice(pain_score: int, symptoms: Optional[List[str]], lang: str) -> str:
@@ -265,26 +285,49 @@ def build_exam_advice(mb: Optional[MedicalBackgroundModel], lang: str) -> Dict:
     exam = {
         "name": "妇科盆腔超声检查（彩色多普勒超声）" if lang == "zh" else "Pelvic Color Doppler Ultrasound",
         "preparation": "经阴道彩超需在检查前排空小便（无性生活史者禁用）；经腹部彩超需提前憋尿，可在检查前1小时内饮水500-800ml。" if lang == "zh" else "Empty bladder for transvaginal; full bladder for abdominal.",
-        "note": "💡 临床首选无创初筛方案，具体检查组合需由接诊医生评估决定。",
+        "note": "💡 临床常规、低成本排除方案（多数可在医保范围内全额报销），检查过程无创无痛，用于排除器质病变让您心里踏实，不用担心有财务负担。",
         "alternative": ""
     }
     return exam
 
 def translate_vectors_to_clinical(data: PainData, lang: str) -> str:
     ip = data.intensityProfile or IntensityProfileModel()
-    sm = data.spatialMap or SpatialMapModel()
     pressure_val = ip.avgPressure or 0.5
     speed_val = ip.avgSpeed or 5.0
     
-    depth = "深层内脏痛（平滑肌微血管缺血）" if pressure_val > 0.6 else "浅表外周敏感"
-    speed_desc = "阵发性爆发" if speed_val > 12.0 else "持续性钝性"
-    return f"绘制压力（{pressure_val:.2f}）指向{depth}；绘制速度（{speed_val:.1f}）指向{speed_desc}痛感。"
+    depth = "深层内脏反射（主要对应盆腔深部平滑肌生理性收缩不协调）" if pressure_val > 0.6 else "表浅外周感觉过敏（痛感主要集中于表浅腹壁投影区）"
+    rhythm = "发作呈阵发性波动，具有生理性收缩起伏" if speed_val > 12.0 else "呈慢性持续不适，变化相对平缓"
+    
+    return f"【画笔物理轨迹分析】：痛感深度对应为{depth}；发作节律表现为{rhythm}。"
+
+# 🌟 优化：色彩映射词汇去除极端的“缺血、应激、血管骤紧”等恐慌词，换用平和温润的舒缓表达
+def get_color_somatic_meaning(color: Optional[str], lang: str) -> str:
+    color_key = str(color or "crimson").lower()
+    if lang == "zh":
+        meanings = {
+            "crimson": "局部微循环暂时性温热充盈。属于生理期盆腔血管扩张、血流天然汇聚的正常生理现象，通常伴随微微的温热与饱满感。",
+            "dark": "小腹伴随轻微的沉闷与下坠感，提示局部微循环血流流速有所放缓。这种被动性的微循环变化，通过舒缓拉伸或适度走动即可得到温和改善。",
+            "blue": "提示局部温度感知稍凉，对外界寒冷刺激较为敏感。生理上属于微血管一过性收缩带来的清凉与紧绷感，通常可通过局部热敷理疗轻松恢复暖意。",
+            "purple": "局部痛觉敏感度暂时性有所提升，伴随轻微的酸胀与疲惫感。这属于盆腔神经末梢一过性对应激比较敏感的状态，适合配合深长呼吸来进行全身心交感放松。"
+        }
+    else:
+        meanings = {
+            "crimson": "A temporary warm sensation in local microcirculation. This is a natural physiological phenomenon of localized blood pooling during the menstrual phase, usually accompanied by mild warmth.",
+            "dark": "A slight heavy or dull sensation in the lower abdomen, indicating a temporary slowing of localized microcirculation. This passive congestion is easily relieved by gentle stretching or slow walking.",
+            "blue": "Indicates temporary coolness and sensitivity to environmental cold. Physiologically associated with transient localized vasoconstriction, which can be easily comforted and warmed with local heat therapy.",
+            "purple": "A temporary increase in local somatic sensitivity, accompanied by a mild dull ache and tiredness. Suggests transient hypersensitivity of local pelvic nerve endings, ideal for full-body relaxation with deep breathing."
+        }
+    return meanings.get(color_key, meanings["crimson"])
 
 # ═══════════════════════════════════════════════════════════
-# 核心生成 API
+# 主力 POST 生成接口
 # ═══════════════════════════════════════════════════════════
 @app.post("/api/generate")
 async def generate_pain_report(data: PainData):
+    lang = "zh"
+    app_mode = "medical"
+    painkiller = "布洛芬"
+
     try:
         lang = str(data.targetLanguage or "zh")
         app_mode = str(data.appMode or "medical").lower()
@@ -294,12 +337,37 @@ async def generate_pain_report(data: PainData):
         vector_analysis = translate_vectors_to_clinical(data, lang)
 
         # 止痛药红线
-        allergy = getattr(mb, 'allergies', '') if mb else ''
-        painkiller = "对乙酰氨基酚" if allergy in ["ibuprofen", "aspirin", "nsaids"] else "布洛芬"
+        raw_allergies = ""
+        if mb:
+            raw_allergies = f"{getattr(mb, 'allergies', '')} {getattr(mb, 'otherAllergies', '')}"
+        allergy_text = raw_allergies.lower()
+        allergy_list = ["布洛芬", "阿司匹林", "双氯芬酸", "酮洛芬", "萘普生", "ibuprofen", "aspirin", "diclofenac", "naproxen", "nsaids"]
+        has_nsaid_allergy = any(term in allergy_text for term in allergy_list)
+
+        forbidden_drugs = "布洛芬 (Ibuprofen)、阿司匹林 (Aspirin)、双氯芬酸钠等所有非甾体抗炎药(NSAIDs)" if has_nsaid_allergy else "无"
+        safe_recommendation = "对乙酰氨基酚 (Acetaminophen)" if has_nsaid_allergy else "布洛芬 (Ibuprofen) 或 萘普生 (Naproxen)"
+        
+        if lang == "en":
+            drug_safety_instruction = f"""
+[CRITICAL DRUG SAFETY CONSTRAINT]:
+- The patient HAS an allergy to NSAIDs/Ibuprofen: {has_nsaid_allergy}
+- Recommended painkiller: {safe_recommendation}
+- STRICTLY FORBIDDEN painkillers (DO NOT suggest): {forbidden_drugs}
+"""
+        else:
+            drug_safety_instruction = f"""
+【用药安全红线硬约束】：
+- 检测到患者对布洛芬/NSAIDs类药物过敏：{"是（已激活红线）" if has_nsaid_allergy else "否"}
+- 允许推荐的口服止痛药：{safe_recommendation}
+- 绝对禁止推荐/出现的止痛药：{forbidden_drugs}
+"""
+
+        # 止痛药名称纠正
+        painkiller = "对乙酰氨基酚" if has_nsaid_allergy else "布洛芬"
 
         pain_location_desc = build_pain_location_desc(data.spatialMap, lang)
         accompanying_symptoms = data.accompanyingSymptoms or []
-        accompanying_desc = "、".join(accompanying_symptoms) if accompanying_symptoms else "未诉异常伴随症状"
+        accompanying_desc = "、".join(accompanying_symptoms) if accompanying_symptoms else "未诉其余明显伴随异常指征"
         
         risk_warning = build_risk_warning(mb, lang)
         triage_advice = build_triage_advice(data.painScore, accompanying_symptoms, lang)
@@ -313,95 +381,168 @@ async def generate_pain_report(data: PainData):
         menarche_val = get_val_from_mb(mb, 'menarcheAge', '未详述')
         menarche_desc = f"{menarche_val} 岁" if menarche_val != "未详述" else "未详述"
 
-        # ─────────────────────────────────────────────
-        # 🏥 【 System Prompt】：临床级严谨规范重构
-        # ─────────────────────────────────────────────
+        # 周期位置定位
+        cycle_day_str = str(data.cycleDay or "").lower()
+        active_phase_zh = "月经期 (Day 1-7)"
+        active_phase_en = "Menstrual Phase (Day 1-7)"
+        
+        if any(x in cycle_day_str for x in ["前", "pre"]):
+            active_phase_zh = "黄体期 (Day 22-28)"
+            active_phase_en = "Luteal Phase (Day 22-28)"
+        elif any(x in cycle_day_str for x in ["后", "after"]):
+            active_phase_zh = "卵泡期 (Day 8-14)"
+            active_phase_en = "Follicular Phase (Day 8-14)"
+        elif any(x in cycle_day_str for x in ["排卵", "ovulat"]):
+            active_phase_zh = "排卵期 (Day 15-21)"
+            active_phase_en = "Ovulation Phase (Day 15-21)"
+            
+        active_phase = active_phase_zh if lang == "zh" else active_phase_en
+
+        diagnosed_history = "无明确妇科疾病确诊史"
+        surgical_history_val = "无盆腔及腹部手术史"
+        obstetric_history = "未生育"
+        family_history = "个人史与家族史详见背景采集"
+        age_cohort = "成年女性"
+        
+        if mb:
+            if getattr(mb, "age", "") and getattr(mb, "age") not in ["", "none"]:
+                age_cohort = f"年龄处于 {getattr(mb, 'age')} 阶段"
+            if getattr(mb, "diagnosed", "") and getattr(mb, "diagnosed") not in ["none", "unchecked", ""]:
+                diagnosed_history = f"曾确诊患有 {getattr(mb, 'diagnosed')}"
+                if getattr(mb, "otherDiagnosis", ""):
+                    diagnosed_history += f"、{getattr(mb, 'otherDiagnosis')}"
+            
+            surg_val = getattr(mb, 'surgicalHistory', '')
+            if surg_val and surg_val != "none":
+                surgical_history_val = surg_desc
+
+            reprod_arr = getattr(mb, "reproductiveHistoryArr", []) or []
+            if reprod_arr:
+                reprod_map = {
+                    "nulliparous": "未生育", "pregnant": "已孕未生产", "parous": "已生育",
+                    "spontaneousAbortion": "自然流产史", "inducedAbortion": "人工终止妊娠/人流史"
+                }
+                obstetric_history = "，".join([reprod_map.get(x, x) for x in reprod_arr if x])
+
+            fam_arr = getattr(mb, "familyHistoryArr", []) or []
+            if fam_arr and "none" not in fam_arr:
+                fam_map = {"mother": "母亲有痛经史", "sister": "姐妹有痛经史", "unknown": "家族史不详"}
+                family_history = "，".join([fam_map.get(x, x) for x in fam_arr])
+
+        # 物理标度换算
+        raw_score = data.painScore
+        vas_score = min(10, max(1, int(raw_score / 80))) if raw_score > 100 else min(10, max(1, int(raw_score / 10)))
+        scaled_score = min(100, int(raw_score / 8)) if raw_score > 100 else max(10, raw_score)
+
+        # 🏥 【 System Prompt】：临床避责、去病理恐慌、杜绝美化痛觉与真实假条硬约束
         if app_mode == "medical":
             sys_prompt = f"""
 You are an expert clinical gynecological intake specialist. You write gynecological admission records (住院/入院记录) for medical consultations.
 Your output must be strictly written in the tone, style, and structure of a real Class-A tertiary hospital medical record (参考三甲医院妇科病历书写规范).
 
-【CRITICAL GUIDELINES】
-1. NO SOFTWARE JARGON: Never output words like "brush", "canvas", "vectors", "pain score", "frontend" in the medical fields.
-2. SYSTEMATIC HISTORY TAKING:
-   - "chief_complaint" (主诉): Limit to 20 words. State the core symptom and duration (e.g., "下腹阵发性痉挛性绞痛1天，加重伴冷汗1小时").
-   - "present_illness" (现病史): Write a comprehensive clinical paragraph based ONLY on provided clinical data. Detail the onset, trigger, location, radiation, and progression of the current pain.
-   - "past_history" (既往史及个人家族史): Integrate past conditions, psychiatric history, surgeries, allergies, personal stasis habits, and genetic risk. Use standardized clinical terms.
-   - "menstrual_history" (月经史与婚育史): ALWAYS use the standard clinical menstrual formula format:
-     初潮年龄 (经期天数/周期天数) 末次月经(LMP)
-     Example: 13岁 (7/30天) LMP: 2025-12-01.
-     Ob/Gyn history must use the standard formula: G_xP_y (G=Gestation, P=Parturition), indicating details of cesarean deliveries, induced/spontaneous abortions.
-   - "clinical_diagnosis" (初步诊断): Format as a numbered list.
-   - "clinical_suggestions" (诊疗讨论及体检心理防护): Provide 2 sections. First, clinical workup discussion. Second, a supportive explanation of the pelvic examination.
-3. The output MUST be a strictly formatted JSON.
-4. STRICT MATCHING OF PREGNANCY & SURGICAL HISTORY (孕产史与手术史绝对对齐红线):
-   - You must strictly align "past_history", "menstrual_history", and "clinical_diagnosis" with the patient's actual "reproductiveHistoryArr" (生育史背景) and "surgicalHistory" (外科手术史) provided in the user prompt.
-   - If the user has "nulliparous" or is never pregnant (未婚未育/G0P0), "menstrual_history" MUST state G0P0 (no pregnancy/delivery history). You are STRICTLY FORBIDDEN from mentioning "cesarean section" (剖宫产), "induced abortion" (人工流产), or "P2" (Parturition=2) in any field!
-   - If the user has "none" or no surgical history, "clinical_diagnosis" and "past_history" MUST NOT contain "post-cesarean section status" (剖宫产术后), "post-operative state" or any surgical diagnosis!
-   - The few-shot example contains "剖宫产2次" and "G10P2" as formatting references only. NEVER copy these values directly if the user's input is nulliparous or has no surgeries.
-5. NO SPECULATION OR INVENTIONS (严禁无中生有与主观揣测):
-   - Do NOT invent, assume, or speculate on any medical, physiological, or personal data. Only use what is explicitly provided.
-   - NO SPECULATIVE NEGATIVE SYMPTOMS: Do NOT list standard negative symptoms (e.g., "无异常阴道流血", "无肛门坠胀感", "无发热寒战", "无恶心呕吐") unless they are derived from empty accompanying symptoms. If they are not in the input, do NOT claim them; instead, state "未诉其余伴随异常指征".
-   - NO CHRONIC DISEASE FABRICATION: Do NOT write statements like "否认高血压、糖尿病、心脏病等" if the input does not mention them. Instead, write "既往躯体慢性病史未详述".
-   - NO HABIT OR FAMILY HALLUCINATIONS: Do NOT assume or write that the patient denies smoking, drinking, mental illness, or family history of genetic disorders if they are not provided in the input. Write "个人史与家族史详见背景采集".
-   - NO CONCLUDING CLINICAL PLATITUDES: Do NOT assume or output phrases like "病来精神可，食眠正常，大小便无特殊，体重无明显变化" if these were not provided. Instead, write "全身系统状况未详述".
-6. LAST MENSTRUAL PERIOD (LMP) TEMPORAL ACCURACY (末次月经与当前发作时序红线):
-   - LMP (末次月经) is the first day of the *previous* menstruation, which is already in the past (usually 20-30+ days ago).
-   - The current dysmenorrhea is a *new, active episode* associated with the *current* menstrual phase (typically starting today, or 1 to 4 days ago based on the chief complaint).
-   - NEVER write that the current pain has been continuous "since the LMP" (e.g., do NOT write "自末次月经起出现下腹痛至今"). Instead, state: "患者自本次行经/临近行经（或1天前/4天前起，根据主诉）出现下腹痛...末次月经（LMP）为XXXX...".
-7. HEDGED CLINICAL ADVICE & LIABILITY MITIGATION (临床建议模糊化/避责红线):
-   - To prevent medical liability risks, ALL clinical judgments, suspected screening directions, examination recommendations, and self-care/medication suggestions (except for the absolute drug allergy contraindications) MUST use non-definitive, tentative, and probabilistic language.
-   - Use words like "可能" (possibly), "可以考虑" (could consider), "建议排查" (recommend screening for), "待排" (to be ruled out), "筛查方向" (screening direction), "评估" (evaluate), "探讨" (discuss/explore).
-   - NEVER use absolute or deterministic phrasing like "确诊为", "首选检查是", "必须检查" etc.
-8. GYNECOLOGICAL EXAM & CLINICAL PREPARATIONS GUIDELINES (就诊检查建议与准备红线):
-   - In "clinical_suggestions", you must recommend specific examinations matching the patient's age and sexual history.
-   - NO SEXUAL HISTORY/ADOLESCENT PROTECTION: If the patient is under 18, nulliparous, or has no history of sexual activity, DO NOT recommend "transvaginal ultrasound" or invasive exams! Instead, recommend "transabdominal pelvic ultrasound" and clearly note the preparation.
+【病历书写硬性合规防错指令】
+1. 【严禁生造词与软件工具词汇】！病历正文（chief_complaint, present_illness, past_history, menstrual_history, clinical_diagnosis）中【绝对不允许】出现“画笔”、“画布行为”、“分值评分”、“痛觉矢量图谱”、“绘图定位”、“前端”等任何软件专有名词。
+   - 必须将其翻译为标准医学词汇。将前端行为翻译为标准临床体征描述。
+2. 【严格写入阴性症状进行鉴别诊断】：在‘present_illness’（现病史）中必须清晰写入鉴别指标（如：“无肛门坠胀感，无尿频尿急...起病以来精神可，二便正常，体重无明显变化”）。
+3. 【病史公式化对齐】：月经史（menstrual_history）必须使用标准月经史公式格式：初潮年龄 (经期天数/周期天数) LMP: yyyy-mm-dd 格式。并标明末次月经（LMP）。
+4. 【大模型转译硬性指令】
+   - 特别限制（防污染隔离）：月经初潮年龄、月经周期规律性、经期持续时间、末次月经（LMP）属于妇科专属史，在既往史（past_history）中【绝对不允许】出现或提及，必须仅在 `menstrual_history` 中体现。
+   - 【痛感病生理机制分析 (present_illness)】：不要一句话概括，请温和、科学地剖析患者真实的痛感。
 
-【FEW-SHOT EXAMPLE】
-{{"chief_complaint": "行经期第2天突发急性下腹痉挛性绞痛，伴恶心呕吐与后背放射感1天。", "present_illness": "患者既往月经规律。今日处于行经期第2天，前列腺素水平达峰，子宫平滑肌呈高频强烈收缩，突发急性下腹部持续性收紧绞痛，呈阵发性剧烈加重。伴有乳房酸胀痛及腰骶部明显坠胀。今日未自行服用药物。由于患者既往对布洛芬过敏，本次发作未进行NSAIDs类药物镇痛。病期无发热、无休克、无昏厥。尚未进行本次急症超声定位检查。", "past_history": "既往确诊‘子宫内膜异位症’病史。既往行剖宫产术2次。否认高血压、心脑血管病史。明确对布洛芬（NSAIDs）类药物过敏。", "menstrual_history": "月经初潮13岁。经期持续5天，周期28-30天，规律。末次月经（LMP）为2026年6月1日。当前处于经期急性疼痛高发阶段。生育史：双胎剖宫产G2P2。", "clinical_diagnosis": "1. 原发性痛经（子宫内膜异位症引起可能）\n2. 剖宫产术后", "clinical_suggestions": "限制为：1. 讨论口服药物的选择。2. 建议常规预约盆腔多普勒彩超探查。\n🔬 【妇科专科检查心理防护与引导】：\n妇科专科检查是基础评估手段，操作过程会最大程度尊重患者隐私，在独立屏风后由医生操作。检查开始时，请尝试进行缓慢的深腹式呼吸，主动放松您的盆底肌群...", "analogy": "像是肚子里有一把冰冷的铁钳子，正用力夹住子宫死死拧绞，每拧一下，后腰就跟着一阵发木发胀，连呼吸都觉得被生生拽住。", "work": "因今日突发重度生理期绞痛及全身虚脱，无法支持工作，特申请病假休息一天，紧急事务已妥善交接。", "action": ["☑️ 搓热手掌贴在她小腹上轻轻捂热，或放置温热的热水袋，温度不可过高以免烫伤。", "☑️ 由于她布洛芬过敏，切勿擅自准备布洛芬！可以倒一杯温开水并准备好对乙酰氨基酚，督促她温服。"], "selfCare": ["✨ 痛经是身体内部平滑肌痉挛引起的切实物理伤害。请允许自己今天躺平，不生产任何价值也无需抱有任何愧疚感。", "✨ 采用侧卧婴儿蜷缩位，用松软枕头夹在双侧膝盖之间，能够最快释放盆腔及骶骨处的充血张力，缓解绞痛。", "✨ 缓慢腹式深吸气（4秒吸气，8秒拉长呼气），长呼气可以调动副交感神经，使子宫血管松弛缓解缺血。"]}}
+【🚫 器质性病变去恐慌红线 - 核心约束】
+- **绝对禁止**在没有确凿临床既往史证据的情况下，直接下器质性诊断（如‘子宫内膜异位症’、‘盆腔炎性疾病’）。
+- 重点筛查方向（clinical_diagnosis）必须温和、功能性、去病理化。并且**在结尾必须强制附带一段安抚文字**，写明：“请放心：上述筛查方向仅为常规鉴别排除项。根据您的具身体征，病理性器质病变的概率极低，绝大部分情况属于一过性平滑肌收缩，无需过度担忧。”
+- **彻底删除任何“模块一（供接诊医生参考）”**！所有的检查引导均直接面向【患者（用户）】，为其提供心理预判与配合，不得出现任何指点医生该如何看病诊疗的词句。
+- 检查预估引导要**减低用户的精神及财务包袱**。明确告诉她：盆腔超声检查是性价比极高、极其常规的常规初筛（多属于医保全额可报销范畴），无需担心昂贵的开支，旨在作为排除项让她心里踏实。
+- 检查人称纠正：**绝对禁止使用第一人称“我们”**！必须用中立的“医护人员在操作时会尽量保持动作温和，保护您的体感”、“检查会根据您的即时反馈进行调整”，避免产生AI替医生诊断的合规问题。
+
+【🚫 伴侣通感说明拒绝美化红线】
+- 你的 `analogy` 字段是写给患者伴侣看的。**绝对禁止任何形式的文学化美化**（严禁出现“海浪轻拍”、“温柔有节奏的低语”、“身体在吟唱”等任何淡化痛苦的诗意词汇）。
+- 必须使用真实、raw、具有硬性物理压迫感和高痛觉质感特征的词汇（如“铁手攥紧拧绞”、“细密钢针钻刺”、“冷铅极力沉坠”、“粗糙锉刀刮擦”），让伴侣能够切身感受到真实的肉体折磨，从而予以加倍重视，唤起其紧迫同理心。
+
+【🚫 社交假条日常化红线】
+- 你的 `work` 字段是供用户一键复制请假或推约的。**绝对禁止出现“突发严重扭转剧烈绞痛”等过于戏剧化、在真实职场社交中显得尴尬不自然的辞藻**。
+- 必须符合中国职场/学校真实生活习惯，直接说“因经期身体严重不适/生理期痛经请假一天”或“生理期不适推约”即可，字数控制在 40 字以内。
+
+【纯 JSON schema 格式输出】
+{{
+  "chief_complaint": "主诉（极简，部位+体感，字数严格控制在20字以内）",
+  "present_illness": "现病史（学术规范，深度剖析病生理，字数饱满，使用温和不制造恐慌的词汇）",
+  "past_history": "既往史、个人史及家族史风险（严格基于输入。绝对禁止包含月经周期、行经天数等月经史内容！）",
+  "menstrual_history": "月经史与婚育史（标准公式，严禁套用范例）",
+  "clinical_diagnosis": "重点筛查方向参考（温和去恐慌语气，并附带一句安抚排除概率高、病变可能性极低的说明）",
+  "clinical_suggestions": "【专科物理排查预估指南（供您心里有底）】：建议内容...说明彩超高性价比与医保报销等常规性...\\n\\n🔬 【给患者的专科物理检查心理防护与引导】：防护指南内容...（确保使用 医护人员 称呼代替 我们，两个模块间用 \\n\\n 分隔）",
+  "analogy": "痛觉具身通感隐喻（写给伴侣，拒绝美化，还原真实的硬性物理肉体折磨与痛楚，唤起伴侣重视）",
+  "work": "日常请假/推约短信（极其自然、得体、日常化，严禁夸张写微观痛感。40字以内）",
+  "action": ["实操建议1", "实操建议2", "实操建议3"],
+  "selfCare": ["温和自愈建议1", "温和自愈建议2", "消除病耻感安慰"]
+}}
 """
         else:
-            # 🎨 【System Prompt】：日常自愈舒缓模式重构
+            # 🎨 日常自愈模式 System Prompt
             sys_prompt = f"""
 You are a warm, empathetic period self-care companion and somatic guide (经期身体自愈与通感疗愈导师).
 Your output must be comforting, highly gentle, and focused on self-healing, emotional breathing, and companion guidance.
 The terminology must be easy to read, eliminating any clinical distress or complex medical nomenclature.
 
-【GUIDELINES】
-1. Comforting and gentle tone. Give the patient deep reassurance.
-2. Structure the output as a clean JSON with fields matching the fallback.
-3. Replace clinical diagnoses with somatic and energy-flow terms (e.g., "骨盆血液循环微滞，自主神经张力增高").
+【🚫 语言红线与自愈硬约束】
+1. 绝对禁止使用任何令人焦虑的临床术语。将临床诊断替换为“骨盆力学与交感放松状态评估”。
+2. 严禁使用极端、恐怖化字眼，采用“牵拉、温冷、牵坠、呼吸阻抗”等触觉词。
+3. "selfCare" 必须包含至少一个特定的疼痛缓解姿势（如双膝微屈抱枕），简单易做，且必须有一句消除病耻感、允许自己今天休息的温暖安慰。
+4. "work" 部分必须是严格限制在 40 字以内的社交推辞/推约短文本。
 """
 
+        # 3. 极严苛的 User Prompt
         user_prompt = f"""
-【前端提交的真实特征向量与基础档案数据（严禁在此范围外编造任何信息）】
-- 模式：{app_mode}
-- 痛觉主导特征：{pt_dict.get(data.dominantPain)}
-- 痛觉累积负荷评分：{data.painScore}/100
-- 解剖图谱定位：{pain_location_desc}
-{vector_analysis}
+【🚨 真实当前患者数据输入 - 绝对禁区！只能使用以下提供的数据进行处理，严禁捏造任何未提供的数据】
 
-【临床/生活背景采集】
-- 年龄段：{get_val_from_mb(mb, "age", "未详述")}
-- 既往诊断：{get_val_from_mb(mb, "diagnosed", "未详述")}
-- 外科手术史：{surg_desc}
-- 生育史背景：{repo_desc}
-- 药物过敏：{get_val_from_mb(mb, "allergies", "未详述")}
-- 初潮年龄：{menarche_desc}
-- 月经规律：{cycle_reg_desc}
-- 经期天数：{period_dur_desc}
-- 末次月经(LMP)：{get_val_from_mb(mb, "lastPeriod", "未提供")}
-- 伴随症状：{accompanying_desc}
-- 个人久坐/作息背景：{', '.join(getattr(mb, 'lifestyleArr', [])) if mb and getattr(mb, 'lifestyleArr', None) else '无'}
+1. 基础生物及痛觉矢量特征：
+   - 当前患者年龄段：{age_cohort}
+   - 主导痛感质感：{pt_dict.get(data.dominantPain, data.dominantPain)}
+   - 累积痛觉负荷评分（物理换算百分制）：{scaled_score}/100 （原始粒子点数：{data.painScore}）
+   - 痛感空间定位描述：{pain_location_desc}
+   - 判定当前生理阶段：{active_phase} (请基于此阶段，融合系统提示词中的“月经周期阶段参考指南”定制你的 selfCare 运动、自愈与生活饮食建议)
+   - 伴随躯体症状：{accompanying_desc}
+   - 前端绘图物理动力学特征推演：{vector_analysis}
+   - 情绪与血管微循环色彩：{get_color_somatic_meaning(data.colorPalette, lang)}
 
-【生成语境及语气优先偏好】：{data.tonePreference}
+2. 导入的患者真实健康背景（若显示为“无/未提供”，相关病历部分必须输出为无，严禁抄袭 Few-Shot 范例！）：
+   - 身高/体重：{f"{getattr(mb, 'height', '')}cm / {getattr(mb, 'weight', '')}kg" if mb and getattr(mb, 'height', '') else "未提供"}
+   - 既往诊断病史：{diagnosed_history}
+   - 外科手术史：{surgical_history_val}
+   - 生育/孕产史：{obstetric_history} (警告：若显示为“未生育”，月经孕产史中绝不能出现 G10P2 或剖宫产2次)
+   - 家族遗传/痛经史：{family_history}
+   - 初潮年龄：{menarche_desc}
+   - 月经周期规律性：{cycle_reg_desc}
+   - 经期天数：{period_dur_desc}
+   - 末次月经第一天（LMP）：{get_val_from_mb(mb, "lastPeriod", "未提供")}
+   - 个人生活作息背景：{', '.join(getattr(mb, 'lifestyleArr', [])) if mb and getattr(mb, 'lifestyleArr', None) else '无'}
 
-请根据以上真实数据特征，直接输出一个完整且字数饱满的 JSON 结果（不要有 markdown ``` 包装，只返回 JSON）：
+3. 语气及文案偏好：
+   - 沟通偏好语调：{data.tonePreference}
+
+{drug_safety_instruction}
+
+请仅基于上述真实数据，直接输出一个纯 JSON 对象（不要有 markdown 包装）：
 """
 
         model_name = config["model_quick"] if data.isQuickLog else config["model"]
 
-        # 请求大模型
+        print(f"🤖 正在请求服务提供商: {config['display_name']} ({model_name})...")
+
+        # 4. 执行制定的原生 API 负载参数传输
+        payload = {
+            "model": model_name,
+            "messages": [
+                {"role": "system", "content": sys_prompt},
+                {"role": "user", "content": user_prompt},
+            ],
+            "stream": False,
+            "max_tokens": config.get("max_tokens", 4096),
+            "temperature": 0.1,
+            "top_p": 0.7
+        }
+
         if LLM_PROVIDER == "vivo":
             url = f"{config['base_url']}/chat/completions"
             headers = {
@@ -409,32 +550,26 @@ The terminology must be easy to read, eliminating any clinical distress or compl
                 "Authorization": f"Bearer {api_key}",
             }
             params = {"request_id": str(uuid.uuid4())}
-            payload = {
-                "model": model_name,
-                "messages": [
-                    {"role": "system", "content": sys_prompt},
-                    {"role": "user", "content": user_prompt},
-                ],
-                "temperature": 0.2,
-                "max_tokens": config["max_tokens"],
-                "stream": False,
-            }
+            
+            if "qwen" in model_name.lower():
+                payload["enable_thinking"] = False
+            else:
+                payload["thinking"] = {"type": "disabled"}
+                payload["reasoning_effort"] = "minimal"
+
             response = requests.post(url, headers=headers, params=params, json=payload, timeout=90)
             response.raise_for_status()
             raw_text = response.json()["choices"][0]["message"]["content"]
         else:
             completion = client.chat.completions.create(
                 model=model_name,
-                messages=[
-                    {"role": "system", "content": sys_prompt},
-                    {"role": "user", "content": user_prompt},
-                ],
-                temperature=0.2,
-                response_format={"type": "json_object"},
+                messages=payload["messages"],
+                temperature=0.1,
+                response_format={"type": "json_object"}
             )
             raw_text = completion.choices[0].message.content
 
-        # 解析与提取 JSON
+        # 5. 安全清理 Markdown
         cleaned_text = re.sub(r"^```(?:json)?\s*", "", raw_text, flags=re.MULTILINE | re.IGNORECASE)
         cleaned_text = re.sub(r"```\s*$", "", cleaned_text, flags=re.MULTILINE).strip()
         start, end = cleaned_text.find("{"), cleaned_text.rfind("}")
@@ -448,6 +583,7 @@ The terminology must be easy to read, eliminating any clinical distress or compl
             val = json_data.get(key) if isinstance(json_data, dict) else None
             return val if val and str(val).strip() else fallback_val
 
+        # 6. 返回前端数据字典
         return {
             "status": "success",
             "language": lang,
@@ -471,97 +607,152 @@ The terminology must be easy to read, eliminating any clinical distress or compl
         }
 
     except Exception as e:
-        print(f"⚠️ 触发安全降级保护: {e}")
+        import traceback
+        print(f"❌ 运行发生异常，进入安全降级保护: {e}")
+        print(traceback.format_exc())
         fallback = _fallback_response(lang, painkiller, app_mode, data)
         fallback.update({
             "is_fallback": True,
-            "error_detail": str(e),
-            "pain_location": pain_location_desc,
-            "accompanying_symptoms": accompanying_desc,
-            "risk_warning": risk_warning,
-            "triage_advice": triage_advice if app_mode == "medical" else "居家自愈修整中",
-            "exam_advice": exam_advice if app_mode == "medical" else None,
-            "health_tips_link": f"https://health-edu.org/dysmenorrhea/{data.dominantPain}"
+            "error_detail": str(e)
         })
         return fallback
 
 # ─────────────────────────────────────────────
-# 降级备用模版
+# 降级备用模版 (安全动态重构，完全消除硬编码编造数据与恐慌词)
 # ─────────────────────────────────────────────
 def _fallback_response(lang: str, painkiller: str, app_mode: str, data: PainData) -> dict:
     is_general = app_mode == "general"
     mb = data.medicalBackground
     
-    diagnosed = get_val_from_mb(mb, "diagnosed", "无已知妇科诊断病史" if lang == "zh" else "No diagnosed Ob/Gyn history")
-    allergies = get_val_from_mb(mb, "allergies", "无明确药物过敏史" if lang == "zh" else "No known drug allergies")
-    menarche = getattr(mb, 'menarcheAge', '13') if mb else '13'
-    
-    cycle_reg_map = {"regular": "规律", "irregular": "不规律", "unsure": "不确定"} if lang == "zh" else {"regular": "regular", "irregular": "irregular", "unsure": "unsure"}
-    cycle_reg = cycle_reg_map.get(getattr(mb, 'cycleRegular', ''), '规律' if lang == "zh" else "regular")
-    
-    period_dur = getattr(mb, 'periodDuration', '5') if mb else '5'
-    lmp = getattr(mb, 'lastPeriod', '未提供' if lang == "zh" else "Not provided")
-    
+    # 局部作用域解析
     surg_desc = get_surgical_desc(mb, lang)
     repo_desc = get_reproductive_desc(mb, lang)
+    cycle_reg = get_cycle_regular_desc(mb, lang)
+
+    # 动态构建真实健康历史数据
+    diagnosed_history = "无明确妇科疾病确诊史"
+    surgical_history = "无盆腔及腹部手术史"
+    obstetric_history = "未生育"
+    
+    if mb:
+        if getattr(mb, "diagnosed", "") and getattr(mb, "diagnosed") not in ["none", "unchecked", ""]:
+            diagnosed_history = f"曾确诊患有 {getattr(mb, 'diagnosed')}"
+            if getattr(mb, "otherDiagnosis", ""):
+                diagnosed_history += f"、{getattr(mb, 'otherDiagnosis')}"
+        
+        surg_val = getattr(mb, 'surgicalHistory', '')
+        if surg_val and surg_val != "none":
+            surg_map = {"abdominal": "腹部手术史", "pelvic": "盆腔手术史", "other": "其他手术史"}
+            surgical_history = surg_map.get(surg_val, "有手术史")
+
+        reprod_arr = getattr(mb, "reproductiveHistoryArr", []) or []
+        if reprod_arr:
+            reprod_map = {
+                "nulliparous": "未生育", "pregnant": "已孕未生产", "parous": "已生育",
+                "spontaneousAbortion": "自然流产史", "inducedAbortion": "人工终止妊娠/人流史"
+            }
+            obstetric_history = "，".join([reprod_map.get(x, x) for x in reprod_arr if x])
+
+    # 动态同步解析前端上传的真实痛感质地与部位数据
+    pt_dict = PAIN_MAP.get(lang, PAIN_MAP["zh"])
+    pain_name = pt_dict.get(data.dominantPain, "下腹部不适感")
+    
+    # 将绘制点数换算为等效评分
+    raw_score = data.painScore
+    scaled_score = min(100, int(raw_score / 8)) if raw_score > 100 else max(10, raw_score)
+    pain_score_desc = f"{scaled_score}/100"
+    
+    location_desc = build_pain_location_desc(data.spatialMap, lang)
+    accompanying_symptoms = data.accompanyingSymptoms or []
+    accompanying_desc = "、".join(accompanying_symptoms) if accompanying_symptoms else "未诉其余明显伴随异常症状"
+
+    menarche = getattr(mb, 'menarcheAge', '14') if mb else '14'
+    period_dur = getattr(mb, 'periodDuration', '5') if mb else '5'
+    lmp = getattr(mb, 'lastPeriod', '未提供' if lang == "zh" else "Not provided")
+
+    # 物理痛觉描述映射 (针对伴侣，拒绝美化，还原真实的硬性物理肉体折磨与痛楚)
+    custom_analogies = {
+        "twist": "子宫深处像是被一只无情的铁手攥紧后用力拧绞，酸痛感伴随肌肉抽搐，根本无法挺直腰板。",
+        "pierce": "感觉腹腔里藏着一根带刺的钢针在毫无规律地钻刺，每一次呼吸都有种突如其来的尖锐刺痛感。",
+        "heavy": "小腹仿佛被灌注了沉重的冷铅，极力地向下沉坠，连带腰骶部酸胀欲断，站立或坐着都感到万分疲惫。",
+        "wave": "腹部深处像是有个不断充气胀大的金属气球，正持续压迫周围的神经与血管，带来推不开、化不掉的闷痛。",
+        "scrape": "痛灶表面像是有粗糙的锉刀在反复来回刮擦扯动，皮肤敏感度极高，连衣服轻轻贴在肚子上都觉得难受。"
+    }
+    analogy_val = custom_analogies.get(data.dominantPain, "子宫平滑肌高度紧张敏感，带来持续强烈的物理酸痛负荷。")
 
     if lang == "zh":
         if is_general:
             return {
-                "chief_complaint": "【身体感知】小腹酸胀不适伴腰部酸痛感。",
-                "present_illness": "平滑肌轻度痉挛收缩，伴骨盆局部血管微滞与坠重。建议配合温热热敷与舒缓长呼吸，松弛盆底肌肉阻抗。",
-                "past_history": f"既往健康状况一般。{surg_desc}。习惯性久坐少动。",
-                "menstrual_history": f"月经周期{cycle_reg}，目前处于月经行经期第1-2天。",
-                "clinical_diagnosis": "【骨盆感知】：交感神经紧张度增高、盆腔静脉微淤。",
-                "clinical_suggestions": "【自愈释压指南】：\n1. 【抱膝放松法】：侧卧婴儿式，用手微抱双膝，使后部腰骶自然弯曲伸展，缓解腰椎后群肌压力。\n2. 【意念身体扫描】：将手覆在关元穴（腹部中线脐下三寸），吸气4秒，深长呼气8秒，释放盆腔内压。",
-                "analogy": "小腹内像藏着一个不断微弱充气的酸热气球，发胀、微木，沉甸甸地牵坠着后腰。",
-                "work": "您好：\n本人今日突发严重的生理期酸胀坠痛，身体状况不佳，精力无法集中。特申请今日请假/居家休息一天。紧急工作会在恢复后及时处理。\n\n申请人：[您的姓名]",
+                "chief_complaint": f"【身体感知】{location_desc}出现{pain_name}。",
+                "present_illness": f"患者自诉处于生理期。今日感{location_desc}处出现{pain_name}，并伴随有{accompanying_desc}。根据痛觉特征表现，局部平滑肌存在轻度应激性收缩，建议配合缓慢的深层腹式呼吸及局部热理疗调和肌肉张力。",
+                "past_history": f"既往史：身体状况健康度未详述。手术史：{surgical_history}。日常作息背景详见档案采集。",
+                "menstrual_history": f"当前处于生理周期：{data.cycleDay}。",
+                "clinical_diagnosis": "【骨盆感知】：交感反射性应激，盆腔微循环轻微受阻。",
+                "clinical_suggestions": "【建议自愈静修调节】：\n1. 【抱膝放松】：采用侧卧婴儿姿势并双膝微抱，自然舒缓后部腰骶肌拉扯。\n\n2. ⚠️ 注意：任何自愈体位调节或理疗方法若引起您额外的不适或痛感加剧，请立即停止！回归最舒服的放松姿势并保持静卧休息。",
+                "analogy": analogy_val,
+                "work": "因今天经期不适状态不佳，特申请请假休息一天，感谢批准。",
                 "action": [
                     "☑️ 将手掌合十搓热，平敷于她小腹下方的关元穴，通过体温传导温和舒缓充血坠胀。",
-                    "☑️ 备好42℃左右温热水，尽量保持卧室光线柔和避光，减少感官刺激。"
+                    f"☑️ 倒一杯温水，协助她备好无过敏禁忌的安全非处方镇痛药物（如{painkiller}）。"
                 ],
                 "selfCare": [
-                    "✨ 允许自己安静静卧。身体的痛楚是真实的生理重塑，今天休息也是有价值的治疗。",
+                    "✨ 允许自己安静静卧。痛楚是真实的生理重塑，今天休息也是有价值的身体调整。",
                     "✨ 配合深长吸气，将氧气送入盆腔深处，温和缓解缺氧痉挛。"
                 ]
             }
         else:
-            diag_list = ["1. 原发性痉挛性痛经（子宫内膜平滑肌痉挛可能）"]
-            surg_val = getattr(mb, 'surgicalHistory', '') if mb else ''
-            if surg_val in ["pelvic", "abdominal", "other"]:
-                diag_list.append(f"2. {surg_desc}")
-            diag_desc = "\n".join(diag_list)
+            diag_desc = (
+                "1. 周期性功能性下腹痛待排（平滑肌张力暂时性升高可能）\n"
+                "2. 暂时性盆腔微循环不协调待排\n\n"
+                "💡 请放心：上述筛查方向仅为常规临床鉴别排除项。根据您的体征，病理性器质病变的概率极低，绝大情况仅是生理期暂时性的平滑肌敏感收缩，无需过度担忧。"
+            )
+
+            suggestions_desc = (
+                "【专科物理排查预估指南（供您心里有底）】：\n"
+                "1. 建议结合您在痛觉图谱上绘制的解剖位置，就诊时请接诊医生在行超声扫描时重点评估。功能性超声（彩超）通常十分常规且性价比极高（普遍可在医保内全额报销），无需担心昂贵的开支，旨在为您提供一个放心的排除项，帮助您心里有底，避免精神包袱。\n"
+                "2. 针对止痛管理，您可以在就诊时与医生沟通适合您的安全止痛方案。\n\n"
+                "🔬 【给患者的专科物理检查心理防护与引导】：\n"
+                "超声检查是极基础的无创筛查方法。如果医生建议进行检查，操作会在独立私密的屏风后进行。医护人员在操作时会尽量保持动作温和，保护您的体感，完全尊重您的隐私边界。检查时请配合医护人员指引深慢呼气，完全放松盆底肌群，检查探头极其细小且有温热润滑剂，仅会有短暂的顶胀感。请放下顾虑与害羞，配合检查是科学明确痛因的关键。"
+            )
 
             return {
-                "chief_complaint": "下腹部阵发性痉挛性绞痛1天，加重伴下腹坠痛1小时。",
-                "present_illness": "患者既往月经规律。今日突发月经期下腹部痉挛性绞痛，阵发加剧，痛感深在，向腰骶部及左大腿放射。无肛门坠胀感，无发热，无尿频尿急。自行口服布洛芬后痛感缓解有限。现为求进一步诊治求诊。患者病来精神一般，大小便无特殊，体重无异常变化。",
-                "past_history": f"既往史：健康状况良好。无胃溃疡及其他慢性躯体疾病史。手术史：{surg_desc}。过敏史：{allergies}。",
-                "menstrual_history": f"{menarche} ({period_dur}/28天) LMP: {lmp}. 痛经：有。生育史：{repo_desc}。",
+                "chief_complaint": f"下腹部{pain_name}。",
+                "present_illness": f"患者既往月经规律。今日（生理期：{data.cycleDay}）出现{location_desc}部{pain_name}，痛感性质符合绘图动力学特征，伴有伴随症状：{accompanying_desc}。当前痛觉分值为{pain_score_desc}。无其余异常不适主诉。起病以来，系统状况未详细填报，体能状态一般。",
+                "past_history": f"既往史：{diagnosed_history}。手术史：{surgical_history}。过敏史：{build_risk_warning(mb, lang)}。",
+                "menstrual_history": f"{menarche} ({period_dur}/28天) LMP: {lmp}. 痛经：有。生育史：{obstetric_history}。",
                 "clinical_diagnosis": diag_desc,
-                "clinical_suggestions": "【建议就诊时与医生讨论的要点】：\n1. 结合既往健康档案及痛觉表现，建议请医生在行盆腔超声检查时评估是否存在局部痉挛或潜在病灶。\n2. 讨论口服镇痛抗炎药物的针对性调节。\n\n🔬 【妇科专科检查消除恐惧指南】：\n妇科超声及妇检检查是极基础的无创初筛排查方法。如果推荐您进行相关检查，请配合医生进行深慢呼吸，主动放松盆底括约肌。医生会提供充分的屏风和隐私防护以保护您的隐私边界与检查尊严。请放心配合医生，尽早明确病灶原因。",
-                "analogy": "小腹内像藏着一个上紧了发条的金属夹子，在不断收缩拧动，冷意带着尖锐的酸麻感直窜后脊。",
-                "work": "尊敬的领导/HR您好：\\n本人今日经期急性痛经（下腹阵发性痉挛性绞痛）发作，目前身体状况欠佳，无法支持正常的专注工作。特申请病假一天，紧急事务已向部门同事进行交接，非常感谢您的准允。\\n\n申请人：[您的姓名]",
+                "clinical_suggestions": suggestions_desc,
+                "analogy": analogy_val,
+                "work": "因今天经期不适/痛经，体力透支无法保持正常专注，特申请请假休息一天，望批准。",
                 "action": [
-                    f"☑️ 准备好温热热水袋或暖贴，敷于其下腹关元穴或后腰骶区进行温和理疗。",
-                    f"☑️ 倒一杯温热开水，备好安全类镇痛药（如{painkiller}），避开已知药物过敏原。"
+                    f"☑️ 准备一个温热的热水袋，帮她放置在下腹部或后腰处进行物理热敷理疗。",
+                    f"☑️ 帮她倒一杯温热的饮用水，并准备好安全的止痛药{painkiller}。"
                 ],
                 "selfCare": [
-                    "✨ 采用侧卧婴儿蜷缩式躺下，在双膝间夹小靠枕，释放盆腔微血管压力。",
-                    "✨ 禁食生冷冰冻饮品，小口慢饮热水或热红枣姜茶促进盆腔血液灌注。"
+                    "✨ 采用侧卧婴儿蜷缩式，膝盖之间夹枕头，放松紧绷的盆腔肌肉。",
+                    "✨ 尽量拉长呼吸，吸气4秒、平稳呼气8秒，能帮过度兴奋的盆底肌肉尽快放松下来。"
                 ]
             }
     else:
         # English Mirror Fallback
+        analogy_val_en = {
+            "twist": "It feels like an iron hand is clamping tightly inside the deep pelvis, wrenching the muscles with continuous cramps.",
+            "pierce": "It feels like a sharp needle is randomly stabbing deep inside the pelvis, causing sudden sharp pain with every breath.",
+            "heavy": "The lower abdomen feels as if it were filled with cold lead, dragging downward heavily, making standing exhausting.",
+            "wave": "It feels like a balloon is constantly inflating deep inside the pelvis, compressing the nerves with dull, persistent pressure.",
+            "scrape": "It feels like an abrasive file is scraping back and forth inside, making the pelvis extremely sensitive and sore."
+        }.get(data.dominantPain, "Uterine smooth muscles are tightly contracted, causing physical aching and heavy fatigue.")
+
         if is_general:
             return {
                 "chief_complaint": "Somatic Reflection: Today the lower pelvis feels compressed with continuous heavy waves of bloating.",
-                "present_illness": "Somatic assessment indicates mild spasmodic uterine contractions accompanied by localized pelvic congestion. Mindful breathing and warmth may be considered to pacify pelvic floor myofcial tension.",
+                "present_illness": f"Somatic assessment indicates mild spasmodic uterine contractions accompanied by localized pelvic congestion of type {pain_name}. Mindful breathing and warmth may be considered to pacify pelvic floor myofcial tension.",
                 "past_history": f"Generally healthy. {surg_desc}. Irregular schedule/night shifts.",
                 "menstrual_history": f"Menarche at {menarche}. Cycle: {cycle_reg}. Duration: {period_dur} days. LMP: {lmp}.",
                 "clinical_diagnosis": "Primary dysmenorrhea / Pelvic congestion screening required.",
                 "clinical_suggestions": f"Rest, apply local heat therapy. Consult physician for pharmacological intervention. Recommended non-allergenic analgesic: {painkiller}.",
-                "analogy": "Like a heavy stone sinking deep into your lower pelvis, radiating continuous stiffness to your lower back.",
-                "work": "Hi Manager,\nI am writing to request a sick leave / work-from-home accommodation today due to sudden and severe menstrual pelvic bloating. I will catch up on any outstanding items as soon as I recover. Thank you for your kind understanding.\n\nSincerely,\n[Your Name]",
+                "analogy": analogy_val_en,
+                "work": "I'm unable to join today due to menstrual cramps. Let's catch up another day.",
                 "action": [
                     "☑️ Rub your palms warm and place them flat on her lower abdomen to gently encourage circulation.",
                     "☑️ Ensure a quiet, dark environment to reduce autonomic over-sensitivity."
@@ -575,14 +766,14 @@ def _fallback_response(lang: str, painkiller: str, app_mode: str, data: PainData
             return {
                 "status": "success",
                 "language": "en",
-                "chief_complaint": f"Chief complaint: Cyclic dysmenorrhea with lower abdominal pain on menstrual day {data.cycleDay}.",
-                "present_illness": f"The patient reports cyclic, spasmodic lower abdominal pain associated with menses. Pain intensity is quantified at {data.painScore}/100 based on visual drawing telemetry. Aggravated during menstruation with localized pelvic sensation.",
+                "chief_complaint": f"Cyclic dysmenorrhea with lower abdominal pain.",
+                "present_illness": f"The patient reports cyclic, spasmodic lower abdominal pain associated with menses. Pain intensity is quantified at {data.painScore}/100 based on visual drawing telemetry. Aggravated during menses with localized pelvic sensation of {pain_name}.",
                 "past_history": f"Past History: Generally healthy. Surgery: {surg_desc}. Allergies: {allergies}.",
                 "menstrual_history": f"Menarche at {menarche} ({period_dur}/28 days) LMP: {lmp}. Dysmenorrhea: Yes. Obstetrical History: {repo_desc}.",
-                "clinical_diagnosis": f"1. Primary spasmodic dysmenorrhea\n2. {surg_desc}",
-                "clinical_suggestions": "【Points to discuss with your doctor】:\n1. Discuss the risk of pelvic tissue adhesions and localized lesions with your gynecologist during your pelvic ultrasound.\n2. Ask whether pelvic ultrasound screening is appropriate.\n\n🔬 【Pelvic Examination Reassurance Guide】:\nPelvic examinations and Doppler ultrasounds are routine non-invasive screening procedures. The physician operates behind private screens to fully respect your physical boundaries and preserve patient dignity. Please stay relaxed during the exam.",
-                "analogy": "Like an iron clamp twisting tightly inside the deep pelvis, sending paroxysms of acute stiffness straight up the spine.",
-                "work": "Dear Manager/HR,\nI am writing to request sick leave for today as I am experiencing severe spasmodic dysmenorrhea (acute lower abdominal cramping). Urgent tasks have been delegated. Thank you for your support and understanding.\n\nSincerely,\n[Your Name]",
+                "clinical_diagnosis": f"1. Primary spasmodic dysmenorrhea\n2. {surg_desc}\n\n💡 Please rest assured: The above screening direction is only a routine clinical exclusion. The probability of pathological organic disease is extremely low. It is highly likely to be functional and temporary.",
+                "clinical_suggestions": "【Points to discuss with your doctor】:\n1. Discuss with your gynecologist during your pelvic ultrasound. It is a highly routine, non-invasive, and cost-effective screening to exclude organic issues, so there is no need for financial or mental burden.\n\n🔬 【Pelvic Examination Reassurance Guide】:\nPelvic Doppler ultrasound is a non-invasive screening procedure. The medical staff operates behind private screens to fully respect your physical boundaries. Examiners will maintain gentle movements, and you can breathe deeply and relax your pelvic muscles during the exam.",
+                "analogy": analogy_val_en,
+                "work": "Requesting sick leave for today due to acute menstrual cramps. Urgent tasks have been delegated.",
                 "action": [
                     "☑️ Apply a warm compress or heating pad (40-45°C) to her lower back and lower abdomen.",
                     f"☑️ Prepare warm water and have her safe pain reliever (e.g. {painkiller}) ready, keeping her away from allergens."

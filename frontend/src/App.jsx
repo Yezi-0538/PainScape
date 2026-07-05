@@ -3692,7 +3692,6 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
             </div>
           </div>
         )}
-
         {/* === Result 结果页面 === */}
         {page === "result" && (() => {
           try {
@@ -3707,52 +3706,84 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
                 default: return t('result.refine.placeholder');
               }
             };
+
             return (
-              <div style={{ pointerEvents: 'auto', position: 'absolute', top: 0, left: 0, width: '100vw', height: '100vh', zIndex: 20, background: 'rgba(10,10,10,0.95)', backdropFilter: 'blur(8px)', padding: '20px', overflowY: 'auto', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+              <div style={{ pointerEvents: 'auto', position: 'absolute', top: 0, left: 0, width: '100vw', height: '100vh', zIndex: 20, background: 'rgba(8,8,8,0.97)', backdropFilter: 'blur(12px)', padding: '20px', overflowY: 'auto', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
 
-                <img src={imgUrl} style={{ width: '60%', maxWidth: '250px', marginTop: '20px', borderRadius: '12px', border: '2px solid #444' }} alt="pain" />
+                {/* 1. 痛觉图谱缩略预览 */}
+                <img src={imgUrl} style={{ width: '50%', maxWidth: '200px', marginTop: '20px', borderRadius: '16px', border: '1.5px solid #333', boxShadow: '0 8px 24px rgba(0,0,0,0.5)' }} alt="pain map preview" />
 
-                <div style={{ display: 'flex', gap: '10px', margin: '20px 0', width: '100%', maxWidth: '350px' }}>
-                  {/* 若处于日常表达模式，可隐藏临床‘医生’卡片 */}
+                {/* 2. 陪伴/请假/就诊/自愈 场景多端分流 Tab 面板 */}
+                <div style={{ display: 'flex', gap: '8px', margin: '24px 0 16px 0', width: '100%', maxWidth: identity === 'doctor' ? '580px' : '380px', transition: 'max-width 0.25s cubic-bezier(0.4, 0, 0.2, 1)' }}>
                   {['partner', 'work', appMode === 'medical' && 'doctor', 'self'].filter(Boolean).map(tab => (
-                    <button key={tab} style={{ flex: 1, padding: '10px 0', background: identity === tab ? '#444' : 'rgba(30,30,30,0.8)', color: identity === tab ? '#fff' : '#888', border: '1px solid #444', borderRadius: '8px', fontSize: '13px', cursor: 'pointer' }} onClick={() => setIdentity(tab)}>
+                    <button 
+                      key={tab} 
+                      style={{ 
+                        flex: 1, 
+                        padding: '12px 0', 
+                        background: identity === tab ? '#222' : 'rgba(20,20,20,0.6)', 
+                        color: identity === tab ? '#fff' : '#666', 
+                        border: identity === tab ? '1.5px solid #444' : '1px solid #222', 
+                        borderRadius: '12px', 
+                        fontSize: '13px', 
+                        fontWeight: identity === tab ? 'bold' : 'normal',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s'
+                      }} 
+                      onClick={() => setIdentity(tab)}
+                    >
                       {t(`result.tabs.${tab}`)}
                     </button>
                   ))}
                 </div>
 
-                <div className="info-card" style={{ background: 'rgba(28,28,28,0.9)', padding: '20px', borderRadius: '12px', width: '100%', maxWidth: '350px', border: '1px solid #444', boxShadow: '0 10px 30px rgba(0,0,0,0.5)' }}>
+                {/* 3. 主内容卡片壳 (就诊标签页下宽屏化 580px 处理，其他页保持精美 380px) */}
+                <div 
+                  className="info-card" 
+                  style={{ 
+                    background: '#121212', 
+                    padding: '24px', 
+                    borderRadius: '20px', 
+                    width: '100%', 
+                    maxWidth: identity === 'doctor' ? '580px' : '380px', 
+                    border: '1px solid #222', 
+                    boxShadow: '0 12px 40px rgba(0,0,0,0.6)',
+                    transition: 'max-width 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
+                    boxSizing: 'border-box'
+                  }}
+                >
+                  {/* ==================== 伴侣陪伴视图 ==================== */}
                   {identity === 'partner' && (
                     <>
                       <h3 style={{ color: '#fff', margin: '0 0 15px 0' }}>{t('result.partner.title')}</h3>
-                      <div style={{ background: 'rgba(211,47,47,0.1)', padding: '12px', borderRadius: '8px', borderLeft: '3px solid #d32f2f' }}>
-                        <p style={{ color: '#ffcdd2', fontSize: '13px', margin: '0 0 6px 0', whiteSpace: 'pre-wrap', lineHeight: '1.5' }}> {t('result.partner.experiencing')}<strong>{content.pain}</strong>。 </p>
-                        <EditableBlock fieldKey="analogy" defaultValue={content.analogy} color="#ffcdd2" />
+                      <div style={{ background: 'rgba(211,47,47,0.04)', padding: '14px', borderRadius: '12px', borderLeft: '4px solid #d32f2f', borderTop: '1px solid #222', borderRight: '1px solid #222', borderBottom: '1px solid #222' }}>
+                        <p style={{ color: '#ffcdd2', fontSize: '13.5px', margin: '0 0 8px 0', whiteSpace: 'pre-wrap', lineHeight: '1.6' }}> {t('result.partner.experiencing')}<strong>{content.pain}</strong>。 </p>
+                        <EditableBlock fieldKey="analogy" defaultValue={content.analogy} color="#ffcdd2" style={{ fontSize: '13px', lineHeight: '1.7', whiteSpace: 'pre-wrap' }} />
                       </div>
                       <div style={{ marginTop: '20px' }}>
-                        <strong style={{ color: '#fff', fontSize: '14px' }}>{t('result.partner.actionPrompt')}</strong>
+                        <strong style={{ color: '#fff', fontSize: '14px', display: 'block', marginBottom: '8px' }}>{t('result.partner.actionPrompt')}</strong>
                         <EditableBlock
                           fieldKey="action"
                           defaultValue={content.action}
                           color="#ccc"
-                          style={{ marginTop: '10px', whiteSpace: 'pre-wrap' }}
+                          style={{ fontSize: '13px', lineHeight: '1.7', whiteSpace: 'pre-wrap' }}
                         />
                       </div>
                       <button
                         onClick={() => handleCopy(getEditedOrDefault('action', content.action))}
-                        style={{ marginTop: '15px', width: '100%', padding: '10px', background: 'transparent', border: '1px dashed #d32f2f', color: '#ffcdd2', borderRadius: '8px', cursor: 'pointer' }}
+                        style={{ marginTop: '15px', width: '100%', padding: '12px', background: 'transparent', border: '1px dashed #d32f2f', color: '#ffcdd2', borderRadius: '12px', cursor: 'pointer', fontSize: '13px', fontWeight: '500' }}
                       >
                         {t('result.partner.copyAction')}
                       </button>
 
-                      <div style={{ marginTop: '25px', paddingTop: '15px', borderTop: '1px solid #333' }}>
+                      <div style={{ marginTop: '25px', paddingTop: '15px', borderTop: '1px solid #222' }}>
                         <p style={{ color: '#888', fontSize: '12px', margin: '0 0 10px 0' }}>{t('result.refine.prompt')}</p>
                         <div style={{ display: 'flex', gap: '8px' }}>
                           <input
                             placeholder={getRefinePlaceholder('partner')}
                             value={refineInput}
                             onChange={(e) => setRefineInput(e.target.value)}
-                            style={{ flex: 1, background: '#111', border: '1px solid #333', color: '#fff', borderRadius: '8px', padding: '10px', fontSize: '12px' }}
+                            style={{ flex: 1, background: '#111', border: '1px solid #222', color: '#fff', borderRadius: '10px', padding: '12px', fontSize: '12px' }}
                             onKeyDown={(e) => {
                               if (e.key === 'Enter') handleRefine('analogy');
                             }}
@@ -3762,58 +3793,34 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
                             disabled={refiningField === 'analogy'}
                             style={{
                               background: refiningField === 'analogy' ? '#555' : '#d32f2f',
-                              color: '#fff', border: 'none', borderRadius: '8px', padding: '0 15px',
+                              color: '#fff', border: 'none', borderRadius: '10px', padding: '0 16px',
                               cursor: refiningField === 'analogy' ? 'not-allowed' : 'pointer',
-                              fontSize: '12px', whiteSpace: 'nowrap'
+                              fontSize: '12px', whiteSpace: 'nowrap', fontWeight: 'bold'
                             }}>
                             {refiningField === 'analogy' ? t('result.refine.optimizing') : t('result.refine.optimize')}
                           </button>
                         </div>
                       </div>
-                      <div style={{ marginTop: '24px', paddingTop: '16px', borderTop: '1px solid #2d2d2d' }}>
-                        <h4 style={{
-                          color: '#ef5350',
-                          fontSize: '14px',
-                          fontWeight: '600',
-                          margin: '0 0 16px 0',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '6px',
-                          letterSpacing: '0.5px'
-                        }}>
-                          🔴 经期小科普
-                        </h4>
 
+                      <div style={{ marginTop: '24px', paddingTop: '16px', borderTop: '1px solid #222' }}>
+                        <h4 style={{ color: '#ef5350', fontSize: '14px', fontWeight: '600', margin: '0 0 14px 0', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          🔴 经期陪伴指南
+                        </h4>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                           {randomPartnerTips.map((tip, idx) => {
                             const isWarning = tip.title && tip.title.includes('警告');
                             return (
                               <div key={idx} style={{
-                                background: isWarning ? 'linear-gradient(145deg, #241414, #1a0f0f)' : 'linear-gradient(145deg, #1c1c1c, #141414)',
-                                borderRadius: '16px',
-                                padding: '18px',
-                                border: isWarning ? '1px solid rgba(211,47,47,0.3)' : '1px solid rgba(255, 255, 255, 0.05)',
-                                borderLeft: isWarning ? '4px solid #d32f2f' : '4px solid rgba(211, 47, 47, 0.6)',
-                                boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-                                transition: 'transform 0.2s ease'
+                                background: isWarning ? 'linear-gradient(145deg, #241414, #121212)' : '#161616',
+                                borderRadius: '14px',
+                                padding: '16px',
+                                border: isWarning ? '1px solid rgba(211,47,47,0.2)' : '1px solid #222',
+                                borderLeft: isWarning ? '4px solid #d32f2f' : '4px solid rgba(211, 47, 47, 0.5)',
                               }}>
-                                <div style={{
-                                  color: '#ffffff',
-                                  fontSize: '15px',
-                                  fontWeight: '600',
-                                  marginBottom: '10px',
-                                  lineHeight: '1.4',
-                                  letterSpacing: '0.3px'
-                                }}>
+                                <div style={{ color: '#fff', fontSize: '14px', fontWeight: '600', marginBottom: '8px' }}>
                                   {tip.title}
                                 </div>
-                                <div style={{
-                                  color: '#b0b0b0',
-                                  fontSize: '13px',
-                                  margin: 0,
-                                  lineHeight: '1.65',
-                                  textAlign: 'justify'
-                                }}>
+                                <div style={{ color: '#aaa', fontSize: '12.5px', lineHeight: '1.6', textAlign: 'justify' }}>
                                   {tip.desc}
                                 </div>
                               </div>
@@ -3824,17 +3831,17 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
                     </>
                   )}
 
+                  {/* ==================== 社交请假视图 ==================== */}
                   {identity === 'work' && (
                     <>
                       <h3 style={{ color: '#ff9800', margin: '0 0 15px 0' }}>{t('result.work.title')}</h3>
-                      <p style={{ color: '#888', fontSize: '12px', marginBottom: '16px', lineHeight: '1.5' }}>
+                      <p style={{ color: '#888', fontSize: '12.5px', marginBottom: '16px', lineHeight: '1.6' }}>
                         {t('result.work.description')}
                       </p>
 
-                      {/* 对象选择器部分 */}
-                      <div style={{ marginBottom: '14px' }}>
+                      <div style={{ marginBottom: '16px' }}>
                         <span style={{ color: '#666', fontSize: '11px', display: 'block', marginBottom: '6px' }}>
-                          📢 {targetLanguage === 'en' ? 'Recipient / Context:' : '发送对象 / 场景：'}
+                          📢 发送对象与场景：
                         </span>
                         <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                           {['manager', 'teacher', 'client', 'friend'].map(key => (
@@ -3843,11 +3850,11 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
                               onClick={() => setLeaveRecipient(key)}
                               style={{
                                 flex: '1 0 45%',
-                                padding: '8px 0',
-                                fontSize: '11px',
+                                padding: '10px 0',
+                                fontSize: '12px',
                                 borderRadius: '8px',
-                                border: leaveRecipient === key ? '1px solid #ff9800' : '1px solid #333',
-                                background: leaveRecipient === key ? 'rgba(255, 152, 0, 0.1)' : '#1e1e1e',
+                                border: leaveRecipient === key ? '1px solid #ff9800' : '1px solid #222',
+                                background: leaveRecipient === key ? 'rgba(255, 152, 0, 0.08)' : '#161616',
                                 color: leaveRecipient === key ? '#fff' : '#888',
                                 cursor: 'pointer',
                                 transition: 'all 0.2s',
@@ -3860,10 +3867,9 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
                         </div>
                       </div>
 
-                      {/* 2. 表达语气倾向选择器 */}
                       <div style={{ marginBottom: '20px' }}>
                         <span style={{ color: '#666', fontSize: '11px', display: 'block', marginBottom: '6px' }}>
-                          🎭 {targetLanguage === 'en' ? 'Tone Style:' : '表达语气倾向：'}
+                          🎭 表达语气倾向：
                         </span>
                         <div style={{ display: 'flex', gap: '8px' }}>
                           {['polite', 'objective'].map(key => (
@@ -3872,11 +3878,11 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
                               onClick={() => setLeaveTone(key)}
                               style={{
                                 flex: 1,
-                                padding: '8px 0',
-                                fontSize: '11px',
+                                padding: '10px 0',
+                                fontSize: '12px',
                                 borderRadius: '8px',
-                                border: leaveTone === key ? '1px solid #ff9800' : '1px solid #333',
-                                background: leaveTone === key ? 'rgba(255, 152, 0, 0.1)' : '#1e1e1e',
+                                border: leaveTone === key ? '1px solid #ff9800' : '1px solid #222',
+                                background: leaveTone === key ? 'rgba(255, 152, 0, 0.08)' : '#161616',
                                 color: leaveTone === key ? '#fff' : '#888',
                                 cursor: 'pointer',
                                 transition: 'all 0.2s'
@@ -3888,31 +3894,30 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
                         </div>
                       </div>
 
-                      {/* 3. 动态文本显示与可编辑区域 */}
-                      <div style={{ background: 'rgba(255,152,0,0.05)', padding: '14px', borderRadius: '12px', border: '1px solid rgba(255,152,0,0.2)' }}>
+                      <div style={{ background: 'rgba(255,152,0,0.03)', padding: '16px', borderRadius: '12px', border: '1px solid rgba(255,152,0,0.12)' }}>
                         <EditableBlock
                           fieldKey="workText"
                           defaultValue={getEditedOrDefault('workText', '')}
                           color="#eee"
+                          style={{ fontSize: '13px', lineHeight: '1.7', whiteSpace: 'pre-wrap' }}
                         />
                       </div>
 
                       <button
                         onClick={() => handleCopy(getEditedOrDefault('workText', ''))}
-                        style={{ marginTop: '16px', width: '100%', padding: '12px', background: 'transparent', border: '1px dashed #ff9800', color: '#ffcc80', borderRadius: '10px', cursor: 'pointer', fontWeight: '500', fontSize: '13px' }}
+                        style={{ marginTop: '16px', width: '100%', padding: '12px', background: 'transparent', border: '1px dashed #ff9800', color: '#ffcc80', borderRadius: '12px', cursor: 'pointer', fontWeight: '500', fontSize: '13px' }}
                       >
                         {t('result.work.copyTemplate')}
                       </button>
 
-                      {/* 4. AI 调谐语气反馈层 */}
-                      <div style={{ marginTop: '25px', paddingTop: '15px', borderTop: '1px solid #2d2d2d' }}>
+                      <div style={{ marginTop: '25px', paddingTop: '15px', borderTop: '1px solid #222' }}>
                         <p style={{ color: '#888', fontSize: '11px', margin: '0 0 10px 0' }}>{t('result.refine.prompt')}</p>
                         <div style={{ display: 'flex', gap: '8px' }}>
                           <input
                             placeholder={targetLanguage === 'en' ? "e.g., add that I will check Slack in the afternoon..." : "例如：添加我下午会定时在线处理信息..."}
                             value={refineInput}
                             onChange={(e) => setRefineInput(e.target.value)}
-                            style={{ flex: 1, background: '#111', border: '1px solid #333', color: '#fff', borderRadius: '8px', padding: '10px', fontSize: '12px' }}
+                            style={{ flex: 1, background: '#111', border: '1px solid #222', color: '#fff', borderRadius: '10px', padding: '12px', fontSize: '12px' }}
                             onKeyDown={(e) => {
                               if (e.key === 'Enter') handleRefine('workText');
                             }}
@@ -3922,7 +3927,7 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
                             disabled={refiningField === 'workText'}
                             style={{
                               background: refiningField === 'workText' ? '#555' : '#ff9800',
-                              color: '#fff', border: 'none', borderRadius: '8px', padding: '0 15px',
+                              color: '#fff', border: 'none', borderRadius: '10px', padding: '0 16px',
                               cursor: refiningField === 'workText' ? 'not-allowed' : 'pointer',
                               fontSize: '12px', whiteSpace: 'nowrap', fontWeight: 'bold'
                             }}
@@ -3934,114 +3939,106 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
                     </>
                   )}
 
-                  {/* === 医疗就诊沟通辅助单 (三甲医院标准病历排版 - 带有动态收起空卡片保护) === */}
-
+                  {/* ==================== 🏥 医疗门诊沟通辅助单 (重构排版) ==================== */}
                   {identity === 'doctor' && (
-                    <>
-                      {/* 头部合责声明 */}
-                      <div style={{ borderBottom: '1px solid #2d2d2d', marginBottom: '20px', paddingBottom: '12px' }}>
-                        <h3 style={{ color: '#2196f3', margin: '0 0 6px 0', fontSize: '18px', fontWeight: 'bold' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                      {/* 头部免责与定位 */}
+                      <div style={{ borderBottom: '1px solid #222', pb: '14px' }}>
+                        <h3 style={{ color: '#2196f3', margin: '0 0 6px 0', fontSize: '18px', fontWeight: 'bold', letterSpacing: '0.5px' }}>
                           {t('result.doctor.title')}
                         </h3>
-                        <p style={{ color: '#ff9800', fontSize: '11px', lineHeight: '1.5', margin: 0, fontWeight: '500', background: 'rgba(255,152,0,0.05)', padding: '10px', borderRadius: '8px', border: '1px solid rgba(255,152,0,0.15)' }}>
+                        <p style={{ color: '#ff9800', fontSize: '11.5px', lineHeight: '1.6', margin: 0, fontWeight: '500', background: 'rgba(255,152,0,0.04)', padding: '12px', borderRadius: '12px', border: '1px solid rgba(255,152,0,0.1)' }}>
                           {t('result.doctor.disclaimer')}
                         </p>
                       </div>
 
-                      {/* 1. 📋 主诉 (空值安全展现) */}
+                      {/* 1. 主诉 (主红色调) */}
                       {content.chief_complaint && content.chief_complaint.trim() && (
-                        <div style={{ marginBottom: '18px', background: '#151515', padding: '14px', borderRadius: '12px', border: '1px solid #2a2a2a' }}>
-                          <h4 style={{ color: '#90caf9', fontSize: '13px', margin: '0 0 10px 0', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: '600' }}>
+                        <div style={{ background: 'rgba(211,47,47,0.02)', padding: '16px', borderRadius: '14px', border: '1px solid rgba(211,47,47,0.1)', borderLeft: '4px solid #d32f2f' }}>
+                          <h4 style={{ color: '#ef5350', fontSize: '13px', margin: '0 0 8px 0', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 'bold', letterSpacing: '0.5px' }}>
                             <span>📋</span> 主诉 (Chief Complaint)
                           </h4>
-                          <EditableBlock fieldKey="chief_complaint" defaultValue={content.chief_complaint} color="#fff" style={{ fontSize: '14px', lineHeight: '1.6' }} />
+                          <EditableBlock fieldKey="chief_complaint" defaultValue={content.chief_complaint} color="#fff" style={{ fontSize: '14.5px', fontWeight: '500', lineHeight: '1.7', whiteSpace: 'pre-wrap' }} />
                         </div>
                       )}
 
-                      {/* 2. 📝 现病史 */}
+                      {/* 2. 现病史 (标准纸质病历微灰) */}
                       {content.present_illness && content.present_illness.trim() && (
-                        <div style={{ marginBottom: '18px', background: '#151515', padding: '14px', borderRadius: '12px', border: '1px solid #2a2a2a' }}>
-                          <h4 style={{ color: '#90caf9', fontSize: '13px', margin: '0 0 10px 0', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: '600' }}>
-                            <span>📝</span> 现病史及痛感机制分析 (History of Present Illness)
+                        <div style={{ background: '#161616', padding: '18px', borderRadius: '14px', border: '1px solid #222' }}>
+                          <h4 style={{ color: '#90caf9', fontSize: '13px', margin: '0 0 10px 0', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 'bold', letterSpacing: '0.5px' }}>
+                            <span>📝</span> 现病史及痛感机制分析
                           </h4>
-                          <EditableBlock fieldKey="present_illness" defaultValue={content.present_illness} color="#eee" style={{ fontSize: '13.5px', lineHeight: '1.6' }} />
+                          <EditableBlock fieldKey="present_illness" defaultValue={content.present_illness} color="#e0e0e0" style={{ fontSize: '13.5px', lineHeight: '1.8', whiteSpace: 'pre-wrap' }} />
                         </div>
                       )}
 
-                      {/* 3. 📂 既往史 */}
+                      {/* 3. 既往史 */}
                       {content.past_history && content.past_history.trim() && (
-                        <div style={{ marginBottom: '18px', background: '#151515', padding: '14px', borderRadius: '12px', border: '1px solid #2a2a2a' }}>
-                          <h4 style={{ color: '#90caf9', fontSize: '13px', margin: '0 0 10px 0', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: '600' }}>
-                            <span>📂</span> 既往史及个人习惯风险 (Past History)
+                        <div style={{ background: '#161616', padding: '18px', borderRadius: '14px', border: '1px solid #222' }}>
+                          <h4 style={{ color: '#90caf9', fontSize: '13px', margin: '0 0 10px 0', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 'bold', letterSpacing: '0.5px' }}>
+                            <span>📂</span> 既往史及个人习惯风险
                           </h4>
-                          <EditableBlock fieldKey="past_history" defaultValue={content.past_history} color="#ccc" style={{ fontSize: '13px', lineHeight: '1.6' }} />
+                          <EditableBlock fieldKey="past_history" defaultValue={content.past_history} color="#cccccc" style={{ fontSize: '13px', lineHeight: '1.8', whiteSpace: 'pre-wrap' }} />
                         </div>
                       )}
 
-                      {/* 4. 🌸 月经及孕产史 */}
+                      {/* 4. 月经及孕产史 */}
                       {content.menstrual_history && content.menstrual_history.trim() && (
-                        <div style={{ marginBottom: '18px', background: '#151515', padding: '14px', borderRadius: '12px', border: '1px solid #2a2a2a' }}>
-                          <h4 style={{ color: '#90caf9', fontSize: '13px', margin: '0 0 10px 0', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: '600' }}>
-                            <span>🌸</span> 月经及孕产史 (Menstrual History)
+                        <div style={{ background: '#161616', padding: '18px', borderRadius: '14px', border: '1px solid #222' }}>
+                          <h4 style={{ color: '#90caf9', fontSize: '13px', margin: '0 0 10px 0', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 'bold', letterSpacing: '0.5px' }}>
+                            <span>🌸</span> 月经及孕产史
                           </h4>
-                          <EditableBlock fieldKey="menstrual_history" defaultValue={content.menstrual_history} color="#ccc" style={{ fontSize: '13px', lineHeight: '1.6' }} />
+                          <EditableBlock fieldKey="menstrual_history" defaultValue={content.menstrual_history} color="#cccccc" style={{ fontSize: '13px', lineHeight: '1.8', whiteSpace: 'pre-wrap' }} />
                         </div>
                       )}
 
-                      {/* 5. 🩺 潜在临床指征排查方向 */}
+                      {/* 5. 潜在排查方向 (温馨提示浅蓝) */}
                       {content.clinical_diagnosis && content.clinical_diagnosis.trim() && (
-                        <div style={{ marginBottom: '18px', background: 'rgba(33,150,243,0.04)', padding: '14px', borderRadius: '12px', borderLeft: '4px solid #2196f3', borderTop: '1px solid #222', borderRight: '1px solid #222', borderBottom: '1px solid #222' }}>
-                          <h4 style={{ color: '#90caf9', fontSize: '13px', margin: '0 0 10px 0', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: '600' }}>
-                            <span>🩺</span> {t('result.doctor.clinicalAdvice')}
+                        <div style={{ background: 'rgba(33,150,243,0.02)', padding: '18px', borderRadius: '14px', border: '1px solid rgba(33,150,243,0.1)', borderLeft: '4px solid #2196f3' }}>
+                          <h4 style={{ color: '#90caf9', fontSize: '13px', margin: '0 0 10px 0', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 'bold', letterSpacing: '0.5px' }}>
+                            <span>🩺</span> 患者主诉与潜在筛查建议
                           </h4>
-                          <EditableBlock fieldKey="clinical_diagnosis" defaultValue={content.clinical_diagnosis} color="#ffcdd2" style={{ fontSize: '13.5px', lineHeight: '1.6', fontWeight: '500' }} />
+                          <EditableBlock fieldKey="clinical_diagnosis" defaultValue={content.clinical_diagnosis} color="#e3f2fd" style={{ fontSize: '13.5px', lineHeight: '1.8', whiteSpace: 'pre-wrap', fontWeight: '500' }} />
                         </div>
                       )}
 
-                      {/* 6. 🔬 建议就诊讨论要点 */}
+                      {/* 6. 讨论要点与超声指引 */}
                       {content.exam_advice && (
-                        <div style={{ marginBottom: '18px', padding: '14px', background: 'rgba(33,150,243,0.06)', borderRadius: '12px', border: '1px solid rgba(33,150,243,0.15)' }}>
-                          <h4 style={{ color: '#90caf9', fontSize: '13.5px', margin: '0 0 10px 0', fontWeight: '600' }}>
-                            <span>🔬</span> {t('result.doctor.discussReference')}
+                        <div style={{ padding: '18px', background: 'rgba(76,175,80,0.02)', borderRadius: '14px', border: '1px solid rgba(76,175,80,0.1)', borderLeft: '4px solid #4caf50' }}>
+                          <h4 style={{ color: '#a5d6a7', fontSize: '13px', margin: '0 0 10px 0', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px', letterSpacing: '0.5px' }}>
+                            <span>🔬</span> 供您与医生讨论参考
                           </h4>
                           <p style={{ color: '#fff', fontSize: '14px', fontWeight: 'bold', margin: '0 0 8px 0' }}>{content.exam_advice.name}</p>
-                          <p style={{ color: '#aaa', fontSize: '12.5px', marginTop: '6px', lineHeight: '1.5' }}>📋 准备：{content.exam_advice.preparation}</p>
-                          <p style={{ color: '#4caf50', fontSize: '12px', marginTop: '6px', lineHeight: '1.5' }}>{content.exam_advice.note}</p>
-                          {content.exam_advice.alternative && (
-                            <p style={{ color: '#ffb74d', fontSize: '12px', marginTop: '10px', whiteSpace: 'pre-wrap', lineHeight: '1.6', borderTop: '1px dashed rgba(255,255,255,0.08)', paddingTop: '8px' }}>
-                              {content.exam_advice.alternative}
-                            </p>
-                          )}
+                          <p style={{ color: '#aaa', fontSize: '12.5px', marginTop: '6px', lineHeight: '1.7', whiteSpace: 'pre-wrap' }}>📋 <strong>检查前准备：</strong>{content.exam_advice.preparation}</p>
+                          <p style={{ color: '#81c784', fontSize: '12px', marginTop: '8px', lineHeight: '1.6' }}>💡 {content.exam_advice.note}</p>
                         </div>
                       )}
 
-                      {/* 7. 💊 临床干预调理方向 */}
+                      {/* 7. 💊 临床干预调理与温柔妇检防护引导 (关键修缮点：强制换行与高对比度排版) */}
                       {content.clinical_suggestions && content.clinical_suggestions.trim() && (
-                        <div style={{ marginBottom: '18px', background: '#151515', padding: '14px', borderRadius: '12px', border: '1px solid #2a2a2a' }}>
-                          <h4 style={{ color: '#90caf9', fontSize: '13px', margin: '0 0 10px 0', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: '600' }}>
-                            <span>💊</span> 临床干预调理方向 (Clinical Recommendations)
+                        <div style={{ background: '#161616', padding: '18px', borderRadius: '14px', border: '1px solid #222' }}>
+                          <h4 style={{ color: '#ffb74d', fontSize: '13px', margin: '0 0 12px 0', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 'bold', letterSpacing: '0.5px' }}>
+                            <span>💊</span> 临床调理参考与防护引导
                           </h4>
-                          <EditableBlock fieldKey="clinical_suggestions" defaultValue={content.clinical_suggestions} color="#ccc" style={{ fontSize: '13px', lineHeight: '1.6' }} />
+                          <EditableBlock fieldKey="clinical_suggestions" defaultValue={content.clinical_suggestions} color="#e0e0e0" style={{ fontSize: '13px', lineHeight: '1.85', whiteSpace: 'pre-wrap' }} />
                         </div>
                       )}
 
-                      {/* 临床科普宣教链接 */}
                       {content.health_tips_link && (
-                        <div style={{ marginTop: '15px', padding: '10px', background: 'rgba(33,150,243,0.05)', borderRadius: '8px', border: '1px solid rgba(33,150,243,0.1)' }}>
-                          <p style={{ color: '#90caf9', fontSize: '11px', margin: 0, wordBreak: 'break-all', lineHeight: '1.4' }}>{content.health_tips_link}</p>
+                        <div style={{ padding: '12px', background: 'rgba(33,150,243,0.04)', borderRadius: '10px', border: '1px solid rgba(33,150,243,0.08)' }}>
+                          <p style={{ color: '#90caf9', fontSize: '11px', margin: 0, wordBreak: 'break-all', lineHeight: '1.5' }}>💡 参考科普知识库: {content.health_tips_link}</p>
                         </div>
                       )}
 
-                      {/* AI 医生报告深度优化区 */}
-                      <div style={{ marginTop: '25px', paddingTop: '15px', borderTop: '1px solid #333' }}>
-                        <p style={{ color: '#888', fontSize: '12px', margin: '0 0 10px 0' }}>{t('result.refine.prompt')}</p>
+                      {/* AI 医生报告深度调优反馈面板 */}
+                      <div style={{ marginTop: '20px', paddingTop: '16px', borderTop: '1px solid #222' }}>
+                        <p style={{ color: '#888', fontSize: '11.5px', margin: '0 0 12px 0' }}>{t('result.refine.prompt')}</p>
 
-                        {/* 选择优化目标字段 */}
                         <div style={{ display: 'flex', gap: '8px', marginBottom: '10px' }}>
                           {[
-                            { key: 'chief_complaint', label: '优化主诉' },
-                            { key: 'present_illness', label: '优化机制分析' },
-                            { key: 'clinical_suggestions', label: '优化就诊建议' }
+                            { key: 'chief_complaint', label: '调优主诉' },
+                            { key: 'present_illness', label: '调优病生理分析' },
+                            { key: 'clinical_suggestions', label: '调优就诊引导' }
                           ].map(item => (
                             <button
                               key={item.key}
@@ -4050,10 +4047,11 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
                                 setRefineTargetField(item.key);
                               }}
                               style={{
-                                flex: 1, padding: '6px 0', fontSize: '11px', borderRadius: '6px', border: 'none', cursor: 'pointer',
-                                background: refineTargetField === item.key ? '#2196f3' : '#222',
+                                flex: 1, padding: '8px 0', fontSize: '11px', borderRadius: '8px', border: 'none', cursor: 'pointer',
+                                background: refineTargetField === item.key ? '#2196f3' : '#1e1e1e',
                                 color: refineTargetField === item.key ? '#fff' : '#888',
-                                transition: 'all 0.2s'
+                                transition: 'all 0.2s',
+                                fontWeight: refineTargetField === item.key ? 'bold' : 'normal'
                               }}
                             >
                               {item.label}
@@ -4066,7 +4064,7 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
                             placeholder={getRefinePlaceholder('doctor')}
                             value={refineInput}
                             onChange={(e) => setRefineInput(e.target.value)}
-                            style={{ flex: 1, background: '#111', border: '1px solid #333', color: '#fff', borderRadius: '8px', padding: '10px', fontSize: '12px' }}
+                            style={{ flex: 1, background: '#111', border: '1px solid #222', color: '#fff', borderRadius: '10px', padding: '12px', fontSize: '12px' }}
                             onKeyDown={(e) => {
                               if (e.key === 'Enter') handleRefine(refineTargetField);
                             }}
@@ -4076,23 +4074,23 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
                             disabled={refiningField === refineTargetField}
                             style={{
                               background: refiningField === refineTargetField ? '#555' : '#2196f3',
-                              color: '#fff', border: 'none', borderRadius: '8px', padding: '0 15px',
+                              color: '#fff', border: 'none', borderRadius: '10px', padding: '0 16px',
                               cursor: refiningField === refineTargetField ? 'not-allowed' : 'pointer',
-                              fontSize: '12px', whiteSpace: 'nowrap'
+                              fontSize: '12px', whiteSpace: 'nowrap', fontWeight: 'bold'
                             }}
                           >
                             {refiningField === refineTargetField ? t('result.refine.optimizing') : t('result.refine.optimize')}
                           </button>
                         </div>
                       </div>
-                    </>
+                    </div>
                   )}
 
-                  {/*  self (自愈) 模块部分 */}
+                  {/* ==================== self (自愈理疗) 模块部分 ==================== */}
                   {identity === 'self' && (
                     <>
                       <h3 style={{ color: '#9c27b0', margin: '0 0 15px 0' }}>{t('result.self.title')}</h3>
-                      <p style={{ color: '#ccc', fontSize: '13px', lineHeight: '1.6', marginBottom: '20px', textAlign: 'justify' }}>
+                      <p style={{ color: '#ccc', fontSize: '13px', lineHeight: '1.75', marginBottom: '20px', textAlign: 'justify', whiteSpace: 'pre-wrap' }}>
                         {content.comfort}
                       </p>
 
@@ -4109,128 +4107,48 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
                               setHealingState({ isOpen: true, activeTab: tip.key });
                             }}
                             style={{
-                              background: 'rgba(255,255,255,0.02)',
+                              background: '#161616',
                               padding: '16px',
                               borderRadius: '16px',
-                              border: '1px solid rgba(255,255,255,0.06)',
+                              border: '1px solid #222',
                               borderLeft: `4px solid ${tip.color}`,
                               cursor: 'pointer',
                               transition: 'all 0.2s'
                             }}
-                            onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.05)'}
-                            onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.02)'}
+                            onMouseEnter={e => e.currentTarget.style.background = '#202020'}
+                            onMouseLeave={e => e.currentTarget.style.background = '#161616'}
                           >
                             <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
                               <span style={{ fontSize: '26px' }}>{tip.icon}</span>
-                              <div>
+                              <div style={{ flex: 1 }}>
                                 <div style={{ color: '#fff', fontWeight: 'bold', fontSize: '14px' }}>{tip.title}</div>
                                 <div style={{ color: '#aaa', fontSize: '11.5px', marginTop: '4px' }}>{tip.subtitle}</div>
                               </div>
-                              <span style={{ marginLeft: 'auto', color: '#666', fontSize: '18px' }}>›</span>
+                              <span style={{ color: '#666', fontSize: '18px' }}>›</span>
                             </div>
                           </div>
                         ))}
                       </div>
                     </>
                   )}
-                  {/* {showHealingModal && (() => {
-                    const healingContentMap = {
-                      breathing: {
-                        title: "🌬️ 疗愈呼吸法",
-                        description: "通过深长的腹式呼吸，帮助身体放松，缓解疼痛带来的紧张感。",
-                        steps: "① 找一个安静舒适的地方坐下或躺下\n② 将一只手放在腹部，感受呼吸时腹部的起伏\n③ 吸气4秒，感受腹部像气球一样鼓起\n④ 屏息4秒，让氧气充分进入血液\n⑤ 呼气6秒，感受腹部回落\n⑥ 重复10-15次，感受身体的放松"
-                      },
-                      heatPack: {
-                        title: "🔥 热敷疗法",
-                        description: "温热能够促进局部血液循环，缓解肌肉痉挛，是缓解痛经最有效的方法之一。",
-                        steps: "① 准备热水袋或电热宝（40-45°C为宜）\n② 用毛巾包裹，避免直接接触皮肤烫伤\n③ 敷在小腹或后腰部位\n④ 每次15-20分钟\n⑤ 每天可敷3-4次\n⑥ 注意多喝水，避免脱水"
-                      },
-                      meditation: {
-                        title: "🧘 正念冥想",
-                        description: "将注意力从疼痛中转移，接受当下的感受而不加评判，减轻疼痛带来的心理负担。",
-                        steps: "① 找个安静的地方，舒适地坐下\n② 闭上眼睛，专注于呼吸\n③ 当注意力飘走时，温柔地带回呼吸\n④ 感受疼痛但不评判它\n⑤ 想象疼痛像云一样飘过\n⑥ 每次5-10分钟，慢慢增加时间"
-                      },
-                      warmDrink: {
-                        title: "🍵 温暖饮品",
-                        description: "温热的饮品不仅能温暖身体，还能安抚情绪，是自愈的重要一环。",
-                        steps: "① 红糖姜茶：生姜3片+红糖1勺+热水\n② 桂圆红枣茶：桂圆5颗+红枣3颗\n③ 温牛奶加蜂蜜\n④ 避免冷饮和咖啡因\n⑤ 小口慢饮，感受温暖\n⑥ 每天喝2-3杯"
-                      }
-                    };
-                    const healingContent = healingContentMap[healingTipType];
-                    if (!healingContent) return null;
-
-                    return (
-                      <div style={{
-                        position: 'fixed',
-                        zIndex: 1001,
-                        top: 0, left: 0,
-                        width: '100vw', height: '100vh',
-                        background: 'rgba(0,0,0,0.95)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        padding: '20px',
-                        boxSizing: 'border-box'
-                      }} onClick={() => setShowHealingModal(false)}>
-                        <div style={{
-                          background: '#1a1a1a',
-                          borderRadius: '24px',
-                          maxWidth: '400px',
-                          width: '100%',
-                          maxHeight: '80vh',
-                          overflowY: 'auto',
-                          padding: '24px',
-                          boxSizing: 'border-box'
-                        }} onClick={e => e.stopPropagation()}>
-                          <h3 style={{ color: '#fff', marginBottom: '16px', fontSize: '20px' }}>{healingContent.title}</h3>
-                          <p style={{ color: '#ccc', lineHeight: '1.6', fontSize: '14px' }}>{healingContent.description}</p>
-
-                          <div style={{ marginTop: '20px' }}>
-                            <h4 style={{ color: '#4caf50', marginBottom: '12px', fontSize: '14px' }}>📋 详细步骤</h4>
-                            <div style={{ color: '#aaa', lineHeight: '1.8', fontSize: '13px' }}>
-                              {healingContent.steps.split('\n').map((step, i) => (
-                                <div key={i} style={{ marginBottom: '10px' }}>{step}</div>
-                              ))}
-                            </div>
-                          </div>
-
-                          <button
-                            onClick={() => setShowHealingModal(false)}
-                            style={{
-                              width: '100%',
-                              padding: '12px',
-                              marginTop: '12px',
-                              background: 'transparent',
-                              border: '1px solid #444',
-                              borderRadius: '30px',
-                              color: '#888',
-                              cursor: 'pointer',
-                              fontSize: '14px'
-                            }}
-                          >
-                            关闭
-                          </button>
-                        </div>
-                      </div>
-                    );
-                  })()} */}
                 </div>
 
-                <div style={{ display: 'flex', gap: '10px', width: '100%', maxWidth: '350px', marginTop: '30px', marginBottom: '40px' }}>
-                  <button style={{ flex: 2, padding: '14px', borderRadius: '20px', background: '#4caf50', color: '#fff', border: 'none', fontWeight: 'bold', cursor: 'pointer' }} onClick={() => prepareSharePreview(content)}>
+                {/* 4. 底部主干操作按钮 */}
+                <div style={{ display: 'flex', gap: '10px', width: '100%', maxWidth: identity === 'doctor' ? '580px' : '380px', transition: 'max-width 0.25s', marginTop: '24px', marginBottom: '40px' }}>
+                  <button style={{ flex: 2, padding: '14px', borderRadius: '25px', background: '#4caf50', color: '#fff', border: 'none', fontWeight: 'bold', cursor: 'pointer', fontSize: '14px', boxShadow: '0 4px 12px rgba(76,175,80,0.2)' }} onClick={() => prepareSharePreview(content)}>
                     {t('result.shareCard')}
                   </button>
-                  <button style={{ flex: 1.5, padding: '14px', borderRadius: '20px', background: '#2196f3', color: '#fff', border: 'none', fontWeight: 'bold', cursor: 'pointer' }} onClick={() => setShowPostModal(true)}>
+                  <button style={{ flex: 1.5, padding: '14px', borderRadius: '25px', background: '#2196f3', color: '#fff', border: 'none', fontWeight: 'bold', cursor: 'pointer', fontSize: '14px', boxShadow: '0 4px 12px rgba(33,150,243,0.2)' }} onClick={() => setShowPostModal(true)}>
                     {t('result.publish')}
                   </button>
-                  <button style={{ flex: 1, padding: '14px', borderRadius: '20px', background: 'rgba(255,255,255,0.1)', border: '1px solid #555', color: '#fff', cursor: 'pointer' }} onClick={() => { setPage("onboarding"); }}>
+                  <button style={{ flex: 1.2, padding: '14px', borderRadius: '25px', background: 'rgba(255,255,255,0.06)', border: '1px solid #444', color: '#fff', cursor: 'pointer', fontSize: '13px' }} onClick={() => { setPage("onboarding"); }}>
                     {t('result.backHome')}
                   </button>
                 </div>
               </div>
             );
           } catch (e) {
-            console.error("Result 渲染出错:", e);
+            console.error("Result 深度渲染出错:", e);
             return (
               <div style={{ pointerEvents: 'auto', position: 'absolute', top: 0, left: 0, width: '100vw', height: '100vh', zIndex: 20, background: '#0a0a0a', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: '#fff' }}>
                 <p>{t('result.reportError')}</p>
