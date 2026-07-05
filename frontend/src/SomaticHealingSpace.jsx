@@ -101,7 +101,7 @@ const SomaticHealingSpace = ({
   const SOUND_PATHS = {
     breathing: '/sounds/wave.mp3',
     posture: '/sounds/forest.mp3',
-    acupressure: '/sounds/metronome.mp3',
+    acupressure: '/sounds/massage.mp3',
     thermal: '/sounds/fireplace.mp3'
   };
 
