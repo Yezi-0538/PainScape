@@ -1600,7 +1600,7 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
       document.documentElement.style.overflow = '';
       document.documentElement.style.overscrollBehavior = '';
     }
-    
+
     // 销毁时恢复默认状态，防止内存泄漏
     return () => {
       document.body.style.overflow = '';
@@ -1846,42 +1846,42 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
       ctx.stroke();
 
       // === 1. 确定色条颜色 ===
-    const barColors = {
-      partner: '#ef5350',
-      work: '#ff9800',
-      doctor: '#2196f3',
-      self: '#9c27b0'
-    };
+      const barColors = {
+        partner: '#ef5350',
+        work: '#ff9800',
+        doctor: '#2196f3',
+        self: '#9c27b0'
+      };
 
-    // === 2. 绘制左侧垂直指示色条 ===
-    ctx.fillStyle = barColors[shareContent.identity] || '#ff9800';
-    ctx.fillRect(45, cardBodyY + 28, 4, 22);
+      // === 2. 绘制左侧垂直指示色条 ===
+      ctx.fillStyle = barColors[shareContent.identity] || '#ff9800';
+      ctx.fillRect(45, cardBodyY + 28, 4, 22);
 
-    // === 3. 获取精细化的动态标题（如：经期陪伴指南 / 体感请假条） ===
-    const recipient = shareContent.leaveRecipient || 'manager';
-    const cardTitle = getContextTitle(shareContent.identity, recipient);
+      // === 3. 获取精细化的动态标题（如：经期陪伴指南 / 体感请假条） ===
+      const recipient = shareContent.leaveRecipient || 'manager';
+      const cardTitle = getContextTitle(shareContent.identity, recipient);
 
-    // === 4. 绘制卡片标题（【核心修复】：仅在此处绘制一次，使用纯白色，彻底杜绝重影） ===
-    ctx.fillStyle = '#ffffff';
-    ctx.font = 'bold 18px "Microsoft YaHei", -apple-system, sans-serif';
-    ctx.fillText(cardTitle, 60, cardBodyY + 45);
+      // === 4. 绘制卡片标题（【核心修复】：仅在此处绘制一次，使用纯白色，彻底杜绝重影） ===
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 18px "Microsoft YaHei", -apple-system, sans-serif';
+      ctx.fillText(cardTitle, 60, cardBodyY + 45);
 
-    // === 5. 逐行绘制主干内容文本 ===
-    ctx.fillStyle = '#b0b0b0';
-    ctx.font = '15px "Microsoft YaHei", -apple-system, sans-serif';
-    let textY = cardBodyY + 85;
-    lines.forEach(line => {
-      ctx.fillText(line, 60, textY);
-      textY += 28;
-    });
+      // === 5. 逐行绘制主干内容文本 ===
+      ctx.fillStyle = '#b0b0b0';
+      ctx.font = '15px "Microsoft YaHei", -apple-system, sans-serif';
+      let textY = cardBodyY + 85;
+      lines.forEach(line => {
+        ctx.fillText(line, 60, textY);
+        textY += 28;
+      });
 
-    // === 6. 绘制卡片底部边缘的品牌标语 ===
-    ctx.fillStyle = '#555555'; // 使用柔和的深灰色
-    ctx.font = 'bold 14px "Microsoft YaHei", -apple-system, sans-serif';
-    ctx.fillText("PainScape - 让不可见的痛苦被看见", 60, cvs.height - 40);
+      // === 6. 绘制卡片底部边缘的品牌标语 ===
+      ctx.fillStyle = '#555555'; // 使用柔和的深灰色
+      ctx.font = 'bold 14px "Microsoft YaHei", -apple-system, sans-serif';
+      ctx.fillText("PainScape - 让不可见的痛苦被看见", 60, cvs.height - 40);
 
-    // === 7. 输出 Base64 图像 ===
-    const finalUrl = cvs.toDataURL('image/jpeg', 0.95);
+      // === 7. 输出 Base64 图像 ===
+      const finalUrl = cvs.toDataURL('image/jpeg', 0.95);
       setGeneratedCardUrl(finalUrl);
       setShowSharePreview(false);
     } catch (e) {
@@ -2679,6 +2679,18 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
   return (
     <>
       <style>{`
+      canvas {
+          touch-action: none !important;
+          user-select: none !important;
+          -webkit-user-select: none !important;
+          -webkit-touch-callout: none !important;
+        }
+
+        /*强力锁定外框 UI面板的手势 */
+        .canvas-screen-wrapper, .canvas-screen-wrapper div, .canvas-screen-wrapper button {
+          touch-action: none !important;
+          overscroll-behavior: none !important;
+        }
         @keyframes pulse {
           0% { transform: scale(1); }
           25% { transform: scale(1.15); }
@@ -3716,7 +3728,20 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
 
         {/* === Canvas 绘画页面 === */}
         {page === "canvas" && (
-          <div style={{ position: 'absolute', top: 0, left: 0, width: '100vw', height: '100vh', zIndex: 10, pointerEvents: 'auto', userSelect: 'none', WebkitUserSelect: 'none' }}>
+          <div 
+            className="canvas-screen-wrapper" // 挂载锁定类名
+            style={{ 
+              position: 'fixed',              // 采用 fixed 替换 absolute，彻底锁死视口不留缝隙
+              top: 0, 
+              left: 0, 
+              width: '100vw', 
+              height: '100vh', 
+              zIndex: 10, 
+              pointerEvents: 'auto', 
+              userSelect: 'none', 
+              WebkitUserSelect: 'none',
+              overflow: 'hidden'              // 剪裁任何多余的摇晃溢出
+            }}>
 
             {/* === 顶部高精简导航栏 === */}
             <div
