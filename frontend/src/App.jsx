@@ -1837,58 +1837,68 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
     const hasLlm = activeLlm && (activeLlm.status === 'success' || activeLlm.chief_complaint || activeLlm.present_illness);
 
     const dominant = overrideType || getDominantPain();
-    const intensityProfile = calculateIntensity();
-    const pressureLevel = intensityProfile?.avgPressure || 0.5;
 
-    // 2. 本地高拟真兜底模板（当后端离线或未部署时使用）
-    let painName = `${t(`painNames.${dominant}`)}`;
+    // 2. 本地模板（当后端离线或未部署时使用）
+    let painName = t(`painNames.${dominant}`) || "痛经";
     let defaultAnalogy = t(`painTemplates.${dominant}.analogy`) || "强烈的痛觉。";
     let defaultSelfCare = t(`painTemplates.${dominant}.selfCare`) || "好好休息。";
 
-    const symptomMap = {
-      headache: "头痛", breast: "乳房胀痛", lumbosacral: "腰骶酸痛",
-      nausea: "恶心呕吐", diarrhea: "经期腹泻", fatigue: "疲惫乏力"
-    };
+    // 格式化伴随症状
     const symptomsText = (medicalBackground.accompanyingSymptomsArr || [])
-      .map(s => symptomMap[s] || s)
+      .map(s => t(`onboarding.accompanyingOptions.${s}`) || s)
       .join('、') || "无明显伴随症状";
 
     let defaultComplaint = `月经期出现下腹部周期性${painName}，伴${symptomsText}1天。`;
-    let defaultPresentIllness = `患者既往月经规律。自述于今日（行经第${cycleDay || 'X'}天）突发${painName}。图像特征向量重构显示：痛感评分为 ${Object.values(brushCounts.current).reduce((a, b) => a + b, 0)} 点，伴有典型的${defaultAnalogy}，活动受限。`;
+    let defaultPresentIllness = `患者自述既往月经规律。自述于今日（行经第${cycleDay || 'X'}天）突发${painName}。图像特征向量重构显示：痛感评分较高，伴有典型的${defaultAnalogy}，活动受限。`;
     let defaultClinicalDiagnosis = `结合痛觉成像，建议排查子宫内膜异位症、子宫平滑肌痉挛或盆腔器质性充血。建议行妇科超声筛查。`;
+
+    // 伴侣陪伴动作
+    let partnerActionsList = [];
+    const prefKey = userPrefs[0] || 'care';
+    const actionsTemplates = t(`partnerActions.${prefKey}`, { returnObjects: true }) || [];
+    const formattedActions = Array.isArray(actionsTemplates)
+      ? actionsTemplates.map(act => act.replace('{{med}}', "布洛芬"))
+      : ["☑️ 帮她热敷小腹并准备好止痛药。"];
+    let defaultAction = formattedActions.join('\n');
+
+    // 请假模板
+    let defaultWorkText = t('workTemplate')
+      ? t('workTemplate').replace('{{pain}}', painName)
+      : `领导您好：本人今日突发严重痛经（${painName}），申请休假一天，望批准。`;
 
     // 3. 核心映射：如果后端 AI 返回了结构化分析，直接渲染 AI 精准生成的文本
     if (hasLlm) {
       return {
         pain: activeLlm.pain || painName,
         analogy: activeLlm.analogy || defaultAnalogy,
-        workText: activeLlm.workText || activeLlm.work || '',
-        action: activeLlm.action || '',
+        workText: activeLlm.workText || activeLlm.work || defaultWorkText,
+        action: activeLlm.action || defaultAction,
         selfCare: activeLlm.selfCare || defaultSelfCare,
-        // 绑定病历级字段
+        // 绑定病历字段
         chief_complaint: activeLlm.chief_complaint || activeLlm.med_complaint || defaultComplaint,
         present_illness: activeLlm.present_illness || activeLlm.med_reference || defaultPresentIllness,
+        past_history: activeLlm.past_history || "平素健康状况良好。无明确高血压、糖尿病等慢性病史，无外科手术及食物药物过敏记录。",
+        menstrual_history: activeLlm.menstrual_history || "月经史：13岁初潮，经期5天，周期28-30天。",
         clinical_diagnosis: activeLlm.clinical_diagnosis || defaultClinicalDiagnosis,
+        clinical_suggestions: activeLlm.clinical_suggestions || "建议温敷小腹与腰骶，静卧休养。若症状持续加剧建议常规门诊行超声探查。",
+        exam_advice: activeLlm.exam_advice || null
       };
     }
-    // === 补全本地降级路径下的模块化字段，防止渲染出空框 ===
+
+    // 确保所有字段与 UI 排版强对齐
     return {
       pain: painName,
-      analogy: finalAnalogy,
-      med_complaint: finalMedComplaint,
-      med_reference: finalMedReference,
-      med_profile: isEn ? `PainScape visual profile shows intense ${painName}.` : `PainScape 痛觉成像显示强烈的 ${painName} 特征。`,
-      workText: finalWorkText,
-      action: finalAction,
-      selfCare: finalSelfCare,
-      med: finalMedComplaint,
-
-      // 模块化字段对齐
-      chief_complaint: finalMedComplaint,
-      present_illness: finalMedReference,
-      past_history: isEn ? "No significant past medical history reported." : "平素健康状况良好。无明确高血压、糖尿病等慢性病史，无外科手术及食物药物过敏记录。",
-      menstrual_history: isEn ? "Menstrual cycle: 5/28 days, regular." : "月经史：13岁初潮，经期5天，周期28-30天（5/28-30天）。痛经：有。",
-      clinical_suggestions: isEn ? "Rest, heat therapy, and monitor symptoms." : "温敷小腹与腰骶，静卧休养。若症状持续加剧建议常规门诊行超声探查。"
+      analogy: defaultAnalogy,
+      workText: defaultWorkText,
+      action: defaultAction,
+      selfCare: defaultSelfCare,
+      chief_complaint: defaultComplaint,
+      present_illness: defaultPresentIllness,
+      past_history: "平素健康状况良好。无明确高血压、糖尿病等慢性病史，无外科手术及食物药物过敏记录。",
+      menstrual_history: "月经史：13岁初潮，经期5天，周期28-30天（5/28-30天）。",
+      clinical_diagnosis: defaultClinicalDiagnosis,
+      clinical_suggestions: "温敷小腹与腰骶，静卧休养。若症状持续加剧建议常规门诊行超声探查。",
+      exam_advice: null
     };
   };
 
