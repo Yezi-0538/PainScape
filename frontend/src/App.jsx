@@ -998,6 +998,81 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
   const [showCompare, setShowCompare] = useState(false);
   const [cycleDay, setCycleDay] = useState('');
   const [tonePreference, setTonePreference] = useState('gentle');
+
+  // === Supabase 集成状态 ===
+  const [supabaseReady, setSupabaseReady] = useState(false);
+  const [supabaseUserId, setSupabaseUserId] = useState(null);
+  const [supabaseProfile, setSupabaseProfile] = useState(null);
+
+  // 页面加载时自动匿名登录并获取档案
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const session = await ensureSession();
+        if (!session || cancelled) {
+          setSupabaseReady(true);
+          return;
+        }
+        const userId = session.user.id;
+        setSupabaseUserId(userId);
+
+        const profile = await getOrCreateProfile(userId);
+        if (profile && !cancelled) {
+          setSupabaseProfile(profile);
+
+          // 如果档案中有 medical_background，回填到状态
+          if (profile.medical_background && typeof profile.medical_background === 'object') {
+            const mb = profile.medical_background;
+            setMedicalBackground(prev => ({
+              ...prev,
+              diagnosed: mb.diagnosed || prev.diagnosed,
+              allergies: mb.allergies || prev.allergies,
+              age: mb.age || prev.age,
+              lifestyle: mb.lifestyle || prev.lifestyle,
+              activityLevel: mb.activityLevel || prev.activityLevel,
+              familyHistory: mb.familyHistory || prev.familyHistory,
+              psychosocial: mb.psychosocial || prev.psychosocial,
+              reproductiveHistory: mb.reproductiveHistory || prev.reproductiveHistory,
+              height: mb.height || prev.height,
+              weight: mb.weight || prev.weight,
+              otherDiagnosis: mb.otherDiagnosis || prev.otherDiagnosis,
+              otherAllergies: mb.otherAllergies || prev.otherAllergies,
+              surgicalHistory: mb.surgicalHistory || prev.surgicalHistory,
+              menarcheAge: mb.menarcheAge || prev.menarcheAge,
+              cycleRegular: mb.cycleRegular || prev.cycleRegular,
+              periodDuration: mb.periodDuration || prev.periodDuration,
+              lastPeriod: mb.lastPeriod || prev.lastPeriod,
+              familyHistoryArr: mb.familyHistoryArr || prev.familyHistoryArr,
+              lifestyleArr: mb.lifestyleArr || prev.lifestyleArr,
+              reproductiveHistoryArr: mb.reproductiveHistoryArr || prev.reproductiveHistoryArr,
+              accompanyingSymptomsArr: mb.accompanyingSymptomsArr || prev.accompanyingSymptomsArr,
+            }));
+          }
+
+          // 回填 tone_preference
+          if (profile.tone_preference) {
+            setTonePreference(profile.tone_preference);
+          }
+
+          // 回填 app_mode
+          if (profile.app_mode) {
+            setAppMode(profile.app_mode);
+          }
+
+          // 回填 language
+          if (profile.language && profile.language !== targetLanguage) {
+            setTargetLanguage(profile.language);
+          }
+        }
+      } catch (e) {
+        console.warn('Supabase init failed, using local mode:', e);
+      } finally {
+        if (!cancelled) setSupabaseReady(true);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
   const [isLoading, setIsLoading] = useState(false);
   const [editedContents, setEditedContents] = useState({});
   const [editingField, setEditingField] = useState(null);
@@ -2682,37 +2757,13 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
     }));
   };
 
-  // ========== Supabase User State ==========
-  const [supabaseUser, setSupabaseUser] = useState(null);
-  const [supabaseProfile, setSupabaseProfile] = useState(null);
-  const [supabaseInitialized, setSupabaseInitialized] = useState(false);
-
-  // Initialize Supabase session on mount
-  useEffect(() => {
-    let cancelled = false;
-    const init = async () => {
-      try {
-        const session = await ensureSession();
-        if (cancelled) return;
-        if (session?.user) {
-          setSupabaseUser(session.user);
-          const profile = await getOrCreateProfile(session.user.id);
-          if (!cancelled) setSupabaseProfile(profile);
-        }
-      } catch (err) {
-        console.warn('Supabase init failed (offline mode):', err);
-      } finally {
-        if (!cancelled) setSupabaseInitialized(true);
-      }
-    };
-    init();
-    return () => { cancelled = true; };
-  }, []);
+  // ========== Supabase User State (managed by init effect above) ==========
+  const supabaseUser = supabaseUserId ? { id: supabaseUserId } : null;
 
   const handleSupabaseLogout = async () => {
     try {
-      await supabase.auth.signOut();
-      setSupabaseUser(null);
+      if (supabase) await supabase.auth.signOut();
+      setSupabaseUserId(null);
       setSupabaseProfile(null);
     } catch (err) {
       console.error('Logout failed:', err);
@@ -2720,10 +2771,10 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
   };
 
   const handleSupabaseSync = async () => {
-    if (!supabaseUser) return;
+    if (!supabaseUserId) return;
     try {
       // Sync current medical background to Supabase profile
-      const updated = await updateProfile(supabaseUser.id, {
+      const updated = await updateProfile(supabaseUserId, {
         medical_background: medicalBackground,
         last_active: new Date().toISOString(),
       });
@@ -3077,7 +3128,7 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
                       <label style={{ color: '#888', fontSize: '11px', display: 'block', marginBottom: '6px' }}>您的年龄段</label>
                       <select value={medicalBackground.age} onChange={(e) => setMedicalBackground({ ...medicalBackground, age: e.target.value })}
                         style={{ width: '100%', padding: '12px', background: '#111', color: '#fff', border: '1.5px solid #333', borderRadius: '12px', fontSize: '13px' }}>
-                        {Object.entries(t('onboarding.ageOptions')).map(([value, label]) => (<option key={value} value={value}>{label}</option>))}
+                        {Object.entries(t('onboarding.ageOptions') || {}).map(([value, label]) => (<option key={value} value={value}>{label}</option>))}
                       </select>
                     </div>
 
@@ -3100,7 +3151,7 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
                       <label style={{ color: '#888', fontSize: '11px', display: 'block', marginBottom: '6px' }}>日常活动负荷</label>
                       <select value={medicalBackground.activityLevel} onChange={(e) => setMedicalBackground({ ...medicalBackground, activityLevel: e.target.value })}
                         style={{ width: '100%', padding: '12px', background: '#111', color: '#fff', border: '1.5px solid #333', borderRadius: '12px', fontSize: '13px' }}>
-                        {Object.entries(t('onboarding.activityOptions')).map(([value, label]) => (<option key={value} value={value}>{label}</option>))}
+                        {Object.entries(t('onboarding.activityOptions') || {}).map(([value, label]) => (<option key={value} value={value}>{label}</option>))}
                       </select>
                     </div>
 
@@ -3224,7 +3275,7 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
                                 fontSize: '12px'
                               }}
                             >
-                              {Object.entries(t('onboarding.periodDurationOptions')).map(([value, label]) => (
+                              {Object.entries(t('onboarding.periodDurationOptions') || {}).map(([value, label]) => (
                                 <option key={value} value={value}>{label}</option>
                               ))}
                             </select>
@@ -3308,7 +3359,7 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
                             {t('onboarding.accompanyingLabel')}
                           </label>
                           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-                            {Object.entries(t('onboarding.accompanyingOptions', { returnObjects: true })).map(([key, label]) => {
+                            {Object.entries(t('onboarding.accompanyingOptions', { returnObjects: true }) || {}).map(([key, label]) => {
                               const isChecked = (medicalBackground.accompanyingSymptomsArr || []).includes(key);
                               return (
                                 <label
@@ -3357,7 +3408,7 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
                               fontSize: '12px'
                             }}
                           >
-                            {Object.entries(t('onboarding.diagnosisOptions')).map(([value, label]) => (
+                            {Object.entries(t('onboarding.diagnosisOptions') || {}).map(([value, label]) => (
                               <option key={value} value={value}>{label}</option>
                             ))}
                           </select>
@@ -3378,7 +3429,7 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
                               fontSize: '12px'
                             }}
                           >
-                            {Object.entries(t('onboarding.allergyOptions')).map(([value, label]) => (
+                            {Object.entries(t('onboarding.allergyOptions') || {}).map(([value, label]) => (
                               <option key={value} value={value}>{label}</option>
                             ))}
                           </select>
@@ -3400,7 +3451,7 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
                                 fontSize: '12px'
                               }}
                             >
-                              {Object.entries(t('onboarding.surgicalHistoryOptions')).map(([value, label]) => (
+                              {Object.entries(t('onboarding.surgicalHistoryOptions') || {}).map(([value, label]) => (
                                 <option key={value} value={value}>{label}</option>
                               ))}
                             </select>

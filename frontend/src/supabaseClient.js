@@ -1,4 +1,4 @@
- // src/supabaseClient.js
+// src/supabaseClient.js
 import { createClient } from '@supabase/supabase-js'
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
@@ -39,21 +39,25 @@ export async function ensureSession() {
 
 /**
  * 获取或创建用户档案
+ * 使用 maybeSingle 避免 406 错误
  */
 export async function getOrCreateProfile(userId) {
   if (!supabase) return null
 
-  // 查询 profiles 表
+  // 查询 profiles 表 — 使用 maybeSingle 替代 single
   const { data: existing, error: queryError } = await supabase
     .from('profiles')
     .select('*')
     .eq('id', userId)
-    .single()
+    .maybeSingle()
 
-  if (existing) return existing
-  if (queryError && queryError.code !== 'PGRST116') {
+  if (queryError) {
     console.error('Profile query error:', queryError)
+    return null
   }
+
+  // 如果已存在，直接返回
+  if (existing) return existing
 
   // 创建默认档案
   const defaultProfile = {
@@ -70,7 +74,7 @@ export async function getOrCreateProfile(userId) {
     .from('profiles')
     .insert(defaultProfile)
     .select()
-    .single()
+    .maybeSingle()
 
   if (insertError) {
     console.error('Profile creation error:', insertError)
@@ -90,7 +94,7 @@ export async function updateProfile(userId, updates) {
     .update({ ...updates, updated_at: new Date().toISOString() })
     .eq('id', userId)
     .select()
-    .single()
+    .maybeSingle()
 
   if (error) {
     console.error('Profile update error:', error)
@@ -113,7 +117,7 @@ export async function savePainRecord(userId, record) {
       created_at: new Date().toISOString(),
     })
     .select()
-    .single()
+    .maybeSingle()
 
   if (error) {
     console.error('Pain record save error:', error)
