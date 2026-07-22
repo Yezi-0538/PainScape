@@ -4,6 +4,7 @@ import Sketch from "react-p5";
 import { I18nProvider, useI18n } from "./i18n/i18nContext";
 import { PAIN_NAME_MAP, BRUSHES, PALETTES, EXAM_DATABASE, QUOTES } from "./i18n/translationsConstants";
 import SomaticHealingSpace from './SomaticHealingSpace';
+import { supabase, ensureSession, getOrCreateProfile, updateProfile } from './supabaseClient';
 
 const API_BASE = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
   ? 'http://127.0.0.1:8000'
@@ -14,7 +15,11 @@ class ErrorBoundary extends React.Component {
   state = { hasError: false };
   static getDerivedStateFromError() { return { hasError: true }; }
   render() {
-    if (this.state.hasError) return <h1 style={{ color: '#fff', textAlign: 'center' }}>页面出了点小问题，请刷新重试</h1>;
+    const lang = this.props.lang || 'zh';
+    const msg = lang === 'en'
+      ? 'Something went wrong with the page, please refresh and try again'
+      : '页面出了点小问题，请刷新重试';
+    if (this.state.hasError) return <h1 style={{ color: '#fff', textAlign: 'center', padding: '40px' }}>{msg}</h1>;
     return this.props.children;
   }
 }
@@ -401,10 +406,10 @@ const CollapsibleMultiSelect = ({ label, options, selectedValues, onChange, plac
     };
   }, []);
 
+  const { t } = typeof window !== 'undefined' && window.__I18N_HOOK ? window.__I18N_HOOK() : { t: (k) => k };
   const displayText = selectedValues.length === 0
-    ? (placeholder || '请选择')
-    : `已选择 ${selectedValues.length} 项`;
-
+    ? (placeholder || t('onboarding.pleaseSelect') || '请选择')
+    : `${t('onboarding.selectedCount') || '已选择'} ${selectedValues.length} ${t('onboarding.items') || '项'}`;
   const toggleOption = (value) => {
     let newValues;
     if (selectedValues.includes(value)) {
@@ -536,8 +541,9 @@ const CollapsibleSingleSelect = ({ label, options, selectedValue, onChange, plac
     };
   }, []);
 
+  const { t } = typeof window !== 'undefined' && window.__I18N_HOOK ? window.__I18N_HOOK() : { t: (k) => k };
   const selectedLabel = options.find(opt => opt.value === selectedValue)?.label || '';
-  const displayText = selectedValue ? selectedLabel : (placeholder || '请选择');
+  const displayText = selectedValue ? selectedLabel : (placeholder || t('onboarding.pleaseSelect') || '请选择');
 
   return (
     <div style={{ position: 'relative', marginBottom: '16px', width: '100%' }}>
@@ -2676,6 +2682,57 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
     }));
   };
 
+  // ========== Supabase User State ==========
+  const [supabaseUser, setSupabaseUser] = useState(null);
+  const [supabaseProfile, setSupabaseProfile] = useState(null);
+  const [supabaseInitialized, setSupabaseInitialized] = useState(false);
+
+  // Initialize Supabase session on mount
+  useEffect(() => {
+    let cancelled = false;
+    const init = async () => {
+      try {
+        const session = await ensureSession();
+        if (cancelled) return;
+        if (session?.user) {
+          setSupabaseUser(session.user);
+          const profile = await getOrCreateProfile(session.user.id);
+          if (!cancelled) setSupabaseProfile(profile);
+        }
+      } catch (err) {
+        console.warn('Supabase init failed (offline mode):', err);
+      } finally {
+        if (!cancelled) setSupabaseInitialized(true);
+      }
+    };
+    init();
+    return () => { cancelled = true; };
+  }, []);
+
+  const handleSupabaseLogout = async () => {
+    try {
+      await supabase.auth.signOut();
+      setSupabaseUser(null);
+      setSupabaseProfile(null);
+    } catch (err) {
+      console.error('Logout failed:', err);
+    }
+  };
+
+  const handleSupabaseSync = async () => {
+    if (!supabaseUser) return;
+    try {
+      // Sync current medical background to Supabase profile
+      const updated = await updateProfile(supabaseUser.id, {
+        medical_background: medicalBackground,
+        last_active: new Date().toISOString(),
+      });
+      if (updated) setSupabaseProfile(updated);
+    } catch (err) {
+      console.error('Sync failed:', err);
+    }
+  };
+
   return (
     <>
       <style>{`
@@ -2951,7 +3008,7 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
                   transition: 'all 0.2s'
                 }}
               >
-                🏥 {t('modeSelection.medicalTab').split(' ')[1] || '就诊协助'}
+                🏥 {t('modeSelection.medicalTab').split(' ')[1] || t('modeSelection.medicalTab') || '就诊协助'}
               </button>
 
               {/* 🎨 日常表达按钮 */}
@@ -2968,7 +3025,7 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
                   transition: 'all 0.2s'
                 }}
               >
-                🎨 {t('modeSelection.generalTab').split(' ')[1] || '日常表达'}
+                🎨 {t('modeSelection.generalTab').split(' ')[1] || t('modeSelection.generalTab') || '日常表达'}
               </button>
             </div>
             {/* 使用提示控制按钮 */}
@@ -3225,7 +3282,7 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
                               当前处于什么时期
                             </label>
                             <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                              {["经前", "经期", "经后", "排卵期"].map(item => (
+                              {[t('onboarding.cyclePeriods.pre') || '经前', t('onboarding.cyclePeriods.menstrual') || '经期', t('onboarding.cyclePeriods.post') || '经后', t('onboarding.cyclePeriods.ovulation') || '排卵期'].map(item => (
                                 <button
                                   key={item}
                                   onClick={() => setCycleDay(cycleDay === item ? '' : item)}
@@ -3415,7 +3472,7 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
                         <span style={{ fontSize: '24px' }}>🌬️</span>
                       </div>
                       <h4 style={{ color: '#fff', fontSize: '14px', margin: '0 0 6px 0', fontWeight: 'bold' }}>
-                        {targetLanguage === 'en' ? 'Somatic Self-Care Space' : '自愈表达模式已就绪'}
+                        {targetLanguage === 'en' ? 'Somatic Self-Care Space' : t('onboarding.selfCareReady') || '自愈表达模式已就绪'}
                       </h4>
                       <p style={{ color: '#666', fontSize: '11px', margin: 0, lineHeight: '1.5' }}>
                         {targetLanguage === 'en'
@@ -3432,7 +3489,7 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
                       padding: '20px'
                     }}>
                       <h4 style={{ color: '#4caf50', fontSize: '13px', margin: '0 0 14px 0', fontWeight: 'bold' }}>
-                        🖌️ {targetLanguage === 'en' ? 'Somatic Brushes' : '即将启用的体感画笔质地：'}
+                        🖌️ {targetLanguage === 'en' ? 'Somatic Brushes' : t('onboarding.brushTextures') || '即将启用的体感画笔质地：'}
                       </h4>
                       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
                         {[
@@ -3598,9 +3655,9 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
                 paddingTop: '20px'
               }}>
                 {[
-                  { key: 'basicInfo', label: '1', title: '基础档案' },
-                  { key: 'medical', label: '2', title: '医疗背景' },
-                  { key: 'preference', label: '3', title: '干预偏好' },
+                  { key: 'basicInfo', label: '1', title: t('onboarding.basicInfoTitle') || '基础档案' },
+                  { key: 'medical', label: '2', title: t('onboarding.medicalTitle') || '医疗背景' },
+                  { key: 'preference', label: '3', title: t('onboarding.preferenceTitle') || '干预偏好' },
                 ].map((step) => (
                   <button
                     key={step.key}
@@ -3720,7 +3777,7 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
                 {t('onboarding.painDiary')}
               </button>
               <button style={{ background: 'none', border: 'none', color: '#555', fontSize: '13px', cursor: 'pointer' }} onClick={() => setTargetLanguage(targetLanguage === 'zh' ? 'en' : 'zh')}>
-                {targetLanguage === 'zh' ? 'English' : '中文'}
+                {targetLanguage === 'zh' ? t('onboarding.english') || 'English' : t('onboarding.chinese') || '中文'}
               </button>
             </footer>
           </div>
@@ -4064,10 +4121,10 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
             const getRefinePlaceholder = (tabIdentity) => {
               const isEn = targetLanguage === 'en';
               switch (tabIdentity) {
-                case 'partner': return isEn ? "e.g., Make it sound more urgent..." : "例如：语气更强烈一点，让Ta意识到严重性...";
-                case 'work': return isEn ? "e.g., Make it brief and extremely professional..." : "例如：语气更委婉客观，只说突发急病...";
-                case 'doctor': return isEn ? "e.g., Mention that Ibuprofen doesn't work..." : "例如：补充说明吃布洛芬没有任何缓解...";
-                case 'self': return isEn ? "e.g., Comfort me, I feel guilty for not working..." : "例如：给我一点心理安慰，我因为请假很内疚...";
+                case 'partner': return isEn ? "e.g., Make it sound more urgent..." : t('result.refine.placeholderPartner') || "例如：语气更强烈一点，让Ta意识到严重性...";
+                case 'work': return isEn ? "e.g., Make it brief and extremely professional..." : t('result.refine.placeholderWork') || "例如：语气更委婉客观，只说突发急病...";
+                case 'doctor': return isEn ? "e.g., Mention that Ibuprofen doesn't work..." : t('result.refine.placeholderDoctor') || "例如：补充说明吃布洛芬没有任何缓解...";
+                case 'self': return isEn ? "e.g., Comfort me, I feel guilty for not working..." : t('result.refine.placeholderSelf') || "例如：给我一点心理安慰，我因为请假很内疚...";
                 default: return t('result.refine.placeholder');
               }
             };
@@ -4401,9 +4458,9 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
 
                         <div style={{ display: 'flex', gap: '8px', marginBottom: '10px' }}>
                           {[
-                            { key: 'chief_complaint', label: '调优主诉' },
-                            { key: 'present_illness', label: '调优病生理分析' },
-                            { key: 'clinical_suggestions', label: '调优就诊引导' }
+                            { key: 'chief_complaint', label: t('result.refine.optimizeComplaint') || '调优主诉' },
+                            { key: 'present_illness', label: t('result.refine.optimizeReference') || '调优病生理分析' },
+                            { key: 'clinical_suggestions', label: t('result.refine.optimize') || '调优就诊引导' }
                           ].map(item => (
                             <button
                               key={item.key}
@@ -4461,10 +4518,10 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
 
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                         {[
-                          { key: 'breathing', icon: '🌬️', title: '一起认真呼吸', subtitle: '配声学潮汐呼吸引导，放松盆底肌群', color: '#4caf50' },
-                          { key: 'posture', icon: '🧘', title: '做个简易拉伸', subtitle: '静心空灵环境音，缓解子宫韧带牵拉', color: '#ab47bc' },
+                          { key: 'breathing', icon: '🌬️', title: t('healing.breathing.title') || '一起认真呼吸', subtitle: t('healing.breathing.description') || '配声学潮汐呼吸引导，放松盆底肌群', color: '#4caf50' },
+                          { key: 'posture', icon: '🧘', title: t('healing.meditation.title') || '做个简易拉伸', subtitle: '静心空灵环境音，缓解子宫韧带牵拉', color: '#ab47bc' },
                           { key: 'acupressure', icon: '💆', title: '快速穴位按揉', subtitle: '60 BPM 节拍节奏引导，阻断痉挛锐痛', color: '#2196f3' },
-                          { key: 'thermal', icon: '🔥', title: '热敷与食补', subtitle: '柴火燃烧白噪音，心理升温理疗', color: '#ff9800' }
+                          { key: 'thermal', icon: '🔥', title: t('healing.heatPack.title') || '热敷与食补', subtitle: '柴火燃烧白噪音，心理升温理疗', color: '#ff9800' }
                         ].map((tip) => (
                           <div
                             key={tip.key}
@@ -4665,7 +4722,7 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
                               fontWeight: 'bold'
                             }}
                           >
-                            {tip.hasUserVotedHelpful ? '已认可' : '+ 亲测有用'}
+                            {tip.hasUserVotedHelpful ? (t('post.votedHelpful') || '已认可') : ('+ ' + (t('post.markHelpful') || '亲测有用'))}
                           </button>
                         </div>
                       </div>
@@ -4915,7 +4972,7 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
                 </div>
 
                 <div style={{ display: 'flex', marginBottom: '12px' }}>
-                  {['日', '一', '二', '三', '四', '五', '六'].map(day => (
+                  {[t('history.sun') || '日', t('history.mon') || '一', t('history.tue') || '二', t('history.wed') || '三', t('history.thu') || '四', t('history.fri') || '五', t('history.sat') || '六'].map(day => (
                     <div key={day} style={{
                       width: '14.28%',
                       textAlign: 'center',
@@ -5297,7 +5354,7 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
                     }
                   }}
                 >
-                  🗑️ {'删除'}
+                  🗑️ {t('history.delete') || '删除'}
                 </button>
 
                 <button
@@ -5485,7 +5542,7 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
                           transition: 'all 0.2s'
                         }}
                       >
-                        👍 {viewingPost.hasUserVotedHelpful ? '已赞同有用' : '亲测有用'} · {viewingPost.helpfulVotes || 0}
+                        👍 {viewingPost.hasUserVotedHelpful ? (t('post.votedHelpful') || '已赞同有用') : (t('post.markHelpful') || '亲测有用')} · {viewingPost.helpfulVotes || 0}
                       </button>
                     </div>
                   </div>
@@ -5804,7 +5861,7 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
           >
             <div style={{ width: '100%', maxWidth: '400px', display: 'flex', flexDirection: 'column', gap: '15px' }} onClick={e => e.stopPropagation()}>
               <h3 style={{ color: '#fff', textAlign: 'center', margin: 0, fontSize: '15px' }}>
-                {targetLanguage === 'en' ? 'Somatic Card Generated' : '已成功生成体感卡片'}
+                {targetLanguage === 'en' ? 'Somatic Card Generated' : t('sharePreview.title') || '已成功生成体感卡片'}
               </h3>
               <p style={{ color: '#aaa', fontSize: '12px', textAlign: 'center', margin: 0 }}>
                 {targetLanguage === 'en' ? '💡 Long-press the card below to save or send to friends' : '💡 长按下方卡片即可 保存图片 或 直接发送给伴侣/朋友'}
@@ -5829,14 +5886,14 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
                     }}
                     style={{ flex: 1, padding: '12px', background: '#4caf50', border: 'none', borderRadius: '25px', color: '#fff', fontSize: '13px', fontWeight: 'bold', cursor: 'pointer' }}
                   >
-                    {targetLanguage === 'en' ? 'System Share' : '调用系统分享'}
+                    {targetLanguage === 'en' ? 'System Share' : t('sharePreview.confirm') || '调用系统分享'}
                   </button>
                 )}
                 <button
                   onClick={() => setGeneratedCardUrl(null)}
                   style={{ flex: 1, padding: '12px', background: '#333', border: 'none', borderRadius: '25px', color: '#fff', fontSize: '13px', cursor: 'pointer' }}
                 >
-                  {targetLanguage === 'en' ? 'Close' : '关闭'}
+                  {targetLanguage === 'en' ? 'Close' : t('diary.close') || '关闭'}
                 </button>
               </div>
             </div>
@@ -5862,10 +5919,140 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
             </p>
           </div>
         )}
+
+        {/* === Supabase User Info === */}
+        <SupabaseUserInfo
+          user={supabaseUser}
+          onLogout={handleSupabaseLogout}
+          onSync={handleSupabaseSync}
+        />
       </div>
     </>
   );
 }
+// ========== Supabase User Info Component ==========
+function SupabaseUserInfo({ user, onLogout, onSync }) {
+  const { t } = useI18n();
+  const [showMenu, setShowMenu] = useState(false);
+  const [syncing, setSyncing] = useState(false);
+
+  const handleSync = async () => {
+    setSyncing(true);
+    try {
+      await onSync();
+    } finally {
+      setSyncing(false);
+    }
+  };
+
+  if (!user) {
+    return (
+      <div style={{ position: 'fixed', bottom: '80px', right: '16px', zIndex: 999 }}>
+        <div style={{
+          background: 'rgba(20,20,20,0.9)',
+          border: '1px solid #333',
+          borderRadius: '12px',
+          padding: '8px 14px',
+          fontSize: '11px',
+          color: '#888',
+          backdropFilter: 'blur(8px)'
+        }}>
+          {t('supabase.initializing')}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ position: 'fixed', bottom: '80px', right: '16px', zIndex: 999 }}>
+      <button
+        onClick={() => setShowMenu(!showMenu)}
+        style={{
+          background: 'rgba(20,20,20,0.9)',
+          border: '1px solid #4caf50',
+          borderRadius: '24px',
+          padding: '8px 16px',
+          color: '#4caf50',
+          fontSize: '12px',
+          cursor: 'pointer',
+          backdropFilter: 'blur(8px)',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '6px'
+        }}
+      >
+        <span style={{ fontSize: '14px' }}>👤</span>
+        <span>{t('supabase.loginSuccess')}</span>
+      </button>
+
+      {showMenu && (
+        <div style={{
+          position: 'absolute',
+          bottom: '50px',
+          right: 0,
+          width: '260px',
+          background: 'rgba(20,20,20,0.97)',
+          border: '1px solid #333',
+          borderRadius: '16px',
+          padding: '16px',
+          backdropFilter: 'blur(12px)',
+          boxShadow: '0 8px 32px rgba(0,0,0,0.5)'
+        }}>
+          <div style={{ borderBottom: '1px solid #222', paddingBottom: '12px', marginBottom: '12px' }}>
+            <p style={{ color: '#fff', fontSize: '13px', fontWeight: 'bold', margin: '0 0 8px 0' }}>
+              {t('supabase.userInfo')}
+            </p>
+            <div style={{ fontSize: '11px', color: '#888', lineHeight: '1.8' }}>
+              <div>{t('supabase.userId')}: <span style={{ color: '#aaa' }}>{user.id?.slice(0, 12)}...</span></div>
+              {user.created_at && (
+                <div>{t('supabase.userSince')}: <span style={{ color: '#aaa' }}>{new Date(user.created_at).toLocaleDateString()}</span></div>
+              )}
+              {user.last_sign_in_at && (
+                <div>{t('supabase.lastActive')}: <span style={{ color: '#aaa' }}>{new Date(user.last_sign_in_at).toLocaleDateString()}</span></div>
+              )}
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            <button
+              onClick={handleSync}
+              disabled={syncing}
+              style={{
+                padding: '8px 12px',
+                background: syncing ? '#333' : 'rgba(76,175,80,0.1)',
+                border: '1px solid rgba(76,175,80,0.3)',
+                borderRadius: '10px',
+                color: syncing ? '#666' : '#4caf50',
+                fontSize: '12px',
+                cursor: syncing ? 'not-allowed' : 'pointer',
+                fontWeight: 'bold'
+              }}
+            >
+              {syncing ? t('supabase.syncing') : t('supabase.syncNow')}
+            </button>
+
+            <button
+              onClick={onLogout}
+              style={{
+                padding: '8px 12px',
+                background: 'rgba(211,47,47,0.08)',
+                border: '1px solid rgba(211,47,47,0.3)',
+                borderRadius: '10px',
+                color: '#ef5350',
+                fontSize: '12px',
+                cursor: 'pointer',
+                fontWeight: 'bold'
+              }}
+            >
+              {t('supabase.logout')}
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function App() {
   const [targetLanguage, setTargetLanguage] = useState("zh");
 

@@ -24,10 +24,15 @@ const translations = {
       wave: "弥漫酸胀痛",
       scrape: "撕裂刮痛",
     },
+    // ============ 画布 ============
+    canvas: {
+      resetView: "重置视角",
+      scale: "比例",
+    },
     // ============ 开屏页 ============
     splash: {
       quotes: [
-        "慢性疼痛相当于长期的“unmaking”——把人困在身体牢笼里。\n—— Elaine Scarry",
+        "慢性疼痛相当于长期的\u201Cunmaking\u201D\u2014\u2014把人困在身体牢笼里。\n\u2014\u2014 Elaine Scarry",
         "疼痛不仅是神经的电冲动，它是对自我边界的侵犯。",
         "语言在痛苦面前总是匮乏的，而视觉是一道划破沉默的闪电。",
         "不被看见的痛楚，往往需要承受双倍的煎熬。",
@@ -38,47 +43,45 @@ const translations = {
     },
     modeSelection: {
       title: "选择您的记录目的",
-      medicalTab: "🏥 就诊协助",
+      medicalTab: "\uD83C\uDFE5 就诊协助",
       generalTab: "日常自愈",
       confirmBtn: "确认并进入画布",
-      // 只展示画勾的特有功能
       medicalFeatures: [
-        "📋 标准妇科门诊病理采集",
-        "🔬 智能生成现病史与报告",
-        "📍 人体腹部/腰骶精准解剖定位"
+        "\uD83D\uDCCB 标准妇科门诊病理采集",
+        "\uD83D\uDD2C 智能生成现病史与报告",
+        "\uD83D\uDCCD 人体腹部/腰骶精准解剖定位"
       ],
       generalFeatures: [
-        "👁️ 沉浸式盲画情绪发泄",
-        "🌿 经期自愈与呼吸干预指导",
-        "✉️ 伴侣通感说明书与请假模板"
+        "\uD83D\uDC41\uFE0F 沉浸式盲画情绪发泄",
+        "\uD83C\uDF3F 经期自愈与呼吸干预指导",
+        "\u2709\uFE0F 伴侣通感说明书与请假模板"
       ],
-      // 共同包含的底层支撑功能
       commonFeatures: [
-        "📓 疼痛记录",
-        "📊 日历趋势",
-        "🌍 社群分享",
-        "💬 多语境转译"
+        "\uD83D\uDCD3 疼痛记录",
+        "\uD83D\uDCCA 日历趋势",
+        "\uD83C\uDF0D 社群分享",
+        "\uD83D\uDCAC 多语境转译"
       ]
     },
     // ============ Onboarding 页 ============
     onboarding: {
-      languageLabel: "🌐 目标语言：",
+      languageLabel: "\uD83C\uDF10 目标语言：",
       chinese: "简体中文",
       english: "English",
       guideTitle: "使用指南",
       guideItems: [
-        ["🎨 选择画笔", "每种画笔对应一种痛感质地，可混合使用"],
-        ["🩸 选择颜色", "不同颜色代表疼痛的情绪与温度"],
-        ["✏️ 开始绘制", "在身体图上点击或滑动，画出你的疼痛范围"],
-        ["📐 调整视角", "长按 0.3 秒可拖拽移动；双指缩放细节"],
-        ["↩️ 撤销/重做", "右侧按钮随时修改，清除重新开始"],
-        ["⚡ 生成报告", "右上角【生成】，AI 将转译你的痛觉图谱"],
+        ["\uD83C\uDFA8 选择画笔", "每种画笔对应一种痛感质地，可混合使用"],
+        ["\uD83E\uDE78 选择颜色", "不同颜色代表疼痛的情绪与温度"],
+        ["\u270F\uFE0F 开始绘制", "在身体图上点击或滑动，画出你的疼痛范围"],
+        ["\uD83D\uDCD0 调整视角", "长按 0.3 秒可拖拽移动；双指缩放细节"],
+        ["\u21A9\uFE0F 撤销/重做", "右侧按钮随时修改，清除重新开始"],
+        ["\u26A1 生成报告", "右上角【生成】，AI 将转译你的痛觉图谱"],
       ],
       preferenceTitle: "当痛经发作时，你最需要什么？",
       preferences: [
-        { key: "alone", title: "🛑 别管我，让我一个人待着" },
-        { key: "care", title: "🥣 我没力气，需要实际照顾" },
-        { key: "comfort", title: "🫂 我很脆弱，需要情绪陪伴" },
+        { key: "alone", title: "\uD83D\uDED1 别管我，让我一个人待着" },
+        { key: "care", title: "\uD83E\uDD63 我没力气，需要实际照顾" },
+        { key: "comfort", title: "\uD83E\uDEC2 我很脆弱，需要情绪陪伴" },
       ],
       medicalTitle: "填写健康信息（可选）",
       step1: "基础信息",
@@ -91,344 +94,290 @@ const translations = {
       medicalHint: "以下信息帮助系统理解你的健康背景，均为选填",
       optional: "选填",
       reproductiveHistoryHint: "仅用于医疗参考，不会公开。可跳过。",
-      cycleLabel: "📅 今天是月经第几天？（可选）",
+      cycleLabel: "\uD83D\uDCC5 今天是月经第几天？（可选）",
       cycleOptions: ["经前", "第1天", "第2天", "第3-5天", "经后一周内"],
       diagnosisLabel: "既往诊断（可选）",
       diagnosisOptions: {
         "": "既往诊断（可选）",
         none: "无确诊",
         endometriosis: "子宫内膜异位症",
-        adenomyosis: "子宫腺肌症",
+        pcos: "多囊卵巢综合征（PCOS）",
         fibroids: "子宫肌瘤",
-        pcos: "多囊卵巢综合征",
+        adenomyosis: "子宫腺肌症",
         pid: "盆腔炎性疾病（PID）",
-        ovariancyst: "卵巢囊肿",
-        cervicalstenosis: "宫颈管狭窄",
-        other: "其他疾病（可自行填写）",  // ← 新增
-        unchecked: "未做过相关检查",
+        other: "其他",
       },
       allergyLabel: "药物过敏史（可选）",
       allergyOptions: {
         "": "药物过敏史（可选）",
         none: "无已知过敏",
-        penicillin: "青霉素",           // ← 新增
-        sulfonamides: "磺胺类",         // ← 新增
-        ibuprofen: "布洛芬（NSAIDs类）",
-        aspirin: "阿司匹林（NSAIDs类）",
-        other_nsaids: "其他NSAIDs（如萘普生、双氯芬酸等）",
-        acetaminophen: "对乙酰氨基酚",
-        other: "其他",                  // ← 新增
-        unknown: "未留意过",
+        ibuprofen: "布洛芬/NSAIDs 过敏",
+        aspirin: "阿司匹林过敏",
+        other: "其他过敏",
       },
-      ageLabel: "年龄范围（选填）",
+      ageLabel: "年龄段（可选）",
       ageOptions: {
-        "": "请选择（可选）",
+        "": "年龄段（可选）",
         under18: "18岁以下",
         "18-25": "18-25岁",
         "26-35": "26-35岁",
         "36-45": "36-45岁",
         over45: "45岁以上",
       },
-      basicInfo: "基本信息（选填）",
-      heightLabel: "身高（cm）",
-      heightPlaceholder: "如：175",
-      weightLabel: "体重（kg）",
-      weightPlaceholder: "如：75",
-      pastHistory: "既往史（选填）",
-      surgicalHistoryLabel: "手术史",
-      surgicalHistoryOptions: {
-        "": "请选择（可选）",
-        none: "无",
-        abdominal: "腹部手术（如阑尾切除）",
-        pelvic: "盆腔手术（如卵巢囊肿切除）",
-        other: "其他手术",
-      },
-      otherAllergiesLabel: "其他过敏药物（自由填写）",
-      otherAllergiesPlaceholder: "如：头孢类、左氧氟沙星等",
-      currentHistory: "现病史（选填）",
-      menarcheAgeLabel: "初次月经年龄",
-      menarcheAgePlaceholder: "如：13",
-      periodDurationLabel: "月经一般持续几天",
-      periodDurationOptions: {
-        "": "请选择",
-        "3": "3天",
-        "4": "4天",
-        "5": "5天",
-        "6": "6天",
-        "7": "7天",
-        "over7": "超过7天"
-      },
-      cycleRegularOptions: {
-        "": "请选择",
-        regular: "规律（21-35天，周期稳定）",
-        irregular: "不规律（周期波动大）",
-        unsure: "不太确定"
-      },
-      lastPeriodLabel: "上一次月经开始是哪一天",
-      lastPeriodPlaceholder: "例如：2026-06-01",
-      cycleRegularDefinition: "规律：每次月经间隔天数相差不超过3-5天",
-      familyHistoryMulti: "家族史（可多选）",
-      motherHistory: "母亲有痛经史",
-      sisterHistory: "姐妹有痛经史",
-      reproductiveHistoryMulti: "生育史（可多选）",
-      nulliparous: "未生育",
-      pregnant: "已孕（未生产）",
-      parous: "已生育",
-      spontaneousAbortion: "有过自然流产",
-      inducedAbortion: "有过人工/药物终止妊娠",
-      multiple: "多次生育",
-      menstrualHistoryTitle: "月经史",
-
-      activityLabel: "体力活动量（选填）",
-      activityOptions: {
-        "": "请选择（可选）",
-        sedentary: "久坐少动",
-        light: "轻度活动（偶尔散步）",
-        moderate: "中等强度（规律运动）",
-        active: "高强度（频繁运动）",
-      },
-      lifestyleTitle: "生活习惯（可多选）",
+      lifestyleLabel: "生活习惯（可选，可多选）",
       lifestyleOptions: {
-        "": "请选择",
-        sleepDuration: "睡眠时长不足（少于7小时）",
-        sleepIrregular: "作息不规律（熬夜/倒班）",
+        sleepShort: "睡眠不足/熬夜",
+        sleepIrregular: "作息不规律",
         smoking: "吸烟",
         alcohol: "饮酒",
-        caffeine: "常喝咖啡/浓茶",
-        diet: "饮食偏好（可多选）",
+        caffeine: "过量咖啡因",
+        coldFood: "喜食生冷",
+        spicy: "嗜辣",
+        weightLoss: "节食减重",
       },
-      dietOptions: {
-        "": "请选择",
-        cold: "喜食生冷/冰饮",
-        spicy: "喜食辛辣",
-        meat: "偏肉食",
-        vegetarian: "素食",
-        weightLoss: "正在减重期",
-      },
-      familyHistoryLabel: "家族史（可多选）",
-      "": "请选择",
+      familyHistoryLabel: "家族痛经史（可选）",
       familyHistoryOptions: {
+        "": "家族痛经史（可选）",
         mother: "母亲有痛经史",
         sister: "姐妹有痛经史",
-        none: "无",
-        unknown: "不清楚",
+        grandmother: "祖母/外祖母有痛经史",
+        none: "无家族史",
+        unknown: "不详",
       },
-      psychosocialLabel: "心理社会因素（选填）",
+      reproductiveHistoryMulti: "生育史（可选，可多选）",
+      nulliparous: "未生育",
+      pregnant: "已孕未生产",
+      parous: "已生育",
+      spontaneousAbortion: "自然流产史",
+      inducedAbortion: "人工流产史",
+      multiple: "多胎生育",
+      menstrualHistoryTitle: "\uD83C\uDF38 月经史",
+      psychosocialLabel: "心理社会因素（可选）",
       psychosocialOptions: {
-        "": "请选择（可选）",
-        lowStress: "压力较小",
-        moderateStress: "适度压力",
-        highStress: "压力大/焦虑",
+        "": "请选择...",
+        lowStress: "低压力",
+        moderateStress: "中等压力",
+        highStress: "高压力/焦虑",
+        trauma: "创伤/虐待史",
+      },
+      reproductiveHistoryLabel: "生育史（可选）",
+      reproductiveHistoryOptions: {
+        "": "请选择...",
+        nulliparous: "未生育",
+        parous: "已生育",
+        miscarriage: "流产史",
+        multiple: "多胎生育",
       },
       accompanyingLabel: "伴随症状（可多选）",
       accompanyingOptions: {
         headache: "头痛",
-        breast: "乳房酸胀痛",
-        lumbosacral: "腰骶酸痛",
+        breast: "乳房胀痛",
+        lumbosacral: "腰骶痛",
         nausea: "恶心呕吐",
-        diarrhea: "经期腹泻",
-        fatigue: "疲惫乏力"
+        diarrhoea: "经期腹泻",
+        fatigue: "疲劳乏力"
       },
-      toneDescription: "生成结果将采用此语气",
-      toneGentle: "🌿 温和",
-      toneDirect: "💬 直接",
-      toneHint: "温和：安抚为主 / 直接：只说方法",
+      toneDescription: "生成内容将使用此语气",
+      toneGentle: "\uD83C\uDF3F 温和版",
+      toneDirect: "\uD83D\uDCAC 直接版",
+      toneHint: "温和：安抚舒缓 / 直接：只说方法",
       switchToMedical: "填写健康信息（可选）",
-      switchToPreference: "回到陪伴偏好",
+      switchToPreference: "返回偏好设置",
       cycleNotProvided: "未提供",
       startDrawing: "开始绘制",
-      quickLog: "⚡ 来不及画，快速记录",
-      exploreCommunity: "🌍 探索广场",
-      painDiary: "📅 疼痛日记",
-      feedbackPrompt: "你的反馈将帮助我们改善产品（可留空提交匿名反馈）：",
-      feedbackThanks: "感谢你的反馈！每一条都会被认真阅读。",
-      submitFeedback: "📮 提交使用反馈",
+      quickLog: "\u26A1 没时间画，快速记录",
+      exploreCommunity: "\uD83C\uDF0D 社区",
+      painDiary: "\uD83D\uDCC5 痛经日记",
+      feedbackPrompt: "你的反馈帮助我们改进（不填则匿名提交）：",
+      feedbackThanks: "感谢你的反馈！每一条我们都会认真阅读。",
+      submitFeedback: "\uD83D\uDCEE 提交反馈",
       gotIt: "知道了",
+      pleaseSelect: "请选择",
+      selectedCount: "已选择",
+      items: "项",
+      selfCareReady: "自愈表达模式已就绪",
+      brushTextures: "即将启用的体感画笔质地：",
     },
 
-    // ============ 画笔与颜色 ============
     brushes: {
-      twist: { label: "绞/拧" },
-      pierce: { label: "荆/刺" },
-      heavy: { label: "坠/压" },
-      wave: { label: "酸/胀" },
-      scrape: { label: "刮/撕" },
-      eraser: { label: "橡皮" },
-    },
-    painNames: {
-      twist: "绞痛",
-      pierce: "刺痛",
-      heavy: "坠痛",
-      wave: "酸胀痛",
-      scrape: "撕裂痛",
+      twist: { label: "\uD83D\uDD04 绞痛", icon: "\uD83D\uDD04" },
+      pierce: { label: "\u26A1\uFE0F 刺痛", icon: "\u26A1\uFE0F" },
+      heavy: { label: "\uD83E\uDEA8 坠胀", icon: "\uD83E\uDEA8" },
+      wave: { label: "\u3030\uFE0F 酸胀", icon: "\u3030\uFE0F" },
+      scrape: { label: "\uD83D\uDD2A 刮痛", icon: "\uD83D\uDD2A" },
+      eraser: { label: "\uD83E\uDDFD 橡皮擦", icon: "\uD83E\uDDFD" },
     },
     colors: {
-      crimson: { label: "🩸" },
-      dark: { label: "🌑" },
-      purple: { label: "🔮" },
-      blue: { label: "❄️" },
+      crimson: { label: "\uD83E\uDE78" },
+      dark: { label: "\uD83C\uDF11" },
+      purple: { label: "\uD83D\uDD2E" },
+      blue: { label: "\u2744\uFE0F" },
     },
-   colorDescriptions: {
-      crimson: "红色：热热胀胀的涌动感，直接关联着体内经血的流注与高度充血",
-      dark: "暗灰：闷闷抑郁的下沉感，伴随深度疲惫无力，痛楚中局部发麻、仿佛失去生命活性",
-      purple: "紫色：难以形容的隐约酸楚与绵软无力，易诱发情绪脆弱与哭泣，与深层盆腔神经敏化相关",
-      blue: "冰蓝：寒冷与眩晕。手脚冰凉，肚子无法暖热。仿佛被一股不属于身体的异质力量冰封干扰，或处于缺血状态",
+    colorDescriptions: {
+      crimson: "\uD83E\uDE78 深红：温热、充盈、胀满感；与血液流动和活跃的物理充血直接相关。",
+      dark: "\uD83C\uDF11 暗灰：沉重、压抑的下坠感；深度疲劳和虚弱，痛处感觉麻木、冰冷，缺乏生命能量。",
+      purple: "\uD83D\uDD2E 紫色：难以言喻的、微弱但持续的隐痛；伴随虚弱和情绪脆弱（想哭的感觉），与神经性敏感有关。",
+      blue: "\u2744\uFE0F 冰蓝：寒战和眩晕；手脚冰冷，腹部无法温暖，仿佛一种异质的、非生物的力量在干扰，代表严重的缺血。",
     },
 
-    // ============ 画板页 ============
     canvas: {
       bodyFront: "正面",
       bodyBack: "背面",
-      bodyNone: "沉浸盲画",
-      emotionLoad: "负荷",
+      bodyNone: "盲画模式",
+      emotionLoad: "加载",
       generate: "生成",
-      frontTip: "正面：绘制胸腹腿等部位不适感",
-      backTip: "背面：绘制腰骶臀等部位不适感",
     },
 
-    // ============ 结果页 ============
     result: {
       tabs: {
         partner: "伴侣",
-        work: "请假/推约",
+        work: "请假",
         doctor: "医生",
         self: "自愈",
       },
       partner: {
         title: "通感说明书",
-        experiencing: "她正在经历强烈的",
-        actionPrompt: "💡 请立刻执行以下操作：",
-        copyAction: "📋 复制实操指令",
+        experiencing: "她正在经历剧烈的",
+        actionPrompt: "\uD83D\uDCA1 请为她做以下事情：",
+        copyAction: "\uD83D\uDCCB 复制行动清单",
       },
       work: {
-        title: "社交请假模板", 
-      description: "客观陈述生理期急性痛楚状态，无论是面对职场还是社交邀约，都能坦诚且得体地表达缺席意愿。",
-      copyTemplate: "📋 复制声明/推约文本",
-      recipients: {
-        manager: "💼 领导/HR",
-        teacher: "🏫 学校老师",
-        client: "👥 客户/合作方",
-        friend: "🫂 好友/同学" // 新增
-      },
-      tones: {
-        polite: "🌸 遗憾委婉", // 社交语境下 poltie 代表遗憾
-        objective: "📊 直接陈述"
-      },
+        title: "智能请假条生成器",
+        description: "客观描述身体状况，保持职场规范的同时为任务交接留出转圜空间。",
+        copyTemplate: "\uD83D\uDCCB 复制请假文本",
+        recipients: {
+          manager: "\uD83D\uDCBC 经理/HR",
+          teacher: "\uD83C\uDFEB 教授/老师",
+          client: "\uD83D\uDC65 客户/合作方",
+          friend: "\uD83E\uDEC2 朋友/同伴"
+        },
+        tones: {
+          polite: "\uD83C\uDF38 温暖礼貌版",
+          objective: "\uD83D\uDCCA 客观简洁版"
+        },
         templates: {
           manager: {
-            polite: "尊敬的领导/HR您好：\n本人因今日行经生理期严重不适（{{pain}}），伴随阵发性剧烈收缩痉挛、冷汗及虚脱，目前体力状态确实无法支持高强度专注工作。特申请今日病假/居家整休一天。在此期间若有紧急要务，我将在身体状况允许时通过微信及时回复。非常感谢您的理解与批准。\n\n申请人：[您的姓名]",
-            objective: "领导/HR您好：\n本人今日突发急性生理期痛经（{{pain}}），痛感深在且躯体透支明显，特申请今日病假一天。今日原定紧急业务已安排妥善交接。我会在明日身体状况恢复后第一时间销假并跟进工作，感谢批准。\n\n申请人：[您的姓名]"
+            polite: "尊敬的经理/HR：\n您好。因突发急性痛经（严重{{pain}}），导致严重痉挛性绞痛和身体极度疲惫，今天需要请病假一天。我会在恢复后第一时间跟进所有待办紧急事项。非常感谢您的理解。\n\n此致\n[您的姓名]",
+            objective: "尊敬的经理/HR：\n请批准今天病假。我正在经历严重经期痉挛（{{pain}}），身体状态无法维持正常专注。紧急事务已交接。感谢支持。\n\n此致\n[您的姓名]"
           },
           teacher: {
-            polite: "尊敬的 [老师姓名] 老师您好：\n我是学生 [您的姓名]。因今日身体突发经期下腹剧烈痉挛性绞痛（{{pain}}）并伴有虚脱，状态欠佳确实无法前往教室上课。特向您请假 [1] 天。因请假落下的功课和课堂重点，我会在身体好转后主动向同学和老师补齐，望老师批准。非常感谢。\n\n学生：[您的姓名]",
-            objective: "老师您好：\n学生 [您的姓名] 因今日生理期严重痉挛性痛经（{{pain}}），目前无法维持正常的课堂听课状态，特申请今天请假一天，望批准。\n\n学生：[您的姓名]"
+            polite: "尊敬的[老师姓名]老师：\n因突发急性重度痛经（{{pain}}），今天无法到课。我会在恢复后及时补上课程内容和作业。感谢您的理解和批准。\n\n学生：[您的姓名]",
+            objective: "尊敬的老师：\n因严重经期盆腔疼痛（{{pain}}），今天无法到课，特此请假。谢谢。\n\n学生：[您的姓名]"
           },
           client: {
-            polite: "您好：\n由于本人今日突发身体生理期严重不适（{{pain}}），目前体能及思维专注力受到极大限制。为了确保我们的沟通效果与项目交付质量，特在此向您说明，可能需要将今日原定的对接/会议稍作顺延，或者更改为文字异步留言。给您带来不便我深表歉意，非常感谢您的体谅与支持。\n\n[您的姓名]",
-            objective: "您好：\n因本人今日突发急性期生理性痛经（{{pain}}），痛感较强，今日需紧急请假调理。我们原定今日的跟进计划我已交由同事协助，或推迟至明日处理，感谢您的理解。\n\n[您的姓名]"
+            polite: "您好，\n因突发健康问题（严重{{pain}}），身体状态无法维持正常沟通专注，恳请将今天的会议改期。给您带来不便深表歉意，非常感谢您的理解。\n\n此致\n[您的姓名]",
+            objective: "您好，\n因突发经期疼痛（{{pain}}），今天需请病假一天。待办事项将在明天恢复后跟进。感谢耐心。\n\n此致\n[您的姓名]"
           },
-           friend: {
-          polite: "亲爱的：\n真的很抱歉，我原本超级期待今天的聚会，但我今天生理期痛经突然发作得非常厉害（{{pain}}），现在整个人虚脱得只能躺在床上，实在没法出门见大家了。🥺 你们玩得开心点，别管我，等我这两天活过来了，一定要找时间单独找你们补上这一顿！真的太遗憾了，求原谅～\n\n[您的姓名]",
-          objective: "嘿：\n由于今天经期突发严重绞痛（{{pain}}），我现在状态很差，今天的聚会/约会我就先不参加了，得在家躺着缓一缓。你们好好玩，咱们改天再约时间聚哈！\n\n[您的姓名]"
-        }
+          friend: {
+            polite: "亲爱的，真的非常抱歉，今天的约我去不了了。痛经太严重了（{{pain}}），现在只能抱着热水袋窝在床上\uD83E\uDD7A。本来超级期待见大家的！你们好好玩，等我缓过来一定补上！临时变卦真的很抱歉！\n\n[您的姓名]",
+            objective: "抱歉，今天的约我去不了了。痛经太严重了（{{pain}}），需要在家休息。你们玩得开心，改天再约！\n\n[您的姓名]"
+          }
         }
       },
       doctor: {
-        title: "医疗就诊沟通辅助单",
-        disclaimer: "⚠️ 声明：本报告由 AI 基于您的主诉与具身绘图生成，不能代替执业医生的诊断。具体病症及治疗方案必须由妇科医生进行专业临床检查后确诊。",
-        clinicalAdvice: "患者主诉参考",
-        examNotice: "💡 患者检查须知：",
+        title: "医疗辅助报告",
+        disclaimer: "AI 生成 \u00B7 仅供参考",
+        clinicalAdvice: "\uD83E\uDE7A 临床建议",
+        examNotice: "\uD83D\uDCA1 患者检查须知：",
         preparation: "准备：",
         purpose: "目的：",
-        attachedMap: "本次多维痛觉图谱已附在报告后方，可向接诊医生展示。",
-        discussReference: "供您与医生讨论参考：",
-        copyReport: "📋 复制完整报告",
+        attachedMap: "本报告附有多维度疼痛图谱，供医生参考。",
+        discussReference: "\uD83D\uDCCB 建议就诊时与医生讨论：",
+        copyReport: "\uD83D\uDCCB 复制完整报告",
       },
       self: {
-        title: "自愈与社群互助",
-        comfort: "亲爱的，你画出了你的风暴。痛不是你的错，允许自己今天好好休息。躺着不叫懒，这是一种积极的身体自愈。 ⚠️ 注意：任何自愈方案或体位调节若引起您额外的不适或强烈痛感，请立即停止！回归您觉得最舒服的姿势，并保持静卧休养。",
-        copyAdvice: "📋 复制建议保存",
+        title: "自愈与社群支持",
+        comfort: "亲爱的，你已经画下了你的风暴。疼痛不是你的错。今天好好休息\u2014\u2014休息本身就是一种积极的自我疗愈。\u26A0\uFE0F 注意：任何自愈方法或身体调整若引起额外不适或疼痛加剧，请立即停止！回归最舒适的休息姿势并保持静卧。",
+        copyAdvice: "\uD83D\uDCCB 复制自愈建议",
       },
       science: {
         selfCare: [
-          { title: "🌸 辟谣：没有性生活不能用棉条吗？", desc: "完全可以。处女膜并不是一整片封闭的薄膜，而是一个富有弹性的环状肌肉组织（天然孔径约 2-3 厘米）。普通规格棉条直径仅约 1 厘米，只要使用得当、动作轻柔，完全不会造成任何物理性损伤。" },
-          { title: "🍵 辟谣：痛经喝红糖水包治百病？", desc: "红糖中 99% 的成分都是蔗糖，多喝不仅无法缓解前列腺素引起的子宫收缩，高糖分摄入反而会加速体内的炎性反应。温热的水分摄入和保暖才是舒缓盆腔平滑肌血管紧张度的关键。" },
-          { title: "📊 周期生活指南：如何根据周期排期？", desc: "卵泡期（月经后一周）是身体雌激素上升的黄金期，适合高强度运动和重要汇报；而黄体期（经前一周）孕酮升高，应降低运动强度，多进行保暖、拉伸与平静冥想。" },
-          { title: "🔬 痛经级别健康自测", desc: "若经期血量超过 80ml（每两小时更换一次满溢卫生巾）、伴随有大量大硬血块、或常规口服止痛药（布洛芬）完全无效，可能是继发性病理痛经的警报，建议去医院做妇科超声排查子宫内膜异位症。" },
-          { title: "🍍 饮食指南：经期适合吃什么？", desc: "推荐多补充富含抗炎类营养素的食物，如镁元素（坚果、深绿蔬菜）和 omega-3（深海鱼、亚麻籽），这能有效减缓子宫平滑肌过度收缩，达到自然舒缓阵痛的效果。" }
+          { title: "\uD83C\uDF38 误区：没有性经验可以用卫生棉条吗？", desc: "完全可以。处女膜是富有弹性的环状肌肉组织，并非封闭的屏障。标准棉条直径约1cm，按照说明轻柔使用不会造成损伤。" },
+          { title: "\uD83C\uDF5A 误区：红糖水能治痛经吗？", desc: "红糖99%是蔗糖。高糖摄入反而会促进炎症反应，加重痉挛。温热的水和物理热敷才是放松盆腔平滑肌的关键。" },
+          { title: "\uD83D\uDCCA 经期生活指南", desc: "卵泡期（经后一周）是你的高能量黄金期，适合高强度运动和重要汇报。黄体期（经前一周）需要低强度运动、保暖和正念。" },
+          { title: "\uD83D\uDD2C 继发性痛经自评", desc: "如果经量超过80ml（每2小时湿透一片卫生巾）、含大量血块、或常规止痛药（布洛芬）完全无效，请安排盆腔超声排查内异症等病变。" }
         ],
         partner: [
-          { title: "月经不是憋出来的", desc: "月经是子宫内膜自发脱落流出体外的生理现象。它不受任何盆腔括约肌的控制，无法像尿液一样“憋住”。这是不受主观控制的自发流出，请给予她无条件的接纳与关怀。" },
-          { title: "避忌寒性食物", desc: "痛经发作期应尽量避免让她食用生冷瓜果（西瓜、哈密瓜、螃蟹等）。冷刺激会导致盆腔及子宫血管骤然收缩，加重子宫缺血，引发更剧烈的绞痛。" },
-          { title: "🔴 红色急诊警告指征", desc: "若她出现面色煞白、浑身冷汗、剧烈呕吐无法服药，甚至痛到晕厥休克，千万不要盲目等待，这极有可能是卵巢囊肿扭转或破裂等急腹症，必须立刻送医急诊。" },
-          { title: "痛经不仅是‘情绪化’", desc: "严重痛经发作时，体内前列腺素水平甚至是常人的数倍，其引起的肌肉痉挛感等同于轻度分娩痛。这并非矫情，而是货真切实的生理型灾难，此时最需要您的陪伴与分担。" }
+          { title: "经血是\u2018憋不住\u2019的", desc: "经血是子宫内膜的不自主脱落。与排尿不同，它不受括约肌控制。请给予她无条件的支持和关怀。" },
+          { title: "避免生冷食物", desc: "痛经发作期间，确保她避免极冷饮品或凉性食物（如西瓜、螃蟹）。冷刺激会引起盆腔血管突然收缩，加重缺血性疼痛。" },
+          { title: "\uD83D\uDD34 红色警报征象", desc: "如果她出现冷汗、面色苍白、晕厥、呕吐或持续剧烈疼痛，不要等待。这些是囊肿扭转等急性妇科急症的潜在指标，需立即送急诊。" }
         ]
       },
       refine: {
-        prompt: "🤖 对当前内容不满意？让 AI 帮你调调语气：",
-        placeholder: "如：太正式了 / 想要更温柔 / 加一条热敷建议",
+        prompt: "\uD83E\uDD16 不满意？让 AI 调整语气：",
+        placeholder: "例如：太正式了 / 再温柔一点 / 加上热敷建议",
         optimizing: "优化中...",
         optimize: "优化",
         optimizeComplaint: "优化主诉",
-        optimizeReference: "优化参考清单",
+        optimizeReference: "优化参考",
+        placeholderPartner: "例如：语气更强烈一点，让Ta意识到严重性...",
+        placeholderWork: "例如：语气更委婉客观，只说突发急病...",
+        placeholderDoctor: "例如：补充说明吃布洛芬没有任何缓解...",
+        placeholderSelf: "例如：给我一点心理安慰，我因为请假很内疚...",
       },
-      shareCard: "一键分享卡片",
-      publish: "发布到广场",
-      backHome: "返回主页",
+      shareCard: "分享",
+      publish: "发布",
+      backHome: "首页",
       reportError: "报告生成遇到问题",
-      backToHome: "返回首页",
+      backToHome: "首页",
     },
 
-    // ============ 社区广场 ============
     community: {
-      title: "🌍 共鸣广场",
+      title: "\uD83C\uDF0D 社区",
       back: "返回",
       filterAll: "全部",
-      filterFamily: "🏠 家庭群",
-      filterFriend: "👥 好友群",
+      filterFamily: "\uD83C\uDFE0 家庭群",
+      filterFriend: "\uD83D\uDC65 好友群",
       createGroup: "+ 创建群组",
-      createGroupPrompt: "请输入新群组名称（如：家庭群）：",
-      joinGroupPrompt: "请输入群组邀请码（演示模式任意输入）：",
-      groupCreated: '群组"{{name}}"创建成功！',
-      joinedGroup: "已加入群组！",
-      newGroup: "新群组",
-      emptyState: "🌱 这里还有些安静，数据正在悄悄生长。",
-      emptyStateSub: "成为第一个留下足迹的人吧，你的分享就是照亮同路人的微光 ↓",
-      emptyStateHint: "—— 或许，这也是大家的痛感正在慢慢变好的信号呢 🍀",
-      weeklyStats: '🌸 本周共 {{count}} 位 女性分享了她们的 {{pain}} 经历',
-      statsSub: "她们中的许多人,也在这里留下了自己的缓解方法 ↓",
+      createGroupPrompt: "输入新群组名称（例如：家庭群）：",
+      joinGroupPrompt: "输入群邀请码（演示模式随便输入即可）：",
+      groupCreated: "群组 \"{{name}}\" 创建成功！",
+      joinedGroup: "成功加入群组！",
+      newGroup: "新建群组",
+      emptyState: "\uD83C\uDF31 这里还很安静，数据正在悄悄生长。",
+      emptyStateSub: "成为第一个留下印记的人\u2014\u2014你的分享是同行者的一缕光 \u2193",
+      emptyStateHint: "\u2014\u2014 也许这也意味着大家的疼痛都在慢慢变好 \uD83C\uDF40",
+      weeklyStats: "\uD83C\uDF38 本周 {{count}} 位姐妹分享了她们的 {{pain}} 经历",
+      statsSub: "她们中的许多人还在这里留下了缓解方法 \u2193",
       sentResonance: "共鸣已发送",
-      weeklyStats: "🌸 治愈广场共有 {{count}} 个具身痛觉档案正在守望互助，最集中的痛感是「{{pain}}」",
-      topTipsTitle: "💡 自愈锦囊 · 亲测有用 Top 5",
-      topTipsEmpty: "还没有同伴在这个分类下留下经验，去发布画卷，做第一个分享者吧 🍀",
+      topTipsTitle: "\uD83D\uDCA1 智慧货架 \u00B7 缓解妙招 Top 5",
+      topTipsEmpty: "该分类下还没有人留下缓解妙招。来做第一个分享你的舒适配方的人吧 \uD83C\uDF40",
     },
 
-    // ============ 快速记录 ============
     quickLog: {
-      title: "⚡ 快速记录模式",
-      subtitle: "不需要绘画，3秒捕捉此刻的真实痛感",
-      painSlider1: "隐隐作痛",
-      painSlider2: "痛不欲生",
+      title: "\u26A1 快速记录模式",
+      subtitle: "无需绘制，3 秒记录真实痛感",
+      painSlider1: "轻微不适",
+      painSlider2: "无法忍受",
       generate: "生成报告",
       back: "返回详细记录",
     },
 
-    // ============ 疼痛日记 ============
     history: {
-      title: "📋 我的疼痛档案",
-      export: "📄 导出PDF",
+      title: "\uD83D\uDCCB 我的痛经档案",
+      export: "\uD83D\uDCC4 导出 PDF",
       back: "返回",
-      empty: "还没有记录，去画下第一张痛感图吧。",
+      empty: "暂无记录，去画你的第一张疼痛地图吧。",
       records: "{{count}} 条记录",
-      trendTitle: "📊 近期规律",
+      trendTitle: "\uD83D\uDCCA 近期趋势",
       trendMostCommon: "最常见痛感",
-      trendAvgInterval: "平均发作间隔",
-      trendTotal: "总记录次数",
-      trendDeviation:
-        "你的发作间隔与常见周期（28天）有偏差，建议在就诊时向医生提及。",
+      trendAvgInterval: "平均间隔",
+      trendTotal: "总记录数",
+      trendDeviation: "你的发作间隔偏离典型周期（28天），建议向医生提及此情况。",
+      expand: "展开",
+      collapse: "收起",
+      recordsCount: "{{count}}条",
+      deleteConfirm: "\u26A0\uFE0F 警告：确定要永久删除本条具身痛感档案吗？此操作将无法撤销。",
+      delete: "删除",
+      sun: "日",
+      mon: "一",
+      tue: "二",
+      wed: "三",
+      thu: "四",
+      fri: "五",
+      sat: "六",
     },
 
-    // ============ 日记详情 ============
     diary: {
       close: "关闭",
       recordsOfDate: "{{date}} 的记录",
@@ -436,266 +385,277 @@ const translations = {
       allRecords: "全部记录",
       showGrouped: "显示分组",
       hideGrouped: "隐藏分组",
-      recordFeelings: "📝 记录你的感受",
-      feelingHint: "「语言在痛苦面前总是匮乏的，但每一种描述都是真实的。」",
-      brushCount: "涂抹 {{count}} 次",
-      bodyFront: "腹部正面",
-      bodyBack: "腰骶背面",
-      bodyBoth: "正背双侧",
+      brushCount: "{{count}} 笔触",
+      bodyFront: "腹部（正面）",
+      bodyBack: "后腰",
+      bodyBoth: "两侧",
       dominantBrush: "主导",
-      durationLabel: "⏱️ 这种感觉持续了...",
-      durationPlaceholder: "例如：整个下午 / 断断续续几个小时 / 到晚上才缓解",
-      reliefLabel: "🌿 什么让你感觉好一些？",
-      reliefPlaceholder: "例如：蜷缩起来 / 热敷 / 安静独处...",
-      notesLabel: "📓 想记录的其他感受",
-      notesPlaceholder: "任何你想说的话...疼痛是真实存在的，不需要被证明。",
-      shareContext: "选择分享语境：",
-      share: "📤 分享",
-      publish: "🌐 发布",
-      compareToggle: "📊 与上次发作对比",
-      compareHide: "收起对比",
+      recordFeelings: "\uD83D\uDCDD 记录你的感受",
+      feelingHint: "\u201C语言在痛苦面前总是匮乏的，但每一次描述都是真实的。\u201D",
+      durationLabel: "\u23F1\uFE0F 这种感觉持续了...",
+      durationPlaceholder: "例如：整个下午 / 断断续续几小时 / 晚上缓解了",
+      reliefLabel: "\uD83C\uDF3F 什么让你感觉好一些？",
+      reliefPlaceholder: "例如：蜷缩着 / 热水袋 / 一个人安静待着...",
+      notesLabel: "\uD83D\uDCD3 其他想记录的感受",
+      notesPlaceholder: "任何想说的话\u2026\u2026疼痛是真实的，它不需要被证明。",
+      shareContext: "选择分享场景：",
+      share: "\uD83D\uDCE4 分享",
+      publish: "\uD83C\uDF10 发布",
+      compareToggle: "\uD83D\uDCCA 与上次对比",
+      compareHide: "隐藏对比",
       compareThis: "本次",
       compareLast: "上次",
       compareNoData: "没有更早的记录可对比",
       durationOptions: [
-        "蜷缩侧卧，抱紧膝盖",
-        "热敷小腹或后腰",
+        "侧卧蜷缩，膝盖贴近胸口",
+        "热水袋敷肚子或后腰",
         "安静独处，不被打扰",
-        "有人陪伴，握着我的手",
-        "听白噪音或轻音乐",
-        "喝热水或热饮",
-        "垫高臀部平躺",
-        "轻轻按摩腹部",
+        "有人陪在身边，握着我的手",
+        "白噪音或轻柔音乐",
+        "热水或温饮",
+        "臀部垫高，平躺",
+        "轻柔腹部按摩",
       ],
-      periodMorning: "晨间痛",
-      periodAfternoon: "午后痛",
-      periodNight: "夜间痛",
+      periodMorning: "早晨痛感",
+      periodAfternoon: "下午痛感",
+      periodNight: "夜间痛感",
+      sendTarget: "\uD83D\uDCE2 发送对象：",
+      toneLabel: "\uD83C\uDFAD 表达语气：",
     },
 
-    // ============ 帖子详情 ============
     post: {
-      title: "PainScape 具身证据",
-      aiAnalysis: "🤖 AI 痛觉分析：",
-      aiDefault:
-        "根据图像特征，该痛感呈现典型的机械性收缩特征，伴随局部组织的深度压迫感。",
-      selfExperience: "🌿 她的自愈经验：",
-      experienceTitle: "💬 她的亲历经验",
-      noExperience: "暂无自愈经验，等待过来人分享...",
-      addExperience: "+ 补充我的缓解经验（帮助后来者少走弯路）",
-      experiencePlaceholder: "分享你的缓解经验（她们在等你的答案）",
-      tagsPlaceholder: "针对的症状（如：绞痛，坠痛，用逗号分隔）",
+      title: "PainScape 具身痛觉证据",
+      aiAnalysis: "\uD83E\uDD16 AI 痛觉分析：",
+      aiDefault: "根据图像特征，该疼痛表现出典型的机械性收缩特征，伴有深层局部组织压迫感。",
+      selfExperience: "\uD83C\uDF3F 她的缓解经验：",
+      experienceTitle: "\uD83D\uDCAC 她的亲身体验",
+      noExperience: "暂无缓解经验，等待有人分享...",
+      addExperience: "+ 分享我的缓解妙招（帮助后来的人）",
+      experiencePlaceholder: "分享你的缓解经验（她们在等待你的答案）",
+      tagsPlaceholder: "针对症状（如：绞痛、坠胀痛，逗号分隔）",
       cancel: "取消",
-      publishExperience: "发布经验",
+      publishExperience: "分享经验",
       hugged: "已拥抱",
-      giveHug: "给她抱抱",
+      giveHug: "给个拥抱",
+      votedHelpful: "已赞同有用",
+      markHelpful: "亲测有用",
     },
 
-    // ============ 发布弹窗 ============
     publishModal: {
-      title: "💌 留下你的印记",
-      hint: "💡 你此刻的感受，也许正是她人在长夜里寻找的共鸣。\n发布后，还可以补充一条缓解经验，告诉姐妹们你是怎么撑过来的。",
-      placeholder: "写点什么吧，吐槽也好，倾诉也好，这里懂你……",
+      title: "\uD83D\uDC8C 留下你的印记",
+      hint: "\uD83D\uDCA1 你此刻的感受，或许正是某个深夜里另一个人正在寻找的共鸣。\n发布后，你还可以添加\u201C缓解妙招\u201D，告诉别人你是怎么熬过来的。",
+      placeholder: "写点什么\u2014\u2014倾诉、宣泄，这里都懂\u2026\u2026",
       cancel: "再想想",
       submit: "发送共鸣",
     },
 
-    // ============ 分享预览 ============
     sharePreview: {
-      shareTitle: "我的痛觉声明卡",
-      title: "📤 分享预览",
+      shareTitle: "我的疼痛声明卡片",
+      title: "\uD83D\uDCE4 分享预览",
       loading: "加载中...",
-      noContent: "暂无绘画内容",
-      livePreview: "实时绘画预览",
-      archiveReview: "疼痛档案回顾",
+      noContent: "暂无绘制内容",
+      livePreview: "实时绘制预览",
+      archiveReview: "痛经档案回顾",
       cancel: "取消",
       confirm: "确认分享",
       defaultTitle: "状态声明",
-      defaultDoctorContent: "已记录具身痛觉图谱",
+      defaultDoctorContent: "具身疼痛图谱记录",
       defaultContent: "正在经历 {{pain}}",
     },
     shareText: {
       partner: {
-        title: "📢 她的痛觉声明 · 伴侣请即刻执行：",
-        action: "💡 照护实操指令："
+        title: "\uD83D\uDCE2 她的疼痛声明 \u00B7 请行动：",
+        action: "\uD83D\uDCA1 关怀指南："
       },
       work: {
-        title: "📄 状态声明与请假/推约模板："
+        title: "\uD83D\uDCC4 请假与改期模板："
       },
       doctor: {
-        title: "🩺 医疗就诊沟通辅助单：",
-        profile: "📍 痛觉特征分析：",
-        complaint: "📋 临床主诉参考：",
-        reference: "🔬 现病史参考："
+        title: "\uD83E\uDE7A 医疗辅助报告：",
+        profile: "\uD83D\uDCCD 疼痛特征分析：",
+        complaint: "\uD83D\uDCCB 临床主诉参考：",
+        reference: "\uD83D\uDD2C 现病史参考："
       },
       self: {
-        title: "🌿 她的痛觉具身隐喻：",
-        solution: "🧘 推荐自愈方案："
+        title: "\uD83C\uDF3F 她的具身隐喻：",
+        solution: "\uD83E\uDDD8 推荐自愈方案："
       }
     },
+    // ============ Supabase User System ============
+    supabase: {
+      initializing: "正在初始化用户系统...",
+      initializingSub: "正在连接安全账户服务",
+      loginSuccess: "\u2705 已登录",
+      loginFailed: "\u274C 登录失败，请刷新页面",
+      profileLoaded: "档案已加载",
+      profileCreated: "新档案已创建",
+      profileSaved: "\u2705 档案已保存",
+      profileSaveFailed: "\u274C 档案保存失败",
+      recordSaved: "\u2705 疼痛记录已保存",
+      recordSaveFailed: "\u274C 疼痛记录保存失败",
+      recordsLoaded: "历史记录已加载",
+      recordsLoadFailed: "\u274C 历史记录加载失败",
+      offlineMode: "\uD83D\uDCE1 离线模式 - 数据仅保存在本地",
+      retry: "重试",
+      userMenu: "用户菜单",
+      userId: "用户 ID",
+      userSince: "注册时间",
+      lastActive: "最近活跃",
+      profileSettings: "档案设置",
+      logout: "退出登录",
+      loginStatus: "登录状态",
+      anonymous: "匿名用户",
+      syncStatus: "同步状态",
+      synced: "已同步",
+      notSynced: "未同步",
+      syncNow: "立即同步",
+      userInfo: "用户信息",
+    },
 
-    // ============ Toast 消息 ============
     toast: {
-      copySuccess: "文案已复制到剪贴板，可直接粘贴至微信！",
+      copySuccess: "文本已复制到剪贴板！",
       copyFailed: "复制失败，请重试",
       pdfGenerating: "正在生成 PDF，请稍候...",
-      pdfSuccess: "✅ PDF 已生成并下载",
-      pdfFailed: "❌ PDF 生成失败，请重试",
-      noRecords: "暂无记录可导出",
-      saveExperienceRequired: "请写下你的经验",
-      postRequired: "写下你的感受吧~",
-      recordDeleted: "🗑️ 该痛感档案已从本地永久物理删除",
-      refineSuccess: "✨ 内容已优化",
-      refineEmpty: "AI 返回了空内容，请重试",
-      refineFailed: "❌ AI 优化失败，可能接口未部署或网络异常",
-      hugSent: "🤗 抱抱已送达",
-      hugRetracted: "收回抱抱",
-      shareSaved: "已为您保存分享卡片！",
-      shareFailed: "生成分享卡片失败，可能是图片加载超时。请尝试直接截图分享。",
+      pdfSuccess: "\u2705 PDF 已生成并下载",
+      pdfFailed: "\u274C PDF 生成失败，请重试",
+      noRecords: "没有可导出的记录",
+      saveExperienceRequired: "请填写你的经验",
+      postRequired: "分享你的感受~",
+      recordDeleted: "\uD83D\uDDD1\uFE0F 记录已从本地存储永久删除",
+      refineSuccess: "\u2728 内容已优化",
+      refineEmpty: "AI 返回内容为空，请重试",
+      refineFailed: "\u274C AI 优化失败，API 可能未部署或网络错误",
+      hugSent: "\uD83E\uDD17 拥抱已送达",
+      hugRetracted: "已收回拥抱",
+      shareSaved: "分享卡片已保存！",
+      shareFailed: "生成分享卡片失败，请尝试截图代替。",
       reportError: "报告生成遇到问题",
-      helpfulAdded: "感谢您的认可！这将帮助更多同路人",
-      helpfulRemoved: "已取消对该经验的认可",
-      publishSuccess: "你的经历已发布 🌸\n\n目前有 {{count}} 位和你一样经历着\"{{pain}}\"的人。\n\n你的分享,可能正是她们一直在找的答案。",
+      helpfulAdded: "感谢！你的赞同帮助姐妹们找到安慰",
+      helpfulRemoved: "已取消赞同",
+      publishSuccess: "你的经验已分享 \uD83C\uDF38\n\n当前还有 {{count}} 位姐妹也正在经历\u201C{{pain}}\u201D。\n\n你的分享或许正是她们寻找的答案。",
+      shareSuccess: "分享成功！",
     },
 
-    // ============ AI 模板 - 痛觉描述 ============
     painTemplates: {
       twist: {
-        analogy:
-          "想象把一条湿毛巾用力拧干，一圈一圈绞紧，从肚脐一直拧到后腰——那种闷痛从里面往外钻。",
-        med: "患者自述下腹部持续性绞痛，呈阵发性加重，伴腰骶部放射痛，月经第1-2天为甚，影响日常功能。建议排查子宫痉挛及盆腔充血。",
-        selfCare:
-          "✨ 尝试【婴儿蜷缩式】侧卧，双膝抱向胸口，放松盆底肌\n✨ 热水袋敷于小腹和后腰，温度40-45°C，每次20分钟\n✨ 缓慢式腹式呼吸：吸气4秒-屏住4秒-呼气6秒\n✨ 补充镁元素（坚果/深绿蔬菜）助肌肉放松\n✨ 允许自己蜷缩在被子里，痛经不是你的错\n✨ 穴位按压：强力按压【三阴交穴】（位于双侧小腿内侧，内踝尖上直上4横指，骨骼边缘后方凹陷处）1-2分钟。临床证明它能有效阻断子宫痉挛痛觉并加速血液循环\n✨ 温水足浴(若不便接水，请好好休息！）：使用40-42℃的热水泡脚15-20分钟。下肢远端温热能反射性地引起下腹及盆腔血管扩张，缓解平滑肌缺血性痉挛",
+        analogy: "想象用力拧干一条浸透的厚毛巾\u2014\u2014从肚脐一直拧到后腰。那种令人窒息的下腹部深层挤压感。",
+        med: "患者主诉持续性下腹部绞痛，阵发性加重并向腰骶部放射，月经第1-2天最重。建议评估子宫平滑肌痉挛和盆腔充血。",
+        selfCare: "\u2728 尝试胎儿姿势：侧卧，膝盖贴近胸口，放松盆底肌张力。\n\u2728 在下腹部和后腰放置热水袋（40-45\u00B0C）20分钟。\n\u2728 缓慢腹式呼吸：吸气4秒 - 屏息4秒 - 缓慢呼气6秒。\n\u2728 食用富含镁的食物（坚果、深色蔬菜）自然缓解肌肉收缩。\n\u2728 你可以蜷缩在床上。疼痛不是你的错。\n\u2728 穴位按压：用力按压三阴交穴（SP6）（位于小腿内侧，内踝尖上4横指，胫骨后缘凹陷处）1-2分钟。临床显示可缓解痉挛性子宫张力，促进盆腔血流。\n\u2728 温水泡脚：用温水（40-42\u00B0C）泡脚15-20分钟。温暖下肢可反射性扩张下腹部血管，缓解缺血性盆腔痉挛。"
       },
       pierce: {
-        analogy:
-          "想象不打麻药进行根管治疗——那种电钻般的锐痛突然扎进下腹，又麻又刺，像有人拿针在盆腔里搅动。",
-        med: "患者自述下腹部锐利刺痛，呈一过性钻痛，可放射至大腿内侧，疼痛突发突止，伴冷汗。建议排查神经性疼痛及子宫内膜异位症。",
-        selfCare:
-          "✨ 刺痛发作时立即侧卧，避免压迫疼痛点\n✨ 用温热毛巾轻敷（不要太烫，刺痛区域更敏感）\n✨ 听白噪音或轻音乐转移注意力\n✨ 备好温水，小口慢饮保持体温\n✨ 发作间隙可轻微活动脚踝促进循环\n✨ 渐进式肌肉放松（PMR）：有意识地将双腿、臀部肌肉“用力收紧10秒”，然后再“彻底松弛释放”。这能打破因突然刺痛产生的‘防御性肌肉紧绷’恶性循环\n✨ 触觉闸门阻断（Gate Control）：在刺痛区域的外围（避开痛点中心）进行轻柔、大面积的皮肤抚摸。这能激活A-β触觉纤维，在脊髓层面“关闭闸门”，阻断锐痛信号向大脑传导",
+        analogy: "想象不打麻药做根管治疗\u2014\u2014那种电击般的钻刺锐痛突然刺入下腹部，麻木而刺痛，像有人在盆腔里搅动一根针。",
+        med: "患者主诉下腹部尖锐刺痛，短暂钻刺感向大腿内侧放射，突发突止，伴冷汗。建议评估神经性疼痛和子宫内膜异位症。",
+        selfCare: "\u2728 疼痛发作时立即侧卧，避免任何身体压力点。\n\u2728 使用温热（非热烫）敷\u2014\u2014敏感的神经末梢对极端热刺激反应强烈。\n\u2728 用白噪音或舒缓的环境音乐转移注意力。\n\u2728 温水放在身边，小口慢饮，稳定自主神经体温。\n\u2728 间歇期轻轻转动或活动脚踝，促进下盆腔循环。\n\u2728 渐进式肌肉放松（PMR）：有意识地用力绷紧腿部和臀部肌肉10秒，然后完全放松。这有助于打破突发刺痛引发的防御性肌肉紧锁循环。\n\u2728 触觉门控：在刺痛区域周围大范围轻轻抚摸皮肤（避开直接痛感中心）。这激活非伤害性A-beta感觉纤维，在脊髓水平物理阻断锐痛信号。"
       },
       heavy: {
-        analogy:
-          "像在腹部绑了5公斤沙袋往下坠，站着就想蹲下，坐下又想躺平——那种沉重感从子宫一直拖到膝盖。",
-        med: "患者自述下腹部严重坠胀感，站立时加重，平卧可稍缓解，伴腰骶部酸沉。建议排查盆腔充血、子宫腺肌症可能。",
-        selfCare:
-          "✨ 尝试【臀部垫高平躺】：用枕头垫高臀部15-20cm\n✨ 减少站立和行走，避免提重物\n✨ 穿着高腰宽松内裤，减少腹部束缚\n✨ 温补饮食：桂圆红枣茶、红糖姜水\n✨ 告诉自己：今天辛苦了，躺着不叫懒\n✨ 尝试【倒立贴墙式（Viparita Karani）】：平躺，将双腿垂直贴紧墙壁上抬，保持10-15分钟。利用重力帮助淤积在盆腔静脉中的血液和组织液回流，可最快缓解重度下坠坠胀感\n✨床上骨盆贴床运动：平躺在床上，双腿微屈踩在床垫上。吸气时让后腰微微拱起离开床垫，呼气时将腰椎死死贴紧床垫。不用下地，在床上就能放松拉扯后腰的子宫骶骨韧带 ",
+        analogy: "像在腹部绑了一个5公斤的沙袋\u2014\u2014站着想蹲下，坐着想躺平。那种从子宫一直沉到膝盖的沉重拖拽感。",
+        med: "患者主诉下腹部严重沉重拖拽感，站立时加重，平卧稍缓解，伴腰骶部酸痛。建议评估盆腔充血和可能的子宫腺肌症。",
+        selfCare: "\u2728 抬高臀部姿势：用枕头将臀部垫高15-20cm平躺。\n\u2728 尽量减少站立或行走，绝对避免提重物。\n\u2728 穿高腰无缝宽松内裤，避免腹部压迫。\n\u2728 喝温热的姜糖水或红枣茶。\n\u2728 告诉自己：今天辛苦了，休息不是懒惰。\n\u2728 倒箭式（Viparita Karani）：平躺并将双腿垂直靠墙抬起10-15分钟。重力帮助排出盆腔淤积的静脉血和液体，快速缓解盆腔沉重充血。\n\u2728 床边骨盆倾斜：平躺屈膝，双脚平放床面。吸气时轻轻将下背部拱离床面，呼气时将下背部压平贴床。这在不离开床的情况下放松了子宫骶骨韧带。"
       },
       wave: {
-        analogy:
-          "像肚子里有个气球在不断充气又放气，一阵一阵地胀，有时蔓延到整个腹部，连呼吸都觉得憋闷。",
-        med: "患者自述腹部弥漫性酸胀痛，呈阵发性加重，伴肠胀气感，疼痛范围不固定。建议排查水肿、肠胀气及盆腔炎症。",
-        selfCare:
-          "✨ 穿着宽松的衣物，解开所有束缚\n✨ 顺时针轻揉腹部（力度要轻，感觉到皮肉即可）\n✨ 避免产气食物：豆类、碳酸饮料、生冷瓜果\n✨ 温敷整个腹部，用毯子营造温暖环境\n✨ 放慢节奏，节奏慢下来，疼痛也会缓下来\n✨ 尝试【排气式（Pavanamuktasana）】：平躺，双臂抱住双膝并紧贴胸口，微幅向左右摇摆。这能温和挤压肠道，帮助释放积聚的胀气，快速降低盆腔和腹腔的内压\n✨ 穴位按压：按揉双侧【足三里穴】（外膝眼下4横指，胫骨外侧旁开1横指）。这能有效调节胃肠平滑肌蠕动，缓解经期伴随的胃肠酸胀、坠痛与腹胀感",
+        analogy: "像肚子里有一个不断充气放气的气球\u2014\u2014一波波胀满感扩散到整个腹部，连呼吸都感到窒息。",
+        med: "患者主诉腹部弥漫性胀痛，阵发性加重伴肠气感，疼痛位置不固定。建议评估盆腔水肿、肠胀气和盆腔炎症。",
+        selfCare: "\u2728 穿最宽松的衣服，完全松开腰带。\n\u2728 轻柔顺时针腹部按摩（用羽毛般极轻极柔的力度在皮肤上）。\n\u2728 避免产气食物：豆类、奶制品、碳酸饮料、生冷食物。\n\u2728 在整个腹部放置热敷包，把自己裹在温暖的毯子里。\n\u2728 放慢一切\u2014\u2014当你慢下来，疼痛的感官音量就会降低。\n\u2728 排气式（Pavanamuktasana）：平躺，双手抱膝紧紧贴向胸口，轻轻左右摇晃。这轻柔按摩结肠以释放积气，降低腹内压。\n\u2728 穴位按压：按压按摩足三里穴（ST36）（位于外膝眼下4横指，胫骨外侧1横指处）。这调节胃肠蠕动以缓解胀气和痉挛。"
       },
       scrape: {
-        analogy:
-          "像一颗未成熟的果实被强行剥皮，那种撕裂感从子宫内部向外刮——每动一下都像被砂纸打磨。",
-        med: "患者自述下腹部锐痛，活动时加剧，伴里急后重感。建议紧急排查组织粘连、子宫内膜异位囊肿破裂可能。",
-        selfCare:
-          "✨ 这是最耗费体力的痛感，优先静卧休息\n✨ 绝对避免腹部按摩，减少任何体位变化\n✨ 口服温蜂蜜水补充能量（勿空腹服药）\n✨ 用温和声音和自己对话：'我听见了，我在陪你'\n✨ 疼痛稍缓后，记录下这次发作的细节\n✨ 尝试【胸肋式呼吸】：吸气时专注于让肋骨向两侧横向扩张，保持中下腹起伏幅度降到最低。这能显著减少脏器在腹盆腔内的物理滑移与病灶牵拉，避免撕裂创面因呼吸反复摩擦\n✨ 尝试【抱枕支撑儿童式】：在大腿前侧垫一个高枕头，上半身完全趴在枕头上，双膝打开，臀部向后坐。这能利用重力让腹腔脏器向前悬垂，避免它们在盆腔深处相互压迫和摩擦，给撕裂创面营造一个无压的静养环境",
-      },
-    },
+        analogy: "像一个未成熟的水果被强行剥皮\u2014\u2014那种从子宫内部向外刮擦的撕裂感。每一个动作都像砂纸在磨擦生肉。",
+        med: "患者主诉下腹部剧烈撕裂样锐痛，活动时加重，伴里急后重。建议紧急评估组织粘连和可能的子宫内膜囊肿破裂。",
+        selfCare: "\u2728 这是最耗竭的一种疼痛\u2014\u2014优先保证绝对静止休息。\n\u2728 绝对避免任何腹部揉搓或按摩，尽量减少所有体位变化。\n\u2728 小口喝温蜂蜜水补充能量（避免空腹服用止痛药）。\n\u2728 用温柔、充满慈悲的内心声音安慰自己。\n\u2728 疼痛强度减轻后记录疼痛动态。\n\u2728 肋间（胸式）呼吸：吸气时横向扩张胸腔，保持下腹部完全静止。这减少腹腔器官的滑动摩擦，防止对敏感生组织的刺激。\n\u2728 抱枕支撑婴儿式：在大腿间放置厚抱枕或枕头，将躯干完全伏在上面。双膝分开，臀部向后坐。这利用重力将腹腔器官向前悬吊，防止它们相互压迫在疼痛的盆腔粘连部位。"
+      }
+    }, 
     healing: {
       breathing: {
-        title: "🌬️ 疗愈呼吸法",
-        description: "通过深长的腹式呼吸，帮助身体放松，缓解疼痛带来的紧张感。",
-        steps: "① 找一个安静舒适的地方坐下或躺下\n② 将一只手放在腹部，感受呼吸时腹部的起伏\n③ 吸气4秒，感受腹部像气球一样鼓起\n④ 屏息4秒，让氧气充分进入血液\n⑤ 呼气6秒，感受腹部回落\n⑥ 重复10-15次，感受身体的放松"
+        title: "\uD83C\uDF2C\uFE0F 呼吸疗法",
+        description: "深腹式呼吸帮助身体放松，缓解疼痛带来的紧张。",
+        steps: "\u2460 找一个安静舒适的地方坐下或躺下\n\u2461 将一只手放在腹部感受其运动\n\u2462 吸气4秒，感受腹部像气球一样鼓起\n\u2463 屏息4秒，让氧气进入血液\n\u2464 呼气6秒，感受腹部回落\n\u2465 重复10-15次，感受身体放松"
       },
       heatPack: {
-        title: "🔥 热敷疗法",
-        description: "温热能够促进局部血液循环，缓解肌肉痉挛，是缓解痛经最有效的方法之一。",
-        steps: "① 准备热水袋或电热宝（40-45°C为宜）\n② 用毛巾包裹，避免直接接触皮肤烫伤\n③ 敷在小腹或后腰部位\n④ 每次15-20分钟\n⑤ 每天可敷3-4次\n⑥ 注意多喝水，避免脱水"
+        title: "\uD83D\uDD25 热敷疗法",
+        description: "温热促进局部循环，缓解肌肉痉挛，是痛经最有效的缓解方法之一。",
+        steps: "\u2460 准备热水袋或加热垫（40-45\u00B0C）\n\u2461 用毛巾包裹避免直接接触皮肤\n\u2462 敷在下腹部或后腰\n\u2463 每次15-20分钟\n\u2464 每天可敷3-4次\n\u2465 保持水分，多喝水"
       },
       meditation: {
-        title: "🧘 正念冥想",
-        description: "将注意力从疼痛中转移，接受当下的感受而不加评判，减轻疼痛带来的心理负担。",
-        steps: "① 找个安静的地方，舒适地坐下\n② 闭上眼睛，专注于呼吸\n③ 当注意力飘走时，温柔地带回呼吸\n④ 感受疼痛但不评判它\n⑤ 想象疼痛像云一样飘过\n⑥ 每次5-10分钟，慢慢增加时间"
+        title: "\uD83E\uDDD8 正念冥想",
+        description: "将注意力从疼痛上移开，不加评判地接受当下感受，减轻疼痛的心理负担。",
+        steps: "\u2460 找安静的地方舒适坐下\n\u2461 闭上眼睛，专注于呼吸\n\u2462 当思绪飘走时，轻轻带回呼吸\n\u2463 感受疼痛而不评判它\n\u2464 想象疼痛像云一样飘过\n\u2465 从5-10分钟开始，逐渐增加"
       },
       warmDrink: {
-        title: "🍵 温暖饮品",
-        description: "温热的饮品不仅能温暖身体，还能安抚情绪，是自愈的重要一环。",
-        steps: "① 红糖姜茶：生姜3片+红糖1勺+热水\n② 桂圆红枣茶：桂圆5颗+红枣3颗\n③ 温牛奶加蜂蜜\n④ 避免冷饮和咖啡因\n⑤ 小口慢饮，感受温暖\n⑥ 每天喝2-3杯"
+        title: "\uD83C\uDF75 温饮疗法",
+        description: "温热的饮品不仅温暖身体，也安抚心灵，是自愈的重要一环。",
+        steps: "\u2460 姜糖茶：3片生姜 + 1勺红糖 + 热水\n\u2461 桂圆红枣茶：5颗桂圆 + 3颗红枣\n\u2462 温牛奶加蜂蜜\n\u2463 避免冷饮和咖啡因\n\u2464 小口慢饮，感受温暖\n\u2465 每天2-3杯"
       },
-      steps: "详细步骤",
+      steps: "步骤",
       close: "关闭",
     },
-    hearing: {
-      playing: "播放中...",
-      startGuide: "开始语音引导",
-      stopGuide: "停止引导"
-    },
 
-    // ============ AI 模板 - 伴侣行动 ============
     partnerActions: {
       alone: [
-        "☑️ 帮她倒杯温水，备好{{med}}。",
-        "☑️ 调暗灯光，关门出去，不要频繁询问。",
+        "\u2611\uFE0F 给她倒杯温水，准备好{{med}}。",
+        "\u2611\uFE0F 调暗灯光，关上门，不要频繁查看。",
       ],
-      care: ["☑️ 搓热手掌捂在她小腹或后腰。主动承担家务。"],
-      comfort: ["☑️ 坐在旁边握着她的手，不用说话，给予安全感。"],
+      care: [
+        "\u2611\uFE0F 搓热手掌，放在她的小腹或后腰。接手家务。",
+      ],
+      comfort: [
+        "\u2611\uFE0F 坐在她身边，握着她的手不说话\u2014\u2014用安全感陪伴。",
+      ],
     },
 
-    // ============ AI 模板 - 请假 ============
-    workTemplate: "领导/HR 您好：本人今日突发严重原发性痛经（{{pain}}），伴随体力透支与冷汗。目前状态已无法维持正常专注度，特申请今日居家休息。紧急事务已交接。感谢批准。",
+    workTemplate: "尊敬的经理/HR：我今天因严重原发性痛经发作（{{pain}}），伴有身体极度疲惫和冷汗，无法维持正常专注，申请今天在家休息/请假一天。紧急事务已交接。感谢理解。",
 
-    // ============ 医疗检查数据库 ============
     examDatabase: {
-      盆腔超声: {
-        prep: "需在检查前 1 小时饮水 500-800ml，保持充盈膀胱（憋尿）。",
-        purpose: "观察子宫形态、内膜厚度，排除肌瘤、腺肌症或卵巢囊肿。",
+      "pelvic ultrasound": {
+        prep: "需憋尿：检查前1小时饮水500-800ml。",
+        purpose: "评估子宫形态、内膜厚度，排除肌瘤、腺肌症或卵巢囊肿。",
       },
-      经阴道超声: {
-        prep: "检查前需排空尿液。如无性生活史请务必告知医生，改为经腹超声。",
-        purpose: "更清晰地观察内膜异位病灶及盆腔粘连。建议在月经干净后 3-7 天复查。",
+      "transvaginal ultrasound": {
+        prep: "检查前排空小便。无性生活史请告知医生改为腹部超声。",
+        purpose: "更清晰显示内异症病灶和盆腔粘连。建议经期结束后3-7天进行。",
       },
-      激素六项: {
-        prep: "建议在月经周期的第 2-3 天清晨空腹抽血，检查前静坐 10 分钟。",
-        purpose: "评估内分泌状态，排查由于激素失调（如多囊）引起的疼痛。",
+      "hormone panel": {
+        prep: "月经第2-3天抽血，清晨空腹。抽血前静坐10分钟。",
+        purpose: "评估内分泌状态，排除激素相关疼痛（如PCOS）。",
       },
-      腹腔镜: {
-        prep: "这属于微创手术，需住院进行。术前需禁食禁饮。",
-        purpose: "子宫内膜异位症诊断的'金标准'，可同时进行病灶剥离。",
+      laparoscopy: {
+        prep: "微创手术需住院。术前需禁食。",
+        purpose: "内异症诊断金标准，可同时进行病灶切除。",
       },
     },
 
-    // ============ 分享卡片 ============
     shareCard: {
       titles: {
         partner: "通感说明书",
-        work: "不可见痛苦声明",
+        work: "隐形疼痛声明",
         doctor: "医疗辅助报告",
         self: "自愈建议",
       },
-      footer: "PainScape - 让不可见的痛苦被看见",
+      footer: "PainScape - 让不可见的疼痛被看见",
     },
 
-    // ============ PDF 导出 ============
     pdf: {
       title: "PainScape",
       subtitle: "患者疼痛档案",
       reportRange: "报告范围：{{start}} - {{end}}",
       totalRecords: "总记录数：{{count}}",
-      disclaimer1: "本文档由 AI 基于患者的视觉绘画生成，仅供参考。",
-      disclaimer2: "请将此报告出示给您的医生。",
-      recordLabel: "记录 {{index}}:{{date}}",
+      disclaimer1: "本文档由AI基于患者视觉绘制生成，仅供参考",
+      disclaimer2: "请将此报告提交给您的妇科医生。",
+      recordLabel: "记录 {{index}}：{{date}}",
       dominantPain: "主导痛感：{{pain}}",
       medicalComplaint: "医疗主诉：",
-      medicalReference: "诊疗参考：",
-      footer: "PainScape 生成",
+      medicalReference: "医疗参考：",
+      footer: "PainScape - 生成报告",
     },
   },
 
-  // ==================== 英文 ====================
   en: {
+    // ============ General ============
     app: {
       name: "PainScape",
-      subtitle: "Let the unspeakable pain find another way to be heard",
-      loading: "AI Assistant translating...",
+      subtitle: "When words fail, let your body speak",
+      loading: "AI is translating...",
       loadingSub: "Generating multi-context report based on your pain parameters",
-      loadingHint:
-        "First request may take 30-60 seconds to wake the server, please be patient",
-      errorBoundary:
-        "Something went wrong with the page, please refresh and try again",
+      loadingHint: "First request may take 30-60s to wake the server, please wait",
+      errorBoundary: "Something went wrong, please refresh",
     },
     painAdjectives: {
       faint: "faint",
@@ -703,192 +663,136 @@ const translations = {
       intense: "intense",
       extremelyIntense: "extremely intense",
     },
-
     painNames: {
-      twist: "cramping",
-      pierce: "stabbing",
-      heavy: "heavy dragging",
-      wave: "diffuse bloating",
-      scrape: "tearing",
+      twist: "Cramping",
+      pierce: "Stabbing",
+      heavy: "Dragging Sinking",
+      wave: "Bloating Fullness",
+      scrape: "Scraping Tearing"
     },
+    // ============ Splash ============
     splash: {
       quotes: [
-        'Chronic pain is a prolonged "unmaking"—trapping a person in a body prison.\n— Elaine Scarry',
-        "Pain is not just electrical impulses in nerves; it's an invasion of self-boundaries.",
-        "Language always falls short in the face of suffering, but vision is a lightning bolt that cuts through silence.",
-        "Pain that goes unseen often demands double the endurance.",
-        "Refuse to suffer in silence. Let the unspeakable become public visual evidence.",
-        "Your body is a battlefield—allow it to leave traces of the storm.",
-        "This is not melodrama; this is a genuine physiological catastrophe.",
+        "Chronic pain is a long-term 'unmaking' \u2014 trapping a person in the prison of their own body.\n\u2014 Elaine Scarry",
+        "Pain is not just a neural impulse; it is a violation of the boundaries of self.",
+        "Language always falls short before pain, and vision is a lightning bolt that cuts through the silence.",
+        "Unseen pain often bears a double burden.",
+        "Refuse to endure in silence; let unspeakable pain become public visual evidence.",
+        "Your body is a battlefield \u2014 allow it to bear the marks of the storm.",
+        "This is not an overreaction; this is a real physiological crisis.",
       ],
     },
     modeSelection: {
-      title: "Select Your Purpose",
-      medicalTab: "🏥 Medical Assist",
-      generalTab: "🎨 Self-Care",
+      title: "Choose your recording purpose",
+      medicalTab: "\uD83C\uDFE5 Medical Aid",
+      generalTab: "Self-Care",
       confirmBtn: "Confirm & Enter Canvas",
       medicalFeatures: [
-        "📋 Standard Gynecology History Intake",
-        "🔬 Auto Structured Case Reports",
-        "📍 Accurate Anatomical Mapping"
+        "\uD83D\uDCCB Standard Gynecological Intake",
+        "\uD83D\uDD2C AI-Generated Medical History & Report",
+        "\uD83D\uDCCD Precise Abdominal/Lumbosacral Mapping"
       ],
       generalFeatures: [
-        "👁️ Immersive Blind Draw Mode",
-        "🌿 Period Self-Care Coaching",
-        "✉️ Leave Request & Partner Guides"
+        "\uD83D\uDC41\uFE0F Immersive Blind Drawing for Emotional Release",
+        "\uD83C\uDF3F Menstrual Self-Care & Breathing Guidance",
+        "\u2709\uFE0F Partner Synesthesia Guide & Leave Templates"
       ],
       commonFeatures: [
-        "📓 Pain Log",
-        "📊 Calendar Trends",
-        "🌍 Community Share",
-        "💬 Translation Cards"
+        "\uD83D\uDCD3 Pain Diary",
+        "\uD83D\uDCCA Calendar Trends",
+        "\uD83C\uDF0D Community Sharing",
+        "\uD83D\uDCAC Multi-Context Translation"
       ]
     },
+    // ============ Onboarding ============
     onboarding: {
-      languageLabel: "🌐 Target Language:",
+      languageLabel: "\uD83C\uDF10 Language:",
       chinese: "简体中文",
       english: "English",
-      guideTitle: "User Guide",
+      guideTitle: "Quick Guide",
       guideItems: [
-        ["🎨 Choose Brush", "Each brush corresponds to a pain texture, mix freely"],
-        ["🩸 Choose Color", "Colors represent pain emotion and temperature"],
-        ["✏️ Start Drawing", "Tap or swipe on the body map to draw your pain range"],
-        ["📐 Adjust View", "Long press 0.3s to drag; pinch to zoom details"],
-        ["↩️ Undo/Redo", "Right-side buttons to modify anytime, clear to restart"],
-        ["⚡ Generate Report", 'Top right "Generate", AI will translate your pain map'],
+        ["\uD83C\uDFA8 Choose Brush", "Each brush represents a pain texture; mix and match"],
+        ["\uD83E\uDE78 Choose Color", "Different colors represent the emotion and temperature of pain"],
+        ["\u270F\uFE0F Start Drawing", "Tap or swipe on the body map to draw your pain area"],
+        ["\uD83D\uDCD0 Adjust View", "Long press 0.3s to drag; pinch to zoom"],
+        ["\u21A9\uFE0F Undo/Redo", "Use right-side buttons to modify or clear"],
+        ["\u26A1 Generate Report", "Tap [Generate] at top-right; AI will translate your pain map"],
       ],
-      preferenceTitle: "What do you need most during a dysmenorrhea episode?",
+      preferenceTitle: "When dysmenorrhea strikes, what do you need most?",
       preferences: [
-        { key: "alone", title: "🛑 Leave me alone, let me be" },
-        { key: "care", title: "🥣 I'm exhausted, need practical care" },
-        { key: "comfort", title: "🫂 I'm fragile, need emotional support" },
+        { key: "alone", title: "\uD83D\uDED1 Leave me alone, let me be by myself" },
+        { key: "care", title: "\uD83E\uDD63 I have no energy, I need practical care" },
+        { key: "comfort", title: "\uD83E\uDEC2 I'm fragile, I need emotional support" },
       ],
       medicalTitle: "Health Information (Optional)",
       step1: "Basic Info",
       step2: "Health Background",
       step3: "Preferences",
       basicInfoTitle: "Basic Information",
-      basicInfoHint: "Used for more accurate medical references. All optional.",
-      preferenceHint: "Choose the support you need most during pain episodes",
-      toneTitle: "Self-care Tone Preference",
-      medicalHint: "Helps the system understand your health background. All optional.",
+      basicInfoHint: "The following info helps generate more accurate medical references, all optional",
+      preferenceHint: "Choose the support you need most during pain",
+      toneTitle: "Self-care tone preference",
+      medicalHint: "The following info helps us understand your health background, all optional",
       optional: "Optional",
-      reproductiveHistoryHint: "For medical reference only. Will not be shared. You may skip.",
-      cycleLabel: "📅 What day of your period? (Optional)",
-      cycleOptions: ["Premenstrual", "Day 1", "Day 2", "Day 3-5", "Ovulation Pain", "Aftermenstrual"],
+      reproductiveHistoryHint: "For medical reference only, will not be made public. Can skip.",
+      cycleLabel: "\uD83D\uDCC5 What day of your cycle is it? (Optional)",
+      cycleOptions: ["Pre-period", "Day 1", "Day 2", "Day 3-5", "Within a week after period"],
       diagnosisLabel: "Previous Diagnosis (Optional)",
       diagnosisOptions: {
         "": "Previous Diagnosis (Optional)",
         none: "No diagnosis",
         endometriosis: "Endometriosis",
-        adenomyosis: "Adenomyosis",
-        fibroids: "Uterine Fibroids",
         pcos: "PCOS",
-        pid: "Pelvic Inflammatory Disease (PID)",
-        ovariancyst: "Ovarian Cyst",
-        cervicalstenosis: "Cervical Stenosis",
-        other: "Other conditions (please specify)",
-        unchecked: "No exam performed",
+        fibroids: "Uterine Fibroids",
+        adenomyosis: "Adenomyosis",
+        pid: "PID",
+        other: "Other",
       },
       allergyLabel: "Drug Allergies (Optional)",
       allergyOptions: {
         "": "Drug Allergies (Optional)",
         none: "No known allergies",
-        penicillin: "Penicillin",
-        sulfonamides: "Sulfonamides",
-        ibuprofen: "Ibuprofen (NSAIDs)",
-        aspirin: "Aspirin (NSAIDs)",
-        other_nsaids: "Other NSAIDs (e.g., Naproxen, Diclofenac)",
-        acetaminophen: "Acetaminophen",
-        other: "Other",
-        unknown: "Unsure",
+        ibuprofen: "Ibuprofen/NSAIDs allergy",
+        aspirin: "Aspirin allergy",
+        other: "Other allergies",
       },
-      ageLabel: "Age Range (Optional)",
+      ageLabel: "Age Group (Optional)",
       ageOptions: {
-        "": "Select...",
+        "": "Age Group (Optional)",
         under18: "Under 18",
         "18-25": "18-25",
         "26-35": "26-35",
         "36-45": "36-45",
         over45: "Over 45",
       },
-      basicInfo: "Basic Information (Optional)",
-      heightLabel: "Height (cm)",
-      heightPlaceholder: "e.g., 170",
-      weightLabel: "Weight (kg)",
-      weightPlaceholder: "e.g., 75",
-      pastHistory: "Past Medical History (Optional)",
-      surgicalHistoryLabel: "Surgical History",
-      surgicalHistoryOptions: {
-        "": "Select...",
-        none: "None",
-        abdominal: "Abdominal surgery",
-        pelvic: "Pelvic surgery",
-        other: "Other",
-      },
-      otherAllergiesLabel: "Other Drug Allergies (Free text)",
-      otherAllergiesPlaceholder: "e.g., cephalosporins, levofloxacin",
-      currentHistory: "History of Present Illness (Optional)",
-      menarcheAgeLabel: "Age at First Period",
-      menarcheAgePlaceholder: "e.g., 13",
-      cycleRegularLabel: "Menstrual Cycle Regularity",
-      cycleRegularOptions: {
-        "": "Select...",
-        regular: "Regular (21-35 days)",
-        irregular: "Irregular",
-        unknown: "Unsure",
-      },
-      activityLabel: "Physical Activity Level (Optional)",
-      activityOptions: {
-        "": "Select...",
-        sedentary: "Sedentary",
-        light: "Light activity",
-        moderate: "Moderate",
-        active: "Very active",
-      },
-      lifestyleLabel: "Lifestyle & Habits (Optional)",
+      lifestyleLabel: "Lifestyle (Optional, multiple selection)",
       lifestyleOptions: {
-        sleepDuration: "Insufficient sleep (less than 7 hours)",
+        sleepShort: "Sleep deprivation",
         sleepIrregular: "Irregular sleep schedule",
         smoking: "Smoking",
         alcohol: "Alcohol consumption",
-        caffeine: "Regular coffee/tea consumption",
-        diet: "Dietary Preferences",
+        caffeine: "Excessive caffeine",
+        coldFood: "Preference for cold food",
+        spicy: "Preference for spicy food",
+        weightLoss: "Extreme dieting",
       },
       familyHistoryLabel: "Family History (Optional)",
       familyHistoryOptions: {
-        "": "Select...",
+        "": "Family History (Optional)",
+        mother: "Mother has history of dysmenorrhea",
+        sister: "Sister has history of dysmenorrhea",
+        grandmother: "Grandmother has history of dysmenorrhea",
         none: "No family history",
-        mother: "Mother has severe dysmenorrhea",
-        sister: "Sister has severe dysmenorrhea",
-        both: "Multiple family members",
         unknown: "Unknown",
       },
-      periodDurationLabel: "How many days does your period usually last?",
-      periodDurationOptions: {
-        "": "Select",
-        "3": "3 days",
-        "4": "4 days",
-        "5": "5 days",
-        "6": "6 days",
-        "7": "7 days",
-        "over7": "Over 7 days"
-      },
-      lastPeriodLabel: "When was your last period?",
-      lastPeriodPlaceholder: "e.g., 2026-06-01",
-      cycleRegularDefinition: "Regular: cycle length varies by ≤5 days",
-      familyHistoryMulti: "Family History (select all that apply)",
-      motherHistory: "Mother has history of dysmenorrhea",
-      sisterHistory: "Sister has history of dysmenorrhea",
-      grandmotherHistory: "Grandmother has history of dysmenorrhea",
-      reproductiveHistoryMulti: "Reproductive History (select all that apply)",
+      reproductiveHistoryMulti: "Reproductive History (Optional, multiple selection)",
       nulliparous: "Never given birth",
       pregnant: "Pregnant (not yet given birth)",
       parous: "Has given birth",
       spontaneousAbortion: "History of spontaneous abortion/miscarriage",
       inducedAbortion: "History of induced abortion/termination",
       multiple: "Multiple births",
-      menstrualHistoryTitle: "🌸 Menstrual History",
+      menstrualHistoryTitle: "\uD83C\uDF38 Menstrual History",
       psychosocialLabel: "Psychosocial Factors (Optional)",
       psychosocialOptions: {
         "": "Select...",
@@ -905,7 +809,7 @@ const translations = {
         miscarriage: "History of miscarriage",
         multiple: "Multiple births",
       },
-      accompanyingLabel: "Accompanying symptoms (multiple selections allowed)",
+      accompanyingLabel: "Accompanying symptoms (multiple selection allowed)",
       accompanyingOptions: {
         headache: "Headache",
         breast: "Breast tenderness",
@@ -915,50 +819,53 @@ const translations = {
         fatigue: "Fatigue"
       },
       toneDescription: "Generated content will use this tone",
-      toneGentle: "🌿 Gentle",
-      toneDirect: "💬 Direct",
+      toneGentle: "\uD83C\uDF3F Gentle",
+      toneDirect: "\uD83D\uDCAC Direct",
       toneHint: "Gentle: soothing / Direct: just the methods",
       switchToMedical: "Health Information (Optional)",
       switchToPreference: "Back to Preferences",
       cycleNotProvided: "Not provided",
       startDrawing: "Start Drawing",
-      quickLog: "⚡ No time to draw, quick log",
-      exploreCommunity: "🌍 Community",
-      painDiary: "📅 Pain Diary",
-      feedbackPrompt:
-        "Your feedback helps us improve (leave blank for anonymous):",
-      feedbackThanks:
-        "Thank you for your feedback! Every message is read carefully.",
-      submitFeedback: "📮 Submit Feedback",
+      quickLog: "\u26A1 No time to draw, quick log",
+      exploreCommunity: "\uD83C\uDF0D Community",
+      painDiary: "\uD83D\uDCC5 Pain Diary",
+      feedbackPrompt: "Your feedback helps us improve (leave blank for anonymous):",
+      feedbackThanks: "Thank you for your feedback! Every message is read carefully.",
+      submitFeedback: "\uD83D\uDCEE Submit Feedback",
       gotIt: "Got it",
+      pleaseSelect: "Please select",
+      selectedCount: "Selected",
+      items: "items",
+      selfCareReady: "Somatic Self-Care Space",
+      brushTextures: "Somatic Brushes: ",
     },
 
     brushes: {
-      twist: { label: "� Cramp", icon: "�" },
-      pierce: { label: "⚡️ Stab", icon: "⚡️" },
-      heavy: { label: "🪨 Sink", icon: "🪨" },
-      wave: { label: "〰️ Fullness", icon: "〰️" },
-      scrape: { label: "🔪 Scrape", icon: "🔪" },
-      eraser: { label: "🧽 Eraser", icon: "🧽" },
+      twist: { label: "\uD83D\uDD04 Cramp", icon: "\uD83D\uDD04" },
+      pierce: { label: "\u26A1\uFE0F Stab", icon: "\u26A1\uFE0F" },
+      heavy: { label: "\uD83E\uDEA8 Sink", icon: "\uD83E\uDEA8" },
+      wave: { label: "\u3030\uFE0F Fullness", icon: "\u3030\uFE0F" },
+      scrape: { label: "\uD83D\uDD2A Scrape", icon: "\uD83D\uDD2A" },
+      eraser: { label: "\uD83E\uDDFD Eraser", icon: "\uD83E\uDDFD" },
     },
     painNames: {
       twist: "Cramping",
       pierce: "Stabbing",
-      heavy: "Dragging Sinking",// 下坠坠痛
-      wave: "Bloating Fullness",// 酸胀痛/胀满闷胀
-      scrape: "Scraping Tearing"// 撕扯/刮坠裂痛
+      heavy: "Dragging Sinking",
+      wave: "Bloating Fullness",
+      scrape: "Scraping Tearing"
     },
     colors: {
-      crimson: { label: "🩸" },
-      dark: { label: "🌑" },
-      purple: { label: "🔮" },
-      blue: { label: "❄️" },
+      crimson: { label: "\uD83E\uDE78" },
+      dark: { label: "\uD83C\uDF11" },
+      purple: { label: "\uD83D\uDD2E" },
+      blue: { label: "\u2744\uFE0F" },
     },
     colorDescriptions: {
-      crimson: "Crimson: A warm, surging, bloated sensation; directly associated with the flow of blood and active physical congestion.",
-      dark: "Dark Gray: A heavy, depressed sinking sensation; deeply fatiguing and weak, where the painful area feels numb, cold, and lacks vital energy.",
-      purple: "Purple: An indescribable, faint yet persistent ache; accompanied by weakness and emotional vulnerability (feeling like weeping), linked to neuropathic sensitivity.",
-      blue: "Ice Blue: Chills and vertigo; hands and feet are freezing, and the abdomen cannot be warmed, as if an alien, non-biological force is interfering, representing severe ischemia.",
+      crimson: "\uD83E\uDE78 Crimson: A warm, surging, bloated sensation; directly associated with the flow of blood and active physical congestion.",
+      dark: "\uD83C\uDF11 Dark Gray: A heavy, depressed sinking sensation; deeply fatiguing and weak, where the painful area feels numb, cold, and lacks vital energy.",
+      purple: "\uD83D\uDD2E Purple: An indescribable, faint yet persistent ache; accompanied by weakness and emotional vulnerability (feeling like weeping), linked to neuropathic sensitivity.",
+      blue: "\u2744\uFE0F Ice Blue: Chills and vertigo; hands and feet are freezing, and the abdomen cannot be warmed, as if an alien, non-biological force is interfering, representing severe ischemia.",
     },
 
     canvas: {
@@ -979,22 +886,22 @@ const translations = {
       partner: {
         title: "Synesthesia Guide",
         experiencing: "She is experiencing intense",
-        actionPrompt: "💡 Please do the following actions:",
-        copyAction: "📋 Copy Action List",
+        actionPrompt: "\uD83D\uDCA1 Please do the following actions:",
+        copyAction: "\uD83D\uDCCB Copy Action List",
       },
       work: {
         title: "Smart Leave Request Generator",
         description: "Objectively describes your physical condition, maintaining standard limits while offering transition space for delegating tasks.",
-        copyTemplate: "📋 Copy Leave Request Text",
+        copyTemplate: "\uD83D\uDCCB Copy Leave Request Text",
         recipients: {
-          manager: "💼 Manager/HR",
-          teacher: "🏫 Professor/Teacher",
-          client: "👥 Client/Partner",
-          friend: "🫂 Friend/Peer"
+          manager: "\uD83D\uDCBC Manager/HR",
+          teacher: "\uD83C\uDFEB Professor/Teacher",
+          client: "\uD83D\uDC65 Client/Partner",
+          friend: "\uD83E\uDEC2 Friend/Peer"
         },
         tones: {
-          polite: "🌸 Warm & Polite",
-          objective: "📊 Objective & Brief"
+          polite: "\uD83C\uDF38 Warm & Polite",
+          objective: "\uD83D\uDCCA Objective & Brief"
         },
         templates: {
           manager: {
@@ -1009,49 +916,52 @@ const translations = {
             polite: "Hi,\nI would like to kindly request rescheduling our planned meeting today. I have suddenly developed an acute health issue (severe {{pain}}) and am physically unable to maintain normal communication focus. I apologize for any inconvenience caused and deeply appreciate your kind understanding.\n\nBest regards,\n[Your Name]",
             objective: "Hi,\nPlease be informed that I need to take a personal sick leave today due to sudden menstrual pain ({{pain}}). I will follow up on our pending items as soon as I return tomorrow. Thank you for your patience.\n\nSincerely,\n[Your Name]"
           },
-           friend: {
-          polite: "Hey! I'm so incredibly sorry, but I won't be able to make it to our hangout today. My period cramps hit me really hard ({{pain}}), and I'm currently stuck in bed with a heat pad. 🥺 I was so looking forward to seeing everyone! Please have a blast without me, and I'll definitely check in once I'm feeling human again to reschedule a raincheck. So sorry for the last-minute change! \n\nBest, [Your Name]",
-          objective: "Hey, I have to bail on today's plan. Dealing with some pretty severe period pain ({{pain}}) and need to stay home and rest. Hope you guys have a great time, and let's catch up another day! \n\n[Your Name]"
-        }
+          friend: {
+            polite: "Hey! I'm so incredibly sorry, but I won't be able to make it to our hangout today. My period cramps hit me really hard ({{pain}}), and I'm currently stuck in bed with a heat pad. \uD83E\uDD7A I was so looking forward to seeing everyone! Please have a blast without me, and I'll definitely check in once I'm feeling human again to reschedule a raincheck. So sorry for the last-minute change! \n\nBest, [Your Name]",
+            objective: "Hey, I have to bail on today's plan. Dealing with some pretty severe period pain ({{pain}}) and need to stay home and rest. Hope you guys have a great time, and let's catch up another day! \n\n[Your Name]"
+          }
         }
       },
       doctor: {
         title: "Medical Aid Report",
-        disclaimer: "AI-generated · For reference only",
-        clinicalAdvice: "🩺 Clinical Recommendation",
-        examNotice: "💡 Patient Exam Notice: ",
+        disclaimer: "AI-generated \u00B7 For reference only",
+        clinicalAdvice: "\uD83E\uDE7A Clinical Recommendation",
+        examNotice: "\uD83D\uDCA1 Patient Exam Notice: ",
         preparation: "Preparation: ",
         purpose: "Purpose: ",
-        attachedMap:
-          "The multidimensional pain map is included in this report for your doctor's reference.",
-        discussReference: "📋 For discussion with your doctor:",
-        copyReport: "📋 Copy Full Report",
+        attachedMap: "The multidimensional pain map is included in this report for your doctor's reference.",
+        discussReference: "\uD83D\uDCCB For discussion with your doctor:",
+        copyReport: "\uD83D\uDCCB Copy Full Report",
       },
       self: {
         title: "Self-care & Community Support",
-        comfort: "Dear one, you've drawn your storm. Pain is not your fault. Rest well today—resting is an active form of self-healing. ⚠️ NOTICE: Please stop any self-care method or physical adjustment immediately if it causes you additional discomfort or pain! Return to your most comfortable resting position and remain still.",
-        copyAdvice: "📋 Copy Self-care Tips",
+        comfort: "Dear one, you've drawn your storm. Pain is not your fault. Rest well today\u2014resting is an active form of self-healing. \u26A0\uFE0F NOTICE: Please stop any self-care method or physical adjustment immediately if it causes you additional discomfort or pain! Return to your most comfortable resting position and remain still.",
+        copyAdvice: "\uD83D\uDCCB Copy Self-care Tips",
       },
       science: {
         selfCare: [
-          { title: "🌸 Misconception: Can I use tampons without sexual experience?", desc: "Absolutely. The hymen is a flexible, ring-like muscular tissue, not a sealed barrier. Standard tampons are much narrower (approx. 1cm) and will not cause damage if used gently with proper instructions." },
-          { title: "🍵 Misconception: Does brown sugar cure cramps?", desc: "Brown sugar is 99% sucrose. High sugar intake can actually promote inflammatory responses and exacerbate cramps. Warm hydration and physical heat are the true keys to relaxing pelvic smooth muscles." },
-          { title: "📊 Menstrual Phase Living Guide", desc: "The follicular phase (week after period) is your high-energy gold mine, perfect for strenuous workouts and major presentations. The luteal phase (premenstrual week) requires low-intensity exercises, warmth, and mindfulness." },
-          { title: "🔬 Secondary Dysmenorrhea Self-Assessment", desc: "If menstrual flow exceeds 80ml (soaking through a pad every 2 hours), includes massive blood clots, or regular pain relievers (ibuprofen) fail entirely, please schedule a pelvic ultrasound to rule out conditions like endometriosis." }
+          { title: "\uD83C\uDF38 Misconception: Can I use tampons without sexual experience?", desc: "Absolutely. The hymen is a flexible, ring-like muscular tissue, not a sealed barrier. Standard tampons are much narrower (approx. 1cm) and will not cause damage if used gently with proper instructions." },
+          { title: "\uD83C\uDF5A Misconception: Does brown sugar cure cramps?", desc: "Brown sugar is 99% sucrose. High sugar intake can actually promote inflammatory responses and exacerbate cramps. Warm hydration and physical heat are the true keys to relaxing pelvic smooth muscles." },
+          { title: "\uD83D\uDCCA Menstrual Phase Living Guide", desc: "The follicular phase (week after period) is your high-energy gold mine, perfect for strenuous workouts and major presentations. The luteal phase (premenstrual week) requires low-intensity exercises, warmth, and mindfulness." },
+          { title: "\uD83D\uDD2C Secondary Dysmenorrhea Self-Assessment", desc: "If menstrual flow exceeds 80ml (soaking through a pad every 2 hours), includes massive blood clots, or regular pain relievers (ibuprofen) fail entirely, please schedule a pelvic ultrasound to rule out conditions like endometriosis." }
         ],
         partner: [
           { title: "A period cannot be 'held'", desc: "Menstrual flow is an involuntary shedding of the uterine lining. Unlike urination, it cannot be controlled by sphincters. Please give her unconditional support and compassion." },
           { title: "Avoid Cold Foods", desc: "During cramping episodes, ensure she avoids extremely cold beverages or cooling foods (like watermelon or crab). Cold stimuli cause sudden vascular contraction in the pelvis, worsening ischemic pain." },
-          { title: "🔴 Red Flag Emergency Signs", desc: "If she exhibits cold sweats, paleness, fainting, vomiting, or acute persistent pain, do not wait. These are potential indicators of acute gynecological emergencies like cyst torsion, and require immediate transport to an ER." }
+          { title: "\uD83D\uDD34 Red Flag Emergency Signs", desc: "If she exhibits cold sweats, paleness, fainting, vomiting, or acute persistent pain, do not wait. These are potential indicators of acute gynecological emergencies like cyst torsion, and require immediate transport to an ER." }
         ]
       },
       refine: {
-        prompt: "🤖 Not satisfied? Let AI adjust the tone:",
+        prompt: "\uD83E\uDD16 Not satisfied? Let AI adjust the tone:",
         placeholder: "e.g.: too formal / make it gentler / add heat pad advice",
         optimizing: "Optimizing...",
         optimize: "Optimize",
         optimizeComplaint: "Optimize Complaint",
         optimizeReference: "Optimize Reference",
+        placeholderPartner: "e.g., Make it sound more urgent...",
+        placeholderWork: "e.g., Make it brief and extremely professional...",
+        placeholderDoctor: "e.g., Mention that Ibuprofen doesn't work...",
+        placeholderSelf: "e.g., Comfort me, I feel guilty for not working...",
       },
       shareCard: "Share",
       publish: "Post",
@@ -1061,34 +971,29 @@ const translations = {
     },
 
     community: {
-      title: "🌍 Community",
+      title: "\uD83C\uDF0D Community",
       back: "Back",
       filterAll: "All",
-      filterFamily: "🏠 Family Group",
-      filterFriend: "👥 Friends Group",
+      filterFamily: "\uD83C\uDFE0 Family Group",
+      filterFriend: "\uD83D\uDC65 Friends Group",
       createGroup: "+ Create Group",
       createGroupPrompt: "Enter new group name (e.g., Family Group):",
-      joinGroupPrompt:
-        "Enter group invitation code (enter anything in demo mode):",
-      groupCreated: 'Group "{{name}}" created successfully!',
+      joinGroupPrompt: "Enter group invitation code (enter anything in demo mode):",
+      groupCreated: "Group \"{{name}}\" created successfully!",
       joinedGroup: "Successfully joined the group!",
       newGroup: "New Group",
-      emptyState: "🌱 It's still quiet here, data is quietly growing.",
-      emptyStateSub:
-        "Be the first to leave a mark—your sharing is a glimmer of light for fellow travelers ↓",
-      emptyStateHint:
-        "—— Perhaps this also means everyone's pain is slowly getting better 🍀",
-      weeklyStats:
-        "🌸 This week {{count}} women shared their {{pain}} experience",
-      statsSub: "Many of them also left their relief methods here ↓",
+      emptyState: "\uD83C\uDF31 It's still quiet here, data is quietly growing.",
+      emptyStateSub: "Be the first to leave a mark\u2014your sharing is a glimmer of light for fellow travelers \u2193",
+      emptyStateHint: "\u2014\u2014 Perhaps this also means everyone's pain is slowly getting better \uD83C\uDF40",
+      weeklyStats: "\uD83C\uDF38 This week {{count}} women shared their {{pain}} experience",
+      statsSub: "Many of them also left their relief methods here \u2193",
       sentResonance: "Resonance sent",
-      weeklyStats: "🌸 {{count}} embodied pain profiles in this sanctuary supporting each other. The most prominent pain is {{pain}}.",
-      topTipsTitle: "💡 Wisdom Shelf · Top 5 Relief Tips",
-      topTipsEmpty: "No tips left under this category yet. Be the first to share your comfort recipe 🍀",
+      topTipsTitle: "\uD83D\uDCA1 Wisdom Shelf \u00B7 Top 5 Relief Tips",
+      topTipsEmpty: "No tips left under this category yet. Be the first to share your comfort recipe \uD83C\uDF40",
     },
 
     quickLog: {
-      title: "⚡ Quick Log Mode",
+      title: "\u26A1 Quick Log Mode",
       subtitle: "No drawing needed, capture your real pain in 3 seconds",
       painSlider1: "Mild Discomfort",
       painSlider2: "Unbearable",
@@ -1097,17 +1002,28 @@ const translations = {
     },
 
     history: {
-      title: "📋 My Pain Archive",
-      export: "📄 Export PDF",
+      title: "\uD83D\uDCCB My Pain Archive",
+      export: "\uD83D\uDCC4 Export PDF",
       back: "Back",
       empty: "No records yet. Go draw your first pain map.",
       records: "{{count}} records",
-      trendTitle: "📊 Recent Patterns",
+      trendTitle: "\uD83D\uDCCA Recent Patterns",
       trendMostCommon: "Most Common Pain",
       trendAvgInterval: "Average Interval",
       trendTotal: "Total Records",
-      trendDeviation:
-        "Your episode interval deviates from the typical cycle (28 days). Consider mentioning this to your doctor.",
+      trendDeviation: "Your episode interval deviates from the typical cycle (28 days). Consider mentioning this to your doctor.",
+      expand: "Expand",
+      collapse: "Collapse",
+      recordsCount: "{{count}} records",
+      deleteConfirm: "\u26A0\uFE0F Warning: Are you sure you want to permanently delete this pain record? This action cannot be undone.",
+      delete: "Delete",
+      sun: "Sun",
+      mon: "Mon",
+      tue: "Tue",
+      wed: "Wed",
+      thu: "Thu",
+      fri: "Fri",
+      sat: "Sat",
     },
 
     diary: {
@@ -1122,20 +1038,18 @@ const translations = {
       bodyBack: "Lower Back",
       bodyBoth: "Both Sides",
       dominantBrush: "Dominant",
-      recordFeelings: "📝 Record Your Feelings",
-      feelingHint:
-        '"Language always falls short before pain, but every description is real."',
-      durationLabel: "⏱️ This feeling lasted...",
+      recordFeelings: "\uD83D\uDCDD Record Your Feelings",
+      feelingHint: "\u201CLanguage always falls short before pain, but every description is real.\u201D",
+      durationLabel: "\u23F1\uFE0F This feeling lasted...",
       durationPlaceholder: "e.g.: all afternoon / on and off for hours / eased by evening",
-      reliefLabel: "🌿 What made you feel better?",
+      reliefLabel: "\uD83C\uDF3F What made you feel better?",
       reliefPlaceholder: "e.g.: curled up / heat pad / quiet alone time...",
-      notesLabel: "📓 Other feelings you want to record",
-      notesPlaceholder:
-        "Anything you want to say... Pain is real, it doesn't need to be proven.",
+      notesLabel: "\uD83D\uDCD3 Other feelings you want to record",
+      notesPlaceholder: "Anything you want to say... Pain is real, it doesn't need to be proven.",
       shareContext: "Choose sharing context:",
-      share: "📤 Share",
-      publish: "🌐 Post",
-      compareToggle: "📊 Compare with Last Episode",
+      share: "\uD83D\uDCE4 Share",
+      publish: "\uD83C\uDF10 Post",
+      compareToggle: "\uD83D\uDCCA Compare with Last Episode",
       compareHide: "Hide Comparison",
       compareThis: "This Time",
       compareLast: "Last Time",
@@ -1153,38 +1067,39 @@ const translations = {
       periodMorning: "Morning Pain",
       periodAfternoon: "Afternoon Pain",
       periodNight: "Night Pain",
+      sendTarget: "\uD83D\uDCE2 Send to:",
+      toneLabel: "\uD83C\uDFAD Tone:",
     },
 
     post: {
       title: "PainScape Embodied Evidence",
-      aiAnalysis: "🤖 AI Pain Analysis:",
-      aiDefault:
-        "Based on image characteristics, this pain exhibits typical mechanical contraction features with deep localized tissue pressure.",
-      selfExperience: "🌿 Her Relief Experience:",
-      experienceTitle: "💬 Her Personal Experience",
+      aiAnalysis: "\uD83E\uDD16 AI Pain Analysis:",
+      aiDefault: "Based on image characteristics, this pain exhibits typical mechanical contraction features with deep localized tissue pressure.",
+      selfExperience: "\uD83C\uDF3F Her Relief Experience:",
+      experienceTitle: "\uD83D\uDCAC Her Personal Experience",
       noExperience: "No relief experience yet, waiting for someone to share...",
       addExperience: "+ Share my relief tips (help those who come after)",
-      experiencePlaceholder:
-        "Share your relief experience (they're waiting for your answer)",
+      experiencePlaceholder: "Share your relief experience (they're waiting for your answer)",
       tagsPlaceholder: "Target symptoms (e.g.: cramping, heavy pain, comma-separated)",
       cancel: "Cancel",
       publishExperience: "Share Experience",
       hugged: "Hugged",
       giveHug: "Give a Hug",
+      votedHelpful: "Voted Helpful",
+      markHelpful: "Works for Me",
     },
 
     publishModal: {
-      title: "💌 Leave Your Mark",
-      hint: "💡 Your current feelings might be exactly the resonance someone else is searching for in the long night.\nAfter posting, you can also add a 'relief tip' to tell others how you got through it.",
-      placeholder:
-        "Write something—vent, confide, here we understand...",
+      title: "\uD83D\uDC8C Leave Your Mark",
+      hint: "\uD83D\uDCA1 Your current feelings might be exactly the resonance someone else is searching for in the long night.\nAfter posting, you can also add a 'relief tip' to tell others how you got through it.",
+      placeholder: "Write something\u2014vent, confide, here we understand...",
       cancel: "Think Again",
       submit: "Send Resonance",
     },
 
     sharePreview: {
       shareTitle: "My Pain Statement Card",
-      title: "📤 Share Preview",
+      title: "\uD83D\uDCE4 Share Preview",
       loading: "Loading...",
       noContent: "No drawing content",
       livePreview: "Live Drawing Preview",
@@ -1197,105 +1112,125 @@ const translations = {
     },
     shareText: {
       partner: {
-        title: "📢 Her Pain Statement · Action Required:",
-        action: "💡 Care Instructions:"
+        title: "\uD83D\uDCE2 Her Pain Statement \u00B7 Action Required:",
+        action: "\uD83D\uDCA1 Care Instructions:"
       },
       work: {
-        title: "📄 Absence & Raincheck Template:"
+        title: "\uD83D\uDCC4 Absence & Raincheck Template:"
       },
       doctor: {
-        title: "🩺 Medical Aid Report:",
-        profile: "📍 Pain Profile Analysis:",
-        complaint: "📋 Clinical Complaint Reference:",
-        reference: "🔬 History of Present Illness:"
+        title: "\uD83E\uDE7A Medical Aid Report:",
+        profile: "\uD83D\uDCCD Pain Profile Analysis:",
+        complaint: "\uD83D\uDCCB Clinical Complaint Reference:",
+        reference: "\uD83D\uDD2C History of Present Illness:"
       },
       self: {
-        title: "🌿 Her Embodied Metaphor:",
-        solution: "🧘 Recommended Self-Care:"
+        title: "\uD83C\uDF3F Her Embodied Metaphor:",
+        solution: "\uD83E\uDDD8 Recommended Self-Care:"
       }
     },
+    // ============ Supabase User System ============
+    supabase: {
+      initializing: "Initializing user system...",
+      initializingSub: "Connecting to secure account service",
+      loginSuccess: "\u2705 Logged in",
+      loginFailed: "\u274C Login failed, please refresh",
+      profileLoaded: "Profile loaded",
+      profileCreated: "New profile created",
+      profileSaved: "\u2705 Profile saved",
+      profileSaveFailed: "\u274C Profile save failed",
+      recordSaved: "\u2705 Pain record saved",
+      recordSaveFailed: "\u274C Pain record save failed",
+      recordsLoaded: "History records loaded",
+      recordsLoadFailed: "\u274C Failed to load history records",
+      offlineMode: "\uD83D\uDCE1 Offline mode - data saved locally only",
+      retry: "Retry",
+      userMenu: "User Menu",
+      userId: "User ID",
+      userSince: "User Since",
+      lastActive: "Last Active",
+      profileSettings: "Profile Settings",
+      logout: "Logout",
+      loginStatus: "Login Status",
+      anonymous: "Anonymous User",
+      syncStatus: "Sync Status",
+      synced: "Synced",
+      notSynced: "Not Synced",
+      syncNow: "Sync Now",
+      userInfo: "User Info",
+    },
+
     toast: {
       copySuccess: "Text copied to clipboard!",
       copyFailed: "Copy failed, please try again",
       pdfGenerating: "Generating PDF, please wait...",
-      pdfSuccess: "✅ PDF generated and downloaded",
-      pdfFailed: "❌ PDF generation failed, please try again",
+      pdfSuccess: "\u2705 PDF generated and downloaded",
+      pdfFailed: "\u274C PDF generation failed, please try again",
       noRecords: "No records to export",
       saveExperienceRequired: "Please write down your experience",
       postRequired: "Share your feelings~",
-      recordDeleted: "🗑️ Record has been permanently deleted from local storage",
-      refineSuccess: "✨ Content optimized",
+      recordDeleted: "\uD83D\uDDD1\uFE0F Record has been permanently deleted from local storage",
+      refineSuccess: "\u2728 Content optimized",
       refineEmpty: "AI returned empty content, please try again",
-      refineFailed:
-        "❌ AI optimization failed, API may not be deployed or network error",
-      hugSent: "🤗 Hug delivered",
+      refineFailed: "\u274C AI optimization failed, API may not be deployed or network error",
+      hugSent: "\uD83E\uDD17 Hug delivered",
       hugRetracted: "Hug retracted",
       shareSaved: "Share card saved!",
-      shareFailed:
-        "Failed to generate share card. Please try taking a screenshot instead.",
+      shareFailed: "Failed to generate share card. Please try taking a screenshot instead.",
       reportError: "Report generation encountered an issue",
       helpfulAdded: "Thank you! Your upvote helps fellow sisters find comfort",
       helpfulRemoved: "Upvote removed",
-      publishSuccess: "Your experience has been shared 🌸\n\nThere are currently {{count}} others also experiencing \"{{pain}}\".\n\nYour sharing may be exactly the answer they've been searching for.",
+      publishSuccess: "Your experience has been shared \uD83C\uDF38\n\nThere are currently {{count}} others also experiencing \"{{pain}}\".\n\nYour sharing may be exactly the answer they've been searching for.",
+      shareSuccess: "Shared successfully!",
     },
 
     painTemplates: {
       twist: {
-        analogy:
-          "Imagine wringing out a thick, soaking wet towel—twisting tighter and tighter from your navel all the way to your lower back. That suffocating, deep squeeze in your lower abdomen.",
+        analogy: "Imagine wringing out a thick, soaking wet towel\u2014twisting tighter and tighter from your navel all the way to your lower back. That suffocating, deep squeeze in your lower abdomen.",
         med: "Patient reports persistent cramping pain in the lower abdomen, episodic exacerbation with lumbosacral radiation, most severe on days 1-2 of menstruation. Recommend evaluation for uterine smooth muscle spasms and pelvic congestion.",
-        selfCare:
-          "✨ Try fetal position: lie on your side, knees to chest, to relax pelvic floor muscle tension.\n✨ Apply a heating pad on lower belly and back (40-45°C) for 20 minutes.\n✨ Slow abdominal breathing: inhale for 4s - hold for 4s - exhale slowly for 6s.\n✨ Eat magnesium-rich foods (nuts, dark greens) to naturally ease muscle contractions.\n✨ You are allowed to curl up in bed. Pain is not your fault.\n✨ Acupressure: Firmly press the Sanyinjiao (SP6) acupoint (located on the inner side of your lower leg, 4 finger-widths above the tip of the inner ankle bone, in the depression behind the tibia bone) for 1-2 minutes. Clinically shown to relieve spasmodic uterine tension and promote pelvic blood flow.\n✨ Warm Foot Bath: Soak feet in warm water (40-42°C) for 15-20 minutes. Warming the lower extremities reflexively dilates lower abdominal vessels to relieve ischemic pelvic spasms."
+        selfCare: "\u2728 Try fetal position: lie on your side, knees to chest, to relax pelvic floor muscle tension.\n\u2728 Apply a heating pad on lower belly and back (40-45\u00B0C) for 20 minutes.\n\u2728 Slow abdominal breathing: inhale for 4s - hold for 4s - exhale slowly for 6s.\n\u2728 Eat magnesium-rich foods (nuts, dark greens) to naturally ease muscle contractions.\n\u2728 You are allowed to curl up in bed. Pain is not your fault.\n\u2728 Acupressure: Firmly press the Sanyinjiao (SP6) acupoint (located on the inner side of your lower leg, 4 finger-widths above the tip of the inner ankle bone, in the depression behind the tibia bone) for 1-2 minutes. Clinically shown to relieve spasmodic uterine tension and promote pelvic blood flow.\n\u2728 Warm Foot Bath: Soak feet in warm water (40-42\u00B0C) for 15-20 minutes. Warming the lower limbs reflexively dilates lower abdominal vessels, relieving ischemic pelvic cramping."
       },
       pierce: {
-        analogy:
-          "Imagine getting a root canal without anesthesia—that electric, drilling sharp pain suddenly jabs into your lower abdomen, numb and stinging, like someone stirring a needle inside your pelvis.",
-        med: "Patient reports sharp, stabbing pain in lower abdomen, transient drilling sensation radiating to inner thighs, sudden onset and offset, accompanied by cold sweats. Recommend evaluation for neuropathic pain and endometriosis.",
-        selfCare:
-          "✨ Lie on your side immediately when pain strikes, avoiding any physical pressure points.\n✨ Apply a warm (not hot) compress—sensitized nerve endings are highly reactive to extreme heat.\n✨ Redirect your focus with white noise or calming ambient music.\n✨ Keep warm water nearby, sip slowly to stabilize autonomic body temperature.\n✨ Between episodes, gently rotate or move your ankles to encourage lower pelvic circulation.\n✨ Progressive Muscle Relaxation (PMR): Intentionally tense your leg and gluteal muscles tightly for 10 seconds, then release completely. This helps break the defensive muscle-clenching loop triggered by sudden stabbing pain.\n✨ Tactile Gate Control: Gently stroke the skin in a wide circle around the stabbing area (avoiding the direct pain center). This activates non-nociceptive A-beta sensory fibers, which physically block sharp pain signals at the spinal cord level."
+        analogy: "Imagine having a root canal without anesthesia\u2014that electric, drilling sharp pain suddenly stabbing into your lower abdomen, numbing and stinging, as if someone is stirring a needle in your pelvis.",
+        med: "Patient reports sharp stabbing pain in the lower abdomen, brief drilling sensation radiating to the inner thigh, sudden onset and offset, with cold sweats. Recommend evaluation for neuropathic pain and endometriosis.",
+        selfCare: "\u2728 Immediately lie on your side during an attack, avoiding any pressure points.\n\u2728 Use warm (not hot) compresses\u2014sensitive nerve endings react strongly to extreme heat.\n\u2728 Use white noise or soothing ambient music to distract.\n\u2728 Keep warm water nearby, sip slowly to stabilize autonomic body temperature.\n\u2728 Gently rotate or move your ankles during intervals to promote lower pelvic circulation.\n\u2728 Progressive Muscle Relaxation (PMR): Consciously tense your leg and gluteal muscles for 10 seconds, then fully relax. This helps break the defensive muscle-locking cycle triggered by sudden stabbing pain.\n\u2728 Tactile Gating: Gently stroke the skin in a wide area around the stabbing pain (avoiding the direct pain center). This activates non-nociceptive A-beta sensory fibers, physically blocking sharp pain signals at the spinal cord level."
       },
       heavy: {
-        analogy:
-          "Like tying a 5kg sandbag to your abdomen—standing makes you want to crouch, sitting makes you want to lie flat. That heavy, dragging sensation from your uterus all the way down to your knees.",
-        med: "Patient reports severe heavy, dragging sensation in lower abdomen, worsens when standing, slightly relieved lying down, with lumbosacral soreness. Recommend evaluation for pelvic congestion and possible adenomyosis.",
-        selfCare:
-          "✨ Elevated hip posture: prop hips 15-20cm up with pillows and lie flat.\n✨ Minimize standing or walking, and absolutely avoid lifting any heavy weights.\n✨ Wear high-waist, seamless, loose underwear to avoid restrictive abdominal pressure.\n✨ Sip warm comforting drinks like ginger brown sugar water or red date tea.\n✨ Tell yourself: today was hard, resting is not laziness.\n✨ Viparita Karani (Legs-Up-The-Wall Pose): Lie flat and raise your legs vertically against a wall for 10-15 minutes. Gravity assists in draining pooled pelvic venous blood and fluids, quickly relieving heavy pelvic congestion.\n✨ Bedside Pelvic Tilts: Lie flat with knees bent, feet flat on the mattress. Inhale to gently arch lower back off the bed, exhale to press lower back flat into the mattress. This relaxes the uterosacral ligaments without leaving your bed."
+        analogy: "Like having a 5kg sandbag tied to your abdomen\u2014standing makes you want to squat, sitting makes you want to lie down. That heavy dragging sensation sinking from your uterus all the way to your knees.",
+        med: "Patient reports severe dragging and heavy sensation in the lower abdomen, worsening when standing, slightly relieved when lying flat, with lumbosacral soreness. Recommend evaluation for pelvic congestion and possible adenomyosis.",
+        selfCare: "\u2728 Elevated hip position: use a pillow to elevate hips 15-20cm while lying flat.\n\u2728 Minimize standing or walking, absolutely avoid lifting heavy objects.\n\u2728 Wear high-waisted seamless loose underwear to avoid abdominal compression.\n\u2728 Drink warm ginger tea or red date tea.\n\u2728 Tell yourself: you've worked hard today, rest is not laziness.\n\u2728 Legs-Up-The-Wall Pose (Viparita Karani): lie flat and raise your legs vertically against the wall for 10-15 minutes. Gravity helps drain pooled venous blood and fluid from the pelvis, quickly relieving heavy pelvic congestion.\n\u2728 Bedside Pelvic Tilt: lie flat with knees bent, feet flat on the bed. Gently arch your lower back away from the bed on inhale, press your lower back flat against the bed on exhale. This relaxes the uterosacral ligaments without leaving the bed."
       },
       wave: {
-        analogy:
-          "Like a balloon inside your belly constantly inflating and deflating—waves of bloating that spread across your entire abdomen, making even breathing feel suffocating.",
-        med: "Patient reports diffuse bloating pain in abdomen, episodic exacerbation with intestinal gas sensation, pain location not fixed. Recommend evaluation for pelvic edema, intestinal bloating, and pelvic inflammation.",
-        selfCare:
-          "✨ Wear the loosest garments you own, releasing any waistbands completely.\n✨ Gentle clockwise abdominal massage (using feather-light, extremely soft pressure on the skin).\n✨ Avoid gas-producing foods: beans, dairy, carbonated beverages, raw cold foods.\n✨ Apply a heat pack over the entire abdomen, wrapping yourself in a warm blanket cocoon.\n✨ Slow everything down—when you slow down, the sensory volume of pain decreases.\n✨ Pavanamuktasana (Wind-Relieving Pose): Lie flat, clasp hands around both knees and hug them tightly to your chest, gently rocking left to right. This gently massages the colon to release trapped gas, lowering intra-abdominal pressure.\n✨ Acupressure: Press and massage the Zusanli (ST36) acupoint (located 4 finger-widths below the outer knee cap, 1 finger-width lateral to the tibia bone). This regulates gastrointestinal motility to relieve bloating and cramps."
+        analogy: "Like having a balloon inside your belly that keeps inflating and deflating\u2014waves of fullness spreading through your entire abdomen, making even breathing feel suffocating.",
+        med: "Patient reports diffuse bloating pain in the abdomen, episodic exacerbation with gas sensation, pain location not fixed. Recommend evaluation for pelvic edema, intestinal gas, and pelvic inflammation.",
+        selfCare: "\u2728 Wear the loosest clothes possible, completely loosen your belt.\n\u2728 Gentle clockwise abdominal massage (with feather-light, extremely gentle pressure on the skin).\n\u2728 Avoid gas-producing foods: beans, dairy, carbonated drinks, cold foods.\n\u2728 Place a heat pack over the entire abdomen, wrap yourself in a warm blanket.\n\u2728 Slow everything down\u2014when you slow down, the sensory volume of pain decreases.\n\u2728 Wind-Relieving Pose (Pavanamuktasana): lie flat, hug both knees tightly to your chest, gently rock side to side. This gently massages the colon to release trapped gas, reducing intra-abdominal pressure.\n\u2728 Acupressure: Press and massage the ST36 (Zusanli) acupoint (located 4 finger-widths below the kneecap, 1 finger-width lateral to the shin bone). This regulates gastrointestinal motility to relieve bloating and cramping."
       },
       scrape: {
-        analogy:
-          "Like an unripe fruit being forcefully peeled—that tearing sensation scraping from inside your uterus outward. Every movement feels like sandpaper grinding against raw flesh.",
-        med: "Patient reports intense tearing sharp pain in lower abdomen, worsens with movement, accompanied by tenesmus. Recommend urgent evaluation for tissue adhesions and possible ruptured endometriotic cyst.",
-        selfCare:
-          "✨ This is the most exhausting type of pain—prioritize absolute, motionless rest.\n✨ Absolutely avoid any abdominal rubbing or massage, and minimize all body position changes.\n✨ Sip warm honey water to replenish energy (avoid taking painkillers on an empty stomach).\n✨ Use a gentle, compassionate inner voice to comfort yourself.\n✨ Record the pain dynamics once the intensity subsides.\n✨ Intercostal (Chest) Breathing: Inhale to expand your ribcage laterally, keeping your lower belly completely still. This reduces the sliding movement of abdominal organs, preventing friction on sensitive raw tissues.\n✨ Bolster-Supported Child's Pose: Place a thick bolster or pillow between your thighs and lay your torso completely over it. Keep knees wide and sit hips back. This uses gravity to suspend abdominal organs forward, preventing mutual compression on painful pelvic adhesion sites."
+        analogy: "Like an unripe fruit being forcibly peeled\u2014that scraping, tearing sensation from the inside of your uterus outward. Every movement feels like sandpaper rubbing against raw flesh.",
+        med: "Patient reports severe tearing sharp pain in the lower abdomen, worsening with movement, with tenesmus. Recommend urgent evaluation for tissue adhesions and possible endometrioma rupture.",
+        selfCare: "\u2728 This is the most exhausting type of pain\u2014prioritize absolute stillness and rest.\n\u2728 Absolutely avoid any abdominal rubbing or massage, minimize all position changes.\n\u2728 Sip warm honey water for energy (avoid taking painkillers on an empty stomach).\n\u2728 Comfort yourself with a gentle, compassionate inner voice.\n\u2728 Record pain dynamics once intensity subsides.\n\u2728 Intercostal (chest) breathing: expand your ribcage laterally on inhale, keeping your lower abdomen completely still. This reduces sliding friction of abdominal organs, preventing irritation of sensitive tissue.\n\u2728 Pillow-Supported Child's Pose: place a thick bolster or pillow between your thighs, drape your torso completely over it. Knees apart, hips sitting back. This uses gravity to suspend abdominal organs forward, preventing them from pressing against painful pelvic adhesion sites."
       }
     },
     healing: {
       breathing: {
-        title: "🌬️ Breathing Therapy",
-        description: "Deep abdominal breathing helps the body relax and relieves tension caused by pain.",
-        steps: "① Find a quiet, comfortable place to sit or lie down\n② Place one hand on your abdomen to feel its movement\n③ Inhale for 4 seconds, feeling your abdomen rise like a balloon\n④ Hold for 4 seconds to allow oxygen into your bloodstream\n⑤ Exhale for 6 seconds, feeling your abdomen fall\n⑥ Repeat 10-15 times, feeling your body relax"
+        title: "\U0001f32c\ufe0f Breathing Therapy",
+        description: "Deep abdominal breathing helps the body relax and alleviates tension caused by pain.",
+        steps: "\u2460 Find a quiet, comfortable place to sit or lie down\n\u2461 Place one hand on your abdomen to feel its movement\n\u2462 Inhale for 4 seconds, feeling your abdomen rise like a balloon\n\u2463 Hold for 4 seconds, letting oxygen enter your bloodstream\n\u2464 Exhale for 6 seconds, feeling your abdomen fall\n\u2465 Repeat 10-15 times, feeling your body relax"
       },
       heatPack: {
-        title: "🔥 Heat Therapy",
+        title: "\U0001f525 Heat Therapy",
         description: "Warmth promotes local circulation and relieves muscle spasms, one of the most effective remedies for dysmenorrhea.",
-        steps: "① Prepare a hot water bottle or heating pad (40-45°C)\n② Wrap with a towel to avoid direct skin contact\n③ Apply to lower abdomen or lower back\n④ 15-20 minutes per session\n⑤ Can be applied 3-4 times daily\n⑥ Stay hydrated, drink water"
+        steps: "\u2460 Prepare a hot water bottle or heating pad (40-45\u00b0C)\n\u2461 Wrap in a towel to avoid direct skin contact\n\u2462 Apply to lower abdomen or lower back\n\u2463 Each session 15-20 minutes\n\u2464 Can be applied 3-4 times daily\n\u2465 Stay hydrated, drink plenty of water"
       },
       meditation: {
-        title: "🧘 Mindfulness Meditation",
-        description: "Shift attention away from pain, accept present feelings without judgment, reducing the psychological burden of pain.",
-        steps: "① Find a quiet place and sit comfortably\n② Close your eyes and focus on breathing\n③ When mind wanders, gently bring it back to breath\n④ Feel the pain without judging it\n⑤ Imagine pain passing like clouds\n⑥ Start with 5-10 minutes, gradually increase"
+        title: "\U0001f9d8 Mindfulness Meditation",
+        description: "Shift attention away from pain, accept the present moment without judgment, reducing the psychological burden of pain.",
+        steps: "\u2460 Find a quiet place to sit comfortably\n\u2461 Close your eyes, focus on your breath\n\u2462 When thoughts wander, gently bring them back to your breath\n\u2463 Feel the pain without judging it\n\u2464 Imagine the pain passing like clouds\n\u2465 Start with 5-10 minutes, gradually increase"
       },
       warmDrink: {
-        title: "🍵 Warm Beverages",
-        description: "Warm drinks not only warm the body but also soothe the mind, an important part of self-care.",
-        steps: "① Ginger brown sugar tea: 3 slices ginger + 1 spoon brown sugar + hot water\n② Longan red date tea: 5 longans + 3 red dates\n③ Warm milk with honey\n④ Avoid cold drinks and caffeine\n⑤ Sip slowly, feel the warmth\n⑥ Drink 2-3 cups daily"
+        title: "\U0001f375 Warm Drink Therapy",
+        description: "Warm beverages not only warm the body but also soothe the mind, an important part of self-care.",
+        steps: "\u2460 Ginger tea: 3 slices ginger + 1 spoon brown sugar + hot water\n\u2461 Longan red date tea: 5 longans + 3 red dates\n\u2462 Warm milk with honey\n\u2463 Avoid cold drinks and caffeine\n\u2464 Sip slowly, feel the warmth\n\u2465 2-3 cups daily"
       },
       steps: "Steps",
       close: "Close",
@@ -1303,39 +1238,35 @@ const translations = {
 
     partnerActions: {
       alone: [
-        "☑️ Bring her warm water and prepare {{med}}.",
-        "☑️ Dim the lights, close the door, don't check on her too often.",
+        "\u2611\ufe0f Pour her a glass of warm water, prepare {{med}}.",
+        "\u2611\ufe0f Dim the lights, close the door, don't check in too often.",
       ],
       care: [
-        "☑️ Rub your palms warm and place on her lower belly or back. Take over household chores.",
+        "\u2611\ufe0f Warm your palms and place them on her lower belly or back. Take over household chores.",
       ],
       comfort: [
-        "☑️ Sit beside her, hold her hand without speaking—just be there with a sense of safety.",
+        "\u2611\ufe0f Sit beside her, hold her hand without speaking\u2014accompany her with a sense of safety.",
       ],
     },
 
-    workTemplate: "Dear Manager/HR: I am experiencing a severe primary dysmenorrhea episode today ({{pain}}), accompanied by physical exhaustion and cold sweats. I'm unable to maintain normal focus and am requesting to work from home/rest today. Urgent matters have been delegated. Thank you for your understanding.",
+    workTemplate: "Dear Manager/HR: I am experiencing a severe primary dysmenorrhea episode ({{pain}}), accompanied by extreme physical exhaustion and cold sweats, unable to maintain normal focus. I am requesting to work from home/take sick leave today. Urgent matters have been delegated. Thank you for your understanding.",
 
     examDatabase: {
       "pelvic ultrasound": {
-        prep: "Requires full bladder: drink 500-800ml water 1 hour before exam.",
-        purpose:
-          "Evaluates uterine morphology, endometrial thickness, rules out fibroids, adenomyosis, or ovarian cysts.",
+        prep: "Full bladder required: drink 500-800ml water 1 hour before the exam.",
+        purpose: "Evaluate uterine morphology, endometrial thickness, rule out fibroids, adenomyosis, or ovarian cysts.",
       },
       "transvaginal ultrasound": {
-        prep: "Empty bladder before exam. If no history of sexual activity, inform doctor to switch to abdominal ultrasound.",
-        purpose:
-          "Clearer visualization of endometriotic lesions and pelvic adhesions. Best performed 3-7 days after period ends.",
+        prep: "Empty bladder before exam. Inform doctor if no sexual history for abdominal ultrasound alternative.",
+        purpose: "Clearer visualization of endometriosis lesions and pelvic adhesions. Recommended 3-7 days after period ends.",
       },
       "hormone panel": {
-        prep: "Blood draw on day 2-3 of cycle, fasting in early morning. Sit quietly for 10 minutes before draw.",
-        purpose:
-          "Evaluates endocrine status, rules out hormone-related pain (e.g., PCOS).",
+        prep: "Blood draw on day 2-3 of menstruation, early morning fasting. Sit quietly for 10 minutes before draw.",
+        purpose: "Evaluate endocrine status, rule out hormone-related pain (e.g., PCOS).",
       },
       laparoscopy: {
-        prep: "Minimally invasive surgery requiring hospitalization. Fasting required before procedure.",
-        purpose:
-          "Gold standard for endometriosis diagnosis, allows simultaneous lesion removal.",
+        prep: "Minimally invasive surgery requires hospitalization. Pre-operative fasting required.",
+        purpose: "Gold standard for endometriosis diagnosis, allows simultaneous lesion removal.",
       },
     },
 
@@ -1344,19 +1275,18 @@ const translations = {
         partner: "Synesthesia Guide",
         work: "Invisible Pain Statement",
         doctor: "Medical Aid Report",
-        self: "Self-care Suggestions",
+        self: "Self-care Tips",
       },
       footer: "PainScape - Making invisible pain visible",
     },
 
     pdf: {
       title: "PainScape",
-      subtitle: "Patient Pain Profile",
+      subtitle: "Patient Pain Archive",
       reportRange: "Report Range: {{start}} - {{end}}",
       totalRecords: "Total Records: {{count}}",
-      disclaimer1:
-        "This document is generated by AI based on patient's visual drawing, for reference only",
-      disclaimer2: "Please present this to your gynecologist.",
+      disclaimer1: "This document is AI-generated based on the patient's visual drawing, for reference only",
+      disclaimer2: "Please submit this report to your gynecologist.",
       recordLabel: "Record {{index}}: {{date}}",
       dominantPain: "Dominant Pain: {{pain}}",
       medicalComplaint: "Medical Complaint:",

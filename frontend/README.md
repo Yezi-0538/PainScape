@@ -91,26 +91,13 @@ npm run dev
 
 目前已完成前端核心交互开发，欢迎直接通过浏览器体验在线 Demo：
 
-👉 **[点击此处访问 PainScape 在线体验版](https://pain-scape.vercel.app/)** 👈
+👉 **[点击此处访问 PainScape 在线体验版](https://painscape.icu/)** 👈
 
 *(注：当前版本主要展示前端生成式艺术与 UI 交互流转，欢迎大家试用并提出宝贵意见！)*
 
----
 
-## 📅 Roadmap | 后续规划
-
-- [x] 多源社交媒体数据挖掘与隐喻参数模型构建
-- [x] 前端 p5.js 物理引擎与离屏双缓冲渲染重构
-- [x] 基于深度用户测试的敏捷 UI/UX 迭代（包含手势动能映射与撤销栈）
-- [ ] 接入大语言模型 (LLM) API，实现多模态提示词的动态结构化生成
-- [ ] 针对医生群体开展临床转译卡片的可用性评估 (Usability Testing)
-
----
 
 ## 🤝 Authors & Acknowledgments | 致谢
-
-* **Developer & Researcher:** Yixuan Wang
-* **Advisor:** Nan Gao
 
 特别感谢所有参与本研究问卷填写与深度访谈的女性。是你们勇敢分享的痛觉记忆，赋予了这些冰冷的代码与图形以真实的血肉与灵魂。
 
