@@ -16,9 +16,17 @@ class ErrorBoundary extends React.Component {
   static getDerivedStateFromError() { return { hasError: true }; }
   render() {
     const lang = this.props.lang || 'zh';
-    const msg = lang === 'en'
-      ? 'Something went wrong with the page, please refresh and try again'
-      : '页面出了点小问题，请刷新重试';
+    const t = (path) => {
+      const keys = path.split('.');
+      let val = this.props.texts;
+      if (!val) return path;
+      for (const k of keys) {
+        if (val === undefined || val === null) return path;
+        val = val[k];
+      }
+      return typeof val === 'string' ? val : path;
+    };
+    const msg = t('app.errorBoundary');
     if (this.state.hasError) return <h1 style={{ color: '#fff', textAlign: 'center', padding: '40px' }}>{msg}</h1>;
     return this.props.children;
   }
@@ -864,11 +872,17 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
     if (Array.isArray(quotes) && quotes.length > 0) {
       return quotes[Math.floor(Math.random() * quotes.length)];
     }
-    const fallbackQuotes = [
-      "慢性疼痛相当于长期的“unmaking”——把人困在身体牢笼里。\n—— Elaine Scarry",
-      "疼痛不仅是神经的电冲动，它是对自我边界的侵犯。",
-      "语言在痛苦面前总是匮乏的，而视觉是一道划破沉默的闪电。"
-    ];
+    const fallbackQuotes = isEn
+      ? [
+        "Chronic pain is a long-term 'unmaking' — trapping a person in the prison of their own body.\n— Elaine Scarry",
+        "Pain is not just a neural impulse; it is a violation of the boundaries of self.",
+        "Language always falls short before pain, and vision is a lightning bolt that cuts through the silence."
+      ]
+      : [
+        "慢性疼痛相当于长期的unmaking——把人困在身体牢笼里。\n—— Elaine Scarry",
+        "疼痛不仅是神经的电冲动，它是对自我边界的侵犯。",
+        "语言在痛苦面前总是匮乏的，而视觉是一道划破沉默的闪电。"
+      ];
     return fallbackQuotes[Math.floor(Math.random() * fallbackQuotes.length)];
   });
 
@@ -918,11 +932,11 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
   useEffect(() => {
     if (page === 'result' || page === 'history') {
       // 动态提取当前激活的痛感名称
-      let activePain = "绞痛";
+      let activePain = isEn ? "Cramping" : "绞痛";
       if (page === 'result') {
-        activePain = currentReportData?.pain || t(`painNames.${getDominantPain()}`) || "绞痛";
+        activePain = currentReportData?.pain || t(`painNames.${getDominantPain()}`) || (isEn ? "Cramping" : "绞痛");
       } else if (page === 'history' && viewingDiary) {
-        activePain = viewingDiary.content?.pain || viewingDiary.painName || "绞痛";
+        activePain = viewingDiary.content?.pain || viewingDiary.painName || (isEn ? "Cramping" : "绞痛");
       }
 
       const template = t(`result.work.templates.${leaveRecipient}.${leaveTone}`);
@@ -2815,6 +2829,24 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
         {/* === Splash 开屏页 === */}
         {page === "splash" && (
           <div style={{ pointerEvents: 'auto', background: '#050505', width: '100vw', height: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '40px', boxSizing: 'border-box', opacity: splashOpacity, transition: 'opacity 1s ease-in-out' }}>
+            {/* Language switch button at the top */}
+            <div style={{ position: 'absolute', top: '20px', right: '20px', zIndex: 100 }}>
+              <button
+                onClick={() => setTargetLanguage(targetLanguage === 'zh' ? 'en' : 'zh')}
+                style={{
+                  background: 'rgba(255,255,255,0.08)',
+                  border: '1px solid rgba(255,255,255,0.15)',
+                  color: '#ccc',
+                  padding: '6px 14px',
+                  borderRadius: '20px',
+                  fontSize: '13px',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s'
+                }}
+              >
+                {targetLanguage === 'zh' ? 'English' : '简体中文'}
+              </button>
+            </div>
             <h1 style={{ color: '#fff', letterSpacing: '8px', marginBottom: '40px' }}>PainScape</h1>
             <p style={{ color: '#aaa', fontSize: '14px', lineHeight: '1.8', textAlign: 'center', fontStyle: 'italic', whiteSpace: 'pre-wrap' }}>{quote}</p>
           </div>
@@ -2854,6 +2886,24 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
                 alignItems: 'center',
                 transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
               }}>
+                {/* Language switch button */}
+                <div style={{ alignSelf: 'flex-end', marginBottom: '8px' }}>
+                  <button
+                    onClick={() => setTargetLanguage(targetLanguage === 'zh' ? 'en' : 'zh')}
+                    style={{
+                      background: 'rgba(255,255,255,0.06)',
+                      border: '1px solid rgba(255,255,255,0.12)',
+                      color: '#999',
+                      padding: '4px 12px',
+                      borderRadius: '16px',
+                      fontSize: '12px',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s'
+                    }}
+                  >
+                    {targetLanguage === 'zh' ? 'English' : '简体中文'}
+                  </button>
+                </div>
                 {/* 标题 */}
                 <h2 style={{
                   color: '#fff',
@@ -3059,7 +3109,7 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
                   transition: 'all 0.2s'
                 }}
               >
-                🏥 {t('modeSelection.medicalTab').split(' ')[1] || t('modeSelection.medicalTab') || '就诊协助'}
+                🏥 {t('modeSelection.medicalTab').split(' ')[1] || t('modeSelection.medicalTab') || (targetLanguage === 'en' ? 'Medical Aid' : '就诊协助')}
               </button>
 
               {/* 🎨 日常表达按钮 */}
@@ -3076,7 +3126,7 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
                   transition: 'all 0.2s'
                 }}
               >
-                🎨 {t('modeSelection.generalTab').split(' ')[1] || t('modeSelection.generalTab') || '日常表达'}
+                🎨 {t('modeSelection.generalTab').split(' ')[1] || t('modeSelection.generalTab') || (targetLanguage === 'en' ? 'Self-Care' : '日常表达')}
               </button>
             </div>
             {/* 使用提示控制按钮 */}
@@ -3119,13 +3169,13 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
                 <div style={{ background: '#1c1c1c', borderRadius: '20px', padding: '20px', border: '1px solid #333' }}>
                   <div style={{ textAlign: 'center', marginBottom: '16px' }}>
                     <span style={{ fontSize: '28px' }}>📋</span>
-                    <h3 style={{ color: '#fff', fontSize: '16px', margin: '8px 0 4px 0', fontWeight: '500' }}>基础生理档案</h3>
-                    <p style={{ color: '#888', fontSize: '11px', margin: 0 }}>这些常态基础指标将被本地保存，避免重复录入</p>
+                    <h3 style={{ color: '#fff', fontSize: '16px', margin: '8px 0 4px 0', fontWeight: '500' }}>{t('onboarding.basicPhysiologicalTitle')}</h3>
+                    <p style={{ color: '#888', fontSize: '11px', margin: 0 }}>{t('onboarding.basicPhysiologicalDesc')}</p>
                   </div>
 
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
                     <div>
-                      <label style={{ color: '#888', fontSize: '11px', display: 'block', marginBottom: '6px' }}>您的年龄段</label>
+                      <label style={{ color: '#888', fontSize: '11px', display: 'block', marginBottom: '6px' }}>{t('onboarding.ageGroupLabel')}</label>
                       <select value={medicalBackground.age} onChange={(e) => setMedicalBackground({ ...medicalBackground, age: e.target.value })}
                         style={{ width: '100%', padding: '12px', background: '#111', color: '#fff', border: '1.5px solid #333', borderRadius: '12px', fontSize: '13px' }}>
                         {Object.entries(t('onboarding.ageOptions') || {}).map(([value, label]) => (<option key={value} value={value}>{label}</option>))}
@@ -3148,7 +3198,7 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
                     </div>
 
                     <div>
-                      <label style={{ color: '#888', fontSize: '11px', display: 'block', marginBottom: '6px' }}>日常活动负荷</label>
+                      <label style={{ color: '#888', fontSize: '11px', display: 'block', marginBottom: '6px' }}>{t('onboarding.activityLevelLabel')}</label>
                       <select value={medicalBackground.activityLevel} onChange={(e) => setMedicalBackground({ ...medicalBackground, activityLevel: e.target.value })}
                         style={{ width: '100%', padding: '12px', background: '#111', color: '#fff', border: '1.5px solid #333', borderRadius: '12px', fontSize: '13px' }}>
                         {Object.entries(t('onboarding.activityOptions') || {}).map(([value, label]) => (<option key={value} value={value}>{label}</option>))}
@@ -3159,14 +3209,14 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
                       <CollapsibleMultiSelect
                         label={t('onboarding.lifestyleTitle') || '日常习惯'}
                         options={[
-                          { value: 'sleepShort', label: '睡眠时长不足' },
-                          { value: 'sleepIrregular', label: '作息紊乱/夜班' },
-                          { value: 'smoking', label: '吸烟' },
-                          { value: 'alcohol', label: '习惯饮酒' },
-                          { value: 'caffeine', label: '浓茶咖啡过量' },
-                          { value: 'coldFood', label: '喜食生冷冰饮' },
-                          { value: 'spicy', label: '嗜食辛辣' },
-                          { value: 'weightLoss', label: '处于极端减重期' }
+                          { value: 'sleepShort', label: t('onboarding.lifestyleSleepShort') },
+                          { value: 'sleepIrregular', label: t('onboarding.lifestyleSleepIrregular') },
+                          { value: 'smoking', label: t('onboarding.lifestyleSmoking') },
+                          { value: 'alcohol', label: t('onboarding.lifestyleAlcohol') },
+                          { value: 'caffeine', label: t('onboarding.lifestyleCaffeine') },
+                          { value: 'coldFood', label: t('onboarding.lifestyleColdFood') },
+                          { value: 'spicy', label: t('onboarding.lifestyleSpicy') },
+                          { value: 'weightLoss', label: t('onboarding.lifestyleWeightLoss') }
                         ]}
                         selectedValues={medicalBackground.lifestyleArr || []}
                         onChange={(newValues) => setMedicalBackground({ ...medicalBackground, lifestyleArr: newValues })}
@@ -3175,10 +3225,10 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
                       <CollapsibleSingleSelect
                         label={t('onboarding.psychosocialLabel')}
                         options={[
-                          { value: 'lowStress', label: '压力适宜' },
-                          { value: 'moderateStress', label: '持续中度精神压力' },
-                          { value: 'highStress', label: '重度焦虑/高压负荷' },
-                          { value: 'trauma', label: '心理应激创伤' }
+                          { value: 'lowStress', label: t('onboarding.psychosocialLowStress') },
+                          { value: 'moderateStress', label: t('onboarding.psychosocialModerateStress') },
+                          { value: 'highStress', label: t('onboarding.psychosocialHighStress') },
+                          { value: 'trauma', label: t('onboarding.psychosocialTrauma') }
                         ]}
                         selectedValue={medicalBackground.psychosocial}
                         onChange={(value) => setMedicalBackground({ ...medicalBackground, psychosocial: value })}
@@ -3195,15 +3245,15 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
                   {appMode === 'general' ? (
                     <div style={{ textAlign: 'center', padding: '40px 10px' }}>
                       <span style={{ fontSize: '32px' }}>💡</span>
-                      <h4 style={{ color: '#fff', marginTop: '10px' }}>临床病史已隐藏</h4>
-                      <p style={{ color: '#666', fontSize: '13px', lineHeight: '1.5' }}>您已选择日常表达/社群分享模式。无需搜集月经史等复杂背景，可直接在最后一步设置您的陪伴与自愈偏好。</p>
+                      <h4 style={{ color: '#fff', marginTop: '10px' }}>{t('onboarding.clinicalHiddenTitle')}</h4>
+                      <p style={{ color: '#666', fontSize: '13px', lineHeight: '1.5' }}>{t('onboarding.clinicalHiddenDesc')}</p>
                     </div>
                   ) : (
                     <>
                       <div style={{ textAlign: 'center', marginBottom: '16px' }}>
                         <span style={{ fontSize: '28px' }}>🩺</span>
-                        <h3 style={{ color: '#fff', fontSize: '16px', margin: '8px 0 4px 0', fontWeight: '500' }}>临床医学信息调查</h3>
-                        <p style={{ color: '#888', fontSize: '11px', margin: 0 }}>以下采集项有助于精准拟合专科门诊所需的现病史及既往主诉</p>
+                        <h3 style={{ color: '#fff', fontSize: '16px', margin: '8px 0 4px 0', fontWeight: '500' }}>{t('onboarding.clinicalMedicalTitle')}</h3>
+                        <p style={{ color: '#888', fontSize: '11px', margin: 0 }}>{t('onboarding.medicalHintDesc')}</p>
                       </div>
 
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
@@ -3216,12 +3266,12 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
 
                           <div style={{ display: 'flex', gap: '12px', marginBottom: '12px' }}>
                             <div style={{ flex: 1 }}>
-                              <label style={{ color: '#888', fontSize: '11px', display: 'block', marginBottom: '6px' }}>初潮年龄</label>
+                              <label style={{ color: '#888', fontSize: '11px', display: 'block', marginBottom: '6px' }}>{t('onboarding.menarcheAgeLabel')}</label>
                               <input
                                 type="number"
                                 min="8"
                                 max="20"
-                                placeholder="例：13"
+                                placeholder="eg：13"
                                 value={medicalBackground.menarcheAge}
                                 onChange={(e) => setMedicalBackground({ ...medicalBackground, menarcheAge: e.target.value })}
                                 style={{
@@ -3237,7 +3287,7 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
                               />
                             </div>
                             <div style={{ flex: 1 }}>
-                              <label style={{ color: '#888', fontSize: '11px', display: 'block', marginBottom: '6px' }}>周期规律性</label>
+                              <label style={{ color: '#888', fontSize: '11px', display: 'block', marginBottom: '6px' }}>{t('onboarding.cycleRegularityLabel')}</label>
                               <select
                                 value={medicalBackground.cycleRegular}
                                 onChange={(e) => setMedicalBackground({ ...medicalBackground, cycleRegular: e.target.value })}
@@ -3252,16 +3302,16 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
                                   boxSizing: 'border-box'
                                 }}
                               >
-                                <option value="">请选择</option>
-                                <option value="regular">高度规律 (波动 ≤ 5天)</option>
-                                <option value="irregular">不规律 (周期极度紊乱)</option>
-                                <option value="unsure">不确定</option>
+                                <option value="">{t('onboarding.cycleRegularPlaceholder')}</option>
+                                <option value="regular">{t('onboarding.cycleRegularRegular')}</option>
+                                <option value="irregular">{t('onboarding.cycleRegularIrregular')}</option>
+                                <option value="unsure">{t('onboarding.cycleRegularUnsure')}</option>
                               </select>
                             </div>
                           </div>
 
                           <div style={{ marginBottom: '12px' }}>
-                            <label style={{ color: '#888', fontSize: '11px', display: 'block', marginBottom: '6px' }}>经期持续天数</label>
+                            <label style={{ color: '#888', fontSize: '11px', display: 'block', marginBottom: '6px' }}>{t('onboarding.periodDurationLabel')}</label>
                             <select
                               value={medicalBackground.periodDuration || ''}
                               onChange={(e) => setMedicalBackground({ ...medicalBackground, periodDuration: e.target.value })}
@@ -3283,7 +3333,7 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
 
                           <div style={{ marginBottom: '12px' }}>
                             <label style={{ color: '#888', fontSize: '11px', display: 'block', marginBottom: '6px' }}>
-                              末次月经第一天 (LMP)
+                              {t('onboarding.lmpLabel')}
                             </label>
                             <div style={{ position: 'relative', width: '100%' }}>
                               <style>{`
@@ -3330,7 +3380,7 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
                           {/* 周期阶段重构为时期：经前，经期，经后，排卵期 */}
                           <div>
                             <label style={{ color: '#888', fontSize: '11px', display: 'block', marginBottom: '8px' }}>
-                              当前处于什么时期
+                              {t('onboarding.cyclePeriodLabel')}
                             </label>
                             <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                               {[t('onboarding.cyclePeriods.pre') || '经前', t('onboarding.cyclePeriods.menstrual') || '经期', t('onboarding.cyclePeriods.post') || '经后', t('onboarding.cyclePeriods.ovulation') || '排卵期'].map(item => (
@@ -3394,7 +3444,7 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
                           </div>
                         </div>
                         <div>
-                          <label style={{ color: '#888', fontSize: '11px', display: 'block', marginBottom: '6px' }}>妇科临床既往史诊断</label>
+                          <label style={{ color: '#888', fontSize: '11px', display: 'block', marginBottom: '6px' }}>{t('onboarding.gynecologicalDiagnosisTitle')}</label>
                           <select
                             value={medicalBackground.diagnosed}
                             onChange={(e) => setMedicalBackground({ ...medicalBackground, diagnosed: e.target.value })}
@@ -3415,7 +3465,7 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
                         </div>
 
                         <div>
-                          <label style={{ color: '#888', fontSize: '11px', display: 'block', marginBottom: '6px' }}>特异性抗炎药/NSAIDs过敏史</label>
+                          <label style={{ color: '#888', fontSize: '11px', display: 'block', marginBottom: '6px' }}>{t('onboarding.allergyLabelFull')}</label>
                           <select
                             value={medicalBackground.allergies}
                             onChange={(e) => setMedicalBackground({ ...medicalBackground, allergies: e.target.value })}
@@ -3437,7 +3487,7 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
 
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                           <div>
-                            <label style={{ color: '#888', fontSize: '11px', display: 'block', marginBottom: '6px' }}>外科手术史</label>
+                            <label style={{ color: '#888', fontSize: '11px', display: 'block', marginBottom: '6px' }}>{t('onboarding.surgicalHistoryLabel')}</label>
                             <select
                               value={medicalBackground.surgicalHistory}
                               onChange={(e) => setMedicalBackground({ ...medicalBackground, surgicalHistory: e.target.value })}
@@ -3458,31 +3508,31 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
                           </div>
 
                           <CollapsibleMultiSelect
-                            label="一级亲属病史"
+                            label={t('onboarding.familyHistoryLabelFull')}
                             options={[
-                              { value: 'mother', label: '母系痛经遗传史' },
-                              { value: 'sister', label: '胞姐胞妹严重痛经史' },
-                              { value: 'none', label: '明确无家族史' },
-                              { value: 'unknown', label: '家族痛经史不详' }
+                              { value: 'mother', label: t('onboarding.familyHistoryMother') },
+                              { value: 'sister', label: t('onboarding.familyHistorySister') },
+                              { value: 'none', label: t('onboarding.familyHistoryNone') },
+                              { value: 'unknown', label: t('onboarding.familyHistoryUnknown') }
                             ]}
                             selectedValues={medicalBackground.familyHistoryArr || []}
                             onChange={(newValues) => setMedicalBackground({ ...medicalBackground, familyHistoryArr: newValues })}
-                            placeholder="请选择"
+                            placeholder={t('onboarding.familyHistoryPlaceholder')}
                           />
                         </div>
 
                         <CollapsibleMultiSelect
-                          label="孕产/生育史"
+                          label={t('onboarding.reproductiveHistoryLabelFull')}
                           options={[
-                            { value: 'nulliparous', label: '从未孕育 (未曾受孕)' },
-                            { value: 'pregnant', label: '目前妊娠中' },
-                            { value: 'parous', label: '正常足月顺产/剖宫产分娩' },
-                            { value: 'spontaneousAbortion', label: '自然流产史' },
-                            { value: 'inducedAbortion', label: '人工终止妊娠/药物流产史' }
+                            { value: 'nulliparous', label: t('onboarding.reproductiveHistoryNulliparous') },
+                            { value: 'pregnant', label: t('onboarding.reproductiveHistoryPregnant') },
+                            { value: 'parous', label: t('onboarding.reproductiveHistoryParous') },
+                            { value: 'spontaneousAbortion', label: t('onboarding.reproductiveHistorySpontaneousAbortion') },
+                            { value: 'inducedAbortion', label: t('onboarding.reproductiveHistoryInducedAbortion') }
                           ]}
                           selectedValues={medicalBackground.reproductiveHistoryArr || []}
                           onChange={(newValues) => setMedicalBackground({ ...medicalBackground, reproductiveHistoryArr: newValues })}
-                          placeholder="请选择"
+                          placeholder={t('onboarding.familyHistoryPlaceholder')}
                         />
                       </div>
                     </>
@@ -3490,115 +3540,327 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
                 </div>
               )}
 
-              {/* === STEP 3: 自愈与舒缓干预偏好 === */}
               {showContent === 'preference' && (
                 appMode === 'general' ? (
-                  // 🎨 1. 日常表达/自愈模式：优雅的体感引导主屏（保留您喜欢的呼吸球、画笔介绍与偏好选择）
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', width: '100%' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', width: '100%' }}>
 
-                    {/* 安神吸气呼吸球 */}
+                    {/* ===== 顶部：呼吸球 + 状态卡片 ===== */}
                     <div style={{
-                      background: 'rgba(255,255,255,0.02)',
-                      border: '1px solid rgba(255,255,255,0.04)',
-                      borderRadius: '24px',
-                      padding: '24px',
+                      background: 'linear-gradient(145deg, rgba(76, 175, 80, 0.06), rgba(76, 175, 80, 0.01))',
+                      border: '1px solid rgba(76, 175, 80, 0.12)',
+                      borderRadius: '28px',
+                      padding: '28px 20px 24px',
                       textAlign: 'center',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      alignItems: 'center'
+                      position: 'relative',
+                      overflow: 'hidden'
                     }}>
+                      {/* 背景光晕 */}
                       <div style={{
-                        width: '80px',
-                        height: '80px',
+                        position: 'absolute',
+                        top: '-40%',
+                        left: '50%',
+                        transform: 'translateX(-50%)',
+                        width: '200px',
+                        height: '200px',
                         borderRadius: '50%',
-                        background: 'rgba(76, 175, 80, 0.08)',
-                        border: '1.5px solid rgba(76, 175, 80, 0.3)',
-                        boxShadow: '0 0 30px rgba(76, 175, 80, 0.1)',
-                        animation: 'pulse 4s infinite ease-in-out',
+                        background: 'radial-gradient(circle, rgba(76,175,80,0.08), transparent 70%)',
+                        pointerEvents: 'none'
+                      }} />
+
+                      {/* 呼吸球 - 带光晕动画 */}
+                      <div style={{
+                        width: '88px',
+                        height: '88px',
+                        margin: '0 auto 16px',
+                        borderRadius: '50%',
+                        background: 'radial-gradient(circle at 40% 35%, rgba(76,175,80,0.15), rgba(76,175,80,0.02))',
+                        border: '1.5px solid rgba(76,175,80,0.2)',
+                        boxShadow: '0 0 40px rgba(76,175,80,0.06), inset 0 0 40px rgba(76,175,80,0.04)',
+                        animation: 'breathPulse 4s ease-in-out infinite',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        marginBottom: '16px'
+                        position: 'relative'
                       }}>
-                        <span style={{ fontSize: '24px' }}>🌬️</span>
+                        <span style={{ fontSize: '32px', opacity: 0.8 }}>🌬️</span>
+                        {/* 脉动环 */}
+                        <div style={{
+                          position: 'absolute',
+                          inset: '-6px',
+                          borderRadius: '50%',
+                          border: '1px solid rgba(76,175,80,0.06)',
+                          animation: 'ringPulse 4s ease-in-out infinite'
+                        }} />
                       </div>
-                      <h4 style={{ color: '#fff', fontSize: '14px', margin: '0 0 6px 0', fontWeight: 'bold' }}>
-                        {targetLanguage === 'en' ? 'Somatic Self-Care Space' : t('onboarding.selfCareReady') || '自愈表达模式已就绪'}
+
+                      <h4 style={{
+                        color: '#fff',
+                        fontSize: '15px',
+                        margin: '0 0 6px 0',
+                        fontWeight: '600',
+                        letterSpacing: '0.3px'
+                      }}>
+                        {targetLanguage === 'en' ? '🌱 Self-Care Mode' : '🌱 自愈表达模式'}
                       </h4>
-                      <p style={{ color: '#666', fontSize: '11px', margin: 0, lineHeight: '1.5' }}>
+                      <p style={{
+                        color: 'rgba(255,255,255,0.4)',
+                        fontSize: '12px',
+                        margin: 0,
+                        lineHeight: '1.6',
+                        maxWidth: '280px',
+                        marginInline: 'auto'
+                      }}>
                         {targetLanguage === 'en'
-                          ? 'Paint your pelvic discomfort with dynamic somatic brushes later.'
-                          : '稍后您将在画布中，通过拧、刺、压、胀、撕 5 种具身体感画笔倾诉您的痛苦。'}
+                          ? 'Draw your pain. We\'ll translate it into care.'
+                          : '画出你的痛，我们把它翻译成关怀。'}
                       </p>
                     </div>
 
-                    {/* 具身痛觉画笔矩阵 */}
+                    {/* ===== 画笔矩阵：两行居中 ===== */}
                     <div style={{
-                      background: '#121212',
-                      border: '1px solid #222',
+                      background: 'linear-gradient(145deg, rgba(255,255,255,0.02), rgba(255,255,255,0.005))',
+                      border: '1px solid rgba(255,255,255,0.04)',
                       borderRadius: '20px',
-                      padding: '20px'
+                      padding: '20px 16px 16px'
                     }}>
-                      <h4 style={{ color: '#4caf50', fontSize: '13px', margin: '0 0 14px 0', fontWeight: 'bold' }}>
-                        🖌️ {targetLanguage === 'en' ? 'Somatic Brushes' : t('onboarding.brushTextures') || '即将启用的体感画笔质地：'}
-                      </h4>
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                        {[
-                          { key: 'twist', emoji: '🌀' },
-                          { key: 'pierce', emoji: '⚡' },
-                          { key: 'heavy', emoji: '🪨' },
-                          { key: 'wave', emoji: '〰️' },
-                          { key: 'scrape', emoji: '🔪' },
-                        ].map(item => (
-                          <div key={item.key} style={{
-                            background: 'rgba(255,255,255,0.01)',
-                            border: '1px solid rgba(255,255,255,0.03)',
-                            borderRadius: '12px',
-                            padding: '12px 14px',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '8px'
-                          }}>
-                            <span style={{ fontSize: '16px' }}>{item.emoji}</span>
-                            <span style={{ color: '#ccc', fontSize: '12px' }}>{t(`brushes.${item.key}.label`)}</span>
-                          </div>
-                        ))}
+                      <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '10px',
+                        marginBottom: '16px',
+                        paddingLeft: '4px'
+                      }}>
+                        <span style={{ fontSize: '14px' }}>🖌️</span>
+                        <span style={{
+                          color: 'rgba(255,255,255,0.5)',
+                          fontSize: '11px',
+                          fontWeight: '500',
+                          letterSpacing: '0.5px',
+                          textTransform: 'uppercase'
+                        }}>
+                          {targetLanguage === 'en' ? 'Somatic Brushes' : '体感画笔'}
+                        </span>
+                        <span style={{
+                          marginLeft: 'auto',
+                          color: 'rgba(255,255,255,0.15)',
+                          fontSize: '10px'
+                        }}>
+                          {targetLanguage === 'en' ? '5 textures' : '5 种质地'}
+                        </span>
+                      </div>
+
+                      {/* 两行居中布局 */}
+                      <div style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        gap: '8px',
+                        width: '100%'
+                      }}>
+                        {/* 第一行：3 个 */}
+                        <div style={{
+                          display: 'flex',
+                          justifyContent: 'center',
+                          gap: '8px',
+                          width: '100%'
+                        }}>
+                          {['twist', 'pierce', 'heavy'].map(key => (
+                            <div key={key} style={{
+                              flex: '1',
+                              maxWidth: '100px',
+                              background: 'rgba(255,255,255,0.02)',
+                              border: '1px solid rgba(255,255,255,0.04)',
+                              borderRadius: '14px',
+                              padding: '14px 6px 12px',
+                              display: 'flex',
+                              flexDirection: 'column',
+                              alignItems: 'center',
+                              gap: '6px'
+                            }}>
+                              {/* 根据 isImage 判断 */}
+                              {BRUSHES[key].isImage ? (
+                                <img
+                                  src={BRUSHES[key].icon}
+                                  alt={BRUSHES[key].label}
+                                  style={{ width: '24px', height: '24px', objectFit: 'contain' }}
+                                />
+                              ) : (
+                                <span style={{ fontSize: '22px', lineHeight: 1 }}>{BRUSHES[key].icon}</span>
+                              )}
+                              <span style={{
+                                color: 'rgba(255,255,255,0.4)',
+                                fontSize: '10px',
+                                fontWeight: '400',
+                                letterSpacing: '0.2px'
+                              }}>
+                                {t(`brushes.${key}.label`)}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+
+                        {/* 第二行：2 个（居中） */}
+                        <div style={{
+                          display: 'flex',
+                          justifyContent: 'center',
+                          gap: '8px',
+                          width: '100%',
+                          maxWidth: '216px'
+                        }}>
+                          {['wave', 'scrape'].map(key => (
+                            <div key={key} style={{
+                              flex: '1',
+                              maxWidth: '100px',
+                              background: 'rgba(255,255,255,0.02)',
+                              border: '1px solid rgba(255,255,255,0.04)',
+                              borderRadius: '14px',
+                              padding: '14px 6px 12px',
+                              display: 'flex',
+                              flexDirection: 'column',
+                              alignItems: 'center',
+                              gap: '6px'
+                            }}>
+                              {BRUSHES[key].isImage ? (
+                                <img
+                                  src={BRUSHES[key].icon}
+                                  alt={BRUSHES[key].label}
+                                  style={{ width: '24px', height: '24px', objectFit: 'contain' }}
+                                />
+                              ) : (
+                                <span style={{ fontSize: '22px', lineHeight: 1 }}>{BRUSHES[key].icon}</span>
+                              )}
+                              <span style={{
+                                color: 'rgba(255,255,255,0.4)',
+                                fontSize: '10px',
+                                fontWeight: '400',
+                                letterSpacing: '0.2px'
+                              }}>
+                                {t(`brushes.${key}.label`)}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
                       </div>
                     </div>
 
-                    {/* 照护偏好 */}
-                    <div style={{ background: '#1c1c1c', borderRadius: '20px', padding: '20px', border: '1px solid #333' }}>
-                      <p style={{ color: '#888', fontSize: '11.5px', marginBottom: '14px', textAlign: 'center' }}>
-                        {t('onboarding.preferenceHint')}
-                      </p>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                        {['alone', 'care', 'comfort'].map((p, i) => (
-                          <button key={p} onClick={() => togglePref(p)} style={{
-                            padding: '12px 14px', borderRadius: '12px', textAlign: 'center',
-                            background: userPrefs.includes(p) ? 'rgba(76, 175, 80, 0.08)' : '#111',
-                            border: userPrefs.includes(p) ? '1.5px solid #4caf50' : '1.5px solid #333',
-                            color: userPrefs.includes(p) ? '#fff' : '#888',
-                            cursor: 'pointer', transition: 'all 0.2s',
-                            fontSize: '13px', fontWeight: userPrefs.includes(p) ? 'bold' : 'normal'
-                          }}>
-                            {t(`onboarding.preferences.${i}.title`)}
-                          </button>
-                        ))}
+                    {/* ===== 照护偏好：三段式卡片 ===== */}
+                    <div style={{
+                      background: 'linear-gradient(145deg, rgba(255,255,255,0.02), rgba(255,255,255,0.005))',
+                      border: '1px solid rgba(255,255,255,0.04)',
+                      borderRadius: '20px',
+                      padding: '20px 16px 16px'
+                    }}>
+                      <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '10px',
+                        marginBottom: '14px',
+                        paddingLeft: '4px'
+                      }}>
+                        <span style={{ fontSize: '14px' }}>💚</span>
+                        <span style={{
+                          color: 'rgba(255,255,255,0.5)',
+                          fontSize: '11px',
+                          fontWeight: '500',
+                          letterSpacing: '0.5px',
+                          textTransform: 'uppercase'
+                        }}>
+                          {targetLanguage === 'en' ? 'Care Preference' : '照护偏好'}
+                        </span>
+                      </div>
+
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                        {[
+                          { key: 'alone', label: '别管我，让我一个人待着' },
+                          { key: 'care', label: '我没力气，需要实际照顾' },
+                          { key: 'comfort', label: '我很脆弱，需要情绪陪伴' }
+                        ].map((p, i) => {
+                          const isActive = userPrefs.includes(p.key);
+                          return (
+                            <button
+                              key={p.key}
+                              onClick={() => togglePref(p.key)}
+                              style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '14px',
+                                padding: '12px 16px',
+                                width: '100%',
+                                borderRadius: '14px',
+                                background: isActive ? 'rgba(76, 175, 80, 0.06)' : 'transparent',
+                                border: isActive ? '1px solid rgba(76, 175, 80, 0.2)' : '1px solid rgba(255,255,255,0.04)',
+                                color: isActive ? '#fff' : 'rgba(255,255,255,0.35)',
+                                cursor: 'pointer',
+                                transition: 'all 0.25s ease',
+                                textAlign: 'left',
+                                fontSize: '13px'
+                              }}
+                            >
+                              <span style={{ fontSize: '18px', opacity: isActive ? 1 : 0.4 }}>{p.icon}</span>
+                              <span style={{ flex: 1, fontWeight: isActive ? '500' : '400' }}>
+                                {t(`onboarding.preferences.${i}.title`)}
+                              </span>
+                              {isActive && (
+                                <span style={{
+                                  fontSize: '12px',
+                                  color: '#4caf50',
+                                  fontWeight: '600'
+                                }}>✓</span>
+                              )}
+                            </button>
+                          );
+                        })}
                       </div>
                     </div>
-                    <div style={{ background: '#1c1c1c', borderRadius: '20px', padding: '20px', border: '1px solid #333' }}>
-                      <p style={{ color: '#888', fontSize: '12px', marginBottom: '12px', textAlign: 'center' }}>
-                        {t('onboarding.toneTitle') || '语气偏好倾向'}
-                      </p>
-                      <div style={{ display: 'flex', gap: '12px' }}>
+
+                    {/* ===== 语气偏好：双按钮 ===== */}
+                    <div style={{
+                      background: 'linear-gradient(145deg, rgba(255,255,255,0.02), rgba(255,255,255,0.005))',
+                      border: '1px solid rgba(255,255,255,0.04)',
+                      borderRadius: '20px',
+                      padding: '20px 16px 16px'
+                    }}>
+                      <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '10px',
+                        marginBottom: '14px',
+                        paddingLeft: '4px'
+                      }}>
+                        <span style={{ fontSize: '14px' }}>🎯</span>
+                        <span style={{
+                          color: 'rgba(255,255,255,0.5)',
+                          fontSize: '11px',
+                          fontWeight: '500',
+                          letterSpacing: '0.5px',
+                          textTransform: 'uppercase'
+                        }}>
+                          {targetLanguage === 'en' ? 'Tone Preference' : '语气偏好'}
+                        </span>
+                      </div>
+
+                      <div style={{ display: 'flex', gap: '10px' }}>
                         <button
                           onClick={() => setTonePreference('gentle')}
                           style={{
-                            flex: 1, padding: '12px', borderRadius: '12px', fontSize: '13px', cursor: 'pointer',
-                            background: tonePreference === 'gentle' ? 'rgba(76, 175, 80, 0.15)' : '#111',
-                            color: tonePreference === 'gentle' ? '#fff' : '#888',
-                            border: tonePreference === 'gentle' ? '1.5px solid #4caf50' : '1.5px solid #333',
-                            transition: 'all 0.2s'
+                            flex: 1,
+                            padding: '14px 0',
+                            borderRadius: '14px',
+                            fontSize: '13px',
+                            cursor: 'pointer',
+                            background: tonePreference === 'gentle'
+                              ? 'rgba(76, 175, 80, 0.08)'
+                              : 'transparent',
+                            color: tonePreference === 'gentle' ? '#fff' : 'rgba(255,255,255,0.3)',
+                            border: tonePreference === 'gentle'
+                              ? '1px solid rgba(76, 175, 80, 0.2)'
+                              : '1px solid rgba(255,255,255,0.04)',
+                            transition: 'all 0.25s ease',
+                            fontWeight: tonePreference === 'gentle' ? '500' : '400',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: '8px'
                           }}
                         >
                           {t('onboarding.toneGentle') || '温和舒缓'}
@@ -3606,20 +3868,52 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
                         <button
                           onClick={() => setTonePreference('direct')}
                           style={{
-                            flex: 1, padding: '12px', borderRadius: '12px', fontSize: '13px', cursor: 'pointer',
-                            background: tonePreference === 'direct' ? 'rgba(33, 150, 243, 0.15)' : '#111',
-                            color: tonePreference === 'direct' ? '#fff' : '#888',
-                            border: tonePreference === 'direct' ? '1.5px solid #2196f3' : '1.5px solid #333',
-                            transition: 'all 0.2s'
+                            flex: 1,
+                            padding: '14px 0',
+                            borderRadius: '14px',
+                            fontSize: '13px',
+                            cursor: 'pointer',
+                            background: tonePreference === 'direct'
+                              ? 'rgba(33, 150, 243, 0.08)'
+                              : 'transparent',
+                            color: tonePreference === 'direct' ? '#fff' : 'rgba(255,255,255,0.3)',
+                            border: tonePreference === 'direct'
+                              ? '1px solid rgba(33, 150, 243, 0.2)'
+                              : '1px solid rgba(255,255,255,0.04)',
+                            transition: 'all 0.25s ease',
+                            fontWeight: tonePreference === 'direct' ? '500' : '400',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: '8px'
                           }}
                         >
                           {t('onboarding.toneDirect') || '直接客观'}
                         </button>
                       </div>
-                      <p style={{ color: '#555', fontSize: '11px', marginTop: '8px', textAlign: 'center', lineHeight: '1.4' }}>
-                        {t('onboarding.toneHint') || '语气选择将决定AI为您推荐的自愈调理方案话术风格'}
+                      <p style={{
+                        color: 'rgba(255,255,255,0.15)',
+                        fontSize: '10px',
+                        marginTop: '12px',
+                        textAlign: 'center',
+                        letterSpacing: '0.2px'
+                      }}>
+                        {targetLanguage === 'en'
+                          ? 'Affects how AI phrases your self-care guide'
+                          : '影响 AI 为你生成自愈方案的话术风格'}
                       </p>
                     </div>
+
+                    <style>{`
+        @keyframes breathPulse {
+          0%, 100% { transform: scale(1); }
+          50% { transform: scale(1.06); }
+        }
+        @keyframes ringPulse {
+          0%, 100% { transform: scale(1); opacity: 0.3; }
+          50% { transform: scale(1.15); opacity: 0; }
+        }
+      `}</style>
                   </div>
                 ) : (
                   // 🏥 2. 医疗协助模式：全量展示照护偏好 + 自愈转译语气选择（温和 / 直接）
@@ -3836,17 +4130,17 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
 
         {/* === Canvas 绘画页面 === */}
         {page === "canvas" && (
-          <div 
+          <div
             className="canvas-screen-wrapper" // 挂载锁定类名
-            style={{ 
+            style={{
               position: 'fixed',              // 采用 fixed 替换 absolute，彻底锁死视口不留缝隙
-              top: 0, 
-              left: 0, 
-              width: '100vw', 
-              height: '100vh', 
-              zIndex: 10, 
-              pointerEvents: 'auto', 
-              userSelect: 'none', 
+              top: 0,
+              left: 0,
+              width: '100vw',
+              height: '100vh',
+              zIndex: 10,
+              pointerEvents: 'auto',
+              userSelect: 'none',
               WebkitUserSelect: 'none',
               overflow: 'hidden'              // 剪裁任何多余的摇晃溢出
             }}>
@@ -4277,7 +4571,7 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
 
                       <div style={{ marginTop: '24px', paddingTop: '16px', borderTop: '1px solid #222' }}>
                         <h4 style={{ color: '#ef5350', fontSize: '14px', fontWeight: '600', margin: '0 0 14px 0', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                          🔴 经期陪伴指南
+                          🔴 {t('resultLabels.companionGuide')}
                         </h4>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                           {randomPartnerTips.map((tip, idx) => {
@@ -4314,7 +4608,7 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
 
                       <div style={{ marginBottom: '16px' }}>
                         <span style={{ color: '#666', fontSize: '11px', display: 'block', marginBottom: '6px' }}>
-                          📢 发送对象与场景：
+                          {t('resultLabels.sendTarget')}
                         </span>
                         <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                           {['manager', 'teacher', 'client', 'friend'].map(key => (
@@ -4342,7 +4636,7 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
 
                       <div style={{ marginBottom: '20px' }}>
                         <span style={{ color: '#666', fontSize: '11px', display: 'block', marginBottom: '6px' }}>
-                          🎭 表达语气倾向：
+                          {t('resultLabels.tonePreference')}
                         </span>
                         <div style={{ display: 'flex', gap: '8px' }}>
                           {['polite', 'objective'].map(key => (
@@ -4429,7 +4723,7 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
                       {content.chief_complaint && content.chief_complaint.trim() && (
                         <div style={{ background: 'rgba(211,47,47,0.02)', padding: '16px', borderRadius: '14px', border: '1px solid rgba(211,47,47,0.1)', borderLeft: '4px solid #d32f2f' }}>
                           <h4 style={{ color: '#ef5350', fontSize: '13px', margin: '0 0 8px 0', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 'bold', letterSpacing: '0.5px' }}>
-                            <span>📋</span> 主诉 (Chief Complaint)
+                            <span>📋</span> {t('doctorTab.chiefComplaint')}
                           </h4>
                           <EditableBlock fieldKey="chief_complaint" defaultValue={content.chief_complaint} color="#fff" style={{ fontSize: '14.5px', fontWeight: '500', lineHeight: '1.7', whiteSpace: 'pre-wrap' }} />
                         </div>
@@ -4439,7 +4733,7 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
                       {content.present_illness && content.present_illness.trim() && (
                         <div style={{ background: '#161616', padding: '18px', borderRadius: '14px', border: '1px solid #222' }}>
                           <h4 style={{ color: '#90caf9', fontSize: '13px', margin: '0 0 10px 0', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 'bold', letterSpacing: '0.5px' }}>
-                            <span>📝</span> 现病史及痛感机制分析
+                            <span>📝</span> {t('doctorTab.presentIllness')}
                           </h4>
                           <EditableBlock fieldKey="present_illness" defaultValue={content.present_illness} color="#e0e0e0" style={{ fontSize: '13.5px', lineHeight: '1.8', whiteSpace: 'pre-wrap' }} />
                         </div>
@@ -4449,7 +4743,7 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
                       {content.past_history && content.past_history.trim() && (
                         <div style={{ background: '#161616', padding: '18px', borderRadius: '14px', border: '1px solid #222' }}>
                           <h4 style={{ color: '#90caf9', fontSize: '13px', margin: '0 0 10px 0', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 'bold', letterSpacing: '0.5px' }}>
-                            <span>📂</span> 既往史及个人习惯风险
+                            <span>📂</span> {t('doctorTab.pastHistory')}
                           </h4>
                           <EditableBlock fieldKey="past_history" defaultValue={content.past_history} color="#cccccc" style={{ fontSize: '13px', lineHeight: '1.8', whiteSpace: 'pre-wrap' }} />
                         </div>
@@ -4459,7 +4753,7 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
                       {content.menstrual_history && content.menstrual_history.trim() && (
                         <div style={{ background: '#161616', padding: '18px', borderRadius: '14px', border: '1px solid #222' }}>
                           <h4 style={{ color: '#90caf9', fontSize: '13px', margin: '0 0 10px 0', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 'bold', letterSpacing: '0.5px' }}>
-                            <span>🌸</span> 月经及孕产史
+                            <span>🌸</span> {t('doctorTab.menstrualObstetricHistory')}
                           </h4>
                           <EditableBlock fieldKey="menstrual_history" defaultValue={content.menstrual_history} color="#cccccc" style={{ fontSize: '13px', lineHeight: '1.8', whiteSpace: 'pre-wrap' }} />
                         </div>
@@ -4469,7 +4763,7 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
                       {content.clinical_diagnosis && content.clinical_diagnosis.trim() && (
                         <div style={{ background: 'rgba(33,150,243,0.02)', padding: '18px', borderRadius: '14px', border: '1px solid rgba(33,150,243,0.1)', borderLeft: '4px solid #2196f3' }}>
                           <h4 style={{ color: '#90caf9', fontSize: '13px', margin: '0 0 10px 0', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 'bold', letterSpacing: '0.5px' }}>
-                            <span>🩺</span> 患者主诉与潜在筛查建议
+                            <span>🩺</span> {t('doctorTab.clinicalDiagnosis')}
                           </h4>
                           <EditableBlock fieldKey="clinical_diagnosis" defaultValue={content.clinical_diagnosis} color="#e3f2fd" style={{ fontSize: '13.5px', lineHeight: '1.8', whiteSpace: 'pre-wrap', fontWeight: '500' }} />
                         </div>
@@ -4479,7 +4773,7 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
                       {content.exam_advice && (
                         <div style={{ padding: '18px', background: 'rgba(76,175,80,0.02)', borderRadius: '14px', border: '1px solid rgba(76,175,80,0.1)', borderLeft: '4px solid #4caf50' }}>
                           <h4 style={{ color: '#a5d6a7', fontSize: '13px', margin: '0 0 10px 0', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px', letterSpacing: '0.5px' }}>
-                            <span>🔬</span> 供您与医生讨论参考
+                            <span>🔬</span> {t('doctorTab.discussionReference')}
                           </h4>
                           <p style={{ color: '#fff', fontSize: '14px', fontWeight: 'bold', margin: '0 0 8px 0' }}>{content.exam_advice.name}</p>
                           <p style={{ color: '#aaa', fontSize: '12.5px', marginTop: '6px', lineHeight: '1.7', whiteSpace: 'pre-wrap' }}>📋 <strong>检查前准备：</strong>{content.exam_advice.preparation}</p>
@@ -4491,7 +4785,7 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
                       {content.clinical_suggestions && content.clinical_suggestions.trim() && (
                         <div style={{ background: '#161616', padding: '18px', borderRadius: '14px', border: '1px solid #222' }}>
                           <h4 style={{ color: '#ffb74d', fontSize: '13px', margin: '0 0 12px 0', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 'bold', letterSpacing: '0.5px' }}>
-                            <span>💊</span> 临床调理参考与防护引导
+                            <span>💊</span> {t('doctorTab.clinicalAdvice')}
                           </h4>
                           <EditableBlock fieldKey="clinical_suggestions" defaultValue={content.clinical_suggestions} color="#e0e0e0" style={{ fontSize: '13px', lineHeight: '1.85', whiteSpace: 'pre-wrap' }} />
                         </div>
@@ -4569,10 +4863,10 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
 
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                         {[
-                          { key: 'breathing', icon: '🌬️', title: t('healing.breathing.title') || '一起认真呼吸', subtitle: t('healing.breathing.description') || '配声学潮汐呼吸引导，放松盆底肌群', color: '#4caf50' },
-                          { key: 'posture', icon: '🧘', title: t('healing.meditation.title') || '做个简易拉伸', subtitle: '静心空灵环境音，缓解子宫韧带牵拉', color: '#ab47bc' },
-                          { key: 'acupressure', icon: '💆', title: '快速穴位按揉', subtitle: '60 BPM 节拍节奏引导，阻断痉挛锐痛', color: '#2196f3' },
-                          { key: 'thermal', icon: '🔥', title: t('healing.heatPack.title') || '热敷与食补', subtitle: '柴火燃烧白噪音，心理升温理疗', color: '#ff9800' }
+                          { key: 'breathing', icon: '🌬️', title: t('healing.breathing.title'), subtitle: t('healing.breathing.description'), color: '#4caf50' },
+                          { key: 'posture', icon: '🧘', title: t('healing.meditation.title'), subtitle: t('healing.meditation.description'), color: '#ab47bc' },
+                          { key: 'acupressure', icon: '💆', title: t('healing.acupressure.title'), subtitle: t('healing.acupressure.description'), color: '#2196f3' },
+                          { key: 'thermal', icon: '🔥', title: t('healing.heatPack.title'), subtitle: t('healing.heatPack.description'), color: '#ff9800' }
                         ].map((tip) => (
                           <div
                             key={tip.key}

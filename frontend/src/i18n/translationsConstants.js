@@ -16,7 +16,7 @@ export const BRUSHES = {
   },
   pierce: {
     label: "荆/刺",
-    icon: "/pierce.png",
+    icon: "pierce.png",
     isImage: true
   },
   heavy: {
