@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import Sketch from 'react-p5';
 import { useI18n } from '../i18n/i18nContext';
 import { BRUSHES, PALETTES } from '../i18n/translationsConstants';
-import { PainParticle } from '../components/PainParticle';
+import { PainParticle } from '../Components/PainParticle';
 import { useAudio } from '../hooks/useAudio';
 
 // ============================================================

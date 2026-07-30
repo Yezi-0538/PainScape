@@ -1,6 +1,6 @@
 // src/hooks/useParticle.js
 import { useRef, useCallback } from 'react';
-import { PainParticle } from '../components/PainParticle';
+import { PainParticle } from '../Components/PainParticle';
 
 export const useParticle = () => {
   const particlePositions = useRef([]);

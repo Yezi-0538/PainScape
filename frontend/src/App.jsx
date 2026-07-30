@@ -14,9 +14,9 @@ import HistoryPage from './pages/History';
 import ProfilePage from './pages/ProfilePage';
 
 // ===== 组件导入 =====//
-import SomaticHealingSpace from './components/SomaticHealingSpace.jsx';
-import Loading from './components/Loading';
-import { useToast, Toast } from './components/Toast';
+import SomaticHealingSpace from './Components/SomaticHealingSpace.jsx';
+import Loading from './Components/Loading.jsx';
+import { useToast, Toast } from './Components/Toast.jsx';
 
 // ===== 工具函数导入 =====
 import { loadFromStorage, saveToStorage } from './utils/helpers';

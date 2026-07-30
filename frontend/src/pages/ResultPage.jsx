@@ -1,8 +1,8 @@
 // src/pages/ResultPage.jsx
 import React, { useState, useEffect } from 'react';
 import { useI18n } from '../i18n/i18nContext';
-import EditableBlock from '../components/EditableBlock';
-import SharePreviewModal from '../components/modals/SharePreviewModal';
+import EditableBlock from '../Components/EditableBlock';
+import SharePreviewModal from '../Components/modals/SharePreviewModal';
 
 export default function ResultPage({
   // 导航

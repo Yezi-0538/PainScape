@@ -2,7 +2,7 @@
 import React, { useState, useRef } from 'react';
 import { useUser, PRESET_BACKGROUNDS, PRESET_AVATARS } from '../contexts/UserContext';
 import { useI18n } from '../i18n/i18nContext';
-import CropModal from '../components/CropModal';
+import CropModal from '../Components/CropModal';
 import { compressImage } from '../utils/imageUtils';
 
 export default function ProfilePage({ history, onBack }) {
