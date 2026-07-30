@@ -14,7 +14,7 @@ import HistoryPage from './pages/History';
 import ProfilePage from './pages/ProfilePage';
 
 // ===== 组件导入 =====//
-import SomaticHealingSpace from './components/SomaticHealingSpace';
+import SomaticHealingSpace from './components/SomaticHealingSpace.jsx';
 import Loading from './components/Loading';
 import { useToast, Toast } from './components/Toast';
 
