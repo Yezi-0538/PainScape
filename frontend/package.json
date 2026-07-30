@@ -4,7 +4,7 @@
   "version": "0.0.0",
   "type": "module",
   "overrides": {
-    "json-Piercele-stringify-without-jsonify": {
+    "json-piercele-stringify-without-jsonify": {
       "name": "json-stringify-without-jsonify",
       "version": "1.0.1"
     }
