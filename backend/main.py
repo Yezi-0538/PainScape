@@ -1,7 +1,9 @@
 # main.py
-# PainScape 后端服务网关
+# ═══════════════════════════════════════════════════════════
+# PainScape 后端服务网关 (已对齐防篡改、翻译字典、数值脱敏与温情引导红线)
+# ═══════════════════════════════════════════════════════════
 
-from fastapi import FastAPI, Header, HTTPException
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from typing import Optional, Dict, List, Any
@@ -13,7 +15,6 @@ import requests
 import traceback
 from dotenv import load_dotenv
 from openai import OpenAI
-from supabase import create_client, Client
 
 load_dotenv()
 
@@ -50,15 +51,15 @@ PROVIDER_CONFIG = {
     "vivo": {
         "base_url": "https://api-ai.vivo.com.cn/v1",
         "api_key_env": "VIVO_API_KEY",
-        "model": "Volc-DeepSeek-V3.2",
-        "model_quick": "Doubao-Seed-2.0-mini",
+        "model": "Volc-DeepSeek-V3.2",  # 医疗专科大病历使用 DeepSeek V3.2
+        "model_quick": "Doubao-Seed-2.0-mini",  # 快速录入及非医疗使用 Doubao-mini
         "model_refine": "Doubao-Seed-2.0-mini",
         "max_tokens": 4096,
         "display_name": "Vivo蓝心大模型网关",
     },
 }
 
-# 多语言映射
+# 简易多语言映射对照
 PAIN_MAP = {
     "zh": {
         "spasmodic": "痉挛性收缩感",
@@ -74,7 +75,9 @@ PAIN_MAP = {
     },
 }
 
-# 字典映射：将前端枚举值转为展示文本
+# ─────────────────────────────────────────────
+# 🛡️ 数据隔离字典（彻底阻断代码 Key 泄漏至前端）
+# ─────────────────────────────────────────────
 LIFESTYLE_DICT = {
     "zh": {
         "sleepShort": "睡眠时长不足/熬夜",
@@ -145,15 +148,15 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Few-shot 范例，用于稳定输出格式
+# 全局 Few-Shot 范例模板定义 (统一格式)
 FEW_SHOT_EXAMPLE_ZH = """
 {
   "chief_complaint": "周期性下腹部痉挛性收缩感。",
   "present_illness": "患者既往月经规律。今日处于生理期第2天，盆腔微循环处于自然生理充血状态。感下腹部持续性收紧痛，痛感中等，伴阵发性收缩，向腰骶部有轻度酸胀感。未自行口服药物调理。病期未诉其余伴随异常指征。患者病来精神尚可，系统状况未详细采集，体能状态一般，体重无异常变化。",
   "past_history": "既往史：平素健康。无特殊慢性病史。手术史：无腹部及盆腔手术史。过敏史：无明确药物过敏史。个人史及家族史详见背景采集。",
   "menstrual_history": "13 (5/28天) LMP: 2026-06-27. 痛经：有。生育史：未婚未育（无怀孕史，无生育史，G0P0）。",
-  "clinical_diagnosis": "1. 周期性子宫平滑肌痉挛（生理期功能性痛觉高敏可能）\n\n💡 请放心：上述筛查仅为临床常规排除项，器质性病变的概率极低，多为一过性敏感，请勿惊慌。",
-  "clinical_suggestions": "【建议就诊时与医生讨论的要点】：\n1. 结合既往健康档案及痛觉表现，建议请医生在行盆腔超声检查（高性价比、常规无创初筛，多属于医保报销范畴）时评估是否存在局部痉挛或潜在功能性不协调。\n2. 讨论口服抗炎镇痛药物的针对性调节。\n\n【妇科专科检查消除恐惧指南】：\n妇科超声及妇检检查是极基础的无创初筛排查方法。如果推荐您进行相关检查，请配合医生进行深慢呼吸，主动放松盆底括约肌。医生会提供充分的屏风和隐私防护以保护您的隐私边界与检查尊严。请放心配合医生，尽早明确痛因。",
+  "clinical_diagnosis": "1. 周期性子宫平滑肌痉挛（生理期功能性痛觉高敏可能）\\n\\n💡 请放心：上述筛查仅为临床常规排除项，器质性病变的概率极低，多为一过性敏感，请勿惊慌。",
+  "clinical_suggestions": "【建议就诊时与医生讨论的要点】：\\n1. 结合既往健康档案及痛觉表现，建议请医生在行盆腔超声检查（高性价比、常规无创初筛，多属于医保报销范畴）时评估是否存在局部痉挛或潜在功能性不协调。\\n2. 讨论口服抗炎镇痛药物的针对性调节。\\n\\n【妇科专科检查消除恐惧指南】：\\n妇科超声及妇检检查是极基础的无创初筛排查方法。如果推荐您进行相关检查，请配合医生进行深慢呼吸，主动放松盆底括约肌。医生会提供充分的屏风和隐私防护以保护您的隐私边界与检查尊严。请放心配合医生，尽早明确痛因。",
   "analogy": "子宫内像藏着一个上紧了发条的金属夹子，在不断收缩拧动，冷意带着尖锐的酸麻感直窜后脊，疼得根本站不直身子。",
   "work": "因今天生理期不适/痛经，特申请请假休息一天，望批准。",
   "action": [
@@ -167,7 +170,9 @@ FEW_SHOT_EXAMPLE_ZH = """
 }
 """
 
-# ── Pydantic 模型 ──
+# ─────────────────────────────────────────────
+# Pydantic 数据模型
+# ─────────────────────────────────────────────
 
 class SpatialMapModel(BaseModel):
     abdomen: Optional[float] = 0.5
@@ -231,8 +236,9 @@ class PainData(BaseModel):
     accompanyingSymptoms: Optional[List[str]] = Field(default_factory=list)
 
 
-# ── 辅助函数 ──
-
+# ─────────────────────────────────────────────
+# 🛡️ 临床级背景格式化安全处理器
+# ─────────────────────────────────────────────
 def get_val_from_mb(
     mb: Optional[MedicalBackgroundModel], key: str, fallback: str = "未详述"
 ) -> str:
@@ -268,6 +274,7 @@ def get_surgical_desc(mb: Optional[MedicalBackgroundModel], lang: str) -> str:
 
 def get_reproductive_desc(mb: Optional[MedicalBackgroundModel], lang: str) -> str:
     repo_list = getattr(mb, "reproductiveHistoryArr", []) if mb else []
+    # 使用中英文映射字典防止 Enum 泄漏
     rep_dict = REPRODUCTIVE_DICT.get(lang, REPRODUCTIVE_DICT["zh"])
     desc_list = [rep_dict.get(str(r), str(r)) for r in repo_list if r]
     if lang == "zh":
@@ -408,8 +415,9 @@ def get_color_somatic_meaning(color: Optional[str], lang: str) -> str:
     return meanings.get(color_key, meanings["crimson"])
 
 
-# ══ 主接口 ══
-
+# ═══════════════════════════════════════════════════════════
+# 主力 POST 生成接口
+# ═══════════════════════════════════════════════════════════
 @app.post("/api/generate")
 def generate_pain_report(data: PainData):
     lang = "zh"
@@ -424,7 +432,7 @@ def generate_pain_report(data: PainData):
         pt_dict = PAIN_MAP.get(lang, PAIN_MAP["zh"])
         vector_analysis = translate_vectors_to_clinical(data, lang)
 
-        # 检查过敏史
+        # 止痛药过敏坚决no
         raw_allergies = ""
         if mb:
             raw_allergies = (
@@ -471,6 +479,7 @@ def generate_pain_report(data: PainData):
 - 绝对禁止推荐/出现的止痛药：{forbidden_drugs}
 """
 
+        # 止痛药名称纠正
         painkiller = "对乙酰氨基酚" if has_nsaid_allergy else "布洛芬"
 
         pain_location_desc = build_pain_location_desc(data.spatialMap, lang)
@@ -493,6 +502,7 @@ def generate_pain_report(data: PainData):
         menarche_val = get_val_from_mb(mb, "menarcheAge", "未详述")
         menarche_desc = f"{menarche_val} 岁" if menarche_val != "未详述" else "未详述"
 
+        # 周期位置定位
         cycle_day_str = str(data.cycleDay or "").lower()
         active_phase_zh = "月经期 (Day 1-7)"
         active_phase_en = "Menstrual Phase (Day 1-7)"
@@ -509,6 +519,7 @@ def generate_pain_report(data: PainData):
 
         active_phase = active_phase_zh if lang == "zh" else active_phase_en
 
+        # 对健康背景数据中的前端原始枚举（Enum）键名进行翻译，防止生成泄漏
         lifestyle_final = "无特殊不良作息"
         family_history_final = "个人史与家族史详见背景采集"
         reproductive_final = "未生育"
@@ -560,6 +571,7 @@ def generate_pain_report(data: PainData):
             if surg_val and surg_val != "none":
                 surgical_history_val = surg_desc
 
+        # 物理标度换算
         raw_score = data.painScore
         vas_score = (
             min(10, max(1, int(raw_score / 80)))
@@ -570,10 +582,11 @@ def generate_pain_report(data: PainData):
             min(100, int(raw_score / 8)) if raw_score > 100 else max(10, raw_score)
         )
 
+        # 🏥 【 System Prompt】：去病理恐慌、杜绝美化痛觉、高雅得体假条约束
         if app_mode == "medical":
             sys_prompt = f"""
-You are an expert clinical gynecological intake specialist. You write gynecological admission records for medical consultations.
-Your output must be strictly written in the tone, style, and structure of a real Class-A tertiary hospital medical record.
+You are an expert clinical gynecological intake specialist. You write gynecological admission records (住院/入院记录) for medical consultations.
+Your output must be strictly written in the tone, style, and structure of a real Class-A tertiary hospital medical record (参考三甲医院妇科病历书写规范).
 
 【病历书写硬性合规防错指令】
 1. 【严禁生造词与软件工具词汇】！病历正文中【绝对不允许】出现“画笔”、“画布行为”、“分值评分”、“痛觉矢量图谱”、“绘图定位”、“前端”等任何软件专有名词。必须将其转译为标准医学词汇。
@@ -624,8 +637,9 @@ Your output must be strictly written in the tone, style, and structure of a real
 }}
 """
         else:
+            # 🎨 日常自愈模式 System Prompt
             sys_prompt = f"""
-You are a warm, empathetic period self-care companion and somatic guide.
+You are a warm, empathetic period self-care companion and somatic guide (经期身体自愈与通感疗愈导师).
 Your output must be comforting, highly gentle, and focused on self-healing, emotional breathing, and companion guidance.
 The terminology must be easy to read, eliminating any clinical distress or complex medical nomenclature.
 
@@ -636,6 +650,7 @@ The terminology must be easy to read, eliminating any clinical distress or compl
 4. "work" 部分必须是严格限制在 40 字以内的社交推辞/推约短文本。
 """
 
+        # 3. 极严苛的 User Prompt
         user_prompt = f"""
 【🚨 真实当前患者数据输入 - 绝对禁区！只能使用以下提供的数据进行处理，严禁捏造任何未提供的数据】
 
@@ -673,6 +688,7 @@ The terminology must be easy to read, eliminating any clinical distress or compl
 
         print(f"🤖 正在请求服务提供商: {config['display_name']} ({model_name})...")
 
+        # 4. 执行制定的原生 API 负载参数传输
         payload = {
             "model": model_name,
             "messages": [
@@ -713,6 +729,7 @@ The terminology must be easy to read, eliminating any clinical distress or compl
             )
             raw_text = completion.choices[0].message.content
 
+        # 5. 安全清理 Markdown
         cleaned_text = re.sub(
             r"^```(?:json)?\s*", "", raw_text, flags=re.MULTILINE | re.IGNORECASE
         )
@@ -728,6 +745,7 @@ The terminology must be easy to read, eliminating any clinical distress or compl
             val = json_data.get(key) if isinstance(json_data, dict) else None
             return val if val and str(val).strip() else fallback_val
 
+        # 6. 返回前端数据字典
         return {
             "status": "success",
             "language": lang,
@@ -765,6 +783,8 @@ The terminology must be easy to read, eliminating any clinical distress or compl
         }
 
     except Exception as e:
+        import traceback
+
         print(f"❌ 运行发生异常，进入安全降级保护: {e}")
         print(traceback.format_exc())
         fallback = _fallback_response(lang, painkiller, app_mode, data)
@@ -772,153 +792,21 @@ The terminology must be easy to read, eliminating any clinical distress or compl
         return fallback
 
 
-# ══ Supabase 初始化 ══
-
-supabase_url = os.getenv("SUPABASE_URL")
-supabase_key = os.getenv("SUPABASE_SERVICE_KEY") or os.getenv("SUPABASE_ANON_KEY")
-supabase_client: Client | None = None
-if supabase_url and supabase_key:
-    supabase_client = create_client(supabase_url, supabase_key)
-
-def get_supabase_user(authorization: str = Header(None), lang: str = 'zh'):
-    """从 Authorization header 解析 Supabase 用户"""
-    if not authorization or not supabase_client:
-    if lang == "en":
-            if lang == "en":
-            if lang == "en":
-            if lang == "en":
-        raise HTTPException(status_code=401, detail="Unauthorized / Supabase not configured")
-    raise HTTPException(status_code=401, detail="未授权 / Supabase 未配置")
-    raise HTTPException(status_code=401, detail="未授权 / Supabase 未配置")
-    raise HTTPException(status_code=401, detail="未授权 / Supabase 未配置")
-    else:
-        raise HTTPException(status_code=401, detail="未授权 / Supabase 未配置")
-    try:
-        token = authorization.replace("Bearer ", "")
-        user = supabase_client.auth.get_user(token)
-        return user.user.id
-    except Exception as e:
-        if lang == "en":
-                if lang == "en":
-            if lang == "en":
-            if lang == "en":
-        raise HTTPException(status_code=401, detail=f"Invalid token: {str(e)}")
-    raise HTTPException(status_code=401, detail=f"无效的令牌: {str(e)}")
-    raise HTTPException(status_code=401, detail=f"无效的令牌: {str(e)}")
-    raise HTTPException(status_code=401, detail=f"无效的令牌: {str(e)}")
-        else:
-            raise HTTPException(status_code=401, detail=f"无效的令牌: {str(e)}")
-
-# ══ Supabase 路由 ══
-
-class ProfileUpdate(BaseModel):
-    language: Optional[str] = None
-    app_mode: Optional[str] = None
-    tone_preference: Optional[str] = None
-    medical_background: Optional[Dict[str, Any]] = None
-
-class PainRecordCreate(BaseModel):
-    pain_data: Dict[str, Any]
-
-@app.get("/api/profile")
-def get_profile(authorization: str = Header(None), accept_language: str = "zh"):
-    """获取用户档案"""
-    lang = "en" if accept_language and accept_language.startswith("en") else "zh"
-    if not supabase_client:
-        err = "Supabase not configured" if lang == "en" else "Supabase 未配置"
-        return {"error": err}
-    try:
-        user_id = get_supabase_user(authorization, lang)
-    except HTTPException:
-        err = "Authentication required" if lang == "en" else "需要身份验证"
-        return {"error": err}
-    
-    result = supabase_client.table("profiles").select("*").eq("id", user_id).execute()
-    if result.data and len(result.data) > 0:
-        return {"status": "success", "profile": result.data[0]}
-    return {"status": "success", "profile": None}
-
-@app.put("/api/profile")
-def update_profile(profile: ProfileUpdate, authorization: str = Header(None), accept_language: str = "zh"):
-    """更新用户档案"""
-    lang = "en" if accept_language and accept_language.startswith("en") else "zh"
-    if not supabase_client:
-        err = "Supabase not configured" if lang == "en" else "Supabase 未配置"
-        return {"error": err}
-    try:
-        user_id = get_supabase_user(authorization, lang)
-    except HTTPException:
-        err = "Authentication required" if lang == "en" else "需要身份验证"
-        return {"error": err}
-    
-    updates = {k: v for k, v in profile.dict().items() if v is not None}
-    updates["updated_at"] = "now()"
-    
-    # 先检查是否存在
-    existing = supabase_client.table("profiles").select("*").eq("id", user_id).execute()
-    if existing.data and len(existing.data) > 0:
-        result = supabase_client.table("profiles").update(updates).eq("id", user_id).execute()
-    else:
-        updates["id"] = user_id
-        updates["created_at"] = "now()"
-        result = supabase_client.table("profiles").insert(updates).execute()
-    
-    return {"status": "success", "profile": result.data[0] if result.data else None}
-
-@app.post("/api/pain-records")
-def create_pain_record(record: PainRecordCreate, authorization: str = Header(None), accept_language: str = "zh"):
-    """保存疼痛记录"""
-    lang = "en" if accept_language and accept_language.startswith("en") else "zh"
-    if not supabase_client:
-        err = "Supabase not configured" if lang == "en" else "Supabase 未配置"
-        return {"error": err}
-    try:
-        user_id = get_supabase_user(authorization, lang)
-    except HTTPException:
-        err = "Authentication required" if lang == "en" else "需要身份验证"
-        return {"error": err}
-    
-    result = supabase_client.table("pain_records").insert({
-        "user_id": user_id,
-        "pain_data": record.pain_data,
-    }).execute()
-    
-    return {"status": "success", "record": result.data[0] if result.data else None}
-
-@app.get("/api/pain-records")
-def list_pain_records(limit: int = 50, authorization: str = Header(None), accept_language: str = "zh"):
-    """获取用户的疼痛记录历史"""
-    lang = "en" if accept_language and accept_language.startswith("en") else "zh"
-    if not supabase_client:
-        err = "Supabase not configured" if lang == "en" else "Supabase 未配置"
-        return {"error": err}
-    try:
-        user_id = get_supabase_user(authorization, lang)
-    except HTTPException:
-        err = "Authentication required" if lang == "en" else "需要身份验证"
-        return {"error": err}
-    
-    result = supabase_client.table("pain_records") \
-        .select("*") \
-        .eq("user_id", user_id) \
-        .order("created_at", desc=True) \
-        .limit(limit) \
-        .execute()
-    
-    return {"status": "success", "records": result.data}
-
-# ── 降级备用模板 ──
-
+# ─────────────────────────────────────────────
+# 降级备用模版 (安全动态重构，完全消除硬编码编造数据与恐慌词)
+# ─────────────────────────────────────────────
 def _fallback_response(
     lang: str, painkiller: str, app_mode: str, data: PainData
 ) -> dict:
     is_general = app_mode == "general"
     mb = data.medicalBackground
 
+    # 局部作用域解析
     surg_desc = get_surgical_desc(mb, lang)
     repo_desc = get_reproductive_desc(mb, lang)
     cycle_reg = get_cycle_regular_desc(mb, lang)
 
+    # 动态构建真实健康历史数据
     diagnosed_history = "无明确妇科疾病确诊史"
     surgical_history = "无盆腔及腹部手术史"
     obstetric_history = "未生育"
@@ -958,6 +846,7 @@ def _fallback_response(
                 [reprod_map.get(x, x) for x in reprod_arr if x]
             )
 
+        # 降级模块防 enum 泄露
         ls_dict = LIFESTYLE_DICT.get(lang, LIFESTYLE_DICT["zh"])
         ls_list = [
             ls_dict.get(str(x), str(x))
@@ -976,6 +865,7 @@ def _fallback_response(
             "、".join(fam_list) if fam_list else "无明确家族痛经遗传史"
         )
 
+    # 动态同步解析前端上传的真实痛感质地与部位数据
     pt_dict = PAIN_MAP.get(lang, PAIN_MAP["zh"])
     pain_name = pt_dict.get(data.dominantPain, "下腹部不适感")
 
@@ -991,6 +881,7 @@ def _fallback_response(
     period_dur = getattr(mb, "periodDuration", "5") if mb else "5"
     lmp = getattr(mb, "lastPeriod", "未提供" if lang == "zh" else "Not provided")
 
+    # 物理痛觉描述映射 (针对伴侣，拒绝美化，还原真实的硬性物理肉体折磨与痛楚)
     custom_analogies = {
         "twist": "子宫深处像是被一只无情的铁手攥紧后用力拧绞，酸痛感伴随肌肉收缩，根本无法挺直腰板。",
         "pierce": "感觉腹腔里藏着一根带刺的钢针在毫无规律地钻刺，每一次呼吸都有种突如其来的尖锐刺痛感。",
@@ -1056,6 +947,7 @@ def _fallback_response(
                 ],
             }
     else:
+        # English Mirror Fallback
         analogy_val_en = {
             "twist": "It feels like an iron hand is clamping tightly inside the deep pelvis, wrenching the muscles with continuous cramps.",
             "pierce": "It feels like a sharp needle is randomly stabbing deep inside the pelvis, causing sudden sharp pain with every breath.",
@@ -1093,7 +985,7 @@ def _fallback_response(
                 "chief_complaint": f"Cyclic dysmenorrhea with lower abdominal pain.",
                 "present_illness": f"The patient reports cyclic, spasmodic lower abdominal pain associated with menses. Pain intensity is quantified based on visual drawing telemetry. Aggravated during menses with localized pelvic sensation of {pain_name}.",
                 "past_history": f"Past History: Generally healthy. Surgery: {surg_desc}. Allergies: {allergies}. Lifestyle: {lifestyle_final}.",
-                "menstrual_history": f"Menarche at {menarche} ({period_dur}/28 days) LMP: {lmp}. Dysmenorrhea: Yes. Obstetrical History: {obstetric_history}.",
+                "menstrual_history": f"Menarche at {menarche} ({period_dur}/28 days) LMP: {lmp}. Dysmenorrhea: Yes. Obstetrical History: {repo_desc}.",
                 "clinical_diagnosis": f"1. Primary spasmodic dysmenorrhea\n2. {surg_desc}\n\n💡 Please rest assured: The above screening direction is only a routine clinical exclusion. The probability of pathological organic disease is extremely low. It is highly likely to be functional and temporary.",
                 "clinical_suggestions": "【Points to discuss with your doctor】:\n1. Discuss with your gynecologist during your pelvic ultrasound. It is a highly routine, non-invasive, and cost-effective screening to exclude organic issues, so there is no need for financial or mental burden.\n\n🔬 【Pelvic Examination Reassurance Guide】:\nPelvic Doppler ultrasound is a non-invasive screening procedure. The medical staff operates behind private screens to fully respect your physical boundaries. Examiners will maintain gentle movements, and you can breathe deeply and relax your pelvic muscles during the exam.",
                 "analogy": analogy_val_en,

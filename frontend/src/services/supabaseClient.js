@@ -42,47 +42,35 @@ export async function ensureSession() {
  * 使用 maybeSingle 避免 406 错误
  */
 export async function getOrCreateProfile(userId) {
-  if (!supabase) return null
+  if (!supabase) return null;
 
-  // 查询 profiles 表 — 使用 maybeSingle 替代 single
-  const { data: existing, error: queryError } = await supabase
+  const { data: existing, error } = await supabase
     .from('profiles')
     .select('*')
     .eq('id', userId)
-    .maybeSingle()
+    .maybeSingle();
 
-  if (queryError) {
-    console.error('Profile query error:', queryError)
-    return null
-  }
+  if (existing) return existing;
 
-  // 如果已存在，直接返回
-  if (existing) return existing
-
-  // 创建默认档案
+  // 创建符合 UserProfilePage 初始化的默认档案
   const defaultProfile = {
     id: userId,
+    nickname: "PainScape_Companion",
+    avatar: "🩸",
+    signature: "让说不出的痛，换一种方式抵达。🧘",
     language: 'zh',
     app_mode: 'medical',
-    tone_preference: 'gentle',
-    medical_background: {},
     created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-  }
+  };
 
-  const { data: created, error: insertError } = await supabase
+  const { data: created } = await supabase
     .from('profiles')
     .insert(defaultProfile)
     .select()
-    .maybeSingle()
+    .maybeSingle();
 
-  if (insertError) {
-    console.error('Profile creation error:', insertError)
-    return null
-  }
-  return created
+  return created;
 }
-
 /**
  * 更新用户档案
  */

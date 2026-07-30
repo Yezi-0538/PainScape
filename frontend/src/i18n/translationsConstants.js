@@ -10,7 +10,7 @@ export const PAIN_NAME_MAP = {
 
 export const BRUSHES = {
   twist: {
-    label: " 🌪️ 绞/拧",
+    label: "绞/拧",
     icon: " 🌪️",           // 保持 emoji
     isImage: false
   },
@@ -20,7 +20,7 @@ export const BRUSHES = {
     isImage: true
   },
   heavy: {
-    label: "🪨 坠/压",
+    label: "坠/压",
     icon: "🪨",
     isImage: false
   },
@@ -35,7 +35,7 @@ export const BRUSHES = {
     isImage: true
   },
   eraser: {
-    label: "🧽 橡皮",
+    label: "橡皮",
     icon: "🧽",
     isImage: false
   },

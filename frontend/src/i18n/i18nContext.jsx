@@ -4,11 +4,6 @@ import translations from "./translations";
 
 const I18nContext = createContext();
 
-/**
- * 深度获取翻译文本
- * 支持嵌套路径，如 "result.partner.title"
- * 支持模版变量替换，如 "{{count}} 位"
- */
 function t(obj, path, variables = {}) {
   if (!obj || !path) return path;
 
@@ -16,7 +11,10 @@ function t(obj, path, variables = {}) {
   let value = obj;
 
   for (const key of keys) {
-    if (value === undefined || value === null) return path;
+    if (value === undefined || value === null) {
+      // ✅ 返回 [key] 而不是完整路径，便于调试
+      return `[${keys[keys.length - 1]}]`;
+    }
     value = value[key];
   }
 
@@ -35,8 +33,11 @@ function t(obj, path, variables = {}) {
 }
 
 export function I18nProvider({ lang, children }) {
+  console.log('🔵 I18nProvider lang:', lang);  // ✅ 添加这行
+
   const value = useMemo(() => {
     const texts = translations[lang] || translations.zh;
+    console.log('🟢 texts loaded for:', lang);  // ✅ 添加这行
     return {
       lang,
       t: (path, vars) => t(texts, path, vars),
