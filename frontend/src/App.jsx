@@ -17,6 +17,7 @@ import ProfilePage from './pages/ProfilePage';
 import SomaticHealingSpace from './Components/SomaticHealingSpace.jsx';
 import Loading from './Components/Loading.jsx';
 import { useToast, Toast } from './Components/Toast.jsx';
+import AuthModal from './Components/AuthModal';
 
 // ===== 工具函数导入 =====
 import { loadFromStorage, saveToStorage } from './utils/helpers';
@@ -24,8 +25,9 @@ import { loadFromStorage, saveToStorage } from './utils/helpers';
 // ===== 常量导入 =====
 import { PAIN_NAME_MAP, QUOTES } from './i18n/translationsConstants';
 
-// ===== API 服务 =====
+// ===== API服务与数据库连接器 =====
 import { createPost, getPosts, likePost, hugPost } from './services/postService';
+import { supabase } from "./services/supabaseClient";
 
 const API_BASE = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
   ? 'http://127.0.0.1:8000'
@@ -50,8 +52,9 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
   const [splashOpacity, setSplashOpacity] = useState(1);
 
   // ===== 多用户状态指针 =====
-  const [currentUserId] = useState('user_A'); // 当前登录的你
-  const [targetUserId, setTargetUserId] = useState('user_A'); // 正在查看的目标主页 ID
+    const [currentUserId, setCurrentUserId] = useState(null); // 当前登录用户的 UUID
+    const [isGuest, setIsGuest] = useState(false);             // 是否是临时游客
+    const [targetUserId, setTargetUserId] = useState(null);    // 当前正在看的主页 ID
 
   // ===== Onboarding 页面内容切换 =====
   const [showContent, setShowContent] = useState('basicInfo');
@@ -108,6 +111,22 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
       })();
     }
   }, [page, hasLoadedCommunity]);
+
+  //检测Supabase本地Session会话实现自动免密登录
+  useEffect(() => {
+    const checkActiveSession = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session && session.user) {
+          setCurrentUserId(session.user.id);
+          setTargetUserId(session.user.id);
+        }
+      } catch (err) {
+        console.warn("自动检测云端登录态失败，已自动开启安全降级本地模式:", err);
+      }
+    };
+    checkActiveSession();
+  }, []);
 
   // ===== 用户偏好 =====
   const [userPrefs, setUserPrefs] = useState(['care']);
@@ -765,6 +784,10 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
             isLoading={isLoading}
             setIsLoading={setIsLoading}
             onBack={() => setPage('onboarding')}
+            onViewProfile={(userId) => {
+              setTargetUserId(userId);
+              setPage('profile');
+            }}
             handleLikePost={(postId) => {
               // 简化处理
               setPosts(prev => prev.map(p =>
@@ -887,6 +910,20 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
     <>
       {/* 主内容 */}
       {renderPage()}
+
+      {/* 用户系统登录注册/游客拦截弹窗保护层 */}
+      <AuthModal
+        isOpen={currentUserId === null && !isGuest}
+        onAuthSuccess={(userId) => {
+          setCurrentUserId(userId);
+          setTargetUserId(userId);
+        }}
+        onGuestLogin={(guestId) => {
+          setCurrentUserId(guestId);
+          setTargetUserId(guestId);
+          setIsGuest(true); // 开启游客态
+        }}
+      />
 
       {/* 全局 Toast */}
       <ToastContainer />
