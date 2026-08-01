@@ -1,15 +1,18 @@
 // SomaticHealingSpace.jsx
 import React, { useState, useRef, useEffect } from 'react';
+import { useI18n } from '../i18n/i18nContext';
 
 const SomaticHealingSpace = ({ 
   isOpen, 
   activeTab = 'breathing', 
   onClose, 
-  language = 'zh', 
+  language, 
   aiSelfCareTips = [],
-  dominantPainName = '绞痛',
+  dominantPainName,
   onPublishSharedTip // 🌟 闭环：一键分享至共鸣广场的回调函数
 }) => {
+  const { t: tFn, language: currentLang } = useI18n();
+  const effectiveLang = language || currentLang;
   const [isPlaying, setIsPlaying] = useState(false);
   const [phase, setPhase] = useState('inhale'); // inhale, hold, exhale
   const [circleSize, setCircleSize] = useState(120);
@@ -30,72 +33,42 @@ const SomaticHealingSpace = ({
   const timerIntervalRef = useRef(null);
   const cycleTimeoutRef = useRef(null);
 
-  const isEn = language === 'en';
+  
 
+  // 使用 i18n 系统的翻译
   const t = {
-    zh: {
-      breathing: "🌬️ 骨盆释压呼吸调理",
-      posture: "🧘 骨盆拉伸与体位松弛",
-      acupressure: "💆 特异穴位物理按揉",
-      thermal: "🔥 局部热敷与食疗温补",
-      disclaimer: "⚠️ 任何自愈方案或体位调节若引起您额外的不适或强烈痛感，请立即停止！回归您觉得最舒服的姿势并保持静卧。",
-      inhale: '🌬️ 吸气... 感受腹腔扩张',
-      hold: '🧘 屏息... 骨盆彻底沉降松弛',
-      exhale: '🍃 呼气... 吐出所有张力与酸楚',
-      start: '开启体感音频疗愈',
-      stop: '暂停静疗',
-      close: '退出静疗舱',
-      somaticTipsTitle: "💡 本次发作·特调自愈方案",
-      evalTitle: "🌸 骨盆释压微评估",
-      evalQuestion: "刚才的调理对你的痛感缓解有帮助吗？",
-      evalHelped: "👍 感觉好多了",
-      evalNoChange: "😐 无明显变化",
-      sharePrompt: "太好了！亲历的经验最为珍贵。你愿意将这次非常有用的自愈方法“一键发布”到共鸣广场吗？这能让其他承受相似绞痛的姐妹快速找到缓解答案。",
-      shareBtn: "✨ 一键分享经验到共鸣广场",
-      shareSuccess: "🌸 你的缓解经验已送达广场，微光已汇聚！",
-      stepPrev: "上一步",
-      stepNext: "下一步",
-      holdingTip: "请维持当前拉伸姿势，保持深长均缓呼吸",
-      pressingTip: "💆 跟着脉冲闪烁节奏：一下、一下地稳重揉按（1s 一次）",
-      thermalTip: "🔥 暖橙色呼吸光晕暗示：热力理疗放松中...",
-      breathModes: {
-        slow: "🌊 4-4-6 盆腔慢调息 (基础释压)",
-        deep: "🍃 4-7-8 深度镇痛息 (强力镇静)",
-        box: "📦 4-4-4-4 箱式平缓息 (稳定心率)"
-      }
+    breathing: tFn('somaticHealing.breathing'),
+    posture: tFn('somaticHealing.posture'),
+    acupressure: tFn('somaticHealing.acupressure'),
+    thermal: tFn('somaticHealing.thermal'),
+    disclaimer: tFn('somaticHealing.disclaimer'),
+    inhale: tFn('somaticHealing.inhale'),
+    hold: tFn('somaticHealing.hold'),
+    exhale: tFn('somaticHealing.exhale'),
+    start: tFn('somaticHealing.start'),
+    stop: tFn('somaticHealing.stop'),
+    close: tFn('somaticHealing.close'),
+    somaticTipsTitle: tFn('somaticHealing.somaticTipsTitle'),
+    evalTitle: tFn('somaticHealing.evalTitle'),
+    evalQuestion: tFn('somaticHealing.evalQuestion'),
+    evalHelped: tFn('somaticHealing.evalHelped'),
+    evalNoChange: tFn('somaticHealing.evalNoChange'),
+    sharePrompt: tFn('somaticHealing.sharePrompt'),
+    shareBtn: tFn('somaticHealing.shareBtn'),
+    shareSuccess: tFn('somaticHealing.shareSuccess'),
+    stepPrev: tFn('somaticHealing.stepPrev'),
+    stepNext: tFn('somaticHealing.stepNext'),
+    holdingTip: tFn('somaticHealing.holdingTip'),
+    pressingTip: tFn('somaticHealing.pressingTip'),
+    thermalTip: tFn('somaticHealing.thermalTip'),
+    breathModes: {
+      slow: tFn('somaticHealing.breathModes.slow'),
+      deep: tFn('somaticHealing.breathModes.deep'),
+      box: tFn('somaticHealing.breathModes.box')
     },
-    en: {
-      breathing: "🌬️ Pelvic Breathing Regulation",
-      posture: "🧘 Pelvic Stretch & Somatic Pose",
-      acupressure: "💆 Specific Acupressure Guide",
-      thermal: "🔥 Thermotherapy & Warm Nutrition",
-      disclaimer: "⚠️ NOTICE: Please stop any self-care method or physical adjustment immediately if it causes you additional discomfort or pain! Return to your most comfortable resting position and remain still.",
-      inhale: 'Inhale... Expand your abdomen',
-      hold: 'Hold... Release all pelvic tension',
-      exhale: 'Exhale... Let go of the ache',
-      start: 'Start Somatic Audio Guide',
-      stop: 'Pause Session',
-      close: 'Exit Quiet Space',
-      somaticTipsTitle: "💡 Custom Somatic Recipes",
-      evalTitle: "🌸 Somatic Evaluation",
-      evalQuestion: "Did this therapy session help reduce your pain?",
-      evalHelped: "👍 Helped a lot",
-      evalNoChange: "😐 No obvious change",
-      sharePrompt: "Wonderful! Your somatic experience is precious. Would you like to share this relief recipe with other sisters in the Resonance Square to help them find relief?",
-      shareBtn: "✨ Share Recipe to Resonance Square",
-      shareSuccess: "🌸 Shared! Your light has joined the sanctuary.",
-      stepPrev: "Prev",
-      stepNext: "Next",
-      holdingTip: "Maintain this pose, breathe naturally and slowly",
-      pressingTip: "💆 Follow the pulse: press and release rhythmically (1s cycle)",
-      thermalTip: "🔥 Warming light pulsing: heat compress active...",
-      breathModes: {
-        slow: "🌊 4-4-6 Slow Flow (Pelvic Release)",
-        deep: "🍃 4-7-8 Deep Breath (Pain Relief)",
-        box: "📦 4-4-4-4 Box Breath (Heart Rate Steady)"
-      }
-    }
-  }[language];
+    syncTips: tFn('somaticHealing.syncTips'),
+    shareDecline: tFn('somaticHealing.shareDecline'),
+  };
 
   // 几十秒高保真循环声音资源词典（指向 /public/ 静态资源路径）
   const SOUND_PATHS = {
@@ -105,23 +78,11 @@ const SomaticHealingSpace = ({
     thermal: '/sounds/fireplace.mp3'
   };
 
-  // 本地精编高拟真体位/穴位滑动步骤库
+  // 使用 i18n 系统的步骤数据库
   const STEP_DATABASES = {
-    posture: [
-      { step: "第 1 步：静态趴伏准备", desc: "在床头或大腿前侧垫一个高且饱满的靠枕，双膝张开微屈并跪下。上半身完全趴在枕头上，让中下腹呈悬空、无束缚状态。" },
-      { step: "第 2 步：脏器悬垂释压", desc: "闭上双眼，聆听森林流水背景音。吸气时横向扩张肋部，呼气时任由腹部脂肪与内脏向前悬下，彻底避免它们在盆腔深处相互压迫。" },
-      { step: "第 3 步：子宫韧带延展", desc: "臀部缓缓向后坐下，手抱住枕头，在此姿势维持 5-10 分钟。利用重力让紧绷受牵拉的子宫骶骨韧带得到最自然的延展与放松。" }
-    ],
-    acupressure: [
-      { step: "第 1 步：定位三阴交穴", desc: "双腿自然平放。将您的四指并拢，小指贴在内踝尖（脚踝内侧最突出的骨头）正上方，最上面的食指边缘骨骼后方的凹陷处即为三阴交穴。" },
-      { step: "第 2 步：配合节拍器节奏", desc: "大拇指垂直抵住穴位。紧跟 60 BPM（1秒1闪）的按压闪烁节奏：一下、一下地稳重向下揉压，直至感觉到有酸胀感为宜。" },
-      { step: "第 3 步：阻断痛信号传导", desc: "呼气时下压，吸气时轻微抬起。两侧小腿交替按揉 1-2 分钟。临床证明，刺激此处的皮肤闸门可以阻断子宫痉挛痛信号向脊髓大脑传递。" }
-    ],
-    thermal: [
-      { step: "第 1 步：温暖覆盖", desc: "准备一个 40-42℃ 的热水袋，外面包裹薄毛巾。平敷在下腹部（关元穴）或者后腰骶部（酸胀下坠感最强烈的骨缝处）。" },
-      { step: "第 2 步：建立大脑暖色联觉", desc: "全身裹好被子，聆听木柴毕剥燃烧白噪音。心理上想象壁炉的橙色光环和热浪，正一圈圈地深入你的关节，温暖无法捂热的小腹。" },
-      { step: "第 3 步：促进血液回流", desc: "平躺在床上，用枕头垫高臀部 15-20 厘米，这能帮助小盆腔中淤积的静脉血顺畅回流，迅速舒缓前列腺素引起的子宫平滑肌缺血性痉挛。" }
-    ]
+    posture: tFn('somaticHealing.stepDatabase.posture') || [],
+    acupressure: tFn('somaticHealing.stepDatabase.acupressure') || [],
+    thermal: tFn('somaticHealing.stepDatabase.thermal') || [],
   };
   
   const startHealing = () => {
@@ -222,7 +183,9 @@ const SomaticHealingSpace = ({
     if (onPublishSharedTip) {
       const activeTipsText = aiSelfCareTips[0] || (STEP_DATABASES[activeTab]?.[0]?.desc) || "";
       const cleanedTipText = activeTipsText.replace(/✨|•/g, '').trim();
-      const shareText = `我在经历“${dominantPainName}”时，进行了“${t[activeTab]}”自愈调理，亲测非常有帮助！提示：${cleanedTipText}`;
+      const shareText = effectiveLang === 'en' 
+        ? `When experiencing "${dominantPainName}", I did "${t[activeTab]}" somatic healing and found it very helpful! Tip: ${cleanedTipText}`
+        : `我在经历"${dominantPainName}"时，进行了"${t[activeTab]}"自愈调理，亲测非常有帮助！提示：${cleanedTipText}`;
       
       onPublishSharedTip(shareText, activeTab);
     }
@@ -459,7 +422,7 @@ const SomaticHealingSpace = ({
             ))}
           </div>
         ) : (
-          <p style={{ color: '#666', fontSize: '12px', textAlign: 'center', margin: '20px 0' }}>正在同步调谐本次痛觉自愈方案...</p>
+          <p style={{ color: '#666', fontSize: '12px', textAlign: 'center', margin: '20px 0' }}>{t.syncTips}</p>
         )}
       </div>
 
@@ -496,9 +459,7 @@ const SomaticHealingSpace = ({
               <>
                  <p style={{ color: '#4caf50', fontSize: '24px', margin: '0 0 12px 0' }}>🤗</p>
     <p style={{ color: '#ccc', fontSize: '13px', lineHeight: '1.6', marginBottom: '24px', textAlign: 'justify' }}>
-      {language === 'en' 
-        ? "Great! Your somatic experience is precious. Would you like to share this relief recipe with other sisters in the Resonance Square to help them find relief?"
-        : "太好了！亲历的经验最为珍贵。你愿意将这次非常有用的自愈方法“一键发布”到共鸣广场吗？这能让其他承受相似痛楚的姐妹快速找到缓解答案。"}
+      {t.sharePrompt}
                 </p>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                   <button 
@@ -511,7 +472,7 @@ const SomaticHealingSpace = ({
                     onClick={() => { setShowEvaluation(false); onClose(); }}
                     style={{ padding: '10px', background: 'transparent', border: 'none', color: '#666', cursor: 'pointer', fontSize: '12px' }}
                   >
-                    暂不分享，默默退出
+                    {t.shareDecline}
                   </button>
                 </div>
               </>

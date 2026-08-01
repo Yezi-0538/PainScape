@@ -1,5 +1,6 @@
 // src/components/Loading.jsx
 import React from 'react';
+import { useI18n } from '../i18n/i18nContext';
 
 /**
  * 全局加载遮罩组件
@@ -11,10 +12,13 @@ import React from 'react';
  */
 const Loading = ({
   isLoading,
-  message = '加载中...',
-  subMessage = '请稍候',
+  message,
+  subMessage,
   hint = '',
 }) => {
+  const { t } = useI18n();
+  const _message = message || t('app.defaultLoading');
+  const _subMessage = subMessage || t('app.defaultSubLoading');
   if (!isLoading) return null;
 
   return (
@@ -62,7 +66,7 @@ const Loading = ({
           fontSize: '14px',
         }}
       >
-        {message}
+        {_message}
       </p>
 
       {/* 副提示 */}
@@ -74,7 +78,7 @@ const Loading = ({
             marginTop: '8px',
           }}
         >
-          {subMessage}
+          {_subMessage}
         </p>
       )}
 

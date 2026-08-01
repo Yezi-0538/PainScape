@@ -70,10 +70,10 @@ export default function ResultPage({
 
   const getRefinePlaceholder = (tabIdentity) => {
     const map = {
-      partner: t('result.refine.placeholderPartner') || '例如：语气更强烈一点，让Ta意识到严重性...',
-      work: t('result.refine.placeholderWork') || '例如：语气更委婉客观，只说突发急病...',
-      doctor: t('result.refine.placeholderDoctor') || '例如：补充说明吃布洛芬没有任何缓解...',
-      self: t('result.refine.placeholderSelf') || '例如：给我一点心理安慰，我因为请假很内疚...',
+      partner: t('result.refine.placeholderPartner'),
+      work: t('result.refine.placeholderWork'),
+      doctor: t('result.refine.placeholderDoctor'),
+      self: t('result.refine.placeholderSelf'),
     };
     return map[tabIdentity] || t('result.refine.placeholder');
   };
@@ -297,7 +297,7 @@ export default function ResultPage({
               </h4>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                 {randomPartnerTips.map((tip, idx) => {
-                  const isWarning = tip.title && tip.title.includes('警告');
+                  const isWarning = tip.title && (tip.title.includes('警告') || tip.title.toLowerCase().includes('alert'));
                   return (
                     <div
                       key={idx}
@@ -765,12 +765,12 @@ export default function ResultPage({
               </p>
               <div style={{ display: 'flex', gap: '8px', marginBottom: '10px' }}>
                 {[
-                  { key: 'chief_complaint', label: t('result.refine.optimizeComplaint') || '调优主诉' },
+                  { key: 'chief_complaint', label: t('result.refine.optimizeComplaint') },
                   {
                     key: 'present_illness',
-                    label: t('result.refine.optimizeReference') || '调优病生理分析',
+                    label: t('result.refine.optimizeReference'),
                   },
-                  { key: 'clinical_suggestions', label: t('result.refine.optimize') || '调优就诊引导' },
+                  { key: 'clinical_suggestions', label: t('result.refine.optimize') },
                 ].map((item) => (
                   <button
                     key={item.key}

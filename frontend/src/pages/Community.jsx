@@ -6,6 +6,7 @@ import { PAIN_NAME_MAP } from '../i18n/translationsConstants';
 export default function CommunityPage({
   // 导航
   onBack,
+  onViewProfile, // 🌟 P3 核心新增：接收主页跳转路由函数
 
   // 数据
   posts,
@@ -35,7 +36,8 @@ export default function CommunityPage({
   updatePostInCloud,
   showToast,
 }) {
-    const { t } = useI18n(); 
+  const { t } = useI18n();
+
   // ===== 内部函数 =====
   const getDynamicCommunityStats = () => {
     if (!posts || posts.length === 0) return { total: 0, topPainKey: 'twist' };
@@ -327,7 +329,7 @@ export default function CommunityPage({
                       textDecoration: 'underline',
                     }}
                   >
-                    查看详情
+                    {t('community.viewDetails') || '查看详情'}
                   </button>
                   <button
                     onClick={(e) => handleHelpfulVote(tip, e)}
@@ -355,7 +357,7 @@ export default function CommunityPage({
         )}
       </div>
 
-      {/* 图片网格 */}
+      {/* 图片网格 - 🌟 P3 修改：引入发布者社交名片头 */}
       <h3
         style={{
           color: '#fff',
@@ -364,7 +366,7 @@ export default function CommunityPage({
           fontWeight: '600',
         }}
       >
-        🖼️ 具身痛觉图谱
+        {t('community.somaticMap') || '🖼️ 具身痛觉图谱'}
       </h3>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
         {posts
@@ -381,6 +383,79 @@ export default function CommunityPage({
                 flexDirection: 'column',
               }}
             >
+              {/* 🌟 P3 新增：卡片顶部的发布者名片信息栏 */}
+              <div 
+                onClick={(e) => {
+                  e.stopPropagation(); // 阻止触发底部的合图大图预览
+                  onViewProfile && onViewProfile(post.userId || post.authorId || "user_B");
+                }}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  padding: '10px 12px 6px 12px',
+                  borderBottom: '1px solid #1a1a1a',
+                  cursor: 'pointer',
+                  transition: 'background 0.2s ease',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = 'rgba(255,255,255,0.02)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = 'transparent';
+                }}
+              >
+                {/* 发布者头像 */}
+                <div style={{
+                  width: '28px',
+                  height: '28px',
+                  borderRadius: '50%',
+                  background: 'rgba(255,255,255,0.03)',
+                  border: '1px solid rgba(255,255,255,0.1)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '13px',
+                  overflow: 'hidden',
+                  flexShrink: 0,
+                }}>
+                  {post.customAvatar ? (
+                    <img 
+                      src={post.customAvatar} 
+                      style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
+                      alt="avatar" 
+                    />
+                  ) : (
+                    (post.avatar || "🌸")
+                  )}
+                </div>
+
+                {/* 发布者昵称 */}
+                <span style={{
+                  color: '#ccc',
+                  fontSize: '12px',
+                  fontWeight: '500',
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  flex: 1,
+                }}>
+                  {post.nickname || "同伴"}
+                </span>
+
+                {/* 发布时间（可选） */}
+                {post.createdAt && (
+                  <span style={{
+                    color: '#555',
+                    fontSize: '9px',
+                    flexShrink: 0,
+                  }}>
+                    {new Date(post.createdAt).toLocaleDateString()}
+                  </span>
+                )}
+              </div>
+
+              {/* 帖子图谱展示 */}
               <img
                 src={post.img}
                 onClick={() =>
@@ -399,6 +474,7 @@ export default function CommunityPage({
                   cursor: 'pointer',
                   background: '#000',
                 }}
+                alt="somatic pain mapping"
               />
               <div
                 style={{
@@ -416,6 +492,10 @@ export default function CommunityPage({
                     margin: '0 0 10px 0',
                     lineHeight: '1.4',
                     fontWeight: '500',
+                    display: '-webkit-box',
+                    WebkitLineClamp: 2,
+                    WebkitBoxOrient: 'vertical',
+                    overflow: 'hidden',
                   }}
                 >
                   {post.text}
@@ -433,29 +513,70 @@ export default function CommunityPage({
                   >
                     {t(`painNames.${post.painTags?.[0] || 'twist'}`)}
                   </span>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleLikePost(post.id);
-                    }}
-                    style={{
-                      background: 'none',
-                      border: 'none',
-                      color: '#888',
-                      fontSize: '12.5px',
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '4px',
-                    }}
-                  >
-                    ❤️ {post.likes || 0}
-                  </button>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    {/* 拥抱按钮 */}
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleHug(post.id, e);
+                      }}
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        color: post.hasUserHugged ? '#ff6b6b' : '#555',
+                        fontSize: '11px',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '3px',
+                        transition: 'color 0.2s',
+                      }}
+                    >
+                      🫂 {post.hugs || 0}
+                    </button>
+                    {/* 点赞按钮 */}
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleLikePost(post.id);
+                      }}
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        color: '#888',
+                        fontSize: '12px',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                      }}
+                    >
+                      ❤️ {post.likes || 0}
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
           ))}
       </div>
+
+      {/* 🌟 P3 新增：当没有任何帖子时，显示空状态 */}
+      {posts.filter((p) => painFilter === 'all' || (p.painTags || []).includes(painFilter)).length === 0 && (
+        <div
+          style={{
+            textAlign: 'center',
+            padding: '60px 20px',
+            color: '#555',
+            fontSize: '13px',
+          }}
+        >
+          <div style={{ fontSize: '48px', marginBottom: '16px' }}>🌱</div>
+          <p>{t('community.noPosts') || '暂无具身痛觉图谱分享'}</p>
+          <p style={{ fontSize: '11px', color: '#444', marginTop: '8px' }}>
+            {t('community.beFirstToShare') || '成为第一个分享的人吧 ✨'}
+          </p>
+        </div>
+      )}
     </div>
   );
 }

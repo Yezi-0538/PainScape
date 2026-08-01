@@ -701,6 +701,7 @@ const translations = {
       refineSuccess: "内容精调成功！",
       refineNoChange: "精调后内容无变化",
       refineFallback: "已使用本地模板精调",
+      refineFailed: "精调失败，请稍后重试",
     },
 
     painTemplates: {
@@ -778,7 +779,7 @@ const translations = {
       evalQuestion: "刚才的调理对你的痛感缓解有帮助吗？",
       evalHelped: "👍 感觉好多了",
       evalNoChange: "😐 无明显变化",
-      sharePrompt: "太好了！亲历的经验最为珍贵。你愿意将这次非常有用的自愈方法\"一键发布\"到共鸣广场吗？这能让其他承受相似绞痛的姐妹快速找到缓解答案。",
+      sharePrompt: "太好了！亲历的经验最为珍贵。你愿意将这次非常有用的自愈方法一键发布到共鸣广场吗？这能让其他承受相似绞痛的姐妹快速找到缓解答案。",
       shareBtn: "✨ 一键分享经验到共鸣广场",
       shareSuccess: "🌸 你的缓解经验已送达广场，微光已汇聚！",
       stepPrev: "上一步",
@@ -831,8 +832,8 @@ const translations = {
       ],
     },
 
-    // ============ ✅ 通用请假模板（用于无 LLM 时的降级） ============
-    workTemplate: "领导您好：本人今日突发严重痛经（{{pain}}），身体状态无法维持正常工作，申请休假一天，望批准。紧急事务已做交接安排。感谢您的理解。",
+    // ============ ✅ 已整合到 result.work.templates，保留空字符串兼容 ============
+    workTemplate: '',
 
     examDatabase: {
       "pelvic ultrasound": {
@@ -876,7 +877,7 @@ const translations = {
       medicalReference: "医疗参考：",
       footer: "PainScape - 生成报告",
     },
-    
+
     // ============ Result page labels ============
     resultLabels: {
       companionGuide: "经期陪伴指南",
@@ -1716,7 +1717,6 @@ const translations = {
       recordDeleted: '🗑️ Record has been permanently deleted from local storage',
       refineSuccess: '✨ Content optimized',
       refineFailed: '❌ AI optimization failed, API may not be deployed or network error',
-      apiGenerateFallback: "Cloud generation unavailable, switched to local template mode",
     },
 
     painTemplates: {
@@ -1847,8 +1847,8 @@ const translations = {
       ],
     },
 
-    // ============ ✅ Generic work leave template (fallback when no LLM) ============
-    workTemplate: "Dear Manager, I am experiencing severe acute pain ({{pain}}) today and am unable to work. I kindly request a day off. Urgent matters have been handed over. Thank you for your understanding.",
+    // ============ ✅ 已整合到 result.work.templates，保留空字符串兼容 ============
+    workTemplate: '',
 
     examDatabase: {
       "pelvic ultrasound": {

@@ -281,7 +281,7 @@ export default function DiaryDetailModal({
                   alignSelf: 'flex-start',
                 }}
               >
-                📢 发送对象：
+                {t("diary.sendTarget")}
               </span>
               <div
                 style={{
@@ -326,7 +326,7 @@ export default function DiaryDetailModal({
                   marginTop: '6px',
                 }}
               >
-                🎭 表达语气：
+                {t("diary.toneLabel")}
               </span>
               <div style={{ display: 'flex', gap: '6px' }}>
                 {['polite', 'objective'].map((key) => (
@@ -432,7 +432,7 @@ export default function DiaryDetailModal({
             }}
             onClick={onDelete}
           >
-            🗑️ {t('history.delete') || '删除'}
+            🗑️ {t('history.delete')}
           </button>
           <button
             style={{
@@ -452,7 +452,7 @@ export default function DiaryDetailModal({
             }}
             onClick={onClose}
           >
-            {t('diary.close') || '关闭'}
+            {t('diary.close')}
           </button>
         </div>
       </div>

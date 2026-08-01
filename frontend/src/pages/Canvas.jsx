@@ -1,5 +1,5 @@
 // src/pages/CanvasPage.jsx
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import Sketch from 'react-p5';
 import { useI18n } from '../i18n/i18nContext';
 import { BRUSHES, PALETTES } from '../i18n/translationsConstants';
@@ -62,17 +62,14 @@ export default function CanvasPage({
   // 应用模式
   appMode,
 
-  // 工具函数
-  calcEmotionLoad,
+  // 工具
   handleUndo,
   handleRedo,
   handleClear,
   resetView,
-
-  // 翻译
-  t,
 }) {
-  const { playBrushSound } = useAudio();
+  const { t } = useI18n();
+  const { playBrushSound } = useAudio(isMuted);
   const [tipVisible, setTipVisible] = useState(true);
 
   // 方向提示自动消失
@@ -87,46 +84,65 @@ export default function CanvasPage({
   // ============================================================
 
   const preload = (p5) => {
-    bgFrontRef.current = p5.loadImage('body_front.png');
-    bgBackRef.current = p5.loadImage('body_back.png');
+    try {
+      bgFrontRef.current = p5.loadImage('body_front.png');
+      bgBackRef.current = p5.loadImage('body_back.png');
+    } catch (e) {
+      console.warn('Failed to load body images, using placeholders');
+      const createPlaceholder = () => {
+        const img = p5.createImage(100, 100);
+        img.loadPixels();
+        for (let i = 0; i < img.pixels.length; i += 4) {
+          img.pixels[i] = 60;
+          img.pixels[i + 1] = 60;
+          img.pixels[i + 2] = 60;
+          img.pixels[i + 3] = 255;
+        }
+        img.updatePixels();
+        return img;
+      };
+      bgFrontRef.current = createPlaceholder();
+      bgBackRef.current = createPlaceholder();
+    }
   };
 
   const setup = (p5, canvasParentRef) => {
     p5Ref.current = p5;
     p5.createCanvas(window.innerWidth, window.innerHeight).parent(canvasParentRef);
 
-    // 锁定触摸事件
     const canvas = p5.canvas;
-    canvas.addEventListener(
-      'touchstart',
-      (e) => {
-        if (e.touches.length === 1 && activeBrush !== null) {
-          e.preventDefault();
-        }
-      },
-      { passive: false }
-    );
-    canvas.addEventListener(
-      'touchmove',
-      (e) => {
-        if (e.touches.length === 1 && activeBrush !== null) {
-          e.preventDefault();
-        }
-      },
-      { passive: false }
-    );
+    canvas.addEventListener('touchstart', (e) => {
+      if (e.touches.length === 1 && activeBrush !== null) {
+        e.preventDefault();
+      }
+    }, { passive: false });
+    canvas.addEventListener('touchmove', (e) => {
+      if (e.touches.length === 1 && activeBrush !== null) {
+        e.preventDefault();
+      }
+    }, { passive: false });
 
-    // 创建前后画布
     pgFrontRef.current = p5.createGraphics(window.innerWidth, window.innerHeight);
     pgBackRef.current = p5.createGraphics(window.innerWidth, window.innerHeight);
     pgFrontRef.current.clear();
     pgBackRef.current.clear();
 
-    // 初始化相机
     camRef.current = { x: 0, y: 0, zoom: 1.0 };
   };
+  const mouseReleased = (p5) => {
+    // 可用于保存撤销状态
+  };
+  const mouseWheel = useCallback((p5, event) => {
+    camRef.current.zoom = Math.max(
+      0.5,
+      Math.min(camRef.current.zoom + (event.delta > 0 ? -0.1 : 0.1), 3.0)
+    );
+    return false;
+  }, []);
+
 
   const draw = (p5) => {
+    // 1. 清空背景（黑色）
     p5.background(0);
 
     // 检查是否在画布上点击
@@ -149,7 +165,6 @@ export default function CanvasPage({
     const speed = p5.dist(realX, realY, realPx, realPy);
     const heading = speed < 1 ? p5.PI / 2 : p5.atan2(realY - realPy, realX - realPx);
 
-    // 判断是否是平移模式
     let isPanning = false;
     if (activeBrush === null) isPanning = true;
     else if (p5.mouseButton === p5.RIGHT) isPanning = true;
@@ -157,6 +172,7 @@ export default function CanvasPage({
 
     const currentPg = bodyMode === 'back' ? pgBackRef.current : pgFrontRef.current;
 
+    // ===== 交互绘制 =====
     if (isInteracting) {
       if (isPanning) {
         camRef.current.x += p5.mouseX - p5.pmouseX;
@@ -171,7 +187,6 @@ export default function CanvasPage({
       } else if (activeBrush !== null) {
         brushCounts.current[activeBrush] = (brushCounts.current[activeBrush] || 0) + 1;
 
-        // 记录速度
         if (speedHistory.current.length > 200) speedHistory.current.shift();
         speedHistory.current.push(speed);
 
@@ -191,6 +206,7 @@ export default function CanvasPage({
             realY,
             activeBrush,
             PALETTES[activeColor].color,
+            speed,
             heading,
             bodyMode,
             pressure
@@ -207,11 +223,15 @@ export default function CanvasPage({
             staticParticles.current.push(pObj);
           }
         }
-        playBrushSound(activeBrush);
+        try {
+          playBrushSound(activeBrush);
+        } catch (e) {
+          console.warn('Audio play failed:', e);
+        }
       }
     }
 
-    // 更新静态粒子
+    // ===== 更新静态粒子到离屏画布 =====
     for (let i = staticParticles.current.length - 1; i >= 0; i--) {
       const p = staticParticles.current[i];
       p.update(p5);
@@ -220,12 +240,20 @@ export default function CanvasPage({
       if (p.isDead()) staticParticles.current.splice(i, 1);
     }
 
-    // 绘制背景图
-    p5.push();
-    p5.translate(x, y);
-    p5.scale(zoom);
+    // ===== 更新动态粒子 =====
+    for (let i = dynamicParticles.current.length - 1; i >= 0; i--) {
+      const dp = dynamicParticles.current[i];
+      dp.update(p5);
+      if (dp.bodyMode === bodyMode) dp.show(p5);  // ⚠️ 这里直接绘制到主画布？
+      if (dp.isDead()) dynamicParticles.current.splice(i, 1);
+    }
+
+    // ===== 绘制背景图（在粒子之上或之下？） =====
     const activeImg = bodyMode === 'front' ? bgFrontRef.current : bgBackRef.current;
     if (activeImg) {
+      p5.push();
+      p5.translate(x, y);
+      p5.scale(zoom);
       p5.imageMode(p5.CENTER);
       p5.tint(255, 40);
       const currentBgScale = bgScale || 1.0;
@@ -237,36 +265,21 @@ export default function CanvasPage({
         activeImg.width * imgScale,
         activeImg.height * imgScale
       );
+      p5.pop();
     }
+
+    // ===== 绘制离屏画布到主画布 =====
+    p5.push();
+    p5.translate(x, y);
+    p5.scale(zoom);
     p5.noTint();
     p5.imageMode(p5.CORNER);
     p5.image(currentPg, 0, 0);
-
-    // 更新动态粒子
-    for (let i = dynamicParticles.current.length - 1; i >= 0; i--) {
-      const dp = dynamicParticles.current[i];
-      dp.update(p5);
-      if (dp.bodyMode === bodyMode) dp.show(p5);
-      if (dp.isDead()) dynamicParticles.current.splice(i, 1);
-    }
     p5.pop();
   };
-
-  const mouseWheel = (p5, event) => {
-    camRef.current.zoom = Math.max(
-      0.5,
-      Math.min(camRef.current.zoom + (event.delta > 0 ? -0.1 : 0.1), 3.0)
-    );
-    return false;
-  };
-
-  const mouseReleased = (p5) => {
-    // 可用于保存撤销状态
-  };
-
   // ============================================================
   // 渲染
-  // ============================================================
+   // ============================================================
   return (
     <div
       className="canvas-screen-wrapper"
@@ -283,129 +296,128 @@ export default function CanvasPage({
         overflow: 'hidden',
       }}
     >
-      {/* p5.js Sketch */}
-      <div style={{ position: 'fixed', top: 0, left: 0, zIndex: 1 }}>
-        <Sketch
-          setup={setup}
-          draw={draw}
-          preload={preload}
-          mouseWheel={mouseWheel}
-          mouseReleased={mouseReleased}
-        />
-      </div>
-
-      {/* ===== 顶部导航栏 ===== */}
+      {/* ===== p5.js Sketch - 底层 ===== */}
       <div
-        onMouseDown={(e) => e.stopPropagation()}
-        onTouchStart={(e) => e.stopPropagation()}
         style={{
           position: 'absolute',
           top: 0,
           left: 0,
           width: '100%',
-          height: '60px',
-          background: 'rgba(10, 10, 10, 0.85)',
-          backdropFilter: 'blur(12px)',
-          borderBottom: '1px solid #1a1a1a',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          padding: '0 16px',
-          boxSizing: 'border-box',
-          zIndex: 100,
+          height: '100%',
+          zIndex: 1
         }}
       >
-        {/* 左侧 */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <button
-            onClick={onBack}
-            style={{
-              background: 'rgba(255,255,255,0.05)',
-              border: '1px solid #333',
-              color: '#fff',
-              width: '32px',
-              height: '32px',
-              borderRadius: '50%',
-              fontSize: '14px',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
-            ←
-          </button>
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              setIsMuted(!isMuted);
-            }}
-            style={{
-              background: 'rgba(255,255,255,0.05)',
-              border: `1px solid ${isMuted ? '#444' : '#4caf50'}`,
-              borderRadius: '50%',
-              width: '32px',
-              height: '32px',
-              fontSize: '14px',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: isMuted ? '#666' : '#4caf50',
-            }}
-          >
-            {isMuted ? '🔇' : '🔊'}
-          </button>
-        </div>
+        <Sketch
+          setup={setup}
+          draw={draw}
+          preload={preload}
+          mouseReleased={mouseReleased}
+          mouseWheel={mouseWheel}
+        />
+      </div>
 
-        {/* 中间：正反面切换 */}
+      {/* ===== UI 控件 - 顶层 ===== */}
+      <div style={{
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        width: '100%',
+        height: '100%',
+        zIndex: 100,
+        pointerEvents: 'none'
+      }}>
+
+        {/* 顶部导航栏 */}
         <div
           style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            width: '100%',
+            height: '60px',
+            background: 'rgba(10, 10, 10, 0.85)',
+            backdropFilter: 'blur(12px)',
+            borderBottom: '1px solid #1a1a1a',
             display: 'flex',
-            background: 'rgba(255,255,255,0.03)',
-            borderRadius: '20px',
-            padding: '2px',
-            border: '1px solid #222',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            padding: '0 16px',
+            boxSizing: 'border-box',
+            pointerEvents: 'auto',
           }}
         >
-          <button
+          {/* 左侧 */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <button
+              onClick={onBack}
+              style={{
+                background: 'rgba(255,255,255,0.05)',
+                border: '1px solid #333',
+                color: '#fff',
+                width: '32px',
+                height: '32px',
+                borderRadius: '50%',
+                fontSize: '14px',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              ←
+            </button>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsMuted(!isMuted);
+              }}
+              style={{
+                background: 'rgba(255,255,255,0.05)',
+                border: `1px solid ${isMuted ? '#444' : '#4caf50'}`,
+                borderRadius: '50%',
+                width: '32px',
+                height: '32px',
+                fontSize: '14px',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: isMuted ? '#666' : '#4caf50',
+              }}
+            >
+              {isMuted ? '🔇' : '🔊'}
+            </button>
+          </div>
+
+          {/* 中间：正反面切换 */}
+          <div
             style={{
-              padding: '6px 14px',
-              borderRadius: '16px',
-              border: 'none',
-              cursor: 'pointer',
-              fontSize: '12px',
-              fontWeight: 'bold',
-              background: bodyMode === 'front' ? '#4caf50' : 'transparent',
-              color: bodyMode === 'front' ? '#fff' : '#888',
-              transition: 'all 0.2s',
-            }}
-            onClick={(e) => {
-              e.stopPropagation();
-              setBodyMode('front');
+              display: 'flex',
+              background: 'rgba(255,255,255,0.03)',
+              borderRadius: '20px',
+              padding: '2px',
+              border: '1px solid #222',
             }}
           >
-            {t('canvas.bodyFront')}
-          </button>
-          <button
-            style={{
-              padding: '6px 15px',
-              borderRadius: '16px',
-              border: 'none',
-              cursor: 'pointer',
-              fontSize: '13px',
-              fontWeight: 'bold',
-              background: bodyMode === 'back' ? '#4caf50' : 'transparent',
-              color: bodyMode === 'back' ? '#fff' : '#888',
-            }}
-            onClick={(e) => {
-              e.stopPropagation();
-              setBodyMode('back');
-            }}
-          >
-            {t('canvas.bodyBack')}
-          </button>
-          {appMode !== 'general' && (
+            <button
+              style={{
+                padding: '6px 14px',
+                borderRadius: '16px',
+                border: 'none',
+                cursor: 'pointer',
+                fontSize: '12px',
+                fontWeight: 'bold',
+                background: bodyMode === 'front' ? '#4caf50' : 'transparent',
+                color: bodyMode === 'front' ? '#fff' : '#888',
+                transition: 'all 0.2s',
+              }}
+              onClick={(e) => {
+                e.stopPropagation();
+                setBodyMode('front');
+              }}
+            >
+              {t('canvas.bodyFront')}
+            </button>
             <button
               style={{
                 padding: '6px 15px',
@@ -414,347 +426,303 @@ export default function CanvasPage({
                 cursor: 'pointer',
                 fontSize: '13px',
                 fontWeight: 'bold',
-                background: bodyMode === 'none' ? '#d32f2f' : 'transparent',
-                color: bodyMode === 'none' ? '#fff' : '#888',
+                background: bodyMode === 'back' ? '#4caf50' : 'transparent',
+                color: bodyMode === 'back' ? '#fff' : '#888',
               }}
               onClick={(e) => {
                 e.stopPropagation();
-                setBodyMode('none');
+                setBodyMode('back');
               }}
             >
-              {t('canvas.bodyNone')}
+              {t('canvas.bodyBack')}
             </button>
-          )}
+            {appMode !== 'general' && (
+              <button
+                style={{
+                  padding: '6px 15px',
+                  borderRadius: '16px',
+                  border: 'none',
+                  cursor: 'pointer',
+                  fontSize: '13px',
+                  fontWeight: 'bold',
+                  background: bodyMode === 'none' ? '#d32f2f' : 'transparent',
+                  color: bodyMode === 'none' ? '#fff' : '#888',
+                }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setBodyMode('none');
+                }}
+              >
+                {t('canvas.bodyNone')}
+              </button>
+            )}
+          </div>
+
+          {/* 右侧生成按钮 */}
+          <button
+            style={{
+              background: '#d32f2f',
+              color: '#fff',
+              border: 'none',
+              padding: '6px 16px',
+              borderRadius: '20px',
+              cursor: 'pointer',
+              fontWeight: 'bold',
+              fontSize: '13px',
+              boxShadow: '0 4px 12px rgba(211,47,47,0.3)',
+            }}
+            onClick={onGenerate}
+          >
+            {t('canvas.generate')}
+          </button>
         </div>
 
-        {/* 右侧生成按钮 */}
-        <button
-          style={{
-            background: '#d32f2f',
-            color: '#fff',
-            border: 'none',
-            padding: '6px 16px',
-            borderRadius: '20px',
-            cursor: 'pointer',
-            fontWeight: 'bold',
-            fontSize: '13px',
-            boxShadow: '0 4px 12px rgba(211,47,47,0.3)',
-          }}
-          onClick={onGenerate}
-        >
-          {t('canvas.generate')}
-        </button>
-      </div>
-
-      {/* ===== 方向提示 ===== */}
-      <div
-        style={{
-          position: 'absolute',
-          top: '90px',
-          left: '50%',
-          transform: 'translateX(-50%)',
-          background: 'rgba(0, 0, 0, 0.75)',
-          padding: '6px 18px',
-          borderRadius: '20px',
-          fontSize: '11px',
-          color: '#fff',
-          pointerEvents: 'none',
-          zIndex: 5,
-          transition: 'opacity 0.4s ease',
-          opacity: tipVisible ? 1 : 0,
-        }}
-      >
-        {bodyMode === 'front' && '🔄 正面视图'}
-        {bodyMode === 'back' && '🔄 背面视图'}
-        {bodyMode === 'none' && '🎨 盲画模式'}
-      </div>
-
-      {/* ===== 缩放调节 ===== */}
-      {bodyMode !== 'none' && (
+        {/* 方向提示 */}
         <div
-          onMouseDown={(e) => e.stopPropagation()}
-          onTouchStart={(e) => e.stopPropagation()}
           style={{
             position: 'absolute',
-            top: '75px',
-            left: '20px',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            background: 'rgba(20,20,20,0.85)',
-            padding: '6px 12px',
-            borderRadius: '12px',
-            border: '1px solid #2d2d2d',
-            zIndex: 10,
+            top: '90px',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            background: 'rgba(0, 0, 0, 0.75)',
+            padding: '6px 18px',
+            borderRadius: '20px',
+            fontSize: '11px',
+            color: '#fff',
+            pointerEvents: 'none',
+            transition: 'opacity 0.4s ease',
+            opacity: tipVisible ? 1 : 0,
           }}
         >
-          <span style={{ color: '#888', fontSize: '11px', whiteSpace: 'nowrap' }}>
-            🗺️ {t('canvas.scale') || '比例'}
-          </span>
-          <input
-            type="range"
-            min="0.5"
-            max="2.0"
-            step="0.05"
-            value={bgScale}
-            onChange={(e) => setBgScale(parseFloat(e.target.value))}
-            style={{
-              accentColor: '#4caf50',
-              width: '60px',
-              height: '4px',
-              cursor: 'pointer',
-            }}
-          />
-          <span style={{ color: '#aaa', fontSize: '11px', minWidth: '32px' }}>
-            {Math.round(bgScale * 100)}%
-          </span>
+          {bodyMode === 'front' && t('canvas.frontView')}
+          {bodyMode === 'back' && t('canvas.backView')}
+          {bodyMode === 'none' && t('canvas.blindView')}
         </div>
-      )}
 
-      {/* ===== 右侧工具栏 ===== */}
-      <div
-        onMouseDown={(e) => e.stopPropagation()}
-        onTouchStart={(e) => e.stopPropagation()}
-        style={{
-          pointerEvents: 'auto',
-          position: 'absolute',
-          right: '20px',
-          top: '50%',
-          transform: 'translateY(-50%)',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          gap: '15px',
-        }}
-      >
-        {/* 情绪加载指示器 */}
+        {/* 缩放调节 */}
+        {bodyMode !== 'none' && (
+          <div
+            style={{
+              position: 'absolute',
+              top: '75px',
+              left: '20px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              background: 'rgba(20,20,20,0.85)',
+              padding: '6px 12px',
+              borderRadius: '12px',
+              border: '1px solid #2d2d2d',
+              pointerEvents: 'auto',
+            }}
+          >
+            <span style={{ color: '#888', fontSize: '11px', whiteSpace: 'nowrap' }}>
+              🗺️ {t('canvas.scale')}
+            </span>
+            <input
+              type="range"
+              min="0.5"
+              max="2.0"
+              step="0.05"
+              value={bgScale}
+              onChange={(e) => setBgScale(parseFloat(e.target.value))}
+              style={{
+                accentColor: '#4caf50',
+                width: '60px',
+                height: '4px',
+                cursor: 'pointer',
+              }}
+            />
+            <span style={{ color: '#aaa', fontSize: '11px', minWidth: '32px' }}>
+              {Math.round(bgScale * 100)}%
+            </span>
+          </div>
+        )}
+
+        {/* 右侧工具栏 */}
         <div
           style={{
+            position: 'absolute',
+            right: '20px',
+            top: '50%',
+            transform: 'translateY(-50%)',
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
-            height: '180px',
-            width: '30px',
-            position: 'relative',
-            justifyContent: 'flex-end',
+            gap: '15px',
+            pointerEvents: 'auto',
           }}
         >
-          <div
+          <button
             style={{
-              color: '#888',
-              fontSize: '9px',
-              marginBottom: '4px',
-              writingMode: 'vertical-rl',
+              background: 'rgba(0,0,0,0.6)',
+              backdropFilter: 'blur(10px)',
+              border: '1px solid #444',
+              borderRadius: '30px',
+              width: '50px',
+              height: '50px',
+              fontSize: '24px',
+              cursor: 'pointer',
+            }}
+            onClick={(e) => {
+              e.stopPropagation();
+              handleUndo();
             }}
           >
-            {t('canvas.emotionLoad')}
-          </div>
-          <div
+            ↩️
+          </button>
+          <button
             style={{
-              width: '6px',
-              height: '100%',
-              background: 'rgba(255,255,255,0.1)',
-              borderRadius: '3px',
-              position: 'relative',
-              overflow: 'hidden',
+              background: 'rgba(0,0,0,0.6)',
+              backdropFilter: 'blur(10px)',
+              border: '1px solid #444',
+              borderRadius: '30px',
+              width: '50px',
+              height: '50px',
+              fontSize: '24px',
+              cursor: 'pointer',
+            }}
+            onClick={(e) => {
+              e.stopPropagation();
+              handleRedo();
             }}
           >
-            <div
-              style={{
-                position: 'absolute',
-                bottom: 0,
-                width: '100%',
-                height: `${calcEmotionLoad()}%`,
-                background: `linear-gradient(to top, #4caf50, #ff9800, #d32f2f)`,
-                borderRadius: '3px',
-                transition: 'height 0.3s ease-out',
-              }}
-            />
-          </div>
-          <div
+            ↪️
+          </button>
+          <button
             style={{
-              color: calcEmotionLoad() > 70 ? '#d32f2f' : '#fff',
-              fontSize: '12px',
-              fontWeight: 'bold',
-              marginTop: '6px',
+              background: 'rgba(0,0,0,0.6)',
+              backdropFilter: 'blur(10px)',
+              border: '1px solid #444',
+              borderRadius: '30px',
+              width: '50px',
+              height: '50px',
+              fontSize: '24px',
+              cursor: 'pointer',
+            }}
+            onClick={(e) => {
+              e.stopPropagation();
+              handleClear();
             }}
           >
-            {calcEmotionLoad()}
-          </div>
+            🗑️
+          </button>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              resetView();
+            }}
+            style={{
+              background: 'rgba(0,0,0,0.6)',
+              backdropFilter: 'blur(10px)',
+              border: '1px solid #444',
+              borderRadius: '30px',
+              width: '50px',
+              height: '50px',
+              fontSize: '20px',
+              cursor: 'pointer',
+              color: '#fff',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+            title={t('canvas.resetView')}
+          >
+            🎯
+          </button>
         </div>
 
-        {/* 工具按钮 */}
-        <button
+        {/* 底部工具栏 */}
+        <div
           style={{
-            background: 'rgba(0,0,0,0.6)',
-            backdropFilter: 'blur(10px)',
-            border: '1px solid #444',
-            borderRadius: '30px',
-            width: '50px',
-            height: '50px',
-            fontSize: '24px',
-            cursor: 'pointer',
-          }}
-          onClick={(e) => {
-            e.stopPropagation();
-            handleUndo();
-          }}
-        >
-          ↩️
-        </button>
-        <button
-          style={{
-            background: 'rgba(0,0,0,0.6)',
-            backdropFilter: 'blur(10px)',
-            border: '1px solid #444',
-            borderRadius: '30px',
-            width: '50px',
-            height: '50px',
-            fontSize: '24px',
-            cursor: 'pointer',
-          }}
-          onClick={(e) => {
-            e.stopPropagation();
-            handleRedo();
-          }}
-        >
-          ↪️
-        </button>
-        <button
-          style={{
-            background: 'rgba(0,0,0,0.6)',
-            backdropFilter: 'blur(10px)',
-            border: '1px solid #444',
-            borderRadius: '30px',
-            width: '50px',
-            height: '50px',
-            fontSize: '24px',
-            cursor: 'pointer',
-          }}
-          onClick={(e) => {
-            e.stopPropagation();
-            handleClear();
-          }}
-        >
-          🗑️
-        </button>
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            resetView();
-          }}
-          style={{
-            background: 'rgba(0,0,0,0.6)',
-            backdropFilter: 'blur(10px)',
-            border: '1px solid #444',
-            borderRadius: '30px',
-            width: '50px',
-            height: '50px',
-            fontSize: '20px',
-            cursor: 'pointer',
-            color: '#fff',
+            position: 'absolute',
+            bottom: 'max(20px, env(safe-area-inset-bottom))',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            width: '92%',
+            maxWidth: '380px',
+            background: 'rgba(20,20,20,0.95)',
+            padding: '12px 16px',
+            borderRadius: '24px',
+            backdropFilter: 'blur(12px)',
+            border: '1px solid #2a2a2a',
+            boxShadow: '0 8px 32px rgba(0,0,0,0.6)',
             display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
+            flexDirection: 'column',
+            gap: '10px',
+            pointerEvents: 'auto',
           }}
-          title={t('canvas.resetView') || '重置视角'}
         >
-          🎯
-        </button>
-      </div>
-
-      {/* ===== 底部画笔工具栏 ===== */}
-      <div
-        onMouseDown={(e) => e.stopPropagation()}
-        onTouchStart={(e) => e.stopPropagation()}
-        style={{
-          pointerEvents: 'auto',
-          position: 'absolute',
-          bottom: 'max(20px, env(safe-area-inset-bottom))',
-          left: '50%',
-          transform: 'translateX(-50%)',
-          width: '92%',
-          maxWidth: '380px',
-          background: 'rgba(20,20,20,0.95)',
-          padding: '12px 16px',
-          borderRadius: '24px',
-          backdropFilter: 'blur(12px)',
-          border: '1px solid #2a2a2a',
-          boxShadow: '0 8px 32px rgba(0,0,0,0.6)',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '10px',
-        }}
-      >
-        {/* 画笔行 */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px' }}>
-          {Object.keys(BRUSHES).map((k) => (
-            <button
-              key={k}
-              style={{
-                flex: 1,
-                background: activeBrush === k ? '#444' : 'transparent',
-                border: 'none',
-                color: activeBrush === k ? '#fff' : '#888',
-                padding: '8px 0',
-                borderRadius: '10px',
-                fontSize: '12px',
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                cursor: 'pointer',
-              }}
-              onClick={() => setActiveBrush(activeBrush === k ? null : k)}
-            >
-              {BRUSHES[k].isImage ? (
-                <img
-                  src={BRUSHES[k].icon}
-                  alt={BRUSHES[k].label}
-                  style={{
-                    width: '24px',
-                    height: '24px',
-                    marginBottom: '4px',
-                    opacity: activeBrush === k ? 1 : 0.7,
-                  }}
-                />
-              ) : (
-                <span style={{ fontSize: '20px', marginBottom: '4px' }}>{BRUSHES[k].icon}</span>
-              )}
-              <span>{t(`brushes.${k}.label`)}</span>
-            </button>
-          ))}
-        </div>
-
-        {/* 颜色行 */}
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-          <div style={{ display: 'flex', justifyContent: 'center', gap: '20px' }}>
-            {Object.keys(PALETTES).map((k) => (
-              <div
+          {/* 画笔行 */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px' }}>
+            {Object.keys(BRUSHES).map((k) => (
+              <button
                 key={k}
                 style={{
-                  width: '30px',
-                  height: '30px',
-                  borderRadius: '50%',
-                  border: activeColor === k ? '2px solid #fff' : '2px solid #444',
-                  background: `rgb(${PALETTES[k].color.join(',')})`,
+                  flex: 1,
+                  background: activeBrush === k ? '#444' : 'transparent',
+                  border: 'none',
+                  color: activeBrush === k ? '#fff' : '#888',
+                  padding: '8px 0',
+                  borderRadius: '10px',
+                  fontSize: '12px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
                   cursor: 'pointer',
-                  transform: activeColor === k ? 'scale(1.2)' : 'none',
                 }}
-                onClick={() => setActiveColor(k)}
-              />
+                onClick={() => setActiveBrush(activeBrush === k ? null : k)}
+              >
+                {BRUSHES[k].isImage ? (
+                  <img
+                    src={BRUSHES[k].icon}
+                    alt={BRUSHES[k].label}
+                    style={{
+                      width: '24px',
+                      height: '24px',
+                      marginBottom: '4px',
+                      opacity: activeBrush === k ? 1 : 0.7,
+                    }}
+                  />
+                ) : (
+                  <span style={{ fontSize: '20px', marginBottom: '4px' }}>{BRUSHES[k].icon}</span>
+                )}
+                <span>{t(`brushes.${k}.label`)}</span>
+              </button>
             ))}
           </div>
-          <span
-            style={{
-              color: '#888',
-              fontSize: '11px',
-              marginTop: '6px',
-              textAlign: 'center',
-              display: 'block',
-            }}
-          >
-            <ColorDescription activeColor={activeColor} t={t} />
-          </span>
+
+          {/* 颜色行 */}
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+            <div style={{ display: 'flex', justifyContent: 'center', gap: '20px' }}>
+              {Object.keys(PALETTES).map((k) => (
+                <div
+                  key={k}
+                  style={{
+                    width: '30px',
+                    height: '30px',
+                    borderRadius: '50%',
+                    border: activeColor === k ? '2px solid #fff' : '2px solid #444',
+                    background: `rgb(${PALETTES[k].color.join(',')})`,
+                    cursor: 'pointer',
+                    transform: activeColor === k ? 'scale(1.2)' : 'none',
+                  }}
+                  onClick={() => setActiveColor(k)}
+                />
+              ))}
+            </div>
+            <span
+              style={{
+                color: '#888',
+                fontSize: '11px',
+                marginTop: '6px',
+                textAlign: 'center',
+                display: 'block',
+              }}
+            >
+              <ColorDescription activeColor={activeColor} t={t} />
+            </span>
+          </div>
         </div>
       </div>
     </div>

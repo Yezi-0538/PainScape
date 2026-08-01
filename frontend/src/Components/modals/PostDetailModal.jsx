@@ -276,8 +276,8 @@ export default function PostDetailModal({
                 >
                   👍{' '}
                   {viewingPost.hasUserVotedHelpful
-                    ? t('post.votedHelpful') || '已赞同有用'
-                    : t('post.markHelpful') || '亲测有用'}{' '}
+                    ? t('post.votedHelpful')
+                    : t('post.markHelpful')}{' '}
                   · {viewingPost.helpfulVotes || 0}
                 </button>
               </div>
@@ -486,7 +486,7 @@ export default function PostDetailModal({
               }}
             >
               <span>🗑️</span>
-              <span>{t('post.delete') || '删除我的帖子'}</span>
+              <span>{t('post.delete')}</span>
             </button>
           )}
         </div>

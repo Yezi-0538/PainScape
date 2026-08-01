@@ -1,5 +1,6 @@
 // src/pages/SplashPage.jsx
 import React from 'react';
+import { useI18n } from '../i18n/i18nContext';
 
 export default function SplashPage({
   splashOpacity,
@@ -7,6 +8,7 @@ export default function SplashPage({
   onLanguageSwitch,
   quote,
 }) {
+  const { t } = useI18n();
   return (
     <div
       style={{
@@ -46,7 +48,7 @@ export default function SplashPage({
             transition: 'all 0.2s',
           }}
         >
-          {targetLanguage === 'zh' ? 'English' : '简体中文'}
+          {t('splash.switchLang')}
         </button>
       </div>
 

@@ -4,10 +4,14 @@ import { useRef, useState, useCallback } from 'react';
 /**
  * 画笔音效 Hook
  * 管理 AudioContext 和画笔音效播放
+ * @param {boolean} externalIsMuted - 外部传入的静音状态（如 App 的 isMuted），优先使用
  */
-export const useAudio = () => {
+export const useAudio = (externalIsMuted) => {
   const audioCtx = useRef(null);
-  const [isMuted, setIsMuted] = useState(false);
+  const [internalIsMuted, setInternalIsMuted] = useState(false);
+
+  // 如果外部传入了 isMuted，使用外部的；否则使用内部的
+  const isMuted = externalIsMuted !== undefined ? externalIsMuted : internalIsMuted;
 
   /**
    * 创建白噪音 Buffer
@@ -284,7 +288,7 @@ export const useAudio = () => {
   );
 
   const toggleMute = useCallback(() => {
-    setIsMuted((prev) => !prev);
+    setInternalIsMuted((prev) => !prev);
   }, []);
 
   return {

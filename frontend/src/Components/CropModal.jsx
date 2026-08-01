@@ -1,5 +1,6 @@
 // src/components/CropModal.jsx
 import React, { useState } from 'react';
+import { useI18n } from '../i18n/i18nContext';
 import { cropImage } from '../utils/imageUtils';
 
 const CropModal = ({
@@ -8,7 +9,6 @@ const CropModal = ({
   cropType,
   onConfirm,
   onCancel,
-  lang = 'zh'
 }) => {
   const [zoom, setZoom] = useState(1.5);
   const [pos, setPos] = useState({ x: 0, y: 0 });
@@ -41,24 +41,7 @@ const CropModal = ({
     onConfirm(result);
   };
 
-  const texts = {
-    zh: {
-      title: isAvatar ? '调整头像比例' : '调整背景构图',
-      hint: '单指/鼠标拖动对齐，下方滑动调节焦距',
-      zoom: '缩放',
-      cancel: '取消重新选择',
-      confirm: '应用此构图'
-    },
-    en: {
-      title: isAvatar ? 'Adjust Avatar' : 'Adjust Background',
-      hint: 'Drag to align, slide below to zoom',
-      zoom: 'Zoom',
-      cancel: 'Cancel',
-      confirm: 'Apply'
-    }
-  };
-
-  const t = texts[lang] || texts.zh;
+  const { t } = useI18n();
 
   return (
     <div style={{
@@ -78,10 +61,10 @@ const CropModal = ({
       WebkitUserSelect: 'none'
     }}>
       <h3 style={{ color: '#fff', fontSize: '16px', marginBottom: '4px', fontWeight: 'bold' }}>
-        ✂️ {t.title}
+        ✂️ {isAvatar ? t('crop.adjustAvatar') : t('crop.adjustBg')}
       </h3>
       <p style={{ color: '#666', fontSize: '11px', marginBottom: '24px' }}>
-        {t.hint}
+        {t('crop.instruction')}
       </p>
 
       <div
@@ -137,7 +120,7 @@ const CropModal = ({
       </div>
 
       <div style={{ width: '280px', marginTop: '24px', display: 'flex', alignItems: 'center', gap: '12px' }}>
-        <span style={{ color: '#555', fontSize: '11px' }}>🔍 {t.zoom}</span>
+        <span style={{ color: '#555', fontSize: '11px' }}>🔍 {t('crop.zoom')}</span>
         <input
           type="range"
           min="0.5"
@@ -171,7 +154,7 @@ const CropModal = ({
             cursor: 'pointer'
           }}
         >
-          {t.cancel}
+          {t('crop.cancel')}
         </button>
         <button
           onClick={handleConfirm}
@@ -188,7 +171,7 @@ const CropModal = ({
             boxShadow: '0 4px 15px rgba(211, 47, 47, 0.3)'
           }}
         >
-          {t.confirm}
+          {t('crop.apply')}
         </button>
       </div>
     </div>

@@ -1,6 +1,6 @@
 // src/pages/HistoryPage.jsx
 import React, { useState } from 'react';
-import { useI18n } from '../i18n/i18nContext'; 
+import { useI18n } from '../i18n/i18nContext';
 
 // ============================================================
 // 工具函数
@@ -29,7 +29,7 @@ const TrendSummary = ({ history, t }) => {
     return acc;
   }, {});
   const sortedTypes = Object.entries(typeFreq).sort((a, b) => b[1] - a[1]);
-  const dominant = sortedTypes.length > 0 ? sortedTypes[0] : ['未知', 0];
+  const dominant = sortedTypes.length > 0 ? sortedTypes[0] : [t('resultLabels.unknown') || '未知', 0];
 
   const gaps = history
     .slice(0, -1)
@@ -138,7 +138,7 @@ export default function HistoryPage({
   exportHistoryPDF,
   showToast,
 }) {
-    const { t } = useI18n(); 
+  const { t } = useI18n();
   const [collapsedMonths, setCollapsedMonths] = useState({});
 
   const toggleMonth = (month) => {
@@ -254,7 +254,7 @@ export default function HistoryPage({
     if (!item.date) return acc;
     const parts = normalizeDateStr(item.date).split('-');
     if (parts.length < 2) return acc;
-    const monthKey = `${parts[0]}年${parts[1]}月`;
+    const monthKey = `${parts[0]}${t('history.year') || '年'}${parts[1]}${t('history.month') || '月'}`;
     if (!acc[monthKey]) acc[monthKey] = [];
     acc[monthKey].push(item);
     return acc;
@@ -262,14 +262,28 @@ export default function HistoryPage({
 
   // ===== 删除记录 =====
   const handleDeleteRecord = (recordId) => {
-    if (window.confirm(t('history.deleteConfirm'))) {
+    if (window.confirm(t('history.deleteConfirm') || '确定要删除这条记录吗？')) {
       const updatedHistory = history.filter((h) => h.id !== recordId);
       setHistory(updatedHistory);
       localStorage.setItem('painscape_history', JSON.stringify(updatedHistory));
       setSelectedDateRecords((prev) => prev.filter((h) => h.id !== recordId));
-      setViewingDiary(null);
+      if (viewingDiary && viewingDiary.id === recordId) {
+        setViewingDiary(null);
+      }
       showToast('recordDeleted');
     }
+  };
+
+  // ===== 获取星期几 =====
+  const getWeekDays = () => {
+    const sun = t('history.sun') || '日';
+    const mon = t('history.mon') || '一';
+    const tue = t('history.tue') || '二';
+    const wed = t('history.wed') || '三';
+    const thu = t('history.thu') || '四';
+    const fri = t('history.fri') || '五';
+    const sat = t('history.sat') || '六';
+    return [sun, mon, tue, wed, thu, fri, sat];
   };
 
   return (
@@ -280,6 +294,7 @@ export default function HistoryPage({
         width: '100vw',
         minHeight: '100vh',
         overflowY: 'auto',
+        WebkitOverflowScrolling: 'touch',
         padding: '20px',
         paddingBottom: '100px',
         boxSizing: 'border-box',
@@ -334,7 +349,7 @@ export default function HistoryPage({
         </div>
       </div>
 
-      {/* 趋势 */}
+      {/* 趋势摘要 */}
       <TrendSummary history={history} t={t} />
 
       {/* 日历 */}
@@ -372,7 +387,7 @@ export default function HistoryPage({
             ‹
           </button>
           <span style={{ color: '#fff', fontWeight: 'bold', fontSize: '16px' }}>
-            {calendarDate.getFullYear()}年 {calendarDate.getMonth() + 1}月
+            {calendarDate.getFullYear()}{t('history.year') || '年'} {calendarDate.getMonth() + 1}{t('history.month') || '月'}
           </span>
           <button
             onClick={() =>
@@ -394,28 +409,23 @@ export default function HistoryPage({
         </div>
 
         <div style={{ display: 'flex', marginBottom: '12px' }}>
-          {[
-            t('history.sun') || '日',
-            t('history.mon') || '一',
-            t('history.tue') || '二',
-            t('history.wed') || '三',
-            t('history.thu') || '四',
-            t('history.fri') || '五',
-            t('history.sat') || '六',
-          ].map((day) => (
-            <div
-              key={day}
-              style={{
-                width: '14.28%',
-                textAlign: 'center',
-                color: day === '日' || day === '六' ? '#d32f2f' : '#666',
-                fontSize: '12px',
-                fontWeight: day === '日' || day === '六' ? 'bold' : 'normal',
-              }}
-            >
-              {day}
-            </div>
-          ))}
+          {getWeekDays().map((day) => {
+            const isWeekend = day === (t('history.sun') || '日') || day === (t('history.sat') || '六');
+            return (
+              <div
+                key={day}
+                style={{
+                  width: '14.28%',
+                  textAlign: 'center',
+                  color: isWeekend ? '#d32f2f' : '#666',
+                  fontSize: '12px',
+                  fontWeight: isWeekend ? 'bold' : 'normal',
+                }}
+              >
+                {day}
+              </div>
+            );
+          })}
         </div>
 
         <div style={{ display: 'flex', flexWrap: 'wrap' }}>{renderCalendar()}</div>
@@ -425,7 +435,7 @@ export default function HistoryPage({
       {selectedDate && (
         <div style={{ marginTop: '20px' }}>
           <h3 style={{ color: '#fff', fontSize: '14px', marginBottom: '12px' }}>
-            📅 {selectedDate} 的记录
+            📅 {t('history.recordsOfDate') || '的记录'} ({selectedDate})
           </h3>
           {selectedDateRecords.length === 0 ? (
             <div
@@ -478,7 +488,33 @@ export default function HistoryPage({
                       {record.time}
                     </div>
                   </div>
-                  <span style={{ color: '#666', fontSize: '18px' }}>›</span>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDeleteRecord(record.id);
+                    }}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      color: '#666',
+                      fontSize: '14px',
+                      cursor: 'pointer',
+                      padding: '4px 8px',
+                      borderRadius: '6px',
+                      transition: 'background 0.2s, color 0.2s',
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background = 'rgba(244,67,54,0.1)';
+                      e.currentTarget.style.color = '#ef5350';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = 'transparent';
+                      e.currentTarget.style.color = '#666';
+                    }}
+                  >
+                    🗑️
+                  </button>
+                  <span style={{ color: '#666', fontSize: '18px', marginLeft: '4px' }}>›</span>
                 </div>
               ))}
             </div>
@@ -515,7 +551,7 @@ export default function HistoryPage({
                 gap: '4px',
               }}
             >
-              {showGroupedView ? '▲ 收起' : '▼ 展开'}
+              {showGroupedView ? '▲ ' + (t('history.collapseLabel') || '收起') : '▼ ' + (t('history.expandLabel') || '展开')}
             </button>
           </div>
 
@@ -542,7 +578,7 @@ export default function HistoryPage({
                     {month}
                   </span>
                   <span style={{ color: '#888', fontSize: '11px' }}>
-                    {records.length}条 {collapsedMonths[month] ? '▶' : '▼'}
+                    {records.length}{t('history.recordUnit') || '条'} {collapsedMonths[month] ? '▶' : '▼'}
                   </span>
                 </div>
 
@@ -566,7 +602,10 @@ export default function HistoryPage({
                           padding: '10px',
                           borderRadius: '10px',
                           cursor: 'pointer',
+                          transition: 'background 0.2s',
                         }}
+                        onMouseEnter={(e) => (e.currentTarget.style.background = '#252525')}
+                        onMouseLeave={(e) => (e.currentTarget.style.background = '#1c1c1c')}
                       >
                         <img
                           src={record.img}
@@ -599,13 +638,56 @@ export default function HistoryPage({
                             {record.painName} · {record.time}
                           </div>
                         </div>
-                        <span style={{ color: '#555' }}>›</span>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteRecord(record.id);
+                          }}
+                          style={{
+                            background: 'none',
+                            border: 'none',
+                            color: '#555',
+                            fontSize: '13px',
+                            cursor: 'pointer',
+                            padding: '4px 8px',
+                            borderRadius: '6px',
+                            transition: 'background 0.2s, color 0.2s',
+                          }}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.background = 'rgba(244,67,54,0.1)';
+                            e.currentTarget.style.color = '#ef5350';
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.background = 'transparent';
+                            e.currentTarget.style.color = '#555';
+                          }}
+                        >
+                          🗑️
+                        </button>
+                        <span style={{ color: '#555', marginLeft: '4px' }}>›</span>
                       </div>
                     ))}
                   </div>
                 )}
               </div>
             ))}
+        </div>
+      )}
+
+      {/* 空状态 - 无任何记录时显示 */}
+      {history.length === 0 && (
+        <div
+          style={{
+            textAlign: 'center',
+            padding: '80px 20px',
+            color: '#555',
+          }}
+        >
+          <div style={{ fontSize: '56px', marginBottom: '16px' }}>📖</div>
+          <p style={{ fontSize: '15px', color: '#666' }}>{t('history.emptyHistory') || '暂无记录'}</p>
+          <p style={{ fontSize: '12px', color: '#444', marginTop: '8px' }}>
+            {t('history.startTracking') || '开始你的第一次疼痛记录吧 ✨'}
+          </p>
         </div>
       )}
     </div>

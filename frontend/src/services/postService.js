@@ -22,11 +22,11 @@ export async function createPost(postData) {
     .insert({
       user_id: postData.userId,
       is_anonymous: postData.isAnonymous || false,
-      content: postData.content,
-      pain_type: postData.painType,
-      canvas_image_url: postData.canvasImageUrl,
-      experience: postData.experience || null,
-      tags: postData.tags || [],
+      text: postData.content,
+      pain_tags: postData.painType ? [postData.painType] : [],
+      img: postData.canvasImageUrl,
+      user_experience: postData.experience || null,
+      experience_tags: postData.tags || [],
     })
     .select()
     .single()
@@ -51,13 +51,13 @@ export async function getPosts(limit = 50) {
     .from('posts')
     .select(`
       id,
-      content,
-      pain_type,
-      canvas_image_url,
+      text,
+      pain_tags,
+      img,
       likes,
       hugs,
-      experience,
-      tags,
+      user_experience,
+      experience_tags,
       is_anonymous,
       user_id,
       created_at,

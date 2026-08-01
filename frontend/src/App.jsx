@@ -35,7 +35,7 @@ const API_BASE = window.location.hostname === 'localhost' || window.location.hos
 // AppContent - 主应用逻辑
 // ============================================================
 function AppContent({ targetLanguage, setTargetLanguage }) {
-  console.log('🔵 AppContent targetLanguage:', targetLanguage);  // ✅ 添加这行
+  const isEn = targetLanguage === 'en';
   const { t } = useI18n();
   const { userInfo, setUserInfo } = useUser();
   const { show, ToastContainer } = useToast();
@@ -49,6 +49,10 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
   const [page, setPage] = useState('splash');
   const [splashOpacity, setSplashOpacity] = useState(1);
 
+  // ===== 多用户状态指针 =====
+  const [currentUserId] = useState('user_A'); // 当前登录的你
+  const [targetUserId, setTargetUserId] = useState('user_A'); // 正在查看的目标主页 ID
+
   // ===== Onboarding 页面内容切换 =====
   const [showContent, setShowContent] = useState('basicInfo');
 
@@ -61,6 +65,7 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
   const [activeBrush, setActiveBrush] = useState(null);
   const [activeColor, setActiveColor] = useState('crimson');
   const [bgScale, setBgScale] = useState(1.0);
+  const camRef = useRef({ x: 0, y: 0, zoom: 1.0 });
 
   // ===== p5 引用 =====
   const p5Ref = useRef(null);
@@ -87,6 +92,22 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
   // ===== 社区帖子 =====
   const [posts, setPosts] = useState([]);
   const [hasLoadedCommunity, setHasLoadedCommunity] = useState(false);
+
+  // ===== P0-2: 社区帖子加载 =====
+  useEffect(() => {
+    if (page === 'community' && !hasLoadedCommunity) {
+      (async () => {
+        try {
+          const loadedPosts = await getPosts();
+          setPosts(Array.isArray(loadedPosts) ? loadedPosts : []);
+          setHasLoadedCommunity(true);
+        } catch (e) {
+          console.error('❌ 加载社区帖子失败:', e);
+          showToast('loadPostsFailed');
+        }
+      })();
+    }
+  }, [page, hasLoadedCommunity]);
 
   // ===== 用户偏好 =====
   const [userPrefs, setUserPrefs] = useState(['care']);
@@ -172,9 +193,18 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
   const [randomSelfCareTips, setRandomSelfCareTips] = useState([]);
   const [randomPartnerTips, setRandomPartnerTips] = useState([]);
 
+  // ===== 引导提示 =====
+  const [showGuide, setShowGuide] = useState(false);
+
   // ===== 音频 =====
   const [isMuted, setIsMuted] = useState(false);
   const audioCtx = useRef(null);
+
+  // ===== 分享预览准备 =====
+  const prepareSharePreview = useCallback((contentData) => {
+    setShareContent(contentData);
+    setShowSharePreview(true);
+  }, []);
 
   // ===== Toast 快捷方法 =====
   const showToast = useCallback((key, vars = {}) => {
@@ -217,29 +247,36 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
     const painName = t(`painNames.${dominant}`) || '痛经';
 
     // 默认模板
-    const defaultAnalogy = t(`painTemplates.${dominant}.analogy`) || '强烈的痛觉。';
-    const defaultSelfCare = t(`painTemplates.${dominant}.selfCare`) || '好好休息。';
+    const defaultAnalogy = t(`painTemplates.${dominant}.analogy`) || t('painTemplates.heavy.analogy') || '强烈的痛觉。';
+    const defaultSelfCare = t(`painTemplates.${dominant}.selfCare`) || t('painTemplates.heavy.selfCare') || '好好休息。';
 
     const symptomsText = (medicalBackground.accompanyingSymptomsArr || [])
       .map(s => t(`onboarding.accompanyingOptions.${s}`) || s)
-      .join('、') || '无明显伴随症状';
+      .join(isEn ? ', ' : '、') || (isEn ? 'No significant accompanying symptoms' : '无明显伴随症状');
 
-    const defaultComplaint = `月经期出现下腹部周期性${painName}，伴${symptomsText}1天。`;
-    const defaultPresentIllness = `患者自述既往月经规律。自述于今日（行经第${cycleDay || 'X'}天）突发${painName}。图像特征向量重构显示：痛感评分较高，伴有典型的${defaultAnalogy}，活动受限。`;
-    const defaultClinicalDiagnosis = `结合痛觉成像，建议排查子宫内膜异位症、子宫平滑肌痉挛或盆腔器质性充血。建议行妇科超声筛查。`;
+    const defaultComplaint = isEn
+      ? `Recurrent lower abdominal ${painName} during menstruation, accompanied by ${symptomsText} for 1 day.`
+      : `月经期出现下腹部周期性${painName}，伴${symptomsText}1天。`;
+    const defaultPresentIllness = isEn
+      ? `Patient reports regular menstrual cycles. Sudden onset of ${painName} today (day ${cycleDay || 'X'} of menstruation). Pain image reconstruction shows high pain scores with typical ${defaultAnalogy}, limited activity.`
+      : `患者自述既往月经规律。自述于今日（行经第${cycleDay || 'X'}天）突发${painName}。图像特征向量重构显示：痛感评分较高，伴有典型的${defaultAnalogy}，活动受限。`;
+    const defaultClinicalDiagnosis = isEn
+      ? `Based on pain imaging, recommend evaluation for endometriosis, uterine smooth muscle spasms, or pelvic organic congestion. Pelvic ultrasound is recommended.`
+      : `结合痛觉成像，建议排查子宫内膜异位症、子宫平滑肌痉挛或盆腔器质性充血。建议行妇科超声筛查。`;
 
     // 伴侣动作
     const prefKey = userPrefs[0] || 'care';
     const actionsTemplates = t(`partnerActions.${prefKey}`, { returnObjects: true }) || [];
     const formattedActions = Array.isArray(actionsTemplates)
-      ? actionsTemplates.map(act => act.replace('{{med}}', '布洛芬'))
-      : ['☑️ 帮她热敷小腹并准备好止痛药。'];
+      ? actionsTemplates.map(act => act.replace('{{med}}', isEn ? 'Ibuprofen' : '布洛芬'))
+      : isEn ? ['☑️ Apply warm compress and prepare pain medication.'] : ['☑️ 帮她热敷小腹并准备好止痛药。'];
     const defaultAction = formattedActions.join('\n');
 
     // 请假模板
     const defaultWorkText = t('workTemplate')
       ? t('workTemplate').replace('{{pain}}', painName)
-      : `领导您好：本人今日突发严重痛经（${painName}），申请休假一天，望批准。`;
+      : isEn ? `Dear Manager, I am experiencing severe acute pain (${painName}) today and am unable to work. I kindly request a day off. Thank you for your understanding.`
+        : `领导您好：本人今日突发严重痛经（${painName}），申请休假一天，望批准。`;
 
     if (hasLlm) {
       return {
@@ -250,10 +287,10 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
         selfCare: activeLlm.selfCare || defaultSelfCare,
         chief_complaint: activeLlm.chief_complaint || activeLlm.med_complaint || defaultComplaint,
         present_illness: activeLlm.present_illness || activeLlm.med_reference || defaultPresentIllness,
-        past_history: activeLlm.past_history || '平素健康状况良好。无明确高血压、糖尿病等慢性病史，无外科手术及食物药物过敏记录。',
-        menstrual_history: activeLlm.menstrual_history || '月经史：13岁初潮，经期5天，周期28-30天。',
+        past_history: activeLlm.past_history || t('defaultTemplates.past_history'),
+        menstrual_history: activeLlm.menstrual_history || t('defaultTemplates.menstrual_history'),
         clinical_diagnosis: activeLlm.clinical_diagnosis || defaultClinicalDiagnosis,
-        clinical_suggestions: activeLlm.clinical_suggestions || '建议温敷小腹与腰骶，静卧休养。若症状持续加剧建议常规门诊行超声探查。',
+        clinical_suggestions: activeLlm.clinical_suggestions || t('defaultTemplates.clinical_suggestions'),
         exam_advice: activeLlm.exam_advice || null,
       };
     }
@@ -266,10 +303,10 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
       selfCare: defaultSelfCare,
       chief_complaint: defaultComplaint,
       present_illness: defaultPresentIllness,
-      past_history: '平素健康状况良好。无明确高血压、糖尿病等慢性病史，无外科手术及食物药物过敏记录。',
-      menstrual_history: '月经史：13岁初潮，经期5天，周期28-30天（5/28-30天）。',
+      past_history: t('defaultTemplates.past_history'),
+      menstrual_history: isEn ? t('defaultTemplates.menstrual_history') : '月经史：13岁初潮，经期5天，周期28-30天（5/28-30天）。',
       clinical_diagnosis: defaultClinicalDiagnosis,
-      clinical_suggestions: '温敷小腹与腰骶，静卧休养。若症状持续加剧建议常规门诊行超声探查。',
+      clinical_suggestions: t('defaultTemplates.clinical_suggestions'),
       exam_advice: null,
     };
   }, [currentReportData, llmData, getDominantPain, t, medicalBackground, cycleDay, userPrefs]);
@@ -281,7 +318,7 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
 
   // ===== 获取上下文标题 =====
   const getContextTitle = useCallback((idty, recipient = 'manager') => {
-    const isEn = false; // 简化处理
+    const isEn = targetLanguage === 'en';
     if (idty === 'partner') return isEn ? 'Somatic Companion Guide' : '经期陪伴指南';
     if (idty === 'work') {
       const recipientLabels = {
@@ -315,17 +352,26 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
           <SplashPage
             splashOpacity={splashOpacity}
             quote={getQuote()}
+            targetLanguage={targetLanguage}
+            onLanguageSwitch={() => setTargetLanguage(targetLanguage === 'zh' ? 'en' : 'zh')}
           />
         );
 
       case 'modeSelection':
         return (
           <ModeSelectionPage
+            targetLanguage={targetLanguage}
+            onLanguageSwitch={() => setTargetLanguage(targetLanguage === 'zh' ? 'en' : 'zh')}
             onSelectMode={(mode) => {
               setAppMode(mode);
               setPage('onboarding');
+              // ✅ 根据模式设置 showContent
+              if (mode === 'general') {
+                setShowContent('preference');   // 自愈模式 → 显示偏好设置
+              } else {
+                setShowContent('basicInfo');    // 医疗模式 → 显示基础信息
+              }
             }}
-            onLanguageSwitch={() => setTargetLanguage(targetLanguage === 'zh' ? 'en' : 'zh')}
           />
         );
 
@@ -350,7 +396,9 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
             setLeaveTone={setLeaveTone}
             setBodyMode={setBodyMode}
             targetLanguage={targetLanguage}
-            setTargetLanguage={setTargetLanguage}   // ✅ 添加这行！
+            setTargetLanguage={setTargetLanguage}
+            showGuide={showGuide}
+            setShowGuide={setShowGuide}
             onStartDrawing={() => {
               setBodyMode('front');
               setPage('canvas');
@@ -384,6 +432,7 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
             pgBackRef={pgBackRef}
             bgFrontRef={bgFrontRef}
             bgBackRef={bgBackRef}
+            camRef={camRef}
             brushCounts={brushCounts}
             dynamicParticles={dynamicParticles}
             staticParticles={staticParticles}
@@ -393,29 +442,156 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
             appMode={appMode}
             onBack={() => setPage('onboarding')}
             onGenerate={async () => {
-              // 生成逻辑 - 简化版，实际需要从 CanvasPage 传递数据
               setIsLoading(true);
               try {
-                // 模拟生成
-                const url = 'data:image/jpeg;base64,...'; // 实际从 Canvas 获取
-                setImgUrl(url);
+                // ── 1. 导出画布为 base64 图片 ──
+                let frontBase64 = null;
+                let backBase64 = null;
+                const pgFront = pgFrontRef.current;
+                const pgBack = pgBackRef.current;
+                if (pgFront && typeof pgFront.get === 'function') {
+                  try { frontBase64 = pgFront.get().canvas.toDataURL('image/jpeg', 0.8); } catch (_) { }
+                }
+                if (pgBack && typeof pgBack.get === 'function') {
+                  try { backBase64 = pgBack.get().canvas.toDataURL('image/jpeg', 0.8); } catch (_) { }
+                }
+                const canvasImg = frontBase64 || backBase64 || 'data:image/jpeg;base64,';
+                setImgUrl(canvasImg);
+
+                // ── 2. 收集画板数据 ──
                 const dominant = getDominantPain();
-                const content = generateContent(dominant);
-                setCurrentReportData(content);
+                const bc = brushCounts.current || {};
+                // P2-4: 前端画笔名映射到后端名称 (heavy→sink, wave→swell)
+                const brushNameMap = { heavy: 'sink', wave: 'swell' };
+                const mappedDominant = brushNameMap[dominant] || dominant;
+                const mappedBc = Object.fromEntries(
+                  Object.entries(bc).map(([k, v]) => [brushNameMap[k] || k, v])
+                );
+                // P2-3: leaveTone 值域映射 (polite→neutral, objective→formal)
+                const toneMap = { polite: 'neutral', objective: 'formal' };
+                const mappedWorkTone = toneMap[leaveTone] || leaveTone || 'neutral';
+                const totalBrushes = Object.values(bc).reduce((a, b) => a + b, 0);
+                const painScore = Math.min(100, Math.max(10, Math.round(totalBrushes * 1.5)));
+
+                // intensityProfile: 从 speedHistory / pressureHistory 计算
+                const spHist = speedHistory.current || [];
+                const prHist = pressureHistory.current || [];
+                const avgSpeed = spHist.length > 0 ? spHist.reduce((a, b) => a + b, 0) / spHist.length : 5.0;
+                const peakSpeed = spHist.length > 0 ? Math.max(...spHist) : 10.0;
+                const avgPressure = prHist.length > 0 ? prHist.reduce((a, b) => a + b, 0) / prHist.length : 0.5;
+
+                // spatialMap: 从 particlePositions 估算
+                const positions = particlePositions.current || [];
+                let abdomenWeight = 0, lowerBackWeight = 0, upperBodyWeight = 0;
+                positions.forEach(p => {
+                  if (p && p.y != null) {
+                    const normY = p.y / (p.canvasH || 600);
+                    if (normY < 0.33) upperBodyWeight += 1;
+                    else if (normY < 0.66) abdomenWeight += 1;
+                    else lowerBackWeight += 1;
+                  }
+                });
+                const posTotal = abdomenWeight + lowerBackWeight + upperBodyWeight || 1;
+                const spatialMap = {
+                  abdomen: abdomenWeight / posTotal || 0.5,
+                  lowerBack: lowerBackWeight / posTotal || 0.5,
+                  upperBody: upperBodyWeight / posTotal || 0.0,
+                };
+
+                // timeRhythm: 简单均匀分布（前端无时间戳时使用默认）
+                const timeRhythm = { morning: 0.33, afternoon: 0.33, night: 0.34, dominantPeriod: 'morning' };
+
+                // ── 3. 构建 PainData 请求体 ──
+                const requestBody = {
+                  appMode: appMode || 'medical',
+                  dominantPain: mappedDominant,
+                  userPref: userPrefs[0] || 'care',
+                  painScore,
+                  brushCounts: mappedBc,
+                  spatialMap,
+                  intensityProfile: { avgSpeed, peakSpeed, avgPressure },
+                  timeRhythm,
+                  colorPalette: activeColor || 'crimson',
+                  bodyMode: bodyMode || 'front',
+                  medicalBackground,
+                  tonePreference: tonePreference || 'gentle',
+                  cycleDay: cycleDay || (isEn ? 'Not provided' : '未提供'),
+                  targetLanguage: targetLanguage || 'zh',
+                  accompanyingSymptoms: medicalBackground.accompanyingSymptomsArr || [],
+                  workScenario: leaveRecipient || 'manager',
+                  workTone: mappedWorkTone,
+                };
+
+                // ── 4. 调用后端 API ──
+                let apiResult = null;
+                try {
+                  const resp = await fetch(`${API_BASE}/api/generate`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(requestBody),
+                  });
+                  if (!resp.ok) {
+                    const errText = await resp.text();
+                    throw new Error(`API ${resp.status}: ${errText.slice(0, 200)}`);
+                  }
+                  apiResult = await resp.json();
+                } catch (apiErr) {
+                  console.warn('⚠️ API 调用失败，使用本地模板降级:', apiErr.message);
+                  showToast('apiGenerateFallback');
+                }
+
+                // ── 5. 设置结果数据 ──
+                if (apiResult) {
+                  setLlmData(apiResult);
+                  setCurrentReportData(apiResult);
+                } else {
+                  // 降级：使用本地模板
+                  const content = generateContent(dominant);
+                  setCurrentReportData(content);
+                }
+
+                // ── 6. 创建历史条目 ──
+                const now = new Date();
+                const dateStr = `${now.getFullYear()}/${String(now.getMonth() + 1).padStart(2, '0')}/${String(now.getDate()).padStart(2, '0')}`;
+                const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+                const historyEntry = {
+                  id: Date.now().toString(),
+                  date: dateStr,
+                  time: timeStr,
+                  img: canvasImg,
+                  painName: t(`painNames.${dominant}`) || dominant,
+                  dominantPain: dominant,
+                  painScore,
+                  appMode,
+                  reportData: apiResult || generateContent(dominant),
+                  medicalBackground,
+                  userPrefs,
+                  tonePreference,
+                  cycleDay,
+                };
+                setHistory(prev => [historyEntry, ...prev]);
+
                 setPage('result');
               } catch (e) {
-                console.error('Generation failed:', e);
+                console.error('❌ 生成失败:', e);
+                showToast('generateFailed', { msg: e.message });
               } finally {
                 setIsLoading(false);
               }
             }}
-            onUndo={() => { }}
-            onRedo={() => { }}
-            onClear={() => { }}
-            onResetView={() => { }}
+            handleUndo={() => { }}
+            handleRedo={() => { }}
+            handleClear={() => { }}
+            resetView={() => { }}
           />
         );
-
+        // 在进入 ResultPage 前
+        useEffect(() => {
+          if (page === 'result') {
+            const tips = t('partnerTips', { returnObjects: true }) || [];
+            setRandomPartnerTips(Array.isArray(tips) ? tips : []);
+          }
+        }, [page, t]);
       case 'result':
         return (
           <ResultPage
@@ -461,18 +637,110 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
             onBack={() => setPage('onboarding')}
             onShare={() => { }}
             onPublish={() => setShowPostModal(true)}
-            onRefine={(field) => {
-              // 简化处理
+            handleRefine={async (field) => {
+              // P0-5: 内容精调 — 重新调用 /api/generate 并只替换指定字段
+              if (!field) return;
               setRefiningField(field);
-              setTimeout(() => setRefiningField(null), 1000);
+              try {
+                const dominant = getDominantPain();
+                const bc = brushCounts.current || {};
+                // P2-4: 前端画笔名映射到后端名称 (heavy→sink, wave→swell)
+                const brushNameMap = { heavy: 'sink', wave: 'swell' };
+                const mappedDominant = brushNameMap[dominant] || dominant;
+                const mappedBc = Object.fromEntries(
+                  Object.entries(bc).map(([k, v]) => [brushNameMap[k] || k, v])
+                );
+                // P2-3: leaveTone 值域映射 (polite→neutral, objective→formal)
+                const toneMap = { polite: 'neutral', objective: 'formal' };
+                const mappedWorkTone = toneMap[leaveTone] || leaveTone || 'neutral';
+                const totalBrushes = Object.values(bc).reduce((a, b) => a + b, 0);
+                const painScore = Math.min(100, Math.max(10, Math.round(totalBrushes * 1.5)));
+
+                // 复用上次请求的结构
+                const spHist = speedHistory.current || [];
+                const prHist = pressureHistory.current || [];
+                const avgSpeed = spHist.length > 0 ? spHist.reduce((a, b) => a + b, 0) / spHist.length : 5.0;
+                const peakSpeed = spHist.length > 0 ? Math.max(...spHist) : 10.0;
+                const avgPressure = prHist.length > 0 ? prHist.reduce((a, b) => a + b, 0) / prHist.length : 0.5;
+
+                const requestBody = {
+                  appMode: appMode || 'medical',
+                  dominantPain: mappedDominant,
+                  userPref: userPrefs[0] || 'care',
+                  painScore,
+                  brushCounts: mappedBc,
+                  spatialMap: { abdomen: 0.5, lowerBack: 0.5, upperBody: 0.0 },
+                  intensityProfile: { avgSpeed, peakSpeed, avgPressure },
+                  timeRhythm: { morning: 0.33, afternoon: 0.33, night: 0.34, dominantPeriod: 'morning' },
+                  colorPalette: activeColor || 'crimson',
+                  bodyMode: bodyMode || 'front',
+                  medicalBackground,
+                  tonePreference: tonePreference || 'gentle',
+                  cycleDay: cycleDay || (isEn ? 'Not provided' : '未提供'),
+                  targetLanguage: targetLanguage || 'zh',
+                  accompanyingSymptoms: medicalBackground.accompanyingSymptomsArr || [],
+                  workScenario: leaveRecipient || 'manager',
+                  workTone: mappedWorkTone,
+                };
+
+                let refinedResult = null;
+                try {
+                  const resp = await fetch(`${API_BASE}/api/generate`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(requestBody),
+                  });
+                  if (!resp.ok) {
+                    throw new Error(`API ${resp.status}`);
+                  }
+                  refinedResult = await resp.json();
+                } catch (apiErr) {
+                  console.warn('⚠️ 精调 API 失败，使用本地模板:', apiErr.message);
+                }
+
+                if (refinedResult) {
+                  // 只更新精调的字段，保留其他字段不变
+                  const fieldValue = refinedResult[field];
+                  if (fieldValue !== undefined && fieldValue !== null) {
+                    setCurrentReportData(prev => ({ ...prev, [field]: fieldValue }));
+                    setLlmData(prev => ({ ...prev, [field]: fieldValue }));
+                    // 如果用户之前编辑过该字段，清除编辑缓存
+                    setEditedContents(prev => {
+                      const next = { ...prev };
+                      delete next[field];
+                      return next;
+                    });
+                    showToast('refineSuccess');
+                  } else {
+                    showToast('refineNoChange');
+                  }
+                } else {
+                  // 降级：使用本地 generateContent 刷新
+                  const content = generateContent(dominant);
+                  const fieldValue = content[field];
+                  if (fieldValue !== undefined) {
+                    setCurrentReportData(prev => ({ ...prev, [field]: fieldValue }));
+                    setLlmData(prev => ({ ...prev, [field]: fieldValue }));
+                  }
+                  showToast('refineFallback');
+                }
+              } catch (e) {
+                console.error('❌ 精调失败:', e);
+                showToast('refineFailed');
+              } finally {
+                setRefiningField(null);
+              }
             }}
-            onCopy={(text) => {
+            handleCopy={(text) => {
               navigator.clipboard.writeText(text).then(() => {
                 showToast('copySuccess');
               }).catch(() => {
                 showToast('copyFailed');
               });
             }}
+            setHealingState={setHealingState}
+            prepareSharePreview={prepareSharePreview}
+            randomPartnerTips={randomPartnerTips}
             onConfirmShare={() => { }}
           />
         );
@@ -497,19 +765,14 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
             isLoading={isLoading}
             setIsLoading={setIsLoading}
             onBack={() => setPage('onboarding')}
-            onLike={(postId) => {
+            handleLikePost={(postId) => {
               // 简化处理
               setPosts(prev => prev.map(p =>
                 p.id === postId ? { ...p, likes: (p.likes || 0) + 1 } : p
               ));
             }}
-            onHug={(postId) => {
-              setPosts(prev => prev.map(p =>
-                p.id === postId ? { ...p, hugs: (p.hugs || 0) + 1 } : p
-              ));
-            }}
-            onDelete={() => { }}
-            onAddExperience={() => { }}
+            handleAddExperience={() => { }}
+            updatePostInCloud={async () => { }}
             showToast={showToast}
           />
         );
@@ -532,7 +795,62 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
             viewingDiary={viewingDiary}
             setViewingDiary={setViewingDiary}
             onBack={() => setPage('onboarding')}
-            onExport={() => { }}
+            exportHistoryPDF={() => {
+              // P0-3: PDF 导出 — 使用 window.print() 轻量方案
+              if (!history || history.length === 0) {
+                showToast('noHistoryToExport');
+                return;
+              }
+              try {
+                // 构建打印专用 HTML
+                const printWindow = window.open('', '_blank', 'width=800,height=600');
+                if (!printWindow) {
+                  showToast('popupBlocked');
+                  return;
+                }
+                const recordsHtml = history.map((record, idx) => {
+                  const rd = record.reportData || {};
+                  return `
+                    <div style="margin-bottom:24px; page-break-inside:avoid; border-bottom:1px solid #ddd; padding-bottom:16px;">
+                      <h3 style="margin:0 0 8px; color:#c62828;">记录 ${idx + 1} — ${record.date || ''} ${record.time || ''}</h3>
+                      <p><strong>痛感类型：</strong>${record.painName || ''}</p>
+                      <p><strong>痛感评分：</strong>${record.painScore || '-'}</p>
+                      ${rd.chief_complaint ? `<p><strong>主诉：</strong>${rd.chief_complaint}</p>` : ''}
+                      ${rd.present_illness ? `<p><strong>现病史：</strong>${rd.present_illness}</p>` : ''}
+                      ${rd.clinical_diagnosis ? `<p><strong>临床诊断：</strong>${rd.clinical_diagnosis}</p>` : ''}
+                      ${rd.clinical_suggestions ? `<p><strong>建议：</strong>${rd.clinical_suggestions}</p>` : ''}
+                      ${rd.analogy ? `<p><strong>体感类比：</strong>${typeof rd.analogy === 'object' ? JSON.stringify(rd.analogy) : rd.analogy}</p>` : ''}
+                      ${rd.selfCare ? `<p><strong>自愈建议：</strong>${Array.isArray(rd.selfCare) ? rd.selfCare.join('；') : rd.selfCare}</p>` : ''}
+                      ${rd.action ? `<p><strong>伴侣/家人行动：</strong>${Array.isArray(rd.action) ? rd.action.join('；') : rd.action}</p>` : ''}
+                      ${rd.work ? `<p><strong>请假/推约消息：</strong>${typeof rd.work === 'object' ? JSON.stringify(rd.work) : rd.work}</p>` : ''}
+                    </div>`;
+                }).join('');
+
+                printWindow.document.write(`<!DOCTYPE html>
+                  <html><head><title>PainScape 历史记录</title>
+                  <style>
+                    body { font-family: -apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif; padding: 20px; color: #333; line-height: 1.6; }
+                    h1 { color: #c62828; border-bottom: 2px solid #c62828; padding-bottom: 8px; }
+                    h3 { font-size: 15px; }
+                    p { font-size: 13px; margin: 4px 0; }
+                    @media print { body { padding: 0; } }
+                  </style></head>
+                  <body>
+                    <h1>PainScape 痛觉记录导出</h1>
+                    <p>导出时间：${new Date().toLocaleString('zh-CN')}　|　共 ${history.length} 条记录</p>
+                    <hr/>
+                    ${recordsHtml}
+                  </body></html>`);
+                printWindow.document.close();
+                // 延迟打印确保内容渲染完毕
+                setTimeout(() => {
+                  printWindow.print();
+                }, 500);
+              } catch (e) {
+                console.error('❌ PDF 导出失败:', e);
+                showToast('exportFailed');
+              }
+            }}
             showToast={showToast}
           />
         );
@@ -540,8 +858,23 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
       case 'profile':
         return (
           <ProfilePage
+            currentUserId={currentUserId}
+            targetUserId={targetUserId}
+            medicalBackground={medicalBackground}
             history={history}
-            onBack={() => setPage('onboarding')}
+            posts={posts}
+            lang={targetLanguage}
+            onBack={() => {
+              if (currentUserId !== targetUserId) {
+                setPage('community');
+              } else {
+                setPage('onboarding');
+              }
+            }}
+            onLogout={() => {
+              alert("模拟退出登录成功。");
+              setPage('splash');
+            }}
           />
         );
 

@@ -1,5 +1,6 @@
 // src/components/EditableBlock.jsx
 import React, { useState } from 'react';
+import { useI18n } from '../i18n/i18nContext';
 
 /**
  * 可编辑文本块组件
@@ -18,8 +19,10 @@ const EditableBlock = ({
   color = '#ccc',
   style = {},
   onSave,
-  placeholder = '点击编辑...',
+  placeholder,
 }) => {
+  const { t } = useI18n();
+  const _placeholder = placeholder || t('resultLabels.clickToEdit');
   const [isEditing, setIsEditing] = useState(false);
   const [value, setValue] = useState(defaultValue);
 
@@ -54,7 +57,7 @@ const EditableBlock = ({
         onChange={(e) => setValue(e.target.value)}
         onBlur={handleBlur}
         onKeyDown={handleKeyDown}
-        placeholder={placeholder}
+        placeholder={_placeholder}
         style={{
           width: '100%',
           background: 'rgba(255,255,255,0.05)',
@@ -77,7 +80,7 @@ const EditableBlock = ({
   return (
     <div
       onClick={() => setIsEditing(true)}
-      title="点击编辑"
+      title={t('resultLabels.clickToEditTitle')}
       style={{
         color,
         fontSize: '13px',
@@ -99,7 +102,7 @@ const EditableBlock = ({
         e.currentTarget.style.borderColor = 'transparent';
       }}
     >
-      {value || placeholder}
+      {value || _placeholder}
       <span
         style={{
           marginLeft: '6px',
