@@ -887,6 +887,7 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
             history={history}
             posts={posts}
             lang={targetLanguage}
+            setTargetLanguage={setTargetLanguage}
             onBack={() => {
               if (currentUserId !== targetUserId) {
                 setPage('community');

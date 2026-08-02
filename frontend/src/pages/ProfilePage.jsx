@@ -4,18 +4,28 @@ import { useUser, PRESET_BACKGROUNDS, PRESET_AVATARS } from '../contexts/UserCon
 import { useI18n } from '../i18n/i18nContext';
 import CropModal from '../Components/CropModal';
 import { compressImage } from '../utils/imageUtils';
-import { supabase } from "../services/supabaseClient";
+import { supabase } from '../services/supabaseClient';
+
+const PRESET_BG_NAMES_EN = [
+  "Obsidian Black (Default)",
+  "Dark Rose (Acute/Congested)",
+  "Mystic Purple (Neural/Radiating)",
+  "Deep Sea Blue (Cold/Stiff)"
+];
 
 export default function ProfilePage({ 
   currentUserId = "user_A", 
   targetUserId = "user_A", 
   history = [], 
   posts = [], 
+  lang = 'zh',
+  setTargetLanguage, 
   onBack 
 }) {
   const { t } = useI18n();
   const { userInfo, setUserInfo, logout, activeBackground } = useUser();
   const isSelf = currentUserId === targetUserId;
+  const isEn = lang === 'en';
 
   const avatarInputRef = useRef(null);
   const bgInputRef = useRef(null);
@@ -34,7 +44,7 @@ export default function ProfilePage({
           nickname: "PainScape_Companion", 
           email: "user@painscape.org", 
           avatar: "🩸", 
-          signature: "让说不出的痛，换一种方式抵达。🧘", 
+          signature: t('profile.defaultSignature'), 
           bgIndex: 0, 
           customAvatar: "", 
           customBg: "" 
@@ -46,21 +56,20 @@ export default function ProfilePage({
     return JSON.parse(cached);
   });
 
-  // 目标外部用户信息（当看别人时使用）
+  // 目标外部用户信息
   const [targetUserInfo, setTargetUserInfo] = useState(() => {
     return isSelf ? userInfo : (globalProfiles[targetUserId] || { 
       nickname: "同伴", 
       email: "companion@painscape.org", 
       avatar: "🩹", 
-      signature: "这位同伴很安静... 🧘", 
+      signature: t('profile.defaultSignature'), 
       bgIndex: 0 
     });
   });
 
-  // 🌟 统一渲染对象计算变量
   const activeProfile = isSelf ? userInfo : targetUserInfo;
 
-  // 关注状态 (所有用户初始皆为 0)
+  // 关注状态
   const [follows, setFollows] = useState(() => {
     const cached = localStorage.getItem("painscape_simulated_follows");
     return cached ? JSON.parse(cached) : []; 
@@ -74,7 +83,7 @@ export default function ProfilePage({
   const followersCount = follows.filter(f => f.followingId === targetUserId).length;
   const followingCount = follows.filter(f => f.followerId === targetUserId).length;
 
-  // 编辑状态（初始化为当前激活档案的数据）
+  // 编辑状态
   const [editNickname, setEditNickname] = useState(activeProfile.nickname);
   const [editAvatar, setEditAvatar] = useState(activeProfile.avatar);
   const [editBgIndex, setEditBgIndex] = useState(activeProfile.bgIndex);
@@ -84,7 +93,7 @@ export default function ProfilePage({
 
   const activeBg = PRESET_BACKGROUNDS[activeProfile.bgIndex] || PRESET_BACKGROUNDS[0];
 
-  // 🌟 仅在弹窗刚打开的瞬间同步初始数据，移除了对 [activeProfile] 的高危依赖，防止编辑时内容自动重置
+  // 弹窗打开时同步初始数据
   useEffect(() => {
     if (showEditModal) {
       setEditNickname(activeProfile.nickname || "");
@@ -92,9 +101,19 @@ export default function ProfilePage({
       setEditBgIndex(activeProfile.bgIndex ?? 0);
       setEditCustomAvatar(activeProfile.customAvatar || "");
       setEditCustomBg(activeProfile.customBg || "");
-      setEditSignature(activeProfile.signature || "");
+
+      const defaultSigZh = "让说不出的痛，换一种方式抵达。🧘";
+      const defaultSigEn = "Let the unspeakable pain find another way to be heard. 🧘";
+      
+      if (activeProfile.signature === defaultSigZh || !activeProfile.signature) {
+        setEditSignature(t('profile.defaultSignature'));
+      } else if (activeProfile.signature === defaultSigEn) {
+        setEditSignature(t('profile.defaultSignature'));
+      } else {
+        setEditSignature(activeProfile.signature);
+      }
     }
-  }, [showEditModal]); 
+  }, [showEditModal, isEn, t]);
 
   // 从 Supabase 加载数据
   useEffect(() => {
@@ -112,7 +131,7 @@ export default function ProfilePage({
             nickname: isSelf ? userInfo.nickname : `同伴_${targetUserId.slice(-4)}`,
             email: isSelf ? userInfo.email : "companion@painscape.org",
             avatar: isSelf ? userInfo.avatar : "🌸",
-            signature: isSelf ? (userInfo.signature || "让说不出的痛，换一种方式抵达。🧘") : "让说不出的痛，换一种方式抵达。🧘",
+            signature: isSelf ? (userInfo.signature || t('profile.defaultSignature')) : t('profile.defaultSignature'),
             bg_index: isSelf ? userInfo.bgIndex : 0
           };
           await supabase.from("profiles").upsert(defaultProfile);
@@ -176,8 +195,6 @@ export default function ProfilePage({
     };
 
     loadProfileAndSocialData();
-    // 🌟 核心修正一：将 [setUserInfo] 从依赖项中彻底移除！
-    // 斩断“保存修改 -> 全局重绘 -> 改变 setUserInfo 引用 -> 再次触发网络加载 -> 覆盖暂存区”的无限死循环链条
   }, [targetUserId, currentUserId, isSelf]);
 
   // 关注与取消关注
@@ -200,7 +217,6 @@ export default function ProfilePage({
           .insert({ follower_id: currentUserId, following_id: targetUserId });
 
         setIsFollowing(true);
-        const myProfile = globalProfiles[currentUserId] || { nickname: "我", avatar: "🩸", signature: "" };
         const nextFollows = [...follows, { 
           followerId: currentUserId, 
           followingId: targetUserId 
@@ -222,7 +238,7 @@ export default function ProfilePage({
     }
   };
 
-  // 图片选择与裁剪
+  // 图片裁剪选择
   const handleFileSelected = async (e, type) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -289,9 +305,8 @@ export default function ProfilePage({
       signature: editSignature,
     };
 
-    // 🌟 核心修正二：同时更新全局的全局数据与本地的 target 数据，实现 100% 同步过渡而无任何闪烁
     if (isSelf) {
-      setUserInfo(mapped);
+      setUserInfo(mapped); 
     } 
     setTargetUserInfo(mapped);
     
@@ -299,10 +314,6 @@ export default function ProfilePage({
     setGlobalProfiles(nextProfiles);
     localStorage.setItem("painscape_simulated_profiles", JSON.stringify(nextProfiles));
     
-    setShowEditModal(false);
-  };
-
-  const handleCancelChanges = () => {
     setShowEditModal(false);
   };
 
@@ -320,9 +331,11 @@ export default function ProfilePage({
     if (totalRecords === 0) return t('resultLabels.notProvided') || '暂无';
     const freqs = {};
     history.forEach(r => {
-      freqs[r.painName] = (freqs[r.painName] || 0) + 1;
+      const key = r.dominantPain || r.type || 'twist';
+      freqs[key] = (freqs[key] || 0) + 1;
     });
-    return Object.keys(freqs).reduce((a, b) => freqs[a] > freqs[b] ? a : b);
+    const topKey = Object.keys(freqs).reduce((a, b) => freqs[a] > freqs[b] ? a : b, 'twist');
+    return t(`painNames.${topKey}`) || topKey;
   };
 
   const getDeterministicCount = (id, baseSeed) => {
@@ -335,9 +348,13 @@ export default function ProfilePage({
     ? `url(${activeProfile.customBg}) center/cover no-repeat`
     : activeBg.gradient;
 
-  const isEn = t('app.name') === 'PainScape';
+  // 默认个性签名处理
+  const displaySignature = (!activeProfile.signature || 
+    activeProfile.signature === "让说不出的痛，换一种方式抵达。🧘" || 
+    activeProfile.signature === "Let the unspeakable pain find another way to be heard. 🧘")
+    ? t('profile.defaultSignature')
+    : activeProfile.signature;
 
-  // 关注/粉丝列表
   const [followers, setFollowers] = useState([]);
   const [followings, setFollowings] = useState([]);
 
@@ -354,7 +371,7 @@ export default function ProfilePage({
         transition: 'background 0.3s ease',
       }}
     >
-      {/* 防白暴暗色滤镜 */}
+      {/* 滤镜 */}
       {activeProfile.customBg && (
         <div
           style={{
@@ -400,25 +417,53 @@ export default function ProfilePage({
               fontWeight: '600',
             }}
           >
-            {isSelf ? (t('profile.sanctuary') || "我的避风港") : (isEn ? "Companion Space" : "同伴的避风港")}
+            {isSelf ? t('profile.sanctuary') : t('profile.companionSpace')}
           </h2>
-          <button
-            onClick={onBack}
-            style={{
-              padding: '6px 14px',
-              background: 'rgba(255,255,255,0.05)',
-              border: '1px solid rgba(255,255,255,0.1)',
-              color: '#fff',
-              borderRadius: '20px',
-              fontSize: '12px',
-              cursor: 'pointer',
-            }}
-          >
-            {t('community.back')}
-          </button>
+
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+            {/* 🌐 语言一键切换按钮 */}
+            {setTargetLanguage && (
+              <button
+                onClick={() => setTargetLanguage(isEn ? 'zh' : 'en')}
+                style={{
+                  padding: '6px 12px',
+                  background: 'rgba(255,255,255,0.08)',
+                  border: '1px solid rgba(255,255,255,0.15)',
+                  color: '#fff',
+                  borderRadius: '20px',
+                  fontSize: '12px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  transition: 'background 0.2s',
+                }}
+                onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(255,255,255,0.15)')}
+                onMouseLeave={(e) => (e.currentTarget.style.background = 'rgba(255,255,255,0.08)')}
+              >
+                🌐 {isEn ? '简体中文' : 'English'}
+              </button>
+            )}
+
+            {/* 返回按钮 */}
+            <button
+              onClick={onBack}
+              style={{
+                padding: '6px 14px',
+                background: 'rgba(255,255,255,0.05)',
+                border: '1px solid rgba(255,255,255,0.1)',
+                color: '#fff',
+                borderRadius: '20px',
+                fontSize: '12px',
+                cursor: 'pointer',
+              }}
+            >
+              {t('profile.back')}
+            </button>
+          </div>
         </div>
 
-        {/* ===== 用户名片 (✏️ 独立按钮，卡片本身没有任何误触) ===== */}
+        {/* ===== 用户名片 ===== */}
         <div
           style={{
             background: activeBg.cardBg,
@@ -494,11 +539,11 @@ export default function ProfilePage({
             >
               <span onClick={() => setShowFollowingModal(true)} style={{ transition: 'color 0.2s' }} onMouseEnter={e => e.currentTarget.style.color = '#fff'} onMouseLeave={e => e.currentTarget.style.color = '#ccc'}>
                 <strong style={{ color: '#fff' }}>{followingCount}</strong>{' '}
-                {t('profile.following') || "关注"}
+                {t('profile.following')}
               </span>
               <span onClick={() => setShowFollowersModal(true)} style={{ transition: 'color 0.2s' }} onMouseEnter={e => e.currentTarget.style.color = '#fff'} onMouseLeave={e => e.currentTarget.style.color = '#ccc'}>
                 <strong style={{ color: '#fff' }}>{followersCount}</strong>{' '}
-                {t('profile.followers') || "粉丝"}
+                {t('profile.followers')}
               </span>
             </div>
 
@@ -517,10 +562,10 @@ export default function ProfilePage({
                 margin: '0 0 10px 0'
               }}
             >
-              “ {activeProfile.signature} ”
+              “ {displaySignature} ”
             </p>
 
-            {/* 社交交互按钮 */}
+            {/* 社交按钮 */}
             {!isSelf ? (
               <button
                 onClick={handleToggleFollow}
@@ -537,7 +582,7 @@ export default function ProfilePage({
                   transition: 'all 0.2s ease'
                 }}
               >
-                {isFollowing ? "✓ 已关注" : "+ 关注她"}
+                {isFollowing ? t('profile.followed') : t('profile.followHer')}
               </button>
             ) : (
               <span
@@ -550,12 +595,12 @@ export default function ProfilePage({
                   display: 'inline-block',
                 }}
               >
-                {t('profile.memberStatus') || "云端成员"}
+                {t('profile.memberStatus')}
               </span>
             )}
           </div>
 
-          {/* ✏️ 独占编辑入口：只有自己看自己时才渲染此独立小按钮 */}
+          {/* ✏️ 编辑按钮 */}
           {isSelf && (
             <button
               onClick={(e) => {
@@ -577,7 +622,7 @@ export default function ProfilePage({
                 transition: 'all 0.2s',
               }}
             >
-              ✏️ {t('profile.editProfile') || '编辑资料'}
+              ✏️ {t('profile.editProfile')}
             </button>
           )}
         </div>
@@ -643,7 +688,7 @@ export default function ProfilePage({
           </div>
         </div>
 
-        {/* ===== 已发布的具身帖子 (已对齐：严格只过滤该用户真正发布的帖子) ===== */}
+        {/* ===== 已发布的具身帖子 ===== */}
         <div
           style={{
             background: activeBg.cardBg,
@@ -687,7 +732,7 @@ export default function ProfilePage({
                 fontSize: '12.5px',
               }}
             >
-              {t('profile.noPublicPost') || "该同伴暂未发布任何公开具身帖子。"}
+              {isSelf ? t('profile.noPublicPost') : t('profile.noPublicPostCompanion')}
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
@@ -777,7 +822,7 @@ export default function ProfilePage({
           )}
         </div>
 
-        {/* ===== 安全退出 (仅自己) ===== */}
+        {/* ===== 安全退出 ===== */}
         {isSelf && (
           <button
             onClick={logout}
@@ -816,7 +861,7 @@ export default function ProfilePage({
             padding: '16px',
             boxSizing: 'border-box',
           }}
-          onClick={handleCancelChanges}
+          onClick={() => setShowEditModal(false)}
         >
           <div
             style={{
@@ -842,7 +887,7 @@ export default function ProfilePage({
                 textAlign: 'center',
               }}
             >
-              {t("profile.editInfoTitle") || "📝 修改个人信息"}
+              {t('profile.editInfoTitle')}
             </h3>
 
             {/* 隐藏的文件输入 */}
@@ -1128,13 +1173,13 @@ export default function ProfilePage({
                         borderRadius: '14px',
                         padding: '12px 6px',
                         color: '#fff',
-                        fontSize: '11px',
+                        fontSize: isEn ? '10px' : '11px', 
                         cursor: 'pointer',
                         fontWeight: editBgIndex === idx ? 'bold' : 'normal',
                         boxShadow: 'inset 0 0 10px rgba(0,0,0,0.8)',
                       }}
                     >
-                      {bg.name}
+                      {isEn ? PRESET_BG_NAMES_EN[idx] : bg.name}
                     </button>
                   ))}
                 </div>
@@ -1144,7 +1189,7 @@ export default function ProfilePage({
             {/* 底部按钮 */}
             <div style={{ display: 'flex', gap: '12px' }}>
               <button
-                onClick={handleCancelChanges}
+                onClick={() => setShowEditModal(false)}
                 style={{
                   flex: 1,
                   padding: '12px',
@@ -1220,7 +1265,7 @@ export default function ProfilePage({
             
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', borderBottom: '1px solid #2d2d2d', paddingBottom: '10px' }}>
               <h3 style={{ color: '#fff', margin: 0, fontSize: '15px', fontWeight: 'bold' }}>
-                🤝 {isSelf ? (t('profile.myFollowings') || "我关注的同伴") : `${targetUserInfo.nickname} 关注的同伴`} ({followingCount})
+                🤝 {isSelf ? t('profile.myFollowings') : `${targetUserInfo.nickname} 的同伴`} ({followingCount})
               </h3>
               <button 
                 onClick={() => setShowFollowingModal(false)}
@@ -1233,7 +1278,7 @@ export default function ProfilePage({
             <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '10px', paddingRight: '4px' }}>
               {followings.length === 0 ? (
                 <div style={{ color: '#555', fontSize: '12.5px', textAlign: 'center', padding: '30px 10px' }}>
-                  🌱 {t('profile.noFollowings') || "暂无关注的同伴"}
+                  🌱 {t('profile.noFollowings')}
                 </div>
               ) : (
                 followings.map(followedUser => (
@@ -1268,7 +1313,7 @@ export default function ProfilePage({
                         {followedUser.nickname}
                       </div>
                       <div style={{ color: '#666', fontSize: '11px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginTop: '2px' }}>
-                        {followedUser.signature || "这位同伴很安静... 🧘"}
+                        {followedUser.signature || t('profile.defaultSignature')}
                       </div>
                     </div>
                   </div>
@@ -1290,7 +1335,7 @@ export default function ProfilePage({
                 cursor: 'pointer'
               }}
             >
-              {t('healing.close') || "关闭列表"}
+              {t('profile.closeList')}
             </button>
 
           </div>
@@ -1328,7 +1373,7 @@ export default function ProfilePage({
             
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', borderBottom: '1px solid #2d2d2d', paddingBottom: '10px' }}>
               <h3 style={{ color: '#fff', margin: 0, fontSize: '15px', fontWeight: 'bold' }}>
-                🤝 {isSelf ? (t('profile.myFollowers') || "关注我的同伴") : `${targetUserInfo.nickname} 的粉丝`} ({followersCount})
+                🤝 {isSelf ? t('profile.myFollowers') : `${targetUserInfo.nickname} 的粉丝`} ({followersCount})
               </h3>
               <button 
                 onClick={() => setShowFollowersModal(false)}
@@ -1341,7 +1386,7 @@ export default function ProfilePage({
             <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '10px', paddingRight: '4px' }}>
               {followers.length === 0 ? (
                 <div style={{ color: '#555', fontSize: '12.5px', textAlign: 'center', padding: '30px 10px' }}>
-                  🌱 {t('profile.noFollowers') || "暂无关注的粉丝"}
+                  🌱 {t('profile.noFollowers')}
                 </div>
               ) : (
                 followers.map(followerUser => (
@@ -1376,7 +1421,7 @@ export default function ProfilePage({
                         {followerUser.nickname}
                       </div>
                       <div style={{ color: '#666', fontSize: '11px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginTop: '2px' }}>
-                        {followerUser.signature || "这位同伴很安静... 🧘"}
+                        {followerUser.signature || t('profile.defaultSignature')}
                       </div>
                     </div>
                   </div>
@@ -1398,7 +1443,7 @@ export default function ProfilePage({
                 cursor: 'pointer'
               }}
             >
-              {t('healing.close') || "关闭列表"}
+              {t('profile.closeList')}
             </button>
 
           </div>
