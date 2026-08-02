@@ -84,7 +84,7 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
   const particlePositions = useRef([]);
   const speedHistory = useRef([]);
   const pressureHistory = useRef([]);
-
+  
   // ===== 历史记录 =====
   const [history, setHistory] = useState(() => loadFromStorage('painscape_history', []));
 
@@ -363,6 +363,125 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
     return true;
   }, []);
 
+  // ===== 历史快照栈引用 =====
+  const undoStackRef = useRef([]); 
+  const redoStackRef = useRef([]); 
+  const MAX_HISTORY = 100; 
+
+  // ===== 保存当前画布与动态粒子快照 =====
+  const saveSnapshot = useCallback(() => {
+    if (!pgFrontRef.current || !pgBackRef.current) return;
+
+    // 1. 复制离屏画布
+    const frontImg = pgFrontRef.current.get();
+    const backImg = pgBackRef.current.get();
+
+    // 2. 浅拷贝当前的动态粒子数组
+    const dynamicCopy = dynamicParticles.current ? [...dynamicParticles.current] : [];
+
+    undoStackRef.current.push({
+      front: frontImg,
+      back: backImg,
+      dynamicParticles: dynamicCopy, // 保存动态粒子状态
+      counts: { ...brushCounts.current }
+    });
+
+    if (undoStackRef.current.length > MAX_HISTORY) {
+      undoStackRef.current.shift();
+    }
+
+    redoStackRef.current = [];
+  }, []);
+
+  // ===== 1. 重置视角 (Reset View) =====
+  const handleResetView = useCallback(() => {
+    camRef.current = { x: 0, y: 0, zoom: 1.0 };
+    setBgScale(1.0);
+  }, [setBgScale]);
+
+  // ===== 2. 清空画布 (Clear) =====
+  const handleClear = useCallback(() => {
+    saveSnapshot();
+
+    brushCounts.current = { twist: 0, pierce: 0, heavy: 0, wave: 0, scrape: 0 };
+    dynamicParticles.current = [];
+    staticParticles.current = [];
+    particlePositions.current = [];
+    speedHistory.current = [];
+    pressureHistory.current = [];
+
+    if (pgFrontRef.current && typeof pgFrontRef.current.clear === 'function') {
+      pgFrontRef.current.clear();
+    }
+    if (pgBackRef.current && typeof pgBackRef.current.clear === 'function') {
+      pgBackRef.current.clear();
+    }
+  }, [saveSnapshot]);
+
+  // ===== 3. 撤销 (Undo) =====
+  const handleUndo = useCallback(() => {
+    if (undoStackRef.current.length === 0) return;
+    if (!pgFrontRef.current || !pgBackRef.current) return;
+
+    // 1. 将当前图像与动态粒子存入 redo 栈
+    const currentFront = pgFrontRef.current.get();
+    const currentBack = pgBackRef.current.get();
+    redoStackRef.current.push({
+      front: currentFront,
+      back: currentBack,
+      dynamicParticles: dynamicParticles.current ? [...dynamicParticles.current] : [], // 🌟 存入当前动态粒子
+      counts: { ...brushCounts.current }
+    });
+
+    // 2. 弹出 undo 栈上一笔快照
+    const lastState = undoStackRef.current.pop();
+
+    // 3. 还原离屏画布
+    pgFrontRef.current.clear();
+    pgFrontRef.current.image(lastState.front, 0, 0);
+
+    pgBackRef.current.clear();
+    pgBackRef.current.image(lastState.back, 0, 0);
+
+    // 4. 还原动态粒子数组
+    dynamicParticles.current = lastState.dynamicParticles ? [...lastState.dynamicParticles] : [];
+
+    // 5. 还原笔刷计数
+    brushCounts.current = { ...lastState.counts };
+  }, []);
+
+  // ===== 4. 重做 / 恢复 (Redo) =====
+  const handleRedo = useCallback(() => {
+    if (redoStackRef.current.length === 0) return;
+    if (!pgFrontRef.current || !pgBackRef.current) return;
+
+    // 1. 将当前图像与动态粒子存入 undo 栈
+    const currentFront = pgFrontRef.current.get();
+    const currentBack = pgBackRef.current.get();
+    undoStackRef.current.push({
+      front: currentFront,
+      back: currentBack,
+      dynamicParticles: dynamicParticles.current ? [...dynamicParticles.current] : [], // 🌟 存入当前动态粒子
+      counts: { ...brushCounts.current }
+    });
+
+    // 2. 弹出 redo 栈下一步快照
+    const nextState = redoStackRef.current.pop();
+
+    // 3. 还原离屏画布
+    pgFrontRef.current.clear();
+    pgFrontRef.current.image(nextState.front, 0, 0);
+
+    pgBackRef.current.clear();
+    pgBackRef.current.image(nextState.back, 0, 0);
+
+    // 4. 还原动态粒子数组
+    dynamicParticles.current = nextState.dynamicParticles ? [...nextState.dynamicParticles] : [];
+
+    // 5. 还原笔刷计数
+    brushCounts.current = { ...nextState.counts };
+  }, []);
+
   // ===== 渲染页面 =====
   const renderPage = () => {
     switch (page) {
@@ -598,10 +717,11 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
                 setIsLoading(false);
               }
             }}
-            handleUndo={() => { }}
-            handleRedo={() => { }}
-            handleClear={() => { }}
-            resetView={() => { }}
+            saveSnapshot={saveSnapshot}
+            handleUndo={handleUndo}
+            handleRedo={handleRedo}
+            handleClear={handleClear}
+            resetView={handleResetView}
           />
         );
         // 在进入 ResultPage 前
