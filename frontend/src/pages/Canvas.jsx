@@ -63,6 +63,7 @@ export default function CanvasPage({
   appMode,
 
   // 工具
+  saveSnapshot,
   handleUndo,
   handleRedo,
   handleClear,
@@ -71,6 +72,7 @@ export default function CanvasPage({
   const { t } = useI18n();
   const { playBrushSound } = useAudio(isMuted);
   const [tipVisible, setTipVisible] = useState(true);
+  const isDrawingStrokeRef = useRef(false);
 
   // 方向提示自动消失
   useEffect(() => {
@@ -130,7 +132,13 @@ export default function CanvasPage({
     camRef.current = { x: 0, y: 0, zoom: 1.0 };
   };
   const mouseReleased = (p5) => {
-    // 可用于保存撤销状态
+    // 当松开鼠标/手指且当前在使用画笔或橡皮擦时，保存一步快照
+    if (isDrawingStrokeRef.current) {
+      if (typeof saveSnapshot === 'function') {
+        saveSnapshot();
+      }
+      isDrawingStrokeRef.current = false; // 存完立即重置标记
+    }
   };
   const mouseWheel = useCallback((p5, event) => {
     camRef.current.zoom = Math.max(
@@ -181,10 +189,12 @@ export default function CanvasPage({
         currentPg.erase();
         currentPg.ellipse(realX, realY, 40 / zoom, 40 / zoom);
         currentPg.noErase();
+        isDrawingStrokeRef.current = true; 
         dynamicParticles.current = dynamicParticles.current.filter(
           (p) => p.bodyMode !== bodyMode || p5.dist(p.pos.x, p.pos.y, realX, realY) > 20
         );
       } else if (activeBrush !== null) {
+        isDrawingStrokeRef.current = true; 
         brushCounts.current[activeBrush] = (brushCounts.current[activeBrush] || 0) + 1;
 
         if (speedHistory.current.length > 200) speedHistory.current.shift();
@@ -552,6 +562,8 @@ export default function CanvasPage({
             gap: '15px',
             pointerEvents: 'auto',
           }}
+          onMouseDown={(e) => e.stopPropagation()}
+          onTouchStart={(e) => e.stopPropagation()}
         >
           <button
             style={{
