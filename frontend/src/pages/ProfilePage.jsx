@@ -4,7 +4,7 @@ import { useUser, PRESET_BACKGROUNDS, PRESET_AVATARS } from '../contexts/UserCon
 import { useI18n } from '../i18n/i18nContext';
 import CropModal from '../Components/CropModal';
 import { compressImage } from '../utils/imageUtils';
-import { supabase } from '../services/supabaseClient';
+import { supabase } from "../services/supabaseClient";
 
 export default function ProfilePage({ 
   currentUserId = "user_A", 
@@ -46,7 +46,7 @@ export default function ProfilePage({
     return JSON.parse(cached);
   });
 
-  // 目标用户信息
+  // 目标外部用户信息（当看别人时使用）
   const [targetUserInfo, setTargetUserInfo] = useState(() => {
     return isSelf ? userInfo : (globalProfiles[targetUserId] || { 
       nickname: "同伴", 
@@ -57,7 +57,10 @@ export default function ProfilePage({
     });
   });
 
-  // 关注状态
+  // 🌟 统一渲染对象计算变量
+  const activeProfile = isSelf ? userInfo : targetUserInfo;
+
+  // 关注状态 (所有用户初始皆为 0)
   const [follows, setFollows] = useState(() => {
     const cached = localStorage.getItem("painscape_simulated_follows");
     return cached ? JSON.parse(cached) : []; 
@@ -71,22 +74,32 @@ export default function ProfilePage({
   const followersCount = follows.filter(f => f.followingId === targetUserId).length;
   const followingCount = follows.filter(f => f.followerId === targetUserId).length;
 
-  // 编辑状态
-  const [editNickname, setEditNickname] = useState(targetUserInfo.nickname);
-  const [editEmail, setEditEmail] = useState(targetUserInfo.email);
-  const [editAvatar, setEditAvatar] = useState(targetUserInfo.avatar);
-  const [editBgIndex, setEditBgIndex] = useState(targetUserInfo.bgIndex);
-  const [editCustomAvatar, setEditCustomAvatar] = useState(targetUserInfo.customAvatar || '');
-  const [editCustomBg, setEditCustomBg] = useState(targetUserInfo.customBg || '');
-  const [editSignature, setEditSignature] = useState(targetUserInfo.signature || '');
+  // 编辑状态（初始化为当前激活档案的数据）
+  const [editNickname, setEditNickname] = useState(activeProfile.nickname);
+  const [editAvatar, setEditAvatar] = useState(activeProfile.avatar);
+  const [editBgIndex, setEditBgIndex] = useState(activeProfile.bgIndex);
+  const [editCustomAvatar, setEditCustomAvatar] = useState(activeProfile.customAvatar || '');
+  const [editCustomBg, setEditCustomBg] = useState(activeProfile.customBg || '');
+  const [editSignature, setEditSignature] = useState(activeProfile.signature || '');
 
-  const activeBg = PRESET_BACKGROUNDS[targetUserInfo.bgIndex] || PRESET_BACKGROUNDS[0];
+  const activeBg = PRESET_BACKGROUNDS[activeProfile.bgIndex] || PRESET_BACKGROUNDS[0];
+
+  // 🌟 仅在弹窗刚打开的瞬间同步初始数据，移除了对 [activeProfile] 的高危依赖，防止编辑时内容自动重置
+  useEffect(() => {
+    if (showEditModal) {
+      setEditNickname(activeProfile.nickname || "");
+      setEditAvatar(activeProfile.avatar || "🩸");
+      setEditBgIndex(activeProfile.bgIndex ?? 0);
+      setEditCustomAvatar(activeProfile.customAvatar || "");
+      setEditCustomBg(activeProfile.customBg || "");
+      setEditSignature(activeProfile.signature || "");
+    }
+  }, [showEditModal]); 
 
   // 从 Supabase 加载数据
   useEffect(() => {
     const loadProfileAndSocialData = async () => {
       try {
-        // 加载用户资料
         let { data: profile, error } = await supabase
           .from("profiles")
           .select("*")
@@ -121,16 +134,8 @@ export default function ProfilePage({
           if (isSelf) {
             setUserInfo(mapped);
           }
-          setEditNickname(mapped.nickname);
-          setEditEmail(mapped.email);
-          setEditAvatar(mapped.avatar);
-          setEditBgIndex(mapped.bgIndex);
-          setEditCustomAvatar(mapped.customAvatar);
-          setEditCustomBg(mapped.customBg);
-          setEditSignature(mapped.signature);
         }
 
-        // 加载粉丝列表
         const { data: dbFollowers } = await supabase
           .from("follows")
           .select("follower_id, profiles!follows_follower_id_fkey(nickname, avatar, signature, custom_avatar)")
@@ -145,7 +150,6 @@ export default function ProfilePage({
         })) : [];
         setFollowers(formattedFollowers);
 
-        // 加载关注列表
         const { data: dbFollowings } = await supabase
           .from("follows")
           .select("following_id, profiles!follows_following_id_fkey(nickname, avatar, signature, custom_avatar)")
@@ -160,13 +164,11 @@ export default function ProfilePage({
         })) : [];
         setFollowings(formattedFollowings);
 
-        // 检查是否已关注
         const isFollowed = formattedFollowers.some(f => f.id === currentUserId);
         setIsFollowing(isFollowed);
 
       } catch (err) {
         console.warn("未完全连接 Supabase，已自动降级为本地高拟真数据连接:", err);
-        // 降级方案：使用本地缓存
         const localFollows = follows;
         const isFollowed = localFollows.some(f => f.followerId === currentUserId && f.followingId === targetUserId);
         setIsFollowing(isFollowed);
@@ -174,7 +176,9 @@ export default function ProfilePage({
     };
 
     loadProfileAndSocialData();
-  }, [targetUserId, currentUserId, isSelf, setUserInfo]);
+    // 🌟 核心修正一：将 [setUserInfo] 从依赖项中彻底移除！
+    // 斩断“保存修改 -> 全局重绘 -> 改变 setUserInfo 引用 -> 再次触发网络加载 -> 覆盖暂存区”的无限死循环链条
+  }, [targetUserId, currentUserId, isSelf]);
 
   // 关注与取消关注
   const handleToggleFollow = async () => {
@@ -187,7 +191,6 @@ export default function ProfilePage({
           .eq("following_id", targetUserId);
 
         setIsFollowing(false);
-        // 更新本地 followers 列表
         const nextFollows = follows.filter(f => !(f.followerId === currentUserId && f.followingId === targetUserId));
         setFollows(nextFollows);
         localStorage.setItem("painscape_simulated_follows", JSON.stringify(nextFollows));
@@ -207,7 +210,6 @@ export default function ProfilePage({
       }
     } catch (err) {
       console.warn("关注操作失败，使用本地降级方案:", err);
-      // 本地降级
       let nextFollows;
       if (isFollowing) {
         nextFollows = follows.filter(f => !(f.followerId === currentUserId && f.followingId === targetUserId));
@@ -225,8 +227,8 @@ export default function ProfilePage({
     const file = e.target.files[0];
     if (!file) return;
     try {
-      const maxSize = type === 'avatar' ? 150 : 800;
-      const compressed = await compressImage(file, maxSize, maxSize, 0.85);
+      const maxSize = type === 'avatar' ? 1000 : 2000; 
+      const compressed = await compressImage(file, maxSize, maxSize, 0.9);
       setCropSrc(compressed);
       setCropType(type);
       setShowCropModal(true);
@@ -251,6 +253,7 @@ export default function ProfilePage({
     setCropSrc(null);
   };
 
+  // 保存修改
   const handleSaveChanges = async () => {
     if (!editNickname.trim()) {
       alert(t('toast.saveExperienceRequired') || '昵称不能为空！');
@@ -258,7 +261,7 @@ export default function ProfilePage({
     }
     const updatedInfo = {
       nickname: editNickname,
-      email: editEmail,
+      email: activeProfile.email,
       avatar: editAvatar,
       bg_index: editBgIndex,
       custom_avatar: editCustomAvatar,
@@ -275,24 +278,24 @@ export default function ProfilePage({
       console.warn("云端保存失败，保存至本地缓存:", err);
     }
 
-    setUserInfo({
+    const mapped = {
+      id: currentUserId,
       nickname: editNickname,
+      email: activeProfile.email,
       avatar: editAvatar,
       bgIndex: editBgIndex,
       customAvatar: editCustomAvatar,
       customBg: editCustomBg,
       signature: editSignature,
-    });
+    };
+
+    // 🌟 核心修正二：同时更新全局的全局数据与本地的 target 数据，实现 100% 同步过渡而无任何闪烁
+    if (isSelf) {
+      setUserInfo(mapped);
+    } 
+    setTargetUserInfo(mapped);
     
-    const nextProfiles = { ...globalProfiles, [currentUserId]: {
-      nickname: editNickname,
-      email: editEmail,
-      avatar: editAvatar,
-      bgIndex: editBgIndex,
-      customAvatar: editCustomAvatar,
-      customBg: editCustomBg,
-      signature: editSignature
-    }};
+    const nextProfiles = { ...globalProfiles, [currentUserId]: mapped };
     setGlobalProfiles(nextProfiles);
     localStorage.setItem("painscape_simulated_profiles", JSON.stringify(nextProfiles));
     
@@ -300,19 +303,11 @@ export default function ProfilePage({
   };
 
   const handleCancelChanges = () => {
-    setEditNickname(targetUserInfo.nickname);
-    setEditEmail(targetUserInfo.email);
-    setEditAvatar(targetUserInfo.avatar);
-    setEditBgIndex(targetUserInfo.bgIndex);
-    setEditCustomAvatar(targetUserInfo.customAvatar || '');
-    setEditCustomBg(targetUserInfo.customBg || '');
-    setEditSignature(targetUserInfo.signature || '');
     setShowEditModal(false);
   };
 
-  // 核心数据绑定：无论是看自己还是看别人，严格只从已发布到广场的公共 posts 列表中过滤
   const myRealPosts = posts.filter(
-    (p) => p.authorId === targetUserId || p.userId === targetUserId
+    (p) => p.userId === targetUserId || p.authorId === targetUserId
   );
 
   const totalRecords = isSelf ? history.length : myRealPosts.length;
@@ -336,13 +331,13 @@ export default function ProfilePage({
     return (num % 15) + baseSeed;
   };
 
-  const currentBackground = targetUserInfo.customBg
-    ? `url(${targetUserInfo.customBg}) center/cover no-repeat`
+  const currentBackground = activeProfile.customBg
+    ? `url(${activeProfile.customBg}) center/cover no-repeat`
     : activeBg.gradient;
 
   const isEn = t('app.name') === 'PainScape';
 
-  // 用于粉丝列表的状态（从 Supabase 加载）
+  // 关注/粉丝列表
   const [followers, setFollowers] = useState([]);
   const [followings, setFollowings] = useState([]);
 
@@ -360,7 +355,7 @@ export default function ProfilePage({
       }}
     >
       {/* 防白暴暗色滤镜 */}
-      {targetUserInfo.customBg && (
+      {activeProfile.customBg && (
         <div
           style={{
             position: 'absolute',
@@ -423,7 +418,7 @@ export default function ProfilePage({
           </button>
         </div>
 
-        {/* ===== 用户名片 ===== */}
+        {/* ===== 用户名片 (✏️ 独立按钮，卡片本身没有任何误触) ===== */}
         <div
           style={{
             background: activeBg.cardBg,
@@ -454,14 +449,14 @@ export default function ProfilePage({
               flexShrink: 0,
             }}
           >
-            {targetUserInfo.customAvatar ? (
+            {activeProfile.customAvatar ? (
               <img
-                src={targetUserInfo.customAvatar}
+                src={activeProfile.customAvatar}
                 style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                 alt="avatar"
               />
             ) : (
-              targetUserInfo.avatar
+              activeProfile.avatar
             )}
           </div>
 
@@ -478,12 +473,12 @@ export default function ProfilePage({
                 gap: '8px',
               }}
             >
-              {targetUserInfo.nickname}
+              {activeProfile.nickname}
             </h3>
 
             {/* 邮箱 */}
             <p style={{ color: '#888', margin: '0 0 6px 0', fontSize: '12px' }}>
-              {targetUserInfo.email}
+              {activeProfile.email}
             </p>
 
             {/* 关注/粉丝 */}
@@ -497,21 +492,11 @@ export default function ProfilePage({
                 cursor: 'pointer'
               }}
             >
-              <span 
-                onClick={() => setShowFollowingModal(true)} 
-                style={{ transition: 'color 0.2s' }} 
-                onMouseEnter={e => e.currentTarget.style.color = '#fff'} 
-                onMouseLeave={e => e.currentTarget.style.color = '#ccc'}
-              >
+              <span onClick={() => setShowFollowingModal(true)} style={{ transition: 'color 0.2s' }} onMouseEnter={e => e.currentTarget.style.color = '#fff'} onMouseLeave={e => e.currentTarget.style.color = '#ccc'}>
                 <strong style={{ color: '#fff' }}>{followingCount}</strong>{' '}
                 {t('profile.following') || "关注"}
               </span>
-              <span 
-                onClick={() => setShowFollowersModal(true)} 
-                style={{ transition: 'color 0.2s' }} 
-                onMouseEnter={e => e.currentTarget.style.color = '#fff'} 
-                onMouseLeave={e => e.currentTarget.style.color = '#ccc'}
-              >
+              <span onClick={() => setShowFollowersModal(true)} style={{ transition: 'color 0.2s' }} onMouseEnter={e => e.currentTarget.style.color = '#fff'} onMouseLeave={e => e.currentTarget.style.color = '#ccc'}>
                 <strong style={{ color: '#fff' }}>{followersCount}</strong>{' '}
                 {t('profile.followers') || "粉丝"}
               </span>
@@ -532,7 +517,7 @@ export default function ProfilePage({
                 margin: '0 0 10px 0'
               }}
             >
-              “ {targetUserInfo.signature} ”
+              “ {activeProfile.signature} ”
             </p>
 
             {/* 社交交互按钮 */}
@@ -570,7 +555,7 @@ export default function ProfilePage({
             )}
           </div>
 
-          {/* 编辑资料按钮 - 仅自己可见 */}
+          {/* ✏️ 独占编辑入口：只有自己看自己时才渲染此独立小按钮 */}
           {isSelf && (
             <button
               onClick={(e) => {
@@ -658,7 +643,7 @@ export default function ProfilePage({
           </div>
         </div>
 
-        {/* ===== 已发布的具身帖子 ===== */}
+        {/* ===== 已发布的具身帖子 (已对齐：严格只过滤该用户真正发布的帖子) ===== */}
         <div
           style={{
             background: activeBg.cardBg,
