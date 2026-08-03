@@ -17,6 +17,113 @@ const formatDateKey = (year, month, day) => {
   return `${year}-${month + 1}-${day}`;
 };
 
+const EN_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+// 中文痛感词反向映射表
+const CHINESE_TO_KEY_MAP = {
+  '绞痛': 'twist',
+  '刺痛': 'pierce',
+  '坠胀': 'heavy',
+  '坠胀重压': 'heavy',
+  '坠痛': 'heavy',
+  '酸胀': 'wave',
+  '酸胀痛': 'wave',
+  '弥漫酸胀痛': 'wave',
+  '刮痛': 'scrape',
+  '撕裂痛': 'scrape',
+  '撕裂刮痛': 'scrape',
+};
+
+// 检查是否包含中文字符
+const containsChinese = (str) => /[\u4e00-\u9fa5]/.test(String(str || ''));
+
+// 安全获取转译后的痛感名称
+const getPainNameDisplay = (record, t) => {
+  if (!record) return '';
+  const key = record.dominantPain || CHINESE_TO_KEY_MAP[record.painName];
+  if (key && t(`painNames.${key}`)) {
+    return t(`painNames.${key}`);
+  }
+  return record.painName || '';
+};
+
+const formatYearMonth = (year, monthIndex, t) => {
+  const isEn = t('history.sun') === 'Sun';
+  if (isEn) {
+    return `${EN_MONTHS[monthIndex]} ${year}`;
+  }
+  return `${year}年${monthIndex + 1}月`;
+};
+
+// 安全解析与重构英文报告
+const getReportDataForModal = (viewingDiary, isEn, t) => {
+  try {
+    let rd = viewingDiary?.reportData || {};
+
+    if (isEn) {
+      const dominantKey = viewingDiary.dominantPain || CHINESE_TO_KEY_MAP[viewingDiary.painName] || 'heavy';
+      const painName = t(`painNames.${dominantKey}`) || dominantKey;
+      const analogy = t(`painTemplates.${dominantKey}.analogy`) || '';
+
+      const chief = containsChinese(rd.chief_complaint) || !rd.chief_complaint
+        ? t('defaultTemplates.chief_complaint', { 
+            pain: painName, 
+            symptoms: 'No significant accompanying symptoms' 
+          })
+        : rd.chief_complaint;
+
+      const illness = containsChinese(rd.present_illness) || !rd.present_illness
+        ? t('defaultTemplates.present_illness', { 
+            pain: painName, 
+            cycleDay: viewingDiary.cycleDay || 'X', 
+            analogy 
+          })
+        : rd.present_illness;
+
+      const diag = containsChinese(rd.clinical_diagnosis) || !rd.clinical_diagnosis
+        ? t('defaultTemplates.clinical_diagnosis')
+        : rd.clinical_diagnosis;
+
+      const selfCare = containsChinese(rd.selfCare) || !rd.selfCare
+        ? t(`painTemplates.${dominantKey}.selfCare`)
+        : rd.selfCare;
+
+      let action = rd.action;
+      if (containsChinese(rd.action) || !rd.action) {
+        const prefKey = viewingDiary.userPrefs?.[0] || 'care';
+        const actionsArr = t(`partnerActions.${prefKey}`, { returnObjects: true });
+        if (Array.isArray(actionsArr) && actionsArr.length > 0) {
+          action = actionsArr.map(act => String(act).replace('{{med}}', 'Ibuprofen')).join('\n');
+        } else {
+          const fallbackArr = t('partnerActions.care', { returnObjects: true }) || [];
+          action = Array.isArray(fallbackArr) ? fallbackArr.map(act => String(act).replace('{{med}}', 'Ibuprofen')).join('\n') : '';
+        }
+      }
+
+      let work = rd.work;
+      if (containsChinese(rd.work) || !rd.work) {
+        work = t('workTemplate')
+          ? t('workTemplate').replace('{{pain}}', painName)
+          : `Dear Manager, I am experiencing severe acute pain (${painName}) today and am unable to work. I kindly request a day off. Thank you for your understanding.`;
+      }
+
+      return {
+        chief_complaint: chief,
+        present_illness: illness,
+        clinical_diagnosis: diag,
+        selfCare: selfCare,
+        action: action,
+        work: work,
+      };
+    }
+
+    return rd;
+  } catch (err) {
+    console.warn('⚠️ 解析弹窗数据异常，自动防崩溃回退:', err);
+    return viewingDiary?.reportData || {};
+  }
+};
+
 // ============================================================
 // 子组件：趋势摘要
 // ============================================================
@@ -25,11 +132,14 @@ const TrendSummary = ({ history, t }) => {
 
   const recent = history.slice(0, 5);
   const typeFreq = recent.reduce((acc, r) => {
-    acc[r.painName] = (acc[r.painName] || 0) + 1;
+    const key = r.dominantPain || CHINESE_TO_KEY_MAP[r.painName] || r.type || 'twist';
+    acc[key] = (acc[key] || 0) + 1;
     return acc;
   }, {});
   const sortedTypes = Object.entries(typeFreq).sort((a, b) => b[1] - a[1]);
-  const dominant = sortedTypes.length > 0 ? sortedTypes[0] : [t('resultLabels.unknown') || '未知', 0];
+  const dominantKey = sortedTypes.length > 0 ? sortedTypes[0][0] : 'twist';
+  
+  const dominantName = t(`painNames.${dominantKey}`) || dominantKey;
 
   const gaps = history
     .slice(0, -1)
@@ -65,7 +175,7 @@ const TrendSummary = ({ history, t }) => {
       <div style={{ display: 'flex', gap: '15px' }}>
         <div style={{ flex: 1, textAlign: 'center' }}>
           <div style={{ color: '#ef9a9a', fontSize: '20px', fontWeight: 'bold' }}>
-            {dominant[0]}
+            {dominantName}
           </div>
           <div style={{ color: '#666', fontSize: '11px', marginTop: '4px' }}>
             {t('history.trendMostCommon')}
@@ -108,17 +218,222 @@ const TrendSummary = ({ history, t }) => {
 };
 
 // ============================================================
+// 子组件：记录详情弹窗
+// ============================================================
+const RecordDetailModal = ({ viewingDiary, onClose, onDelete, t, lang = 'zh' }) => {
+  if (!viewingDiary) return null;
+
+  const isEn = lang === 'en' || t('history.sun') === 'Sun';
+  const rd = getReportDataForModal(viewingDiary, isEn, t);
+  const displayPainName = getPainNameDisplay(viewingDiary, t);
+
+  const formatText = (val) => {
+    if (!val) return '';
+    if (Array.isArray(val)) return val.join(isEn ? '; ' : '；');
+    if (typeof val === 'object') return JSON.stringify(val);
+    return String(val);
+  };
+
+  return (
+    <div
+      style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        width: '100vw',
+        height: '100vh',
+        background: 'rgba(0, 0, 0, 0.85)',
+        backdropFilter: 'blur(10px)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 1000,
+        padding: '16px',
+        boxSizing: 'border-box',
+      }}
+      onClick={onClose}
+    >
+      <div
+        style={{
+          background: '#141414',
+          border: '1px solid #333',
+          borderRadius: '24px',
+          padding: '24px',
+          width: '100%',
+          maxWidth: '420px',
+          maxHeight: '85vh',
+          overflowY: 'auto',
+          boxSizing: 'border-box',
+          boxShadow: '0 20px 50px rgba(0,0,0,0.8)',
+          position: 'relative',
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* 弹窗头部 */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+          <span style={{ color: '#fff', fontSize: '16px', fontWeight: 'bold' }}>
+            📖 {isEn ? 'Pain Record Details' : '痛觉记录详情'}
+          </span>
+          <button
+            onClick={onClose}
+            style={{
+              background: 'transparent',
+              border: 'none',
+              color: '#888',
+              fontSize: '20px',
+              cursor: 'pointer',
+              padding: '4px',
+            }}
+          >
+            ✕
+          </button>
+        </div>
+
+        {/* 图片展示 */}
+        {viewingDiary.img && (
+          <div style={{ borderRadius: '16px', overflow: 'hidden', border: '1px solid #222', background: '#000', marginBottom: '16px' }}>
+            <img src={viewingDiary.img} style={{ width: '100%', display: 'block', objectFit: 'contain', maxHeight: '220px' }} alt="Pain Map" />
+          </div>
+        )}
+
+        {/* 核心指标卡片 */}
+        <div style={{ display: 'flex', gap: '8px', marginBottom: '16px', flexWrap: 'wrap', alignItems: 'center' }}>
+          <span style={{
+            color: '#ef5350',
+            fontSize: '12px',
+            background: 'rgba(239,83,80,0.12)',
+            padding: '4px 12px',
+            borderRadius: '12px',
+            fontWeight: 'bold',
+            border: '1px solid rgba(239,83,80,0.2)'
+          }}>
+            {displayPainName}
+          </span>
+          {viewingDiary.painScore != null && (
+            <span style={{
+              color: '#ff9800',
+              fontSize: '12px',
+              background: 'rgba(255,152,0,0.12)',
+              padding: '4px 12px',
+              borderRadius: '12px',
+              fontWeight: 'bold',
+              border: '1px solid rgba(255,152,0,0.2)'
+            }}>
+              {isEn ? 'Score: ' : '评分: '} {viewingDiary.painScore}
+            </span>
+          )}
+          <span style={{ color: '#888', fontSize: '12px', padding: '4px 0' }}>
+            🕒 {viewingDiary.date} {viewingDiary.time}
+          </span>
+        </div>
+
+        {/* 详细段落展示 */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '20px' }}>
+          {rd.chief_complaint && (
+            <div style={{ background: '#1c1c1c', padding: '12px', borderRadius: '12px', borderLeft: '3px solid #ef5350' }}>
+              <div style={{ color: '#ef5350', fontSize: '12px', fontWeight: 'bold', marginBottom: '4px' }}>
+                {t('pdf.chiefComplaint') || (isEn ? 'Chief Complaint:' : '主诉：')}
+              </div>
+              <div style={{ color: '#ccc', fontSize: '13px', lineHeight: '1.5' }}>
+                {formatText(rd.chief_complaint)}
+              </div>
+            </div>
+          )}
+
+          {rd.present_illness && (
+            <div style={{ background: '#1c1c1c', padding: '12px', borderRadius: '12px', borderLeft: '3px solid #ab47bc' }}>
+              <div style={{ color: '#ab47bc', fontSize: '12px', fontWeight: 'bold', marginBottom: '4px' }}>
+                {t('pdf.presentIllness') || (isEn ? 'History of Present Illness:' : '现病史：')}
+              </div>
+              <div style={{ color: '#ccc', fontSize: '13px', lineHeight: '1.5' }}>
+                {formatText(rd.present_illness)}
+              </div>
+            </div>
+          )}
+
+          {rd.clinical_diagnosis && (
+            <div style={{ background: '#1c1c1c', padding: '12px', borderRadius: '12px', borderLeft: '3px solid #4caf50' }}>
+              <div style={{ color: '#4caf50', fontSize: '12px', fontWeight: 'bold', marginBottom: '4px' }}>
+                {t('pdf.clinicalDiagnosis') || (isEn ? 'Clinical Diagnosis:' : '临床诊断：')}
+              </div>
+              <div style={{ color: '#ccc', fontSize: '13px', lineHeight: '1.5' }}>
+                {formatText(rd.clinical_diagnosis)}
+              </div>
+            </div>
+          )}
+
+          {rd.selfCare && (
+            <div style={{ background: '#1c1c1c', padding: '12px', borderRadius: '12px', borderLeft: '3px solid #ff9800' }}>
+              <div style={{ color: '#ff9800', fontSize: '12px', fontWeight: 'bold', marginBottom: '4px' }}>
+                {t('pdf.selfCare') || (isEn ? 'Self-Care Advice:' : '自愈建议：')}
+              </div>
+              <div style={{ color: '#ccc', fontSize: '13px', lineHeight: '1.5', whitespace: 'pre-line' }}>
+                {formatText(rd.selfCare)}
+              </div>
+            </div>
+          )}
+
+          {rd.action && (
+            <div style={{ background: '#1c1c1c', padding: '12px', borderRadius: '12px', borderLeft: '3px solid #2196f3' }}>
+              <div style={{ color: '#2196f3', fontSize: '12px', fontWeight: 'bold', marginBottom: '4px' }}>
+                {t('pdf.action') || (isEn ? 'Partner/Family Action:' : '伴侣/家人行动：')}
+              </div>
+              <div style={{ color: '#ccc', fontSize: '13px', lineHeight: '1.5', whitespace: 'pre-line' }}>
+                {formatText(rd.action)}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* 底部功能按钮 */}
+        <div style={{ display: 'flex', gap: '12px' }}>
+          <button
+            onClick={() => onDelete(viewingDiary.id)}
+            style={{
+              flex: 1,
+              padding: '11px',
+              background: 'rgba(244,67,54,0.1)',
+              border: '1px solid rgba(244,67,54,0.3)',
+              color: '#ef5350',
+              borderRadius: '12px',
+              fontSize: '13px',
+              cursor: 'pointer',
+              fontWeight: 'bold',
+            }}
+          >
+            🗑️ {t('history.delete') || (isEn ? 'Delete' : '删除')}
+          </button>
+          <button
+            onClick={onClose}
+            style={{
+              flex: 2,
+              padding: '11px',
+              background: '#333',
+              border: 'none',
+              color: '#fff',
+              borderRadius: '12px',
+              fontSize: '13px',
+              cursor: 'pointer',
+              fontWeight: 'bold',
+            }}
+          >
+            {t('diary.close') || (isEn ? 'Close' : '关闭')}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ============================================================
 // 主组件
 // ============================================================
 export default function HistoryPage({
-  // 导航
+  lang = 'zh', 
+  setTargetLanguage,
   onBack,
-
-  // 数据
   history,
   setHistory,
-
-  // 日历
   calendarDate,
   setCalendarDate,
   selectedDate,
@@ -129,16 +444,13 @@ export default function HistoryPage({
   setShowGroupedView,
   menstrualDates,
   setMenstrualDates,
-
-  // 查看日记
   viewingDiary,
   setViewingDiary,
-
-  // 工具
   exportHistoryPDF,
   showToast,
 }) {
   const { t } = useI18n();
+  const isEn = lang === 'en';
   const [collapsedMonths, setCollapsedMonths] = useState({});
 
   const toggleMonth = (month) => {
@@ -148,7 +460,6 @@ export default function HistoryPage({
     }));
   };
 
-  // ===== 日历渲染 =====
   const hasRecordOnDate = (year, month, day) => {
     const targetStr = formatDateKey(year, month, day);
     return history.some((h) => normalizeDateStr(h.date) === targetStr);
@@ -249,18 +560,18 @@ export default function HistoryPage({
     return days;
   };
 
-  // ===== 分组历史 =====
   const groupedHistory = history.reduce((acc, item) => {
     if (!item.date) return acc;
     const parts = normalizeDateStr(item.date).split('-');
     if (parts.length < 2) return acc;
-    const monthKey = `${parts[0]}${t('history.year') || '年'}${parts[1]}${t('history.month') || '月'}`;
+    const year = parseInt(parts[0]);
+    const monthIdx = parseInt(parts[1]) - 1;
+    const monthKey = formatYearMonth(year, monthIdx, t);
     if (!acc[monthKey]) acc[monthKey] = [];
     acc[monthKey].push(item);
     return acc;
   }, {});
 
-  // ===== 删除记录 =====
   const handleDeleteRecord = (recordId) => {
     if (window.confirm(t('history.deleteConfirm') || '确定要删除这条记录吗？')) {
       const updatedHistory = history.filter((h) => h.id !== recordId);
@@ -274,7 +585,6 @@ export default function HistoryPage({
     }
   };
 
-  // ===== 获取星期几 =====
   const getWeekDays = () => {
     const sun = t('history.sun') || '日';
     const mon = t('history.mon') || '一';
@@ -292,15 +602,14 @@ export default function HistoryPage({
         pointerEvents: 'auto',
         background: '#0a0a0a',
         width: '100vw',
-        minHeight: '100vh',
+        height: '100vh',
         overflowY: 'auto',
         WebkitOverflowScrolling: 'touch',
         padding: '20px',
-        paddingBottom: '100px',
+        paddingBottom: '120px',
         boxSizing: 'border-box',
       }}
     >
-      {/* 头部 */}
       <div
         style={{
           display: 'flex',
@@ -317,7 +626,31 @@ export default function HistoryPage({
         <h2 style={{ color: '#fff', margin: 0, fontSize: '1.2rem' }}>
           {t('history.title')}
         </h2>
-        <div style={{ display: 'flex', gap: '12px' }}>
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+          {/* 🌐 语言一键切换按钮 */}
+          {setTargetLanguage && (
+            <button
+              onClick={() => setTargetLanguage(isEn ? 'zh' : 'en')}
+              style={{
+                padding: '6px 12px',
+                background: 'rgba(255,255,255,0.08)',
+                border: '1px solid rgba(255,255,255,0.15)',
+                color: '#fff',
+                borderRadius: '20px',
+                fontSize: '12px',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px',
+                transition: 'background 0.2s',
+              }}
+              onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(255,255,255,0.15)')}
+              onMouseLeave={(e) => (e.currentTarget.style.background = 'rgba(255,255,255,0.08)')}
+            >
+              🌐 {isEn ? '简体中文' : 'English'}
+            </button>
+          )}
+
           <button
             onClick={exportHistoryPDF}
             style={{
@@ -349,10 +682,8 @@ export default function HistoryPage({
         </div>
       </div>
 
-      {/* 趋势摘要 */}
       <TrendSummary history={history} t={t} />
 
-      {/* 日历 */}
       <div
         style={{
           background: '#1a1a1a',
@@ -387,7 +718,7 @@ export default function HistoryPage({
             ‹
           </button>
           <span style={{ color: '#fff', fontWeight: 'bold', fontSize: '16px' }}>
-            {calendarDate.getFullYear()}{t('history.year') || '年'} {calendarDate.getMonth() + 1}{t('history.month') || '月'}
+            {formatYearMonth(calendarDate.getFullYear(), calendarDate.getMonth(), t)}
           </span>
           <button
             onClick={() =>
@@ -410,7 +741,7 @@ export default function HistoryPage({
 
         <div style={{ display: 'flex', marginBottom: '12px' }}>
           {getWeekDays().map((day) => {
-            const isWeekend = day === (t('history.sun') || '日') || day === (t('history.sat') || '六');
+            const isWeekend = day === (t('history.sun') || '日') || day === (t('history.sat') || '六') || day === 'Sun' || day === 'Sat';
             return (
               <div
                 key={day}
@@ -431,11 +762,10 @@ export default function HistoryPage({
         <div style={{ display: 'flex', flexWrap: 'wrap' }}>{renderCalendar()}</div>
       </div>
 
-      {/* 选中日期记录 */}
       {selectedDate && (
         <div style={{ marginTop: '20px' }}>
           <h3 style={{ color: '#fff', fontSize: '14px', marginBottom: '12px' }}>
-            📅 {t('history.recordsOfDate') || '的记录'} ({selectedDate})
+            📅 {t('history.recordsOfDate', { date: selectedDate }) || `Records for ${selectedDate}`}
           </h3>
           {selectedDateRecords.length === 0 ? (
             <div
@@ -482,7 +812,7 @@ export default function HistoryPage({
                   />
                   <div style={{ marginLeft: '12px', flex: 1 }}>
                     <div style={{ color: '#fff', fontWeight: 'bold', fontSize: '14px' }}>
-                      {record.painName}
+                      {getPainNameDisplay(record, t)}
                     </div>
                     <div style={{ color: '#888', fontSize: '12px', marginTop: '4px' }}>
                       {record.time}
@@ -522,7 +852,6 @@ export default function HistoryPage({
         </div>
       )}
 
-      {/* 全部记录 */}
       {history.length > 0 && (
         <div style={{ marginTop: '30px' }}>
           <div
@@ -551,7 +880,7 @@ export default function HistoryPage({
                 gap: '4px',
               }}
             >
-              {showGroupedView ? '▲ ' + (t('history.collapseLabel') || '收起') : '▼ ' + (t('history.expandLabel') || '展开')}
+              {showGroupedView ? '▲ ' + (t('history.collapseLabel') || 'Collapse') : '▼ ' + (t('history.expandLabel') || 'Expand')}
             </button>
           </div>
 
@@ -578,7 +907,7 @@ export default function HistoryPage({
                     {month}
                   </span>
                   <span style={{ color: '#888', fontSize: '11px' }}>
-                    {records.length}{t('history.recordUnit') || '条'} {collapsedMonths[month] ? '▶' : '▼'}
+                    {t('history.recordsCount', { count: records.length })} {collapsedMonths[month] ? '▶' : '▼'}
                   </span>
                 </div>
 
@@ -635,7 +964,7 @@ export default function HistoryPage({
                               marginTop: '2px',
                             }}
                           >
-                            {record.painName} · {record.time}
+                            {getPainNameDisplay(record, t)} · {record.time}
                           </div>
                         </div>
                         <button
@@ -674,7 +1003,6 @@ export default function HistoryPage({
         </div>
       )}
 
-      {/* 空状态 - 无任何记录时显示 */}
       {history.length === 0 && (
         <div
           style={{
@@ -684,12 +1012,18 @@ export default function HistoryPage({
           }}
         >
           <div style={{ fontSize: '56px', marginBottom: '16px' }}>📖</div>
-          <p style={{ fontSize: '15px', color: '#666' }}>{t('history.emptyHistory') || '暂无记录'}</p>
-          <p style={{ fontSize: '12px', color: '#444', marginTop: '8px' }}>
-            {t('history.startTracking') || '开始你的第一次疼痛记录吧 ✨'}
-          </p>
+          <p style={{ fontSize: '15px', color: '#666' }}>{t('history.empty')}</p>
         </div>
       )}
+
+      {/* 记录详情弹窗组件 */}
+      <RecordDetailModal
+        viewingDiary={viewingDiary}
+        onClose={() => setViewingDiary(null)}
+        onDelete={handleDeleteRecord}
+        t={t}
+        lang={lang}
+      />
     </div>
   );
 }

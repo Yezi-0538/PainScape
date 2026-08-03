@@ -923,6 +923,8 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
       case 'history':
         return (
           <HistoryPage
+            lang={targetLanguage} 
+            setTargetLanguage={setTargetLanguage}
             history={history}
             setHistory={setHistory}
             calendarDate={calendarDate}
@@ -951,26 +953,73 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
                   showToast('popupBlocked');
                   return;
                 }
+                const docTitle = t('pdf.docTitle');
+                const exportTimeLabel = t('pdf.exportTime');
+                const totalRecordsLabel = t('pdf.totalCount', { count: history.length });
+                const timeLocale = isEn ? 'en-US' : 'zh-CN';
+                
+                const CHINESE_TO_KEY = {
+                  '绞痛': 'twist', '刺痛': 'pierce',
+                  '坠胀': 'heavy', '坠胀重压': 'heavy', '坠痛': 'heavy',
+                  '酸胀': 'wave', '酸胀痛': 'wave', '弥漫酸胀痛': 'wave',
+                  '刮痛': 'scrape', '撕裂痛': 'scrape', '撕裂刮痛': 'scrape'
+                };
+
+                // 检查字符串是否包含中文
+                const containsChinese = (str) => /[\u4e00-\u9fa5]/.test(String(str || ''));
                 const recordsHtml = history.map((record, idx) => {
-                  const rd = record.reportData || {};
+                  const dominantKey = record.dominantPain || CHINESE_TO_KEY[record.painName] || 'twist';
+                  const painNameDisplay = t(`painNames.${dominantKey}`) || record.painName || '';
+                  
+                  // 如果当前处于英文模式，且存量数据的文本含有中文，则自动重构为对应英文模板
+                  let rd = record.reportData || {};
+                  if (isEn) {
+                    const freshEn = generateContent(dominantKey);
+                    
+                    // 获取英文伴侣行动
+                    const prefKey = record.userPrefs?.[0] || 'care';
+                    const actionsArr = t(`partnerActions.${prefKey}`, { returnObjects: true }) || [];
+                    const actionEn = Array.isArray(actionsArr)
+                      ? actionsArr.map(a => String(a).replace('{{med}}', 'Ibuprofen')).join('\n')
+                      : '';
+
+                    rd = {
+                      chief_complaint: containsChinese(rd.chief_complaint) ? freshEn.chief_complaint : rd.chief_complaint,
+                      present_illness: containsChinese(rd.present_illness) ? freshEn.present_illness : rd.present_illness,
+                      clinical_diagnosis: containsChinese(rd.clinical_diagnosis) ? freshEn.clinical_diagnosis : rd.clinical_diagnosis,
+                      clinical_suggestions: containsChinese(rd.clinical_suggestions) ? freshEn.clinical_suggestions : rd.clinical_suggestions,
+                      analogy: containsChinese(rd.analogy) ? freshEn.analogy : rd.analogy,
+                      selfCare: containsChinese(rd.selfCare) ? freshEn.selfCare : rd.selfCare,
+                      action: containsChinese(rd.action) ? actionEn : rd.action, // 独立强行重构
+                      work: containsChinese(rd.work) ? (t('workTemplate') ? t('workTemplate').replace('{{pain}}', painNameDisplay) : rd.work) : rd.work,
+                    };
+                  }
+
+                  const formatText = (val) => {
+                    if (!val) return '';
+                    if (Array.isArray(val)) return val.join(isEn ? '; ' : '；');
+                    if (typeof val === 'object') return JSON.stringify(val);
+                    return val;
+                  };
+
                   return `
                     <div style="margin-bottom:24px; page-break-inside:avoid; border-bottom:1px solid #ddd; padding-bottom:16px;">
-                      <h3 style="margin:0 0 8px; color:#c62828;">记录 ${idx + 1} — ${record.date || ''} ${record.time || ''}</h3>
-                      <p><strong>痛感类型：</strong>${record.painName || ''}</p>
-                      <p><strong>痛感评分：</strong>${record.painScore || '-'}</p>
-                      ${rd.chief_complaint ? `<p><strong>主诉：</strong>${rd.chief_complaint}</p>` : ''}
-                      ${rd.present_illness ? `<p><strong>现病史：</strong>${rd.present_illness}</p>` : ''}
-                      ${rd.clinical_diagnosis ? `<p><strong>临床诊断：</strong>${rd.clinical_diagnosis}</p>` : ''}
-                      ${rd.clinical_suggestions ? `<p><strong>建议：</strong>${rd.clinical_suggestions}</p>` : ''}
-                      ${rd.analogy ? `<p><strong>体感类比：</strong>${typeof rd.analogy === 'object' ? JSON.stringify(rd.analogy) : rd.analogy}</p>` : ''}
-                      ${rd.selfCare ? `<p><strong>自愈建议：</strong>${Array.isArray(rd.selfCare) ? rd.selfCare.join('；') : rd.selfCare}</p>` : ''}
-                      ${rd.action ? `<p><strong>伴侣/家人行动：</strong>${Array.isArray(rd.action) ? rd.action.join('；') : rd.action}</p>` : ''}
-                      ${rd.work ? `<p><strong>请假/推约消息：</strong>${typeof rd.work === 'object' ? JSON.stringify(rd.work) : rd.work}</p>` : ''}
+                      <h3 style="margin:0 0 8px; color:#c62828;">${t('pdf.record', { index: idx + 1 })} — ${record.date || ''} ${record.time || ''}</h3>
+                      <p><strong>${t('pdf.painType')}</strong>${painNameDisplay}</p>
+                      <p><strong>${t('pdf.painScore')}</strong>${record.painScore ?? '-'}</p>
+                      ${rd.chief_complaint ? `<p><strong>${t('pdf.chiefComplaint')}</strong>${formatText(rd.chief_complaint)}</p>` : ''}
+                      ${rd.present_illness ? `<p><strong>${t('pdf.presentIllness')}</strong>${formatText(rd.present_illness)}</p>` : ''}
+                      ${rd.clinical_diagnosis ? `<p><strong>${t('pdf.clinicalDiagnosis')}</strong>${formatText(rd.clinical_diagnosis)}</p>` : ''}
+                      ${rd.clinical_suggestions ? `<p><strong>${t('pdf.suggestions')}</strong>${formatText(rd.clinical_suggestions)}</p>` : ''}
+                      ${rd.analogy ? `<p><strong>${t('pdf.analogy')}</strong>${formatText(rd.analogy)}</p>` : ''}
+                      ${rd.selfCare ? `<p><strong>${t('pdf.selfCare')}</strong>${formatText(rd.selfCare)}</p>` : ''}
+                      ${rd.action ? `<p><strong>${t('pdf.action')}</strong>${formatText(rd.action)}</p>` : ''}
+                      ${rd.work ? `<p><strong>${t('pdf.work')}</strong>${formatText(rd.work)}</p>` : ''}
                     </div>`;
                 }).join('');
 
                 printWindow.document.write(`<!DOCTYPE html>
-                  <html><head><title>PainScape 历史记录</title>
+                  <html><head><title>${docTitle}</title>
                   <style>
                     body { font-family: -apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif; padding: 20px; color: #333; line-height: 1.6; }
                     h1 { color: #c62828; border-bottom: 2px solid #c62828; padding-bottom: 8px; }
@@ -979,11 +1028,12 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
                     @media print { body { padding: 0; } }
                   </style></head>
                   <body>
-                    <h1>PainScape 痛觉记录导出</h1>
-                    <p>导出时间：${new Date().toLocaleString('zh-CN')}　|　共 ${history.length} 条记录</p>
+                    <h1>${docTitle}</h1>
+                    <p>${exportTimeLabel}${new Date().toLocaleString(timeLocale)}　|　${totalRecordsLabel}</p>
                     <hr/>
                     ${recordsHtml}
                   </body></html>`);
+        
                 printWindow.document.close();
                 // 延迟打印确保内容渲染完毕
                 setTimeout(() => {
