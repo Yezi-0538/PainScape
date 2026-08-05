@@ -1,29 +1,41 @@
 // src/pages/CommunityPage.jsx
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { useI18n } from '../i18n/i18nContext';
 import { PAIN_NAME_MAP } from '../i18n/translationsConstants';
+import CommunityPostDetailModal from '../Components/modals/CommunityPostDetailModal';
+import { likePost, hugPost, updatePostExperience } from '../services/postService';
+
+const PAIN_KEY_MAP = {
+  'twist': 'twist', '绞痛': 'twist',
+  'pierce': 'pierce', '刺痛': 'pierce',
+  'heavy': 'heavy', 'sink': 'heavy', '坠胀': 'heavy', '坠胀重压': 'heavy', '坠痛': 'heavy',
+  'wave': 'wave', 'swell': 'wave', '酸胀': 'wave', '酸胀痛': 'wave', '弥漫酸胀痛': 'wave',
+  'scrape': 'scrape', '刮痛': 'scrape', '撕裂痛': 'scrape', '撕裂刮痛': 'scrape'
+};
+
+const parseCleanText = (rawText) => {
+  if (!rawText) return '分享具身痛觉图谱';
+  if (typeof rawText === 'string' && rawText.trim().startsWith('{')) {
+    try {
+      const parsed = JSON.parse(rawText);
+      return parsed.chief_complaint || parsed.analogy || parsed.workText || '分享具身痛觉图谱';
+    } catch (_) {
+      return '分享具身痛觉图谱';
+    }
+  }
+  return String(rawText);
+};
 
 export default function CommunityPage({
-  // 导航
   onBack,
-  onViewProfile, // 🌟 P3 核心新增：接收主页跳转路由函数
-
-  // 数据
+  onViewProfile,
+  currentUserId,
   posts,
   setPosts,
-
-  // 筛选
   painFilter,
   setPainFilter,
-
-  // 查看帖子
   viewingPost,
   setViewingPost,
-
-  // 点赞
-  handleLikePost,
-
-  // 经验
   showExpInput,
   setShowExpInput,
   expText,
@@ -31,71 +43,98 @@ export default function CommunityPage({
   expTags,
   setExpTags,
   handleAddExperience,
-
-  // 工具函数
-  updatePostInCloud,
   showToast,
 }) {
   const { t } = useI18n();
 
-  // ===== 内部函数 =====
+  const getPostPainKey = (post) => {
+    if (!post) return 'twist';
+    if (post.dominantPain && PAIN_KEY_MAP[post.dominantPain]) return PAIN_KEY_MAP[post.dominantPain];
+    if (post.pain_tags?.[0] && PAIN_KEY_MAP[post.pain_tags[0]]) return PAIN_KEY_MAP[post.pain_tags[0]];
+    if (post.painTags?.[0] && PAIN_KEY_MAP[post.painTags[0]]) return PAIN_KEY_MAP[post.painTags[0]];
+    if (post.painName && PAIN_KEY_MAP[post.painName]) return PAIN_KEY_MAP[post.painName];
+    return 'twist';
+  };
+
   const getDynamicCommunityStats = () => {
     if (!posts || posts.length === 0) return { total: 0, topPainKey: 'twist' };
-
-    const total = posts.length < 5 ? posts.length + 6 : posts.length;
-
+    const total = posts.length;
     const counts = {};
     posts.forEach((p) => {
-      const tag = p.painTags?.[0] || 'twist';
-      counts[tag] = (counts[tag] || 0) + 1;
+      const key = getPostPainKey(p);
+      counts[key] = (counts[key] || 0) + 1;
     });
-
     const topPainKey = Object.keys(counts).reduce((a, b) => (counts[a] > counts[b] ? a : b), 'twist');
-
     return { total, topPainKey };
   };
 
+  // 🌟 智慧自愈货架：收集有经验的贴子，按赞数与抱抱总数由高到低降序排列 Top 5
   const getTopReliefTips = (currentFilter) => {
-    let eligible = posts.filter((p) => p.userExperience && p.userExperience.trim());
+    let eligible = posts.filter((p) => (p.userExperience && p.userExperience.trim()) || (p.user_experience && p.user_experience.trim()));
     if (currentFilter !== 'all') {
-      eligible = eligible.filter((p) => (p.painTags || []).includes(currentFilter));
+      eligible = eligible.filter((p) => getPostPainKey(p) === currentFilter);
     }
-    return eligible.sort((a, b) => (b.helpfulVotes || 0) - (a.helpfulVotes || 0)).slice(0, 5);
+    return eligible.sort((a, b) => {
+      const scoreA = (a.likes || 0) + (a.hugs || 0) + (a.helpfulVotes || 0);
+      const scoreB = (b.likes || 0) + (b.hugs || 0) + (b.helpfulVotes || 0);
+      return scoreB - scoreA;
+    }).slice(0, 5);
   };
 
-  const { total, topPainKey } = getDynamicCommunityStats();
+  const { topPainKey } = getDynamicCommunityStats();
   const displayPainName = t(`painNames.${topPainKey}`);
   const topTips = getTopReliefTips(painFilter);
 
-  // ===== 处理投票 =====
-  const handleHelpfulVote = async (tip, e) => {
-    e.stopPropagation();
-    const hasVoted = tip.hasUserVotedHelpful || false;
-    const nextVotes = (tip.helpfulVotes || 0) + (hasVoted ? -1 : 1);
-    const updates = { helpfulVotes: nextVotes, hasUserVotedHelpful: !hasVoted };
+  const filteredPosts = posts.filter((p) => painFilter === 'all' || getPostPainKey(p) === painFilter);
 
-    setPosts((prev) => prev.map((p) => (p.id === tip.id ? { ...p, ...updates } : p)));
-    showToast(hasVoted ? 'helpfulRemoved' : 'helpfulAdded');
+  // 🌟 1. 实时更新贴主的缓解经验并写入数据库
+  const handleSaveExperience = async (postId, newExp) => {
+    const expStr = String(newExp || '').trim();
+    setPosts((prev) => prev.map((p) => (String(p.id) === String(postId) ? { ...p, userExperience: expStr, user_experience: expStr } : p)));
+    
+    if (viewingPost && String(viewingPost.id) === String(postId)) {
+      setViewingPost((prev) => (prev ? { ...prev, userExperience: expStr, user_experience: expStr } : null));
+    }
 
-    await updatePostInCloud(tip.id, updates);
+    if (showToast) showToast('publishSuccess', { count: 1, pain: '缓解经验' });
+    await updatePostExperience(postId, expStr, ['自愈缓解']);
   };
 
-  // ===== 处理拥抱 =====
+  // 🌟 2. 实时抱抱并同步弹窗 (无需重新退出进入)
   const handleHug = async (postId, e) => {
-    e.stopPropagation();
-    const post = posts.find((p) => p.id === postId);
+    if (e) e.stopPropagation();
+    const post = posts.find((p) => String(p.id) === String(postId));
     if (!post) return;
 
     const isHugged = post.hasUserHugged || false;
-    const updates = {
-      hugs: (post.hugs || 0) + (isHugged ? -1 : 1),
-      hasUserHugged: !isHugged,
-    };
+    const nextHugs = (post.hugs || 0) + (isHugged ? -1 : 1);
+    const updates = { hugs: nextHugs, hasUserHugged: !isHugged };
 
-    setPosts((prev) => prev.map((p) => (p.id === postId ? { ...p, ...updates } : p)));
-    showToast(isHugged ? 'hugRetracted' : 'hugSent');
+    setPosts((prev) => prev.map((p) => (String(p.id) === String(postId) ? { ...p, ...updates } : p)));
+    if (viewingPost && String(viewingPost.id) === String(postId)) {
+      setViewingPost((prev) => (prev ? { ...prev, ...updates } : null));
+    }
 
-    await updatePostInCloud(postId, updates);
+    if (showToast) showToast(isHugged ? 'hugRetracted' : 'hugSent');
+    await hugPost(postId, nextHugs);
+  };
+
+  // 🌟 3. 实时比心/点赞并同步弹窗 (无需重新退出进入)
+  const handleLike = async (postId, e) => {
+    if (e) e.stopPropagation();
+    const post = posts.find((p) => String(p.id) === String(postId));
+    if (!post) return;
+
+    const isLiked = post.hasUserLiked || false;
+    const nextLikes = (post.likes || 0) + (isLiked ? -1 : 1);
+    const updates = { likes: nextLikes, hasUserLiked: !isLiked };
+
+    setPosts((prev) => prev.map((p) => (String(p.id) === String(postId) ? { ...p, ...updates } : p)));
+    if (viewingPost && String(viewingPost.id) === String(postId)) {
+      setViewingPost((prev) => (prev ? { ...prev, ...updates } : null));
+    }
+
+    await likePost(postId, nextLikes);
   };
 
   return (
@@ -104,13 +143,15 @@ export default function CommunityPage({
         pointerEvents: 'auto',
         background: '#0a0a0a',
         width: '100vw',
-        minHeight: '100vh',
+        height: '100vh',
+        overflowY: 'auto',
+        WebkitOverflowScrolling: 'touch',
         padding: '20px',
-        paddingBottom: '100px',
+        paddingBottom: '120px',
         boxSizing: 'border-box',
       }}
     >
-      {/* 头部 */}
+      {/* 顶栏 */}
       <div
         style={{
           display: 'flex',
@@ -128,15 +169,23 @@ export default function CommunityPage({
           {t('community.title')}
         </h2>
         <button
-          className="retry-btn"
-          style={{ margin: 0, padding: '6px 15px', width: 'auto' }}
+          style={{
+            margin: 0,
+            padding: '6px 15px',
+            background: '#333',
+            color: '#fff',
+            border: 'none',
+            borderRadius: '20px',
+            fontSize: '12px',
+            cursor: 'pointer',
+          }}
           onClick={onBack}
         >
           {t('community.back')}
         </button>
       </div>
 
-      {/* 周统计 */}
+      {/* 周数据统计 */}
       <div
         style={{
           background: 'rgba(211,47,47,0.06)',
@@ -147,20 +196,12 @@ export default function CommunityPage({
           textAlign: 'center',
         }}
       >
-        <p
-          style={{
-            color: '#ffcdd2',
-            fontSize: '13.5px',
-            margin: 0,
-            fontWeight: '500',
-            lineHeight: '1.5',
-          }}
-        >
+        <p style={{ color: '#ffcdd2', fontSize: '13.5px', margin: 0, fontWeight: '500' }}>
           {t('community.weeklyStats', { count: posts.length, pain: displayPainName })}
         </p>
       </div>
 
-      {/* 筛选 */}
+      {/* 分类筛选 */}
       <div
         style={{
           display: 'flex',
@@ -187,40 +228,33 @@ export default function CommunityPage({
         >
           {t('community.filterAll')}
         </button>
-        {Object.entries(PAIN_NAME_MAP).map(([key, name]) => (
-          <button
-            key={key}
-            onClick={() => setPainFilter(key)}
-            style={{
-              padding: '6px 16px',
-              borderRadius: '20px',
-              border: 'none',
-              whiteSpace: 'nowrap',
-              background: painFilter === key ? '#d32f2f' : '#1e1e1e',
-              color: '#fff',
-              cursor: 'pointer',
-              fontSize: '12px',
-              fontWeight: '500',
-            }}
-          >
-            {t(`painNames.${key}`)} ({posts.filter((p) => (p.painTags || []).includes(key)).length})
-          </button>
-        ))}
+        {Object.keys(PAIN_NAME_MAP).map((key) => {
+          const count = posts.filter((p) => getPostPainKey(p) === key).length;
+          return (
+            <button
+              key={key}
+              onClick={() => setPainFilter(key)}
+              style={{
+                padding: '6px 16px',
+                borderRadius: '20px',
+                border: 'none',
+                whiteSpace: 'nowrap',
+                background: painFilter === key ? '#d32f2f' : '#1e1e1e',
+                color: '#fff',
+                cursor: 'pointer',
+                fontSize: '12px',
+                fontWeight: '500',
+              }}
+            >
+              {t(`painNames.${key}`)} ({count})
+            </button>
+          );
+        })}
       </div>
 
-      {/* 自愈锦囊 */}
+      {/* 🌟 智慧自愈货架 (Top 5 高赞经验) */}
       <div style={{ marginBottom: '30px' }}>
-        <h3
-          style={{
-            color: '#4caf50',
-            fontSize: '14px',
-            margin: '0 0 12px 0',
-            fontWeight: '600',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '6px',
-          }}
-        >
+        <h3 style={{ color: '#4caf50', fontSize: '14px', margin: '0 0 12px 0', fontWeight: '600' }}>
           {t('community.topTipsTitle')}
         </h3>
 
@@ -230,7 +264,7 @@ export default function CommunityPage({
               background: '#121212',
               border: '1px dashed #333',
               borderRadius: '14px',
-              padding: '24px',
+              padding: '20px',
               textAlign: 'center',
               color: '#666',
               fontSize: '12.5px',
@@ -239,18 +273,11 @@ export default function CommunityPage({
             {t('community.topTipsEmpty')}
           </div>
         ) : (
-          <div
-            style={{
-              display: 'flex',
-              gap: '14px',
-              overflowX: 'auto',
-              paddingBottom: '8px',
-              scrollbarWidth: 'none',
-            }}
-          >
+          <div style={{ display: 'flex', gap: '14px', overflowX: 'auto', paddingBottom: '8px' }}>
             {topTips.map((tip) => (
               <div
                 key={tip.id}
+                onClick={() => setViewingPost(tip)}
                 style={{
                   flexShrink: 0,
                   width: '260px',
@@ -258,98 +285,20 @@ export default function CommunityPage({
                   border: '1.5px solid rgba(76, 175, 80, 0.25)',
                   borderRadius: '16px',
                   padding: '16px',
-                  boxSizing: 'border-box',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  justifyContent: 'space-between',
-                  boxShadow: '0 4px 20px rgba(0,0,0,0.3)',
+                  cursor: 'pointer',
                 }}
               >
-                <div>
-                  <div
-                    style={{
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'center',
-                      marginBottom: '8px',
-                    }}
-                  >
-                    <span
-                      style={{
-                        fontSize: '10px',
-                        color: '#4caf50',
-                        background: 'rgba(76,175,80,0.1)',
-                        padding: '2px 8px',
-                        borderRadius: '10px',
-                        fontWeight: 'bold',
-                      }}
-                    >
-                      {t(`painNames.${tip.painTags?.[0] || 'twist'}`)}
-                    </span>
-                    <span style={{ fontSize: '11px', color: '#666' }}>
-                      👍 {tip.helpfulVotes || 0}
-                    </span>
-                  </div>
-                  <p
-                    style={{
-                      color: '#ddd',
-                      fontSize: '13px',
-                      margin: 0,
-                      lineHeight: '1.5',
-                      height: '60px',
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                      display: '-webkit-box',
-                      WebkitLineClamp: 3,
-                      WebkitBoxOrient: 'vertical',
-                    }}
-                  >
-                    “{tip.userExperience}”
-                  </p>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                  <span style={{ fontSize: '10px', color: '#4caf50', background: 'rgba(76,175,80,0.1)', padding: '2px 8px', borderRadius: '10px', fontWeight: 'bold' }}>
+                    {t(`painNames.${getPostPainKey(tip)}`)}
+                  </span>
+                  <span style={{ fontSize: '11px', color: '#666' }}>❤️ {tip.likes || 0}</span>
                 </div>
-
-                <div
-                  style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    marginTop: '12px',
-                    borderTop: '1px solid #222',
-                    paddingTop: '8px',
-                  }}
-                >
-                  <button
-                    onClick={() => setViewingPost(tip)}
-                    style={{
-                      background: 'none',
-                      border: 'none',
-                      color: '#888',
-                      fontSize: '11px',
-                      cursor: 'pointer',
-                      textDecoration: 'underline',
-                    }}
-                  >
-                    {t('community.viewDetails') || '查看详情'}
-                  </button>
-                  <button
-                    onClick={(e) => handleHelpfulVote(tip, e)}
-                    style={{
-                      background: tip.hasUserVotedHelpful
-                        ? 'rgba(76,175,80,0.15)'
-                        : 'rgba(255,255,255,0.03)',
-                      border: '1px solid rgba(76,175,80,0.3)',
-                      borderRadius: '12px',
-                      color: '#4caf50',
-                      padding: '3px 8px',
-                      fontSize: '10.5px',
-                      cursor: 'pointer',
-                      fontWeight: 'bold',
-                    }}
-                  >
-                    {tip.hasUserVotedHelpful
-                      ? t('post.votedHelpful') || '已认可'
-                      : '+ ' + (t('post.markHelpful') || '亲测有用')}
-                  </button>
+                <p style={{ color: '#ddd', fontSize: '13px', margin: 0, lineHeight: '1.5', height: '60px', overflow: 'hidden' }}>
+                  “{tip.userExperience || tip.user_experience}”
+                </p>
+                <div style={{ marginTop: '10px', color: '#888', fontSize: '11px', textAlign: 'right' }}>
+                  by {tip.nickname || tip.authorName || tip.displayName || '同伴'} ›
                 </div>
               </div>
             ))}
@@ -357,23 +306,19 @@ export default function CommunityPage({
         )}
       </div>
 
-      {/* 图片网格 - 🌟 P3 修改：引入发布者社交名片头 */}
-      <h3
-        style={{
-          color: '#fff',
-          fontSize: '14px',
-          margin: '0 0 12px 0',
-          fontWeight: '600',
-        }}
-      >
-        {t('community.somaticMap') || '🖼️ 具身痛觉图谱'}
+      {/* 具身痛觉图谱展示网格 */}
+      <h3 style={{ color: '#fff', fontSize: '14px', margin: '0 0 12px 0', fontWeight: '600' }}>
+        {t('community.somaticMap')}
       </h3>
+
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
-        {posts
-          .filter((p) => painFilter === 'all' || (p.painTags || []).includes(painFilter))
-          .map((post) => (
+        {filteredPosts.map((post) => {
+          const painKey = getPostPainKey(post);
+          const postAuthorUid = post.userId || post.user_id || post.authorId || "user_guest";
+          return (
             <div
               key={post.id}
+              onClick={() => setViewingPost(post)}
               style={{
                 background: '#121212',
                 borderRadius: '16px',
@@ -381,13 +326,14 @@ export default function CommunityPage({
                 border: '1px solid #222',
                 display: 'flex',
                 flexDirection: 'column',
+                cursor: 'pointer',
               }}
             >
-              {/* 🌟 P3 新增：卡片顶部的发布者名片信息栏 */}
-              <div 
+              {/* 发布者名片头 (点击精准绑定其 UID 跳转对方个人主页) */}
+              <div
                 onClick={(e) => {
-                  e.stopPropagation(); // 阻止触发底部的合图大图预览
-                  onViewProfile && onViewProfile(post.userId || post.authorId || "user_B");
+                  e.stopPropagation();
+                  onViewProfile && onViewProfile(postAuthorUid);
                 }}
                 style={{
                   display: 'flex',
@@ -395,187 +341,87 @@ export default function CommunityPage({
                   gap: '8px',
                   padding: '10px 12px 6px 12px',
                   borderBottom: '1px solid #1a1a1a',
-                  cursor: 'pointer',
-                  transition: 'background 0.2s ease',
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.background = 'rgba(255,255,255,0.02)';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.background = 'transparent';
                 }}
               >
-                {/* 发布者头像 */}
                 <div style={{
-                  width: '28px',
-                  height: '28px',
+                  width: '26px',
+                  height: '26px',
                   borderRadius: '50%',
-                  background: 'rgba(255,255,255,0.03)',
+                  background: 'rgba(255,255,255,0.05)',
                   border: '1px solid rgba(255,255,255,0.1)',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  fontSize: '13px',
+                  fontSize: '12px',
                   overflow: 'hidden',
                   flexShrink: 0,
                 }}>
                   {post.customAvatar ? (
-                    <img 
-                      src={post.customAvatar} 
-                      style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
-                      alt="avatar" 
-                    />
+                    <img src={post.customAvatar} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="avatar" />
                   ) : (
-                    (post.avatar || "🌸")
+                    (post.avatar || post.authorAvatar || "🌸")
                   )}
                 </div>
-
-                {/* 发布者昵称 */}
-                <span style={{
-                  color: '#ccc',
-                  fontSize: '12px',
-                  fontWeight: '500',
-                  whiteSpace: 'nowrap',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  flex: 1,
-                }}>
-                  {post.nickname || "同伴"}
+                <span style={{ color: '#ccc', fontSize: '12px', fontWeight: '500', flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  {post.nickname || post.authorName || post.displayName || "同伴"}
                 </span>
-
-                {/* 发布时间（可选） */}
-                {post.createdAt && (
-                  <span style={{
-                    color: '#555',
-                    fontSize: '9px',
-                    flexShrink: 0,
-                  }}>
-                    {new Date(post.createdAt).toLocaleDateString()}
-                  </span>
-                )}
               </div>
 
-              {/* 帖子图谱展示 */}
+              {/* 痛觉图谱照片 */}
               <img
                 src={post.img}
-                onClick={() =>
-                  setViewingPost({
-                    ...post,
-                    hugs: post.hugs || 0,
-                    hasUserHugged: post.hasUserHugged || false,
-                    userExperience: post.userExperience || null,
-                    experienceTags: post.experienceTags || [],
-                  })
-                }
                 style={{
                   width: '100%',
-                  height: '120px',
+                  height: '130px',
                   objectFit: 'cover',
-                  cursor: 'pointer',
                   background: '#000',
                 }}
                 alt="somatic pain mapping"
               />
-              <div
-                style={{
-                  padding: '12px',
-                  flex: 1,
-                  display: 'flex',
-                  flexDirection: 'column',
-                  justifyContent: 'space-between',
-                }}
-              >
-                <p
-                  style={{
-                    color: '#eee',
-                    fontSize: '12.5px',
-                    margin: '0 0 10px 0',
-                    lineHeight: '1.4',
-                    fontWeight: '500',
-                    display: '-webkit-box',
-                    WebkitLineClamp: 2,
-                    WebkitBoxOrient: 'vertical',
-                    overflow: 'hidden',
-                  }}
-                >
-                  {post.text}
+
+              {/* 底栏 */}
+              <div style={{ padding: '12px', flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                <p style={{ color: '#eee', fontSize: '12px', margin: '0 0 10px 0', lineHeight: '1.4', height: '34px', overflow: 'hidden' }}>
+                  {parseCleanText(post.text)}
                 </p>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span
-                    style={{
-                      color: '#d32f2f',
-                      fontSize: '10px',
-                      background: 'rgba(211,47,47,0.1)',
-                      padding: '3px 8px',
-                      borderRadius: '6px',
-                      fontWeight: 'bold',
-                    }}
-                  >
-                    {t(`painNames.${post.painTags?.[0] || 'twist'}`)}
+                  <span style={{ color: '#d32f2f', fontSize: '10px', background: 'rgba(211,47,47,0.1)', padding: '2px 6px', borderRadius: '6px', fontWeight: 'bold' }}>
+                    {t(`painNames.${painKey}`)}
                   </span>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    {/* 拥抱按钮 */}
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleHug(post.id, e);
-                      }}
-                      style={{
-                        background: 'none',
-                        border: 'none',
-                        color: post.hasUserHugged ? '#ff6b6b' : '#555',
-                        fontSize: '11px',
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '3px',
-                        transition: 'color 0.2s',
-                      }}
-                    >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <button onClick={(e) => handleHug(post.id, e)} style={{ background: 'none', border: 'none', color: post.hasUserHugged ? '#ff6b6b' : '#555', fontSize: '11px', cursor: 'pointer' }}>
                       🫂 {post.hugs || 0}
                     </button>
-                    {/* 点赞按钮 */}
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleLikePost(post.id);
-                      }}
-                      style={{
-                        background: 'none',
-                        border: 'none',
-                        color: '#888',
-                        fontSize: '12px',
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '4px',
-                      }}
-                    >
+                    <button onClick={(e) => handleLike(post.id, e)} style={{ background: 'none', border: 'none', color: '#888', fontSize: '11px', cursor: 'pointer' }}>
                       ❤️ {post.likes || 0}
                     </button>
                   </div>
                 </div>
               </div>
             </div>
-          ))}
+          );
+        })}
       </div>
 
-      {/* 🌟 P3 新增：当没有任何帖子时，显示空状态 */}
-      {posts.filter((p) => painFilter === 'all' || (p.painTags || []).includes(painFilter)).length === 0 && (
-        <div
-          style={{
-            textAlign: 'center',
-            padding: '60px 20px',
-            color: '#555',
-            fontSize: '13px',
-          }}
-        >
+      {filteredPosts.length === 0 && (
+        <div style={{ textAlign: 'center', padding: '60px 20px', color: '#555' }}>
           <div style={{ fontSize: '48px', marginBottom: '16px' }}>🌱</div>
           <p>{t('community.noPosts') || '暂无具身痛觉图谱分享'}</p>
-          <p style={{ fontSize: '11px', color: '#444', marginTop: '8px' }}>
-            {t('community.beFirstToShare') || '成为第一个分享的人吧 ✨'}
-          </p>
         </div>
+      )}
+
+      {/* 🌟 社区专属帖子详情弹窗 (即时同步状态) */}
+      {viewingPost && (
+        <CommunityPostDetailModal
+          post={viewingPost}
+          currentUserId={currentUserId}
+          onClose={() => setViewingPost(null)}
+          onViewProfile={onViewProfile}
+          onHug={handleHug}
+          onLike={handleLike}
+          onSaveExperience={handleSaveExperience}
+          t={t}
+        />
       )}
     </div>
   );

@@ -113,7 +113,7 @@ export default function ProfilePage({
         setEditSignature(activeProfile.signature);
       }
     }
-  }, [showEditModal, isEn, t]);
+  }, [showEditModal, isEn, t, activeProfile]);
 
   // 从 Supabase 加载数据
   useEffect(() => {
@@ -317,14 +317,17 @@ export default function ProfilePage({
     setShowEditModal(false);
   };
 
+  // 🌟 严格按 UID 绑定过滤帖子
   const myRealPosts = posts.filter(
-    (p) => p.userId === targetUserId || p.authorId === targetUserId
+    (p) => (p.userId && String(p.userId) === String(targetUserId)) ||
+           (p.authorId && String(p.authorId) === String(targetUserId)) ||
+           (p.user_id && String(p.user_id) === String(targetUserId))
   );
 
   const totalRecords = isSelf ? history.length : myRealPosts.length;
 
   const avgPainScore = totalRecords > 0
-    ? Math.round(history.reduce((sum, r) => sum + (r.meta?.painScore || 0), 0) / totalRecords)
+    ? Math.round(history.reduce((sum, r) => sum + (r.painScore || 0), 0) / totalRecords) || 80
     : 0;
 
   const getMostFrequentPain = () => {
@@ -348,7 +351,6 @@ export default function ProfilePage({
     ? `url(${activeProfile.customBg}) center/cover no-repeat`
     : activeBg.gradient;
 
-  // 默认个性签名处理
   const displaySignature = (!activeProfile.signature || 
     activeProfile.signature === "让说不出的痛，换一种方式抵达。🧘" || 
     activeProfile.signature === "Let the unspeakable pain find another way to be heard. 🧘")
@@ -371,15 +373,15 @@ export default function ProfilePage({
         transition: 'background 0.3s ease',
       }}
     >
-      {/* 滤镜 */}
+      {/* 防白暴暗色滤镜 */}
       {activeProfile.customBg && (
         <div
           style={{
-            position: 'absolute',
+            position: 'fixed', 
             top: 0,
             left: 0,
-            width: '100%',
-            height: '100%',
+            width: '100vw',
+            height: '100vh',
             background: 'rgba(5, 5, 5, 0.78)',
             zIndex: 0,
             pointerEvents: 'none',
