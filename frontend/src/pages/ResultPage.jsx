@@ -2,21 +2,31 @@
 import React, { useState } from 'react';
 import { useI18n } from '../i18n/i18nContext';
 import EditableBlock from '../Components/EditableBlock';
+import PublishPostModal from '../Components/modals/PublishPostModal'; // 🌟 引入发布弹窗组件
 
 export default function ResultPage({
+  // 导航
   onBack,
   onPublish,
   onShare,
+
+  // 数据
   imgUrl,
   content = {},
   appMode,
+
+  // Tab
   identity = 'partner',
   setIdentity,
+
+  // 编辑
   editedContents = {},
   setEditedContents,
   editingField,
   setEditingField,
   getEditedOrDefault = (k, v) => v,
+
+  // 优化
   refineInput = '',
   setRefineInput,
   refiningField,
@@ -24,16 +34,24 @@ export default function ResultPage({
   refineTargetField = 'chief_complaint',
   setRefineTargetField,
   handleRefine,
+
+  // 请假
   leaveRecipient = 'manager',
   setLeaveRecipient,
   leaveTone = 'polite',
   setLeaveTone,
+
+  // 分享
   prepareSharePreview,
   setHealingState,
   randomPartnerTips = [],
   handleCopy = () => {},
 }) {
   const { t } = useI18n();
+
+  // 🌟 1. 新增：控制发布弹窗与输入标题文本的状态
+  const [showPublishModal, setShowPublishModal] = useState(false);
+  const [publishTitleText, setPublishTitleText] = useState('');
 
   const getRefinePlaceholder = (tabIdentity) => {
     const map = {
@@ -920,7 +938,7 @@ export default function ResultPage({
             fontSize: '14px',
             boxShadow: '0 4px 12px rgba(76,175,80,0.2)',
           }}
-          onClick={() => prepareSharePreview && prepareSharePreview(content)}
+          onClick={() => prepareSharePreview && prepareSharePreview(content)} // 🌟 调取海报预审弹窗
         >
           {t('result.shareCard')}
         </button>
@@ -938,7 +956,7 @@ export default function ResultPage({
             boxShadow: '0 4px 12px rgba(33,150,243,0.2)',
           }}
           onClick={() => {
-            if (onPublish) onPublish();
+            if (onPublish) onPublish(); // 🌟 调取社区发布弹窗
           }}
         >
           {t('result.publish')}

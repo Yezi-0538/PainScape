@@ -267,6 +267,7 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
 
   const [showPostModal, setShowPostModal] = useState(false);
   const [postText, setPostText] = useState('');
+  const [isAnonymous, setIsAnonymous] = useState(false);
 
   const [viewingDiary, setViewingDiary] = useState(null);
   const [viewingPost, setViewingPost] = useState(null);
@@ -530,7 +531,7 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
     brushCounts.current = { ...nextState.counts };
   }, []);
 
-  // ===== 🌟 1. 人体矢量底图 + 离屏笔触 + 动态粒子 离屏无损绘制引擎 =====
+  // ===== 🌟 100% 完整捕捉：人体底图 + 静态笔触 + 动态粒子 离屏渲染引擎 =====
   const captureFullCanvas = useCallback((side) => {
     try {
       const p5 = p5Ref.current;
@@ -539,56 +540,72 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
       const pg = side === 'front' ? pgFrontRef.current : pgBackRef.current;
       if (!pg || !pg.width || !pg.height) return document.createElement('canvas');
 
-      // 创建固定尺寸的 2D 离屏 HTML5 Canvas
-      const cvs = document.createElement('canvas');
-      cvs.width = pg.width || window.innerWidth || 600;
-      cvs.height = pg.height || window.innerHeight || 800;
-      const ctx = cvs.getContext('2d');
+      // 1. 创建 p5.Graphics 离屏缓冲区（确保 dp.show 能使用 p5 原生 API 绘制粒子）
+      const captureGraphics = p5.createGraphics(pg.width, pg.height);
+      captureGraphics.background(10); // 深色底色
 
-      // A. 填充黑色底色
-      ctx.fillStyle = '#0a0a0a';
-      ctx.fillRect(0, 0, cvs.width, cvs.height);
-
-      // B. 绘制人体矢量背景底图 (如果是盲画模式 side === 'none' 则跳过)
+      const { x, y, zoom } = camRef.current;
       const activeImg = side === 'front' ? bgFrontRef.current : bgBackRef.current;
-      // 🌟 核心排爆：p5.Image 的原生 HTMLCanvasElement 节点是 activeImg.canvas，避免传入 undefined 触发 drawImage 抛错黑屏！
-      const imgElement = activeImg?.canvas || activeImg?.elt || activeImg;
 
-      if (activeImg && imgElement && side !== 'none' && activeImg.height && activeImg.height > 0) {
+      captureGraphics.push();
+      // 🌟 核心：应用与主画板完全一致的相机平移与缩放，保证笔触与人体图完美对齐！
+      captureGraphics.translate(x, y);
+      captureGraphics.scale(zoom);
+
+      // A. 绘制矢量人体底图
+      if (activeImg && side !== 'none' && activeImg.height && activeImg.height > 0) {
         try {
-          ctx.save();
-          ctx.globalAlpha = 0.25; // 25% 半透明暗纹效果
+          captureGraphics.imageMode(p5.CENTER);
+          captureGraphics.tint(255, 40); // 40% 优雅透明度
           const currentBgScale = bgScale || 1.0;
-          const imgAspect = activeImg.width / activeImg.height;
-          const drawH = cvs.height * 0.8 * currentBgScale;
-          const drawW = drawH * imgAspect;
-          const drawX = (cvs.width - drawW) / 2;
-          const drawY = (cvs.height - drawH) / 2;
-          ctx.drawImage(imgElement, drawX, drawY, drawW, drawH);
-          ctx.restore();
+          const imgScale = ((pg.height * 0.8) / activeImg.height) * currentBgScale;
+          captureGraphics.image(
+            activeImg,
+            pg.width / 2,
+            pg.height / 2,
+            activeImg.width * imgScale,
+            activeImg.height * imgScale
+          );
         } catch (e) {
-          console.warn('画人体底图失败降级:', e);
+          console.warn('画人体底图降级:', e);
         }
       }
 
-      // C. 绘制 p5 离屏笔触图层 (pgFront / pgBack)
-      const pgElement = pg.elt || pg.canvas;
-      if (pgElement) {
+      // B. 绘制静态离屏笔触 (刺痛、刮痛等)
+      if (pg) {
         try {
-          ctx.drawImage(pgElement, 0, 0);
+          captureGraphics.noTint();
+          captureGraphics.imageMode(p5.CORNER);
+          captureGraphics.image(pg, 0, 0);
         } catch (e) {
-          console.warn('画笔触失败降级:', e);
+          console.warn('画静态笔触降级:', e);
         }
       }
 
-      return cvs;
+      // C. 绘制动态动画粒子 (绞痛、酸胀、坠胀等)
+      if (dynamicParticles.current && dynamicParticles.current.length > 0) {
+        dynamicParticles.current.forEach((dp) => {
+          if (dp && dp.bodyMode === side && typeof dp.show === 'function') {
+            try {
+              dp.show(captureGraphics); // 🌟 传入 captureGraphics，粒子完整渲染！
+            } catch (err) {
+              console.warn('绘制动态粒子失败:', err);
+            }
+          }
+        });
+      }
+
+      captureGraphics.pop();
+
+      // 返回渲染完成的 Canvas DOM 节点
+      return captureGraphics.elt;
     } catch (e) {
       console.warn('captureFullCanvas 防崩溃捕获:', e);
       return document.createElement('canvas');
     }
   }, [bgScale]);
 
-  // ===== 🌟 2. 正反面 1:1 双图水平无损拼接导出引擎 =====
+  // ===== 🌟 1:1 双面左右水平无损拼接引擎 =====
   const generateCompositeCanvas = useCallback(() => {
     try {
       const p5 = p5Ref.current;
@@ -597,7 +614,7 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
       const hasFront = !isSideEmpty('front');
       const hasBack = !isSideEmpty('back');
 
-      // 1. 如果只画了单面或者盲画：直接导出单面 Canvas 图像
+      // 1. 如果只画了单面或者盲画：导出单面图
       if (!hasFront || !hasBack) {
         const side = hasBack && !hasFront ? 'back' : (bodyMode === 'none' ? 'front' : bodyMode);
         const singleCanvas = captureFullCanvas(side);
@@ -615,7 +632,6 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
       composite.height = Math.max(canvasFront.height, canvasBack.height);
       const ctx = composite.getContext('2d');
 
-      // 填充黑底
       ctx.fillStyle = '#0a0a0a';
       ctx.fillRect(0, 0, composite.width, composite.height);
 
@@ -1039,7 +1055,7 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
             pgFrontRef={pgFrontRef}
             onBack={() => setPage('onboarding')}
             onShare={(url) => handleSaveImage(url || imgUrl)}
-            onPublish={(customText) => handlePublishPost({ img: imgUrl, reportData: generateContent() }, customText)}
+            onPublish={() => setShowPostModal(true)}
             prepareSharePreview={prepareSharePreview}
             handleRefine={async (field) => {
               if (!field) return;
