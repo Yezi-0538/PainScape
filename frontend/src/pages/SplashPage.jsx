@@ -23,7 +23,7 @@ export default function SplashPage({
         padding: '40px',
         boxSizing: 'border-box',
         opacity: splashOpacity,
-        transition: 'opacity 1s ease-in-out',
+        transition: 'opacity 1.5s ease-in-out',
       }}
     >
       {/* Language switch button */}
@@ -74,6 +74,20 @@ export default function SplashPage({
         }}
       >
         {quote}
+      </p>
+
+      {/* 新增：定调文案 */}
+      <p
+        style={{
+          color: '#666',
+          fontSize: '12px',
+          lineHeight: '1.6',
+          textAlign: 'center',
+          marginTop: '32px',
+          opacity: 0.8,
+        }}
+      >
+        {t('splash.tagline')}
       </p>
     </div>
   );

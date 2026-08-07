@@ -81,6 +81,7 @@ const translations = {
     // ============ 开屏页 ============
     splash: {
       switchLang: "English",
+      tagline: "画笔是你的，话也是你的.",
       quotes: [
         "慢性疼痛相当于长期的unmaking,把人困在身体牢笼里。\n Elaine Scarry",
         "疼痛不仅是神经的电冲动，它是对自我边界的侵犯。",
@@ -337,7 +338,42 @@ const translations = {
       psychosocialHighStress: "重度焦虑/高压负荷",
       psychosocialTrauma: "心理应激创伤",
     },
-
+    onboardGuide: {
+      basicTitle: "基础档案",
+      basicDesc: "这些信息帮助我们更准确地转译你的感受。不会存储可识别身份的数据，可随时修改或删除。",
+      basicTip: '填写基础信息，帮助 AI 更懂你的身体感受',
+      medicalTip: '医疗背景可选，用于生成更规范的报告格式',
+      prefTip: '选择你喜欢的照护方式和语气，文本可随时编辑',
+      medicalTitle: "医疗背景（可选）",
+      medicalDesc: "仅用于生成规范的临床报告格式。每一项都可以跳过，不会影响绘画体验。",
+      prefTitle: "偏好设置",
+      prefDesc: "选择你想要的照护方式和语气。生成的四份文本会据此调整，每一份都可以编辑。"
+    },
+    quickLog: {
+      title: "快速记录",
+      entry: "3秒快速记录",
+      whatPain: "什么感觉",
+      howIntense: "有多强烈",
+      mild: "轻度",
+      moderate: "中度",
+      severe: "剧烈",
+      holdPrompt: "按住感受强度",
+      selectFirst: "先选择疼痛类型",
+      generating: "生成中...",
+      colorFeeling: "颜色感受",
+      entryHint: "跳过绘画，3秒生成",
+    },
+    guide: {
+      skip: "跳过",
+      next: "下一步",
+      startDrawing: "开始绘画",
+      paintTitle: "用画笔表达感受",
+      paintDesc: "没有对错，没有标准。每一笔都是你真实的感受，用你的方式画出来。",
+      editTitle: "文字由你掌控",
+      editDesc: "系统会生成四份语境文本，但每一份你都可以编辑、修改或直接删除。",
+      privacyTitle: "数据留在本地",
+      privacyDesc: "所有绘画数据默认保存在你的设备上。分享什么、分享给谁，完全由你决定。"
+    },
     brushes: {
       twist: { label: "绞痛", icon: "🔄" },
       pierce: { label: "刺痛", icon: "⚡" },
@@ -365,6 +401,13 @@ const translations = {
       bodyFront: "正面",
       bodyBack: "背面",
       bodyNone: "盲画模式",
+      saveOnly: "仅保存",
+      download: "下载",
+      saved: "您的绘画已保存",
+      savedHint: "可在「历史记录」中查看和导出",
+      viewHistory: "查看历史记录",
+      continueDrawing: "继续绘画",
+      saveOnlyConfirm: "仅保存绘画，不生成语境卡片？",
       generate: "生成",
       frontView: "🔄 正面视图",
       backView: "🔄 背面视图",
@@ -489,19 +532,11 @@ const translations = {
       viewDetails: "查看详情",
     },
 
-    quickLog: {
-      title: "⚡ 快速记录模式",
-      subtitle: "无需绘制，3 秒记录真实痛感",
-      painSlider1: "轻微不适",
-      painSlider2: "无法忍受",
-      generate: "生成报告",
-      back: "返回详细记录",
-    },
-
     history: {
       title: "📋 我的痛经档案",
       export: "📄 导出 PDF",
       back: "返回",
+      savedOnly: "未命名绘画",
       empty: "暂无记录，去画你的第一张疼痛地图吧。",
       records: "{{count}} 条记录",
       trendTitle: "📊 近期趋势",
@@ -616,6 +651,10 @@ const translations = {
       defaultTitle: "状态声明",
       defaultDoctorContent: "具身疼痛图谱记录",
       defaultContent: "正在经历 {{pain}}",
+    },
+    common: {
+      cancel: "取消",
+      confirm: "确认分享",
     },
     shareText: {
       partner: {
@@ -902,7 +941,7 @@ const translations = {
       work: "请假/推约消息：",
       footer: "PainScape - 生成报告",
     },
-    
+
     // ============ Result page labels ============
     resultLabels: {
       companionGuide: "经期陪伴指南",
@@ -1046,11 +1085,7 @@ const translations = {
   },
 
   // ============================================================
-  // ============================================================
-  // ============================================================
   // EN 对象
-  // ============================================================
-  // ============================================================
   // ============================================================
 
   en: {
@@ -1133,6 +1168,13 @@ const translations = {
       bodyFront: "Front",
       bodyBack: "Back",
       bodyNone: "Blind Mode",
+      saveOnly: "Save Only",
+      saved: "Painting Saved",
+      download: "Download",
+      savedHint: "View and export in History",
+      viewHistory: "View History",
+      continueDrawing: "Continue Drawing",
+      saveOnlyConfirm: "Save painting only, without generating context cards?",
       generate: "Generate",
       scale: "Scale",
       resetView: "Reset View",
@@ -1143,6 +1185,7 @@ const translations = {
     // ============ Splash ============
     splash: {
       switchLang: "简体中文",
+      tagline: "The brush is yours. So are the words.",
       quotes: [
         "Chronic pain is a long-term 'unmaking'  trapping a person in the prison of their own body.\n Elaine Scarry",
         "Pain is not just a neural impulse; it is a violation of the boundaries of self.",
@@ -1399,7 +1442,42 @@ const translations = {
       psychosocialHighStress: "Severe anxiety/high pressure",
       psychosocialTrauma: "Psychological trauma",
     },
-
+    onboardGuide: {
+      basicTitle: "Basic Profile",
+      basicDesc: "This helps us translate your experience more accurately. No identifiable data is stored — edit or delete anytime.",
+      medicalTitle: "Medical Background (Optional)",
+      basicTip: 'Fill in basic info to help AI understand your body better',
+      medicalTip: 'Medical background is optional — for structured clinical reports',
+      prefTip: 'Choose care style and tone — all texts are editable anytime',
+      medicalDesc: "Used only for structured clinical reports. Every field is optional and won't affect your drawing experience.",
+      prefTitle: "Preferences",
+      prefDesc: "Choose your preferred care style and tone. All four generated texts adapt accordingly — and each is editable."
+    },
+    quickLog: {
+      title: "Quick Log",
+      entry: "3s Quick Log",
+      whatPain: "What kind of pain?",
+      howIntense: "How intense?",
+      mild: "Mild",
+      moderate: "Moderate",
+      severe: "Severe",
+      holdPrompt: "Hold to feel intensity",
+      selectFirst: "Select pain type first",
+      generating: "Generating...",
+      colorFeeling: "Color Feeling",
+      entryHint:"Skip drawing, generate in 3s",
+    },
+    guide: {
+      skip: "Skip",
+      next: "Next",
+      startDrawing: "Start Drawing",
+      paintTitle: "Express with Brushes",
+      paintDesc: "No right or wrong. Every stroke is your authentic experience.",
+      editTitle: "You Control the Words",
+      editDesc: "The system generates four context texts, but you can edit, modify, or delete any of them.",
+      privacyTitle: "Your Data Stays Local",
+      privacyDesc: "All painting data is stored locally by default. What you share and with whom is entirely up to you."
+    },
     brushes: {
       twist: { label: "Twist", icon: "🔄" },
       pierce: { label: "Pierce", icon: "⚡" },
@@ -1536,19 +1614,11 @@ const translations = {
       topTipsEmpty: "No tips left under this category yet. Be the first to share your comfort recipe 🌼",
     },
 
-    quickLog: {
-      title: "⚡ Quick Log Mode",
-      subtitle: "No drawing needed, capture your real pain in 3 seconds",
-      painSlider1: "Mild Discomfort",
-      painSlider2: "Unbearable",
-      generate: "Generate Report",
-      back: "Back to Detailed Log",
-    },
-
     history: {
       title: "📋 My Pain Archive",
       export: "📄 Export PDF",
       back: "Back",
+      savedOnly: "Unnamed Painting",
       empty: "No records yet. Go draw your first pain map.",
       records: "{{count}} records",
       trendTitle: "📊 Recent Patterns",
@@ -1664,6 +1734,11 @@ const translations = {
       defaultDoctorContent: "Embodied pain map recorded",
       defaultContent: "Currently experiencing {{pain}}",
     },
+    common: {
+      cancel: "Cancel",
+      confirm: "Confirm",
+    },
+
     shareText: {
       partner: {
         title: "📤 Her Pain Statement · Action Required:",

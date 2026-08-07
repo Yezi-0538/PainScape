@@ -1,7 +1,9 @@
 // src/pages/OnboardingPage.jsx
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useI18n } from '../i18n/i18nContext';
 import { BRUSHES } from '../i18n/translationsConstants';
+import OnboardingTooltip from '../Components/OnboardingTooltip';
+
 
 // 子组件：可折叠多选下拉框
 const CollapsibleMultiSelect = ({ label, options, selectedValues, onChange, placeholder }) => {
@@ -21,6 +23,7 @@ const CollapsibleMultiSelect = ({ label, options, selectedValues, onChange, plac
   const displayText = selectedValues?.length > 0
     ? `${selectedValues.length} 项已选`
     : placeholder || '请选择';
+
 
   return (
     <div style={{ position: 'relative', marginBottom: '12px', width: '100%' }}>
@@ -190,6 +193,7 @@ export default function OnboardingPage({
   onCommunity,
   onHistory,
   onProfile,
+  onQuickLog,
 
   // App 模式
   appMode,
@@ -227,6 +231,13 @@ export default function OnboardingPage({
   setShowGuide,
 }) {
   const { t } = useI18n();
+  const [tooltipStep, setTooltipStep] = useState(null);
+
+  useEffect(() => {
+    if (['basicInfo', 'medical', 'preference'].includes(showContent)) {
+      setTooltipStep(showContent);
+    }
+  }, [showContent]);
 
   const togglePref = (key) => {
     if (key === 'alone') {
@@ -1278,6 +1289,68 @@ export default function OnboardingPage({
             : t('onboarding.chinese') || '中文'}
         </button>
       </footer>
+      {/* 快速记录入口 - 底部独立条幅 */}
+      <div
+        style={{
+          position: 'fixed',
+          bottom: '20px',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          zIndex: 150,
+          width: '88%',
+          maxWidth: '380px',
+        }}
+      >
+        <button
+          onClick={() => onQuickLog?.()}
+          style={{
+            width: '100%',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '10px',
+            padding: '14px 20px',
+            background: 'rgba(211, 47, 47, 0.08)',
+            border: '1px solid rgba(211, 47, 47, 0.2)',
+            borderRadius: '16px',
+            cursor: 'pointer',
+            backdropFilter: 'blur(10px)',
+            transition: 'all 0.2s ease',
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = 'rgba(211, 47, 47, 0.14)';
+            e.currentTarget.style.borderColor = 'rgba(211, 47, 47, 0.4)';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = 'rgba(211, 47, 47, 0.08)';
+            e.currentTarget.style.borderColor = 'rgba(211, 47, 47, 0.2)';
+          }}
+        >
+          {/* 闪电图标 */}
+          <span style={{ fontSize: '18px' }}>⚡</span>
+
+          {/* 文字 */}
+          <div style={{ textAlign: 'left' }}>
+            <div style={{ color: '#e57373', fontSize: '13px', fontWeight: '600', letterSpacing: '0.5px' }}>
+              {t('quickLog.entry')}
+            </div>
+            <div style={{ color: '#888', fontSize: '10px', marginTop: '2px' }}>
+              {t('quickLog.entryHint')}
+            </div>
+          </div>
+
+          {/* 箭头 */}
+          <span style={{ color: '#d32f2f', fontSize: '14px', marginLeft: 'auto' }}>→</span>
+        </button>
+      </div>
+      {tooltipStep && (
+        <OnboardingTooltip
+          step={tooltipStep}
+          onClose={() => setTooltipStep(null)}
+        />
+      )}
+
     </div>
+
   );
 }

@@ -12,6 +12,7 @@ import ResultPage from './pages/ResultPage';
 import CommunityPage from './pages/Community';
 import HistoryPage from './pages/History';
 import ProfilePage from './pages/ProfilePage';
+import QuickLogPage from './pages/QuickLogPage';
 
 // ===== 组件导入 =====
 import SomaticHealingSpace from './Components/SomaticHealingSpace.jsx';
@@ -436,9 +437,9 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
     return true;
   }, []);
 
-  const undoStackRef = useRef([]); 
-  const redoStackRef = useRef([]); 
-  const MAX_HISTORY = 100; 
+  const undoStackRef = useRef([]);
+  const redoStackRef = useRef([]);
+  const MAX_HISTORY = 100;
 
   const saveSnapshot = useCallback(() => {
     if (!pgFrontRef.current || !pgBackRef.current) return;
@@ -463,7 +464,113 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
     camRef.current = { x: 0, y: 0, zoom: 1.0 };
     setBgScale(1.0);
   }, [setBgScale]);
+  const handleGenerateFromData = async (data) => {
+    setIsLoading(true);
+    try {
+      const canvasImg = getFallbackImgUrl();
 
+      const requestBody = {
+        appMode: appMode || 'medical',
+        dominantPain: data.selectedPain,
+        userPref: userPrefs[0] || 'care',
+        painScore: data.painScore || 50,
+        brushCounts: data.brushCounts || {},
+        spatialMap: data.spatialMap || { abdomen: 0.5, lowerBack: 0.5, upperBody: 0.0 },
+        intensityProfile: data.intensityProfile || { avgSpeed: 25, peakSpeed: 50, avgPressure: 0.5 },
+        timeRhythm: data.timeRhythm || { morning: 0.33, afternoon: 0.33, night: 0.34, dominantPeriod: 'morning' },
+        colorPalette: data.activeColor || 'crimson',
+        bodyMode: bodyMode || 'front',
+        medicalBackground,
+        tonePreference: tonePreference || 'gentle',
+        cycleDay: cycleDay || (isEn ? 'Not provided' : '未提供'),
+        targetLanguage: targetLanguage || 'zh',
+        accompanyingSymptoms: medicalBackground.accompanyingSymptomsArr || [],
+        workScenario: leaveRecipient || 'manager',
+        workTone: 'neutral',
+      };
+
+      let apiResult = null;
+      try {
+        const resp = await fetch(`${API_BASE}/api/generate`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(requestBody),
+        });
+        if (resp.ok) {
+          apiResult = await resp.json();
+        }
+      } catch (apiErr) {
+        console.warn('No backend API, using local templates:', apiErr.message);
+      }
+
+      if (apiResult) {
+        setLlmData(apiResult);
+        setCurrentReportData(apiResult);
+      } else {
+        const content = generateContent(data.selectedPain || 'twist');
+        setCurrentReportData(content);
+      }
+
+      const now = new Date();
+      const dateStr = `${now.getFullYear()}/${String(now.getMonth() + 1).padStart(2, '0')}/${String(now.getDate()).padStart(2, '0')}`;
+      const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+
+      const historyEntry = {
+        id: Date.now().toString(),
+        userId: currentUserId || 'user_guest',
+        date: dateStr,
+        time: timeStr,
+        img: canvasImg,
+        painName: t(`painNames.${data.selectedPain}`) || data.selectedPain,
+        dominantPain: data.selectedPain,
+        painScore: data.painScore,
+        appMode,
+        reportData: apiResult || generateContent(data.selectedPain || 'twist'),
+        medicalBackground,
+        userPrefs,
+        tonePreference,
+        cycleDay,
+        isQuickLog: true,
+      };
+      setHistory(prev => [historyEntry, ...prev]);
+
+      setPage('result');
+    } catch (e) {
+      console.error('Generate failed:', e);
+      const content = generateContent(data.selectedPain || 'twist');
+      setCurrentReportData(content);
+      setPage('result');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  const handleSaveOnly = () => {
+    saveSnapshot();
+
+    const canvasImg = generateCompositeCanvas() || getFallbackImgUrl();
+
+    const now = new Date();
+    const dateStr = `${now.getFullYear()}/${String(now.getMonth() + 1).padStart(2, '0')}/${String(now.getDate()).padStart(2, '0')}`;
+    const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+
+    const paintingData = {
+      id: Date.now().toString(),
+      userId: currentUserId || 'user_guest',
+      date: dateStr,
+      time: timeStr,
+      img: canvasImg,
+      painName: t('history.savedOnly') || '仅保存',
+      dominantPain: null,
+      painScore: null,
+      appMode: appMode,
+      reportData: null,
+      isSavedOnly: true,
+      timestamp: Date.now(),
+    };
+
+    setHistory(prev => [paintingData, ...prev]);
+    // 不再跳转，由 CanvasPage 显示成功弹窗
+  };
   const handleClear = useCallback(() => {
     saveSnapshot();
     brushCounts.current = { twist: 0, pierce: 0, heavy: 0, wave: 0, scrape: 0 };
@@ -839,6 +946,7 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
             setTargetLanguage={setTargetLanguage}
             showGuide={showGuide}
             setShowGuide={setShowGuide}
+            onQuickLog={() => setPage('quickLog')}
             onStartDrawing={() => {
               setBodyMode('front');
               setPage('canvas');
@@ -856,11 +964,24 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
             }}
           />
         );
-
+      case 'quickLog':
+        return (
+          <QuickLogPage
+            onBack={() => setPage('onboarding')}
+            onGenerate={handleGenerateFromData}
+            appMode={appMode}
+            medicalBackground={medicalBackground}
+            userPrefs={userPrefs}
+            tonePreference={tonePreference}
+            cycleDay={cycleDay}
+          />
+        );
       case 'canvas':
         return (
           <CanvasPage
             bodyMode={bodyMode}
+            onSaveOnly={handleSaveOnly}
+            onViewHistory={() => setPage('history')}
             setBodyMode={setBodyMode}
             activeBrush={activeBrush}
             setActiveBrush={setActiveBrush}
@@ -1195,7 +1316,7 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
       case 'history':
         return (
           <HistoryPage
-            lang={targetLanguage} 
+            lang={targetLanguage}
             setTargetLanguage={setTargetLanguage}
             history={history}
             setHistory={setHistory}
@@ -1219,7 +1340,7 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
                 historyImg: record.img,
                 pain: record.painName
               });
-            }} 
+            }}
             onPublishRecord={(record, customText) => handlePublishPost(record, customText)}
             exportHistoryPDF={() => {
               if (!history || history.length === 0) {
@@ -1236,7 +1357,7 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
                 const exportTimeLabel = t('pdf.exportTime');
                 const totalRecordsLabel = t('pdf.totalCount', { count: history.length });
                 const timeLocale = isEn ? 'en-US' : 'zh-CN';
-                
+
                 const CHINESE_TO_KEY = {
                   '绞痛': 'twist', '刺痛': 'pierce',
                   '坠胀': 'heavy', '坠胀重压': 'heavy', '坠痛': 'heavy',
@@ -1248,11 +1369,11 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
                 const recordsHtml = history.map((record, idx) => {
                   const dominantKey = record.dominantPain || CHINESE_TO_KEY[record.painName] || 'twist';
                   const painNameDisplay = t(`painNames.${dominantKey}`) || record.painName || '';
-                  
+
                   let rd = record.reportData || {};
                   if (isEn) {
                     const freshEn = generateContent(dominantKey);
-                    
+
                     const prefKey = record.userPrefs?.[0] || 'care';
                     const actionsArr = t(`partnerActions.${prefKey}`, { returnObjects: true }) || [];
                     const actionEn = Array.isArray(actionsArr)
@@ -1309,7 +1430,7 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
                     <hr/>
                     ${recordsHtml}
                   </body></html>`);
-        
+
                 printWindow.document.close();
                 setTimeout(() => {
                   printWindow.print();

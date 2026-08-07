@@ -337,7 +337,17 @@ const translations = {
       psychosocialHighStress: "重度焦虑/高压负荷",
       psychosocialTrauma: "心理应激创伤",
     },
-
+    guide: {
+      skip: "跳过",
+      next: "下一步",
+      startDrawing: "开始绘画",
+      paintTitle: "用画笔表达感受",
+      paintDesc: "没有对错，没有标准。每一笔都是你真实的感受，用你的方式画出来。",
+      editTitle: "文字由你掌控",
+      editDesc: "系统会生成四份语境文本，但每一份你都可以编辑、修改或直接删除。",
+      privacyTitle: "数据留在本地",
+      privacyDesc: "所有绘画数据默认保存在你的设备上。分享什么、分享给谁，完全由你决定。"
+    },
     brushes: {
       twist: { label: "绞痛", icon: "🔄" },
       pierce: { label: "刺痛", icon: "⚡" },
