@@ -1,72 +1,57 @@
 // src/pages/ResultPage.jsx
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useI18n } from '../i18n/i18nContext';
 import EditableBlock from '../Components/EditableBlock';
-import SharePreviewModal from '../Components/modals/SharePreviewModal';
+import PublishPostModal from '../Components/modals/PublishPostModal'; // 🌟 引入发布弹窗组件
 
 export default function ResultPage({
   // 导航
   onBack,
   onPublish,
+  onShare,
 
   // 数据
   imgUrl,
-  content,
+  content = {},
   appMode,
 
   // Tab
-  identity,
+  identity = 'partner',
   setIdentity,
 
   // 编辑
-  editedContents,
+  editedContents = {},
   setEditedContents,
   editingField,
   setEditingField,
-  getEditedOrDefault,
+  getEditedOrDefault = (k, v) => v,
 
   // 优化
-  refineInput,
+  refineInput = '',
   setRefineInput,
   refiningField,
   setRefiningField,
-  refineTargetField,
+  refineTargetField = 'chief_complaint',
   setRefineTargetField,
   handleRefine,
 
   // 请假
-  leaveRecipient,
+  leaveRecipient = 'manager',
   setLeaveRecipient,
-  leaveTone,
+  leaveTone = 'polite',
   setLeaveTone,
 
   // 分享
-  shareContent,
-  setShareContent,
-  showSharePreview,
-  setShowSharePreview,
-  generatedCardUrl,
-  setGeneratedCardUrl,
   prepareSharePreview,
-
-  // 自愈舱
   setHealingState,
-
-  // 随机 tips
-  randomPartnerTips,
-
-  // 复制
-  handleCopy,
-  // 分享预览所需
-  pgFrontRef,
-  isSideEmpty,
-  getContextTitle,
-//   confirmShare,        // ⚠️ 新增：确认分享的回调
-//   showSharePreview,    // ⚠️ 新增：控制显示
-//   shareContent,        // ⚠️ 新增：分享内容
-//   setShowSharePreview, // ⚠️ 新增：关闭回调
+  randomPartnerTips = [],
+  handleCopy = () => {},
 }) {
   const { t } = useI18n();
+
+  // 🌟 1. 新增：控制发布弹窗与输入标题文本的状态
+  const [showPublishModal, setShowPublishModal] = useState(false);
+  const [publishTitleText, setPublishTitleText] = useState('');
 
   const getRefinePlaceholder = (tabIdentity) => {
     const map = {
@@ -100,18 +85,20 @@ export default function ResultPage({
       }}
     >
       {/* 痛觉图谱预览 */}
-      <img
-        src={imgUrl}
-        style={{
-          width: '50%',
-          maxWidth: '200px',
-          marginTop: '20px',
-          borderRadius: '16px',
-          border: '1.5px solid #333',
-          boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
-        }}
-        alt="pain map preview"
-      />
+      {imgUrl && (
+        <img
+          src={imgUrl}
+          style={{
+            width: '50%',
+            maxWidth: '200px',
+            marginTop: '20px',
+            borderRadius: '16px',
+            border: '1.5px solid #333',
+            boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
+          }}
+          alt="pain map preview"
+        />
+      )}
 
       {/* Tab 切换 */}
       <div
@@ -139,7 +126,7 @@ export default function ResultPage({
               cursor: 'pointer',
               transition: 'all 0.2s',
             }}
-            onClick={() => setIdentity(tab)}
+            onClick={() => setIdentity && setIdentity(tab)}
           >
             {t(`result.tabs.${tab}`)}
           </button>
@@ -188,14 +175,14 @@ export default function ResultPage({
                 }}
               >
                 {t('result.partner.experiencing')}
-                <strong>{content.pain}</strong>。
+                <strong>{content.pain || '痛经'}</strong>。
               </p>
               <EditableBlock
                 fieldKey="analogy"
-                defaultValue={content.analogy}
+                defaultValue={content.analogy || ''}
                 color="#ffcdd2"
                 style={{ fontSize: '13px', lineHeight: '1.7', whiteSpace: 'pre-wrap' }}
-                onSave={(key, val) => setEditedContents({ ...editedContents, [key]: val })}
+                onSave={(key, val) => setEditedContents && setEditedContents({ ...editedContents, [key]: val })}
               />
             </div>
             <div style={{ marginTop: '20px' }}>
@@ -211,14 +198,14 @@ export default function ResultPage({
               </strong>
               <EditableBlock
                 fieldKey="action"
-                defaultValue={content.action}
+                defaultValue={content.action || ''}
                 color="#ccc"
                 style={{ fontSize: '13px', lineHeight: '1.7', whiteSpace: 'pre-wrap' }}
-                onSave={(key, val) => setEditedContents({ ...editedContents, [key]: val })}
+                onSave={(key, val) => setEditedContents && setEditedContents({ ...editedContents, [key]: val })}
               />
             </div>
             <button
-              onClick={() => handleCopy(getEditedOrDefault('action', content.action))}
+              onClick={() => handleCopy(getEditedOrDefault('action', content.action || ''))}
               style={{
                 marginTop: '15px',
                 width: '100%',
@@ -244,7 +231,7 @@ export default function ResultPage({
                 <input
                   placeholder={getRefinePlaceholder('partner')}
                   value={refineInput}
-                  onChange={(e) => setRefineInput(e.target.value)}
+                  onChange={(e) => setRefineInput && setRefineInput(e.target.value)}
                   style={{
                     flex: 1,
                     background: '#111',
@@ -255,11 +242,11 @@ export default function ResultPage({
                     fontSize: '12px',
                   }}
                   onKeyDown={(e) => {
-                    if (e.key === 'Enter') handleRefine('analogy');
+                    if (e.key === 'Enter' && handleRefine) handleRefine('analogy');
                   }}
                 />
                 <button
-                  onClick={() => handleRefine('analogy')}
+                  onClick={() => handleRefine && handleRefine('analogy')}
                   disabled={refiningField === 'analogy'}
                   style={{
                     background: refiningField === 'analogy' ? '#555' : '#d32f2f',
@@ -296,8 +283,10 @@ export default function ResultPage({
                 🔴 {t('resultLabels.companionGuide')}
               </h4>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                {randomPartnerTips.map((tip, idx) => {
-                  const isWarning = tip.title && (tip.title.includes('警告') || tip.title.toLowerCase().includes('alert'));
+                {Array.isArray(randomPartnerTips) && randomPartnerTips.map((tip, idx) => {
+                  const titleStr = typeof tip === 'string' ? tip : (tip?.title || '');
+                  const descStr = typeof tip === 'string' ? '' : (tip?.desc || '');
+                  const isWarning = titleStr.includes('警告') || titleStr.toLowerCase().includes('alert');
                   return (
                     <div
                       key={idx}
@@ -323,18 +312,20 @@ export default function ResultPage({
                           marginBottom: '8px',
                         }}
                       >
-                        {tip.title}
+                        {titleStr || '陪伴提示'}
                       </div>
-                      <div
-                        style={{
-                          color: '#aaa',
-                          fontSize: '12.5px',
-                          lineHeight: '1.6',
-                          textAlign: 'justify',
-                        }}
-                      >
-                        {tip.desc}
-                      </div>
+                      {descStr && (
+                        <div
+                          style={{
+                            color: '#aaa',
+                            fontSize: '12.5px',
+                            lineHeight: '1.6',
+                            textAlign: 'justify',
+                          }}
+                        >
+                          {descStr}
+                        </div>
+                      )}
                     </div>
                   );
                 })}
@@ -375,7 +366,7 @@ export default function ResultPage({
                 {['manager', 'teacher', 'client', 'friend'].map((key) => (
                   <button
                     key={key}
-                    onClick={() => setLeaveRecipient(key)}
+                    onClick={() => setLeaveRecipient && setLeaveRecipient(key)}
                     style={{
                       flex: '1 0 45%',
                       padding: '10px 0',
@@ -410,7 +401,7 @@ export default function ResultPage({
                 {['polite', 'objective'].map((key) => (
                   <button
                     key={key}
-                    onClick={() => setLeaveTone(key)}
+                    onClick={() => setLeaveTone && setLeaveTone(key)}
                     style={{
                       flex: 1,
                       padding: '10px 0',
@@ -439,15 +430,15 @@ export default function ResultPage({
             >
               <EditableBlock
                 fieldKey="workText"
-                defaultValue={getEditedOrDefault('workText', '')}
+                defaultValue={getEditedOrDefault('workText', content.workText || '')}
                 color="#eee"
                 style={{ fontSize: '13px', lineHeight: '1.7', whiteSpace: 'pre-wrap' }}
-                onSave={(key, val) => setEditedContents({ ...editedContents, [key]: val })}
+                onSave={(key, val) => setEditedContents && setEditedContents({ ...editedContents, [key]: val })}
               />
             </div>
 
             <button
-              onClick={() => handleCopy(getEditedOrDefault('workText', ''))}
+              onClick={() => handleCopy(getEditedOrDefault('workText', content.workText || ''))}
               style={{
                 marginTop: '16px',
                 width: '100%',
@@ -472,7 +463,7 @@ export default function ResultPage({
                 <input
                   placeholder={getRefinePlaceholder('work')}
                   value={refineInput}
-                  onChange={(e) => setRefineInput(e.target.value)}
+                  onChange={(e) => setRefineInput && setRefineInput(e.target.value)}
                   style={{
                     flex: 1,
                     background: '#111',
@@ -483,11 +474,11 @@ export default function ResultPage({
                     fontSize: '12px',
                   }}
                   onKeyDown={(e) => {
-                    if (e.key === 'Enter') handleRefine('workText');
+                    if (e.key === 'Enter' && handleRefine) handleRefine('workText');
                   }}
                 />
                 <button
-                  onClick={() => handleRefine('workText')}
+                  onClick={() => handleRefine && handleRefine('workText')}
                   disabled={refiningField === 'workText'}
                   style={{
                     background: refiningField === 'workText' ? '#555' : '#ff9800',
@@ -577,7 +568,7 @@ export default function ResultPage({
                     lineHeight: '1.7',
                     whiteSpace: 'pre-wrap',
                   }}
-                  onSave={(key, val) => setEditedContents({ ...editedContents, [key]: val })}
+                  onSave={(key, val) => setEditedContents && setEditedContents({ ...editedContents, [key]: val })}
                 />
               </div>
             )}
@@ -611,7 +602,7 @@ export default function ResultPage({
                   defaultValue={content.present_illness}
                   color="#e0e0e0"
                   style={{ fontSize: '13.5px', lineHeight: '1.8', whiteSpace: 'pre-wrap' }}
-                  onSave={(key, val) => setEditedContents({ ...editedContents, [key]: val })}
+                  onSave={(key, val) => setEditedContents && setEditedContents({ ...editedContents, [key]: val })}
                 />
               </div>
             )}
@@ -645,7 +636,7 @@ export default function ResultPage({
                   defaultValue={content.past_history}
                   color="#cccccc"
                   style={{ fontSize: '13px', lineHeight: '1.8', whiteSpace: 'pre-wrap' }}
-                  onSave={(key, val) => setEditedContents({ ...editedContents, [key]: val })}
+                  onSave={(key, val) => setEditedContents && setEditedContents({ ...editedContents, [key]: val })}
                 />
               </div>
             )}
@@ -679,7 +670,7 @@ export default function ResultPage({
                   defaultValue={content.menstrual_history}
                   color="#cccccc"
                   style={{ fontSize: '13px', lineHeight: '1.8', whiteSpace: 'pre-wrap' }}
-                  onSave={(key, val) => setEditedContents({ ...editedContents, [key]: val })}
+                  onSave={(key, val) => setEditedContents && setEditedContents({ ...editedContents, [key]: val })}
                 />
               </div>
             )}
@@ -719,7 +710,7 @@ export default function ResultPage({
                     whiteSpace: 'pre-wrap',
                     fontWeight: '500',
                   }}
-                  onSave={(key, val) => setEditedContents({ ...editedContents, [key]: val })}
+                  onSave={(key, val) => setEditedContents && setEditedContents({ ...editedContents, [key]: val })}
                 />
               </div>
             )}
@@ -753,7 +744,7 @@ export default function ResultPage({
                   defaultValue={content.clinical_suggestions}
                   color="#e0e0e0"
                   style={{ fontSize: '13px', lineHeight: '1.85', whiteSpace: 'pre-wrap' }}
-                  onSave={(key, val) => setEditedContents({ ...editedContents, [key]: val })}
+                  onSave={(key, val) => setEditedContents && setEditedContents({ ...editedContents, [key]: val })}
                 />
               </div>
             )}
@@ -775,7 +766,7 @@ export default function ResultPage({
                   <button
                     key={item.key}
                     onClick={() => {
-                      setRefineTargetField(item.key);
+                      setRefineTargetField && setRefineTargetField(item.key);
                     }}
                     style={{
                       flex: 1,
@@ -798,7 +789,7 @@ export default function ResultPage({
                 <input
                   placeholder={getRefinePlaceholder('doctor')}
                   value={refineInput}
-                  onChange={(e) => setRefineInput(e.target.value)}
+                  onChange={(e) => setRefineInput && setRefineInput(e.target.value)}
                   style={{
                     flex: 1,
                     background: '#111',
@@ -809,11 +800,11 @@ export default function ResultPage({
                     fontSize: '12px',
                   }}
                   onKeyDown={(e) => {
-                    if (e.key === 'Enter') handleRefine(refineTargetField);
+                    if (e.key === 'Enter' && handleRefine) handleRefine(refineTargetField);
                   }}
                 />
                 <button
-                  onClick={() => handleRefine(refineTargetField)}
+                  onClick={() => handleRefine && handleRefine(refineTargetField)}
                   disabled={refiningField === refineTargetField}
                   style={{
                     background: refiningField === refineTargetField ? '#555' : '#2196f3',
@@ -889,7 +880,7 @@ export default function ResultPage({
                 <div
                   key={tip.key}
                   onClick={() => {
-                    setHealingState({ isOpen: true, activeTab: tip.key });
+                    setHealingState && setHealingState({ isOpen: true, activeTab: tip.key });
                   }}
                   style={{
                     background: '#161616',
@@ -947,7 +938,7 @@ export default function ResultPage({
             fontSize: '14px',
             boxShadow: '0 4px 12px rgba(76,175,80,0.2)',
           }}
-          onClick={() => prepareSharePreview(content)}
+          onClick={() => prepareSharePreview && prepareSharePreview(content)} // 🌟 调取海报预审弹窗
         >
           {t('result.shareCard')}
         </button>
@@ -964,7 +955,9 @@ export default function ResultPage({
             fontSize: '14px',
             boxShadow: '0 4px 12px rgba(33,150,243,0.2)',
           }}
-          onClick={onPublish}
+          onClick={() => {
+            if (onPublish) onPublish(); // 🌟 调取社区发布弹窗
+          }}
         >
           {t('result.publish')}
         </button>
@@ -985,6 +978,5 @@ export default function ResultPage({
         </button>
       </div>
     </div>
-    
   );
 }
