@@ -5,6 +5,7 @@ import { useI18n } from '../i18n/i18nContext';
 import CropModal from '../Components/CropModal';
 import { compressImage } from '../utils/imageUtils';
 import { supabase } from '../services/supabaseClient';
+import { deletePost } from '../services/postService'; // 🌟 导入删帖服务
 
 const PRESET_BG_NAMES_EN = [
   "Obsidian Black (Default)",
@@ -18,6 +19,7 @@ export default function ProfilePage({
   targetUserId = "user_A", 
   history = [], 
   posts = [], 
+  setPosts, // 🌟 接收 setPosts，保证删帖后实时更新视图
   lang = 'zh',
   setTargetLanguage, 
   onBack 
@@ -76,12 +78,18 @@ export default function ProfilePage({
   });
 
   const [isFollowing, setIsFollowing] = useState(false);
+  const [isFollowLoading, setIsFollowLoading] = useState(false); // 🌟 加锁：防连续快速点击
+  const [isHoverFollowBtn, setIsHoverFollowBtn] = useState(false); // 🌟 Hover 显示取消关注
   const [showFollowingModal, setShowFollowingModal] = useState(false);
   const [showFollowersModal, setShowFollowersModal] = useState(false);
   const [selectedPostDetail, setSelectedPostDetail] = useState(null);
 
-  const followersCount = follows.filter(f => f.followingId === targetUserId).length;
-  const followingCount = follows.filter(f => f.followerId === targetUserId).length;
+  const [followers, setFollowers] = useState([]);
+  const [followings, setFollowings] = useState([]);
+
+  // 🌟 核心修复：数字直接取粉丝/关注数组长度，刷新后绝不再显示为 0
+  const followersCount = followers.length;
+  const followingCount = followings.length;
 
   // 编辑状态
   const [editNickname, setEditNickname] = useState(activeProfile.nickname);
@@ -155,86 +163,155 @@ export default function ProfilePage({
           }
         }
 
+        // 1. 加载粉丝 (谁关注了 targetUserId)
         const { data: dbFollowers } = await supabase
           .from("follows")
           .select("follower_id, profiles!follows_follower_id_fkey(nickname, avatar, signature, custom_avatar)")
           .eq("following_id", targetUserId);
 
-        const formattedFollowers = dbFollowers ? dbFollowers.map(f => ({
+        let formattedFollowers = dbFollowers ? dbFollowers.map(f => ({
           id: f.follower_id,
           nickname: f.profiles?.nickname || "匿名同伴",
           avatar: f.profiles?.avatar || "🩹",
           signature: f.profiles?.signature || "",
           customAvatar: f.profiles?.custom_avatar || ""
         })) : [];
-        setFollowers(formattedFollowers);
 
+        // 2. 加载关注 (targetUserId 关注了谁)
         const { data: dbFollowings } = await supabase
           .from("follows")
           .select("following_id, profiles!follows_following_id_fkey(nickname, avatar, signature, custom_avatar)")
           .eq("follower_id", targetUserId);
 
-        const formattedFollowings = dbFollowings ? dbFollowings.map(f => ({
+        let formattedFollowings = dbFollowings ? dbFollowings.map(f => ({
           id: f.following_id,
           nickname: f.profiles?.nickname || "同伴",
           avatar: f.profiles?.avatar || "🩹",
           signature: f.profiles?.signature || "",
           customAvatar: f.profiles?.custom_avatar || ""
         })) : [];
+
+        // 3. 融合 LocalStorage 本地降级缓存（确保离线与在线数据全兼容）
+        const cachedFollows = JSON.parse(localStorage.getItem("painscape_simulated_follows") || "[]");
+        const localProfiles = JSON.parse(localStorage.getItem("painscape_simulated_profiles") || "{}");
+
+        cachedFollows.filter(f => String(f.followingId) === String(targetUserId)).forEach(f => {
+          if (!formattedFollowers.some(exist => String(exist.id) === String(f.followerId))) {
+            const p = localProfiles[f.followerId] || {};
+            formattedFollowers.push({
+              id: f.followerId,
+              nickname: p.nickname || "同伴",
+              avatar: p.avatar || "🩹",
+              signature: p.signature || "",
+              customAvatar: p.customAvatar || ""
+            });
+          }
+        });
+
+        cachedFollows.filter(f => String(f.followerId) === String(targetUserId)).forEach(f => {
+          if (!formattedFollowings.some(exist => String(exist.id) === String(f.followingId))) {
+            const p = localProfiles[f.followingId] || {};
+            formattedFollowings.push({
+              id: f.followingId,
+              nickname: p.nickname || "同伴",
+              avatar: p.avatar || "🩹",
+              signature: p.signature || "",
+              customAvatar: p.customAvatar || ""
+            });
+          }
+        });
+
+        setFollowers(formattedFollowers);
         setFollowings(formattedFollowings);
 
-        const isFollowed = formattedFollowers.some(f => f.id === currentUserId);
+        const isFollowed = formattedFollowers.some(f => String(f.id) === String(currentUserId));
         setIsFollowing(isFollowed);
 
       } catch (err) {
         console.warn("未完全连接 Supabase，已自动降级为本地高拟真数据连接:", err);
-        const localFollows = follows;
-        const isFollowed = localFollows.some(f => f.followerId === currentUserId && f.followingId === targetUserId);
-        setIsFollowing(isFollowed);
+        const cachedFollows = JSON.parse(localStorage.getItem("painscape_simulated_follows") || "[]");
+        const localProfiles = JSON.parse(localStorage.getItem("painscape_simulated_profiles") || "{}");
+
+        const localFollowers = cachedFollows.filter(f => String(f.followingId) === String(targetUserId)).map(f => ({
+          id: f.followerId,
+          nickname: localProfiles[f.followerId]?.nickname || "同伴",
+          avatar: localProfiles[f.followerId]?.avatar || "🩹",
+          signature: localProfiles[f.followerId]?.signature || "",
+          customAvatar: localProfiles[f.followerId]?.customAvatar || ""
+        }));
+
+        const localFollowings = cachedFollows.filter(f => String(f.followerId) === String(targetUserId)).map(f => ({
+          id: f.followingId,
+          nickname: localProfiles[f.followingId]?.nickname || "同伴",
+          avatar: localProfiles[f.followingId]?.avatar || "🩹",
+          signature: localProfiles[f.followingId]?.signature || "",
+          customAvatar: localProfiles[f.followingId]?.customAvatar || ""
+        }));
+
+        setFollowers(localFollowers);
+        setFollowings(localFollowings);
+        setIsFollowing(localFollowers.some(f => String(f.id) === String(currentUserId)));
       }
     };
 
     loadProfileAndSocialData();
   }, [targetUserId, currentUserId, isSelf]);
 
-  // 关注与取消关注
+  // 关注与取消关注（防卡顿重复点击 + 乐观更新）
   const handleToggleFollow = async () => {
+    if (isFollowLoading) return; // 🔒 防重锁：请求处理中禁用再次点击
+    setIsFollowLoading(true);
+
+    const willFollow = !isFollowing;
+    setIsFollowing(willFollow); // 乐观更新状态
+
+    // 实时更新本地数组
+    if (willFollow) {
+      const myInfo = {
+        id: currentUserId,
+        nickname: userInfo?.nickname || "我的名字",
+        avatar: userInfo?.avatar || "🩸",
+        signature: userInfo?.signature || "",
+        customAvatar: userInfo?.customAvatar || ""
+      };
+      setFollowers(prev => [...prev.filter(f => String(f.id) !== String(currentUserId)), myInfo]);
+    } else {
+      setFollowers(prev => prev.filter(f => String(f.id) !== String(currentUserId)));
+    }
+
+    // 更新 localStorage 防丢失
+    let cachedFollows = JSON.parse(localStorage.getItem("painscape_simulated_follows") || "[]");
+    if (willFollow) {
+      if (!cachedFollows.some(f => String(f.followerId) === String(currentUserId) && String(f.followingId) === String(targetUserId))) {
+        cachedFollows.push({ followerId: currentUserId, followingId: targetUserId });
+      }
+    } else {
+      cachedFollows = cachedFollows.filter(f => !(String(f.followerId) === String(currentUserId) && String(f.followingId) === String(targetUserId)));
+    }
+    localStorage.setItem("painscape_simulated_follows", JSON.stringify(cachedFollows));
+
     try {
-      if (isFollowing) {
+      if (willFollow) {
         await supabase
           .from("follows")
           .delete()
           .eq("follower_id", currentUserId)
           .eq("following_id", targetUserId);
 
-        setIsFollowing(false);
-        const nextFollows = follows.filter(f => !(f.followerId === currentUserId && f.followingId === targetUserId));
-        setFollows(nextFollows);
-        localStorage.setItem("painscape_simulated_follows", JSON.stringify(nextFollows));
-      } else {
         await supabase
           .from("follows")
           .insert({ follower_id: currentUserId, following_id: targetUserId });
-
-        setIsFollowing(true);
-        const nextFollows = [...follows, { 
-          followerId: currentUserId, 
-          followingId: targetUserId 
-        }];
-        setFollows(nextFollows);
-        localStorage.setItem("painscape_simulated_follows", JSON.stringify(nextFollows));
+      } else {
+        await supabase
+          .from("follows")
+          .delete()
+          .eq("follower_id", currentUserId)
+          .eq("following_id", targetUserId);
       }
     } catch (err) {
-      console.warn("关注操作失败，使用本地降级方案:", err);
-      let nextFollows;
-      if (isFollowing) {
-        nextFollows = follows.filter(f => !(f.followerId === currentUserId && f.followingId === targetUserId));
-      } else {
-        nextFollows = [...follows, { followerId: currentUserId, followingId: targetUserId }];
-      }
-      setFollows(nextFollows);
-      localStorage.setItem("painscape_simulated_follows", JSON.stringify(nextFollows));
-      setIsFollowing(!isFollowing);
+      console.warn("关注操作降级处理:", err);
+    } finally {
+      setIsFollowLoading(false); // 🔓 解锁
     }
   };
 
@@ -317,12 +394,26 @@ export default function ProfilePage({
     setShowEditModal(false);
   };
 
-  // 🌟 严格按 UID 绑定过滤帖子
-  const myRealPosts = posts.filter(
-    (p) => (p.userId && String(p.userId) === String(targetUserId)) ||
-           (p.authorId && String(p.authorId) === String(targetUserId)) ||
-           (p.user_id && String(p.user_id) === String(targetUserId))
-  );
+  // 🌟 严格按 UID 绑定过滤属于该用户的合法帖子（自动校验过滤脏废数据）
+  const myRealPosts = posts.filter((p) => {
+    if (!p || typeof p !== 'object') return false;
+    const matchesUser = 
+      (p.userId && String(p.userId) === String(targetUserId)) ||
+      (p.authorId && String(p.authorId) === String(targetUserId)) ||
+      (p.user_id && String(p.user_id) === String(targetUserId));
+      
+    if (!matchesUser) return false;
+
+    // 关键防御：必须包含有效的图片和文字（自动剔除删除残留的空脏记录）
+    const hasValidImg = p.img && typeof p.img === 'string' && p.img.trim().length > 10;
+    const hasValidText = Boolean(
+      (p.text && String(p.text).trim()) ||
+      (p.painName && String(p.painName).trim()) ||
+      (p.content && (p.content.chief_complaint || p.content.text))
+    );
+
+    return hasValidImg && hasValidText;
+  });
 
   const totalRecords = isSelf ? history.length : myRealPosts.length;
 
@@ -357,8 +448,17 @@ export default function ProfilePage({
     ? t('profile.defaultSignature')
     : activeProfile.signature;
 
-  const [followers, setFollowers] = useState([]);
-  const [followings, setFollowings] = useState([]);
+  // 🌟 处理在个人主页详情页删除帖子
+  const handleDeletePostInProfile = async (postId) => {
+    if (window.confirm('确定要删除这条具身档案吗？删除后不可恢复。')) {
+      const targetId = String(postId);
+      await deletePost(targetId, currentUserId);
+      if (setPosts) {
+        setPosts(prev => prev.filter(p => String(p.id) !== targetId));
+      }
+      setSelectedPostDetail(null);
+    }
+  };
 
   return (
     <div
@@ -567,24 +667,36 @@ export default function ProfilePage({
               “ {displaySignature} ”
             </p>
 
-            {/* 社交按钮 */}
+            {/* 🌟 社交按钮（防重复锁 + 明确的取消关注 Hover） */}
             {!isSelf ? (
               <button
                 onClick={handleToggleFollow}
+                disabled={isFollowLoading}
+                onMouseEnter={() => setIsHoverFollowBtn(true)}
+                onMouseLeave={() => setIsHoverFollowBtn(false)}
                 style={{
                   padding: '6px 20px',
                   borderRadius: '20px',
                   fontSize: '12px',
                   fontWeight: 'bold',
-                  cursor: 'pointer',
-                  border: 'none',
-                  background: isFollowing ? 'rgba(255,255,255,0.06)' : '#d32f2f',
-                  color: isFollowing ? '#888' : '#fff',
+                  cursor: isFollowLoading ? 'wait' : 'pointer',
+                  border: isFollowing ? '1px solid rgba(255,255,255,0.2)' : 'none',
+                  background: isFollowing 
+                    ? (isHoverFollowBtn ? 'rgba(211,47,47,0.2)' : 'rgba(255,255,255,0.06)') 
+                    : '#d32f2f',
+                  color: isFollowing 
+                    ? (isHoverFollowBtn ? '#ef5350' : '#ccc') 
+                    : '#fff',
                   boxShadow: isFollowing ? 'none' : '0 4px 12px rgba(211, 47, 47, 0.3)',
-                  transition: 'all 0.2s ease'
+                  transition: 'all 0.2s ease',
+                  opacity: isFollowLoading ? 0.7 : 1,
                 }}
               >
-                {isFollowing ? t('profile.followed') : t('profile.followHer')}
+                {isFollowLoading
+                  ? '处理中...'
+                  : isFollowing
+                  ? (isHoverFollowBtn ? '💔 取消关注' : '✓ 已关注')
+                  : '+ 关注同伴'}
               </button>
             ) : (
               <span
@@ -738,88 +850,111 @@ export default function ProfilePage({
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              {myRealPosts.slice(0, 10).map((record, index) => (
-                <div
-                  key={record.id || index}
-                  onClick={() => setSelectedPostDetail(record)}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '12px',
-                    background: 'rgba(255,255,255,0.01)',
-                    border: '1px solid rgba(255,255,255,0.03)',
-                    borderRadius: '14px',
-                    padding: '12px',
-                    cursor: 'pointer',
-                    transition: 'background 0.2s',
-                  }}
-                  onMouseEnter={(e) =>
-                    (e.currentTarget.style.background = 'rgba(255,255,255,0.03)')
-                  }
-                  onMouseLeave={(e) =>
-                    (e.currentTarget.style.background = 'rgba(255,255,255,0.01)')
-                  }
-                >
-                  <img
-                    src={record.img}
+              {myRealPosts.slice(0, 10).map((record, index) => {
+                const displayText = 
+                  record.content?.chief_complaint?.replace('主诉：', '') ||
+                  record.text || 
+                  record.painName || 
+                  '具身痛觉图谱分享';
+
+                return (
+                  <div
+                    key={record.id || index}
+                    onClick={() => setSelectedPostDetail(record)}
                     style={{
-                      width: '56px',
-                      height: '56px',
-                      borderRadius: '8px',
-                      objectFit: 'cover',
-                      background: '#000',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '12px',
+                      background: 'rgba(255,255,255,0.01)',
+                      border: '1px solid rgba(255,255,255,0.03)',
+                      borderRadius: '14px',
+                      padding: '12px',
+                      cursor: 'pointer',
+                      transition: 'background 0.2s',
                     }}
-                    alt="somatic thumbnail"
-                  />
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <p
-                      style={{
-                        color: '#eee',
-                        fontSize: '12.5px',
-                        margin: '0 0 6px 0',
-                        lineHeight: '1.4',
-                        whiteSpace: 'nowrap',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                      }}
-                    >
-                      {record.content?.chief_complaint?.replace('主诉：', '') ||
-                        record.text || record.painName}
-                    </p>
+                    onMouseEnter={(e) =>
+                      (e.currentTarget.style.background = 'rgba(255,255,255,0.03)')
+                    }
+                    onMouseLeave={(e) =>
+                      (e.currentTarget.style.background = 'rgba(255,255,255,0.01)')
+                    }
+                  >
+                    {/* 🌟 缩略图容器：固定宽高 + 隐形防破图 */}
                     <div
                       style={{
+                        width: '56px',
+                        height: '56px',
+                        borderRadius: '8px',
+                        overflow: 'hidden',
+                        background: '#121212',
+                        flexShrink: 0,
                         display: 'flex',
-                        justifyContent: 'space-between',
                         alignItems: 'center',
+                        justifyContent: 'center',
+                        border: '1px solid rgba(255,255,255,0.05)',
                       }}
                     >
-                      <span
+                      <img
+                        src={record.img}
+                        onError={(e) => { e.target.style.display = 'none'; }}
                         style={{
-                          color: '#ef5350',
-                          fontSize: '9.5px',
-                          background: 'rgba(239,83,80,0.08)',
-                          padding: '2px 6px',
-                          borderRadius: '6px',
-                          fontWeight: 'bold',
+                          width: '100%',
+                          height: '100%',
+                          objectFit: 'cover',
+                        }}
+                        alt="somatic thumbnail"
+                      />
+                    </div>
+
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <p
+                        style={{
+                          color: '#eee',
+                          fontSize: '12.5px',
+                          margin: '0 0 6px 0',
+                          lineHeight: '1.4',
+                          whiteSpace: 'nowrap',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
                         }}
                       >
-                        {record.painName || (record.painTags ? record.painTags[0] : "痛经")}
-                      </span>
-                      <span
+                        {displayText}
+                      </p>
+                      <div
                         style={{
-                          color: '#555',
-                          fontSize: '10.5px',
                           display: 'flex',
-                          gap: '8px',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
                         }}
                       >
-                        <span>❤️ {record.likes ?? getDeterministicCount(record.id, 8)}</span>
-                        <span>🫂 {record.hugs ?? getDeterministicCount(record.id, 3)}</span>
-                      </span>
+                        <span
+                          style={{
+                            color: '#ef5350',
+                            fontSize: '9.5px',
+                            background: 'rgba(239,83,80,0.08)',
+                            padding: '2px 6px',
+                            borderRadius: '6px',
+                            fontWeight: 'bold',
+                          }}
+                        >
+                          {record.painName || (record.painTags ? record.painTags[0] : "痛经")}
+                        </span>
+                        <span
+                          style={{
+                            color: '#555',
+                            fontSize: '10.5px',
+                            display: 'flex',
+                            gap: '8px',
+                          }}
+                        >
+                          <span>❤️ {record.likes ?? getDeterministicCount(record.id, 8)}</span>
+                          <span>🫂 {record.hugs ?? getDeterministicCount(record.id, 3)}</span>
+                        </span>
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
@@ -1452,7 +1587,7 @@ export default function ProfilePage({
         </div>
       )}
 
-      {/* ===== 帖子详情弹窗 ===== */}
+      {/* ===== 🌟 帖子详情弹窗 ===== */}
       {selectedPostDetail && (
         <div style={{
           position: 'fixed',
@@ -1484,16 +1619,42 @@ export default function ProfilePage({
               <span style={{ color: '#ef5350', fontSize: '14px', fontWeight: 'bold' }}>
                 📖 具身档案细节回顾
               </span>
-              <button 
-                onClick={() => setSelectedPostDetail(null)}
-                style={{ background: 'transparent', border: 'none', color: '#888', fontSize: '18px', cursor: 'pointer' }}
-              >
-                ✕
-              </button>
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                {/* 🌟 只有贴主本人才显示删帖按钮 */}
+                {(isSelf || (currentUserId && (String(selectedPostDetail.userId || selectedPostDetail.user_id || selectedPostDetail.authorId) === String(currentUserId)))) && (
+                  <button
+                    onClick={() => handleDeletePostInProfile(selectedPostDetail.id)}
+                    style={{
+                      background: 'rgba(239, 83, 80, 0.15)',
+                      border: '1px solid rgba(239, 83, 80, 0.3)',
+                      color: '#ef5350',
+                      padding: '4px 10px',
+                      borderRadius: '12px',
+                      fontSize: '11px',
+                      cursor: 'pointer',
+                      fontWeight: 'bold'
+                    }}
+                  >
+                    🗑️ 删除
+                  </button>
+                )}
+
+                <button 
+                  onClick={() => setSelectedPostDetail(null)}
+                  style={{ background: 'transparent', border: 'none', color: '#888', fontSize: '18px', cursor: 'pointer' }}
+                >
+                  ✕
+                </button>
+              </div>
             </div>
 
             <div style={{ borderRadius: '16px', overflow: 'hidden', border: '1px solid #222', background: '#000', marginBottom: '18px' }}>
-              <img src={selectedPostDetail.img} style={{ width: '100%', display: 'block', objectFit: 'contain' }} alt="Embodied Paint" />
+              <img 
+                src={selectedPostDetail.img} 
+                onError={(e) => { e.target.style.display = 'none'; }}
+                style={{ width: '100%', display: 'block', objectFit: 'contain' }} 
+                alt="Embodied Paint" 
+              />
             </div>
 
             <div style={{ display: 'flex', gap: '8px', marginBottom: '20px' }}>
