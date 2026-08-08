@@ -2,14 +2,16 @@
 import React, { useState, useMemo } from 'react';
 import { useI18n } from '../i18n/i18nContext';
 import RecordDetailModal from '../Components/modals/RecordDetailModal';
-
+// App.jsx 顶部
+// import { CHINESE_TO_KEY_MAP, PAIN_COLORS, PAIN_ICONS } from './utils/painUtils';
+// getPainNameDisplay,
 // ============================================================
 // 常量
 // ============================================================
 const EN_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const WEEKDAYS_ZH = ['日', '一', '二', '三', '四', '五', '六'];
 const WEEKDAYS_EN = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-
+// 删除上面的 import，直接在文件中定义：
 const CHINESE_TO_KEY_MAP = {
   '绞痛': 'twist', '刺痛': 'pierce', '坠胀': 'heavy',
   '坠胀重压': 'heavy', '坠痛': 'heavy', '酸胀': 'wave',
@@ -42,6 +44,13 @@ const PAIN_ICON_MAP = {
   '刮痛': '🔪',
   '撕裂痛': '🔪',
 };
+// const CHINESE_TO_KEY_MAP = {
+//   '绞痛': 'twist', '刺痛': 'pierce', '坠胀': 'heavy',
+//   '坠胀重压': 'heavy', '坠痛': 'heavy', '酸胀': 'wave',
+//   '酸胀痛': 'wave', '弥漫酸胀痛': 'wave', '刮痛': 'scrape',
+//   '撕裂痛': 'scrape', '撕裂刮痛': 'scrape',
+// };
+
 
 // ============================================================
 // 工具函数（补零修复）
@@ -309,7 +318,7 @@ const ComparisonView = ({ source, target, t, isEn, onClear }) => {
 
   // 判断类型是否相同
   const sameType = (source.dominantPain || CHINESE_TO_KEY_MAP[source.painName]) ===
-                   (target.dominantPain || CHINESE_TO_KEY_MAP[target.painName]);
+    (target.dominantPain || CHINESE_TO_KEY_MAP[target.painName]);
   const sameDay = sourceDate === targetDate;
 
   return (
@@ -470,6 +479,9 @@ const RecordCard = ({
   record, t, isEn, compact = false,
   onView, onDelete, onCompare,
   isCompareSelected, isCompareTarget,
+  exportMode = false,
+  isExportSelected = false,
+  onToggleExport,
 }) => {
   const painName = getPainNameDisplay(record, t);
   const painKey = record.dominantPain || CHINESE_TO_KEY_MAP[record.painName];
@@ -498,8 +510,8 @@ const RecordCard = ({
           background: isCompareSelected
             ? 'rgba(230,126,34,0.08)'
             : isCompareTarget
-            ? 'rgba(76,175,80,0.06)'
-            : 'transparent',
+              ? 'rgba(76,175,80,0.06)'
+              : 'transparent',
         }}
         onClick={onView}
         onMouseEnter={(e) => {
@@ -513,6 +525,34 @@ const RecordCard = ({
           }
         }}
       >
+        {exportMode && (
+          <div
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggleExport?.(record.id);
+            }}
+            style={{
+              width: '22px',
+              height: '22px',
+              borderRadius: '50%',
+              border: isExportSelected
+                ? '2px solid #4caf50'
+                : '2px solid rgba(255,255,255,0.15)',
+              background: isExportSelected
+                ? 'rgba(76,175,80,0.2)'
+                : 'transparent',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexShrink: 0,
+              cursor: 'pointer',
+              fontSize: '12px',
+              color: '#4caf50',
+            }}
+          >
+            {isExportSelected && '✓'}
+          </div>
+        )}
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <span style={{ fontSize: '14px' }}>{painIcon}</span>
           <span style={{ color: '#aaa', fontSize: '12px' }}>{painName}</span>
@@ -549,13 +589,13 @@ const RecordCard = ({
         background: isCompareSelected
           ? 'rgba(230,126,34,0.06)'
           : isCompareTarget
-          ? 'rgba(76,175,80,0.04)'
-          : 'rgba(255,255,255,0.015)',
+            ? 'rgba(76,175,80,0.04)'
+            : 'rgba(255,255,255,0.015)',
         border: isCompareSelected
           ? '1px solid rgba(230,126,34,0.2)'
           : isCompareTarget
-          ? '1px solid rgba(76,175,80,0.15)'
-          : '1px solid rgba(255,255,255,0.04)',
+            ? '1px solid rgba(76,175,80,0.15)'
+            : '1px solid rgba(255,255,255,0.04)',
         borderRadius: '12px',
         cursor: 'pointer',
         transition: 'all 0.2s ease',
@@ -574,6 +614,34 @@ const RecordCard = ({
         }
       }}
     >
+      {exportMode && (
+        <div
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggleExport?.(record.id);
+          }}
+          style={{
+            width: '22px',
+            height: '22px',
+            borderRadius: '50%',
+            border: isExportSelected
+              ? '2px solid #4caf50'
+              : '2px solid rgba(255,255,255,0.15)',
+            background: isExportSelected
+              ? 'rgba(76,175,80,0.2)'
+              : 'transparent',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            flexShrink: 0,
+            cursor: 'pointer',
+            fontSize: '12px',
+            color: '#4caf50',
+          }}
+        >
+          {isExportSelected && '✓'}
+        </div>
+      )}
       {record.img && !isQuickLog && (
         <img
           src={record.img}
@@ -655,13 +723,13 @@ const RecordCard = ({
               background: isCompareSelected
                 ? 'rgba(230,126,34,0.15)'
                 : isCompareTarget
-                ? 'rgba(76,175,80,0.12)'
-                : 'rgba(255,255,255,0.03)',
+                  ? 'rgba(76,175,80,0.12)'
+                  : 'rgba(255,255,255,0.03)',
               border: isCompareSelected
                 ? '1px solid rgba(230,126,34,0.3)'
                 : isCompareTarget
-                ? '1px solid rgba(76,175,80,0.25)'
-                : '1px solid rgba(255,255,255,0.06)',
+                  ? '1px solid rgba(76,175,80,0.25)'
+                  : '1px solid rgba(255,255,255,0.06)',
               color: isCompareSelected ? '#e8a87c' : isCompareTarget ? '#81c784' : '#555',
               fontSize: '10px',
               cursor: 'pointer',
@@ -684,8 +752,8 @@ const RecordCard = ({
             {isCompareSelected
               ? (isEn ? 'Source' : '已选')
               : isCompareTarget
-              ? (isEn ? 'Target' : '对比中')
-              : (isEn ? 'Compare' : '对比')}
+                ? (isEn ? 'Target' : '对比中')
+                : (isEn ? 'Compare' : '对比')}
           </button>
         )}
         <button
@@ -746,7 +814,9 @@ export default function HistoryPage({
   const { t } = useI18n();
   const isEn = lang === 'en';
   const [collapsedMonths, setCollapsedMonths] = useState({});
-
+  const [exportMode, setExportMode] = useState(false);
+  const [selectedForExport, setSelectedForExport] = useState(new Set());
+  const [publishConfirm, setPublishConfirm] = useState(null);
   // 任意两条记录对比
   const [compareSource, setCompareSource] = useState(null);
   const [compareTarget, setCompareTarget] = useState(null);
@@ -938,20 +1008,59 @@ export default function HistoryPage({
               {isEn ? '中文' : 'EN'}
             </button>
           )}
+          {/* 导出按钮 */}
           <button
-            onClick={exportHistoryPDF}
+            onClick={() => {
+              if (exportMode) {
+                const recordsToExport = history.filter(h => selectedForExport.has(h.id));
+                if (recordsToExport.length === 0) {
+                  showToast?.('noExportSelected');
+                  return;
+                }
+                // ✅ 传入选中的记录列表
+                exportHistoryPDF(recordsToExport);
+                setExportMode(false);
+                setSelectedForExport(new Set());
+              } else {
+                setExportMode(true);
+                setSelectedForExport(new Set());
+              }
+            }}
             style={{
               padding: '4px 12px',
-              background: 'rgba(255,255,255,0.05)',
-              border: '1px solid rgba(255,255,255,0.08)',
-              color: '#888',
+              background: exportMode ? 'rgba(230,126,34,0.15)' : 'rgba(255,255,255,0.05)',
+              border: exportMode ? '1px solid rgba(230,126,34,0.3)' : '1px solid rgba(255,255,255,0.08)',
+              color: exportMode ? '#e8a87c' : '#888',
               borderRadius: '16px',
               fontSize: '11px',
               cursor: 'pointer',
             }}
           >
-            {t('history.export')}
+            {exportMode
+              ? (isEn ? `Export (${selectedForExport.size})` : `导出 (${selectedForExport.size})`)
+              : t('history.export')}
           </button>
+
+          {/* 取消按钮 - 仅在导出模式下显示 */}
+          {exportMode && (
+            <button
+              onClick={() => {
+                setExportMode(false);
+                setSelectedForExport(new Set());
+              }}
+              style={{
+                padding: '4px 10px',
+                background: 'rgba(255,255,255,0.05)',
+                border: '1px solid rgba(255,255,255,0.08)',
+                color: '#888',
+                borderRadius: '16px',
+                fontSize: '11px',
+                cursor: 'pointer',
+              }}
+            >
+              {isEn ? 'Cancel' : '取消'}
+            </button>
+          )}
           <button
             onClick={onBack}
             style={{
@@ -1219,6 +1328,17 @@ export default function HistoryPage({
                   onCompare={handleCompareSelect}
                   isCompareSelected={compareSource?.id === record.id}
                   isCompareTarget={compareTarget?.id === record.id}
+                  exportMode={exportMode}
+                  isExportSelected={selectedForExport.has(record.id)}
+                  onToggleExport={(id) => {
+                    const newSet = new Set(selectedForExport);
+                    if (newSet.has(id)) {
+                      newSet.delete(id);
+                    } else {
+                      newSet.add(id);
+                    }
+                    setSelectedForExport(newSet);
+                  }}
                 />
               ))}
             </div>
@@ -1300,6 +1420,17 @@ export default function HistoryPage({
                           onCompare={handleCompareSelect}
                           isCompareSelected={compareSource?.id === record.id}
                           isCompareTarget={compareTarget?.id === record.id}
+                          exportMode={exportMode}
+                          isExportSelected={selectedForExport.has(record.id)}
+                          onToggleExport={(id) => {
+                            const newSet = new Set(selectedForExport);
+                            if (newSet.has(id)) {
+                              newSet.delete(id);
+                            } else {
+                              newSet.add(id);
+                            }
+                            setSelectedForExport(newSet);
+                          }}
                         />
                       ))}
                     </div>
@@ -1342,7 +1473,84 @@ export default function HistoryPage({
         onShare={(record) => onShareRecord?.(record)}
         onPublish={(record, customText) => onPublishRecord?.(record, customText)}
         lang={lang}
+        onPublish={(record, customText) => {
+          if (!customText || customText.trim() === '') {
+            setPublishConfirm({ record, text: '' });
+          } else {
+            onPublishRecord?.(record, customText);
+          }
+        }}
       />
+      {publishConfirm && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.7)',
+            zIndex: 1000,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '20px',
+          }}
+          onClick={() => setPublishConfirm(null)}
+        >
+          <div
+            style={{
+              background: '#1a1a1a',
+              border: '1px solid #333',
+              borderRadius: '16px',
+              padding: '24px',
+              maxWidth: '300px',
+              width: '100%',
+              textAlign: 'center',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ fontSize: '32px', marginBottom: '12px' }}>🖼️</div>
+            <p style={{ color: '#ccc', fontSize: '14px', lineHeight: '1.6', margin: '0 0 8px 0' }}>
+              {t('diary.publishEmptyTitle')}
+            </p>
+            <p style={{ color: '#888', fontSize: '12px', lineHeight: '1.5', margin: '0 0 20px 0' }}>
+              {t('diary.publishEmptyDesc')}
+            </p>
+            <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
+              <button
+                onClick={() => setPublishConfirm(null)}
+                style={{
+                  background: 'transparent',
+                  border: '1px solid #444',
+                  color: '#888',
+                  padding: '8px 20px',
+                  borderRadius: '20px',
+                  fontSize: '13px',
+                  cursor: 'pointer',
+                }}
+              >
+                {t('common.cancel')}
+              </button>
+              <button
+                onClick={() => {
+                  onPublishRecord?.(publishConfirm.record, '');
+                  setPublishConfirm(null);
+                }}
+                style={{
+                  background: 'rgba(211,47,47,0.15)',
+                  border: '1px solid rgba(211,47,47,0.3)',
+                  color: '#d32f2f',
+                  padding: '8px 20px',
+                  borderRadius: '20px',
+                  fontSize: '13px',
+                  cursor: 'pointer',
+                  fontWeight: '500',
+                }}
+              >
+                {t('diary.publishAnyway')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

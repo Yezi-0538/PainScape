@@ -622,6 +622,9 @@ const translations = {
       periodNight: "夜间痛感",
       sendTarget: "📤 发送对象：",
       toneLabel: "🎭 表达语气：",
+      publishEmptyTitle: "发布到广场？",
+      publishEmptyDesc: "你还没有写任何描述，直接发布可能会被社区淹没。",
+      publishAnyway: "仍然发布",
     },
 
     post: {
@@ -724,6 +727,7 @@ const translations = {
     toast: {
       copySuccess: "文本已复制到剪贴板！",
       copyFailed: "复制失败，请重试",
+      noExportSelected: "请选择要导出的记录",
       pdfGenerating: "正在生成 PDF，请稍候...",
       pdfSuccess: "✅ PDF 已生成并下载",
       pdfFailed: "❌ PDF 生成失败，请重试",
@@ -1724,6 +1728,9 @@ const translations = {
       periodNight: "Night Pain",
       sendTarget: "📤 Send to:",
       toneLabel: "🎭 Tone:",
+      publishEmptyTitle: "Publish to Community?",
+      publishEmptyDesc: "You haven't written any description. Direct publishing may get buried.",
+      publishAnyway: "Publish Anyway",
     },
 
     post: {
@@ -1865,6 +1872,7 @@ const translations = {
       refineSuccess: '✨ Content optimized',
       refineFailed: '❌ AI optimization failed, API may not be deployed or network error',
       apiGenerateFallback: "Cloud generation unavailable, switched to local template mode",
+      noExportSelected: "Please select records to export",
     },
 
     painTemplates: {
