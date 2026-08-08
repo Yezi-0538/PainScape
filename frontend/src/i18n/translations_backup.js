@@ -539,6 +539,7 @@ const translations = {
       recordCount: "{{count}}条",
       collapseLabel: "▲ 收起",
       expandLabel: "▼ 展开",
+      
     },
 
     diary: {
@@ -755,27 +756,27 @@ const translations = {
     },
     healing: {
       breathing: {
-        title: "🌬️ 呼吸疗法",
+        title: "呼吸疗法",
         description: "深腹式呼吸帮助身体放松，缓解疼痛带来的紧张。",
         steps: "① 找一个安静舒适的地方坐下或躺下\n② 将一只手放在腹部感受其运动\n③ 吸气4秒，感受腹部像气球一样鼓起\n④ 屏息4秒，让氧气进入血液\n⑤ 呼气6秒，感受腹部回落\n⑥ 重复10-15次，感受身体放松"
       },
       heatPack: {
-        title: "🔥 热敷疗法",
+        title: "热敷疗法",
         description: "温热促进局部循环，缓解肌肉痉挛，是痛经最有效的缓解方法之一。",
         steps: "① 准备热水袋或加热垫（40-45°C）\n② 用毛巾包裹避免直接接触皮肤\n③ 敷在下腹部或后腰\n④ 每次15-20分钟\n⑤ 每天可敷3-4次\n⑥ 保持水分，多喝水"
       },
       meditation: {
-        title: "🧘 正念冥想",
+        title: "正念冥想",
         description: "将注意力从疼痛上移开，不加评判地接受当下感受，减轻疼痛的心理负担。",
         steps: "① 找安静的地方舒适坐下\n② 闭上眼睛，专注于呼吸\n③ 当思绪飘走时，轻轻带回呼吸\n④ 感受疼痛而不评判它\n⑤ 想象疼痛像云一样飘过\n⑥ 从5-10分钟开始，逐渐增加"
       },
       warmDrink: {
-        title: "☕ 温饮疗法",
+        title: "温饮疗法",
         description: "温热的饮品不仅温暖身体，也安抚心灵，是自愈的重要一环。",
         steps: "① 姜糖茶：3片生姜 + 1勺红糖 + 热水\n② 桂圆红枣茶：5颗桂圆 + 3颗红枣\n③ 温牛奶加蜂蜜\n④ 避免冷饮和咖啡因\n⑤ 小口慢饮，感受温暖\n⑥ 每天2-3杯"
       },
       acupressure: {
-        title: "💆 穴位按揉",
+        title: "穴位按揉",
         description: "按压特定穴位可阻断痛觉信号传导，临床证明对痉挛性痛经有效。",
         steps: "① 定位三阴交穴（内踝尖上4横指）\n② 大拇指垂直按压，紧跟节拍节奏\n③ 呼气下压，吸气轻抬\n④ 两侧交替1-2分钟\n⑤ 感觉酸胀为宜"
       },
@@ -785,10 +786,10 @@ const translations = {
 
     // ============ 体感自愈舱 ============
     somaticHealing: {
-      breathing: "🌬️ 骨盆释压呼吸调理",
-      posture: "🧘 骨盆拉伸与体位松弛",
-      acupressure: "💆 特异穴位物理按揉",
-      thermal: "🔥 局部热敷与食疗温补",
+      breathing: "骨盆释压呼吸调理",
+      posture: "骨盆拉伸与体位松弛",
+      acupressure: "穴位物理按揉",
+      thermal: "局部热敷与食疗温补",
       disclaimer: "⚠️ 任何自愈方案或体位调节若引起您额外的不适或强烈痛感，请立即停止！回归您觉得最舒服的姿势并保持静卧。",
       inhale: "🌬️ 吸气... 感受腹腔扩张",
       hold: "🧘 屏息... 骨盆彻底沉降松弛",
@@ -987,12 +988,12 @@ const translations = {
 
     // ============ 医生视图标签 ============
     doctorTab: {
-      chiefComplaint: "📋 主诉",
-      presentIllness: "📝 现病史与痛觉机制分析",
-      pastHistory: "📂 既往史与个人习惯风险",
-      menstrualObstetricHistory: "🌸 月经与婚育史",
-      clinicalDiagnosis: "🩺 临床诊断与筛查建议",
-      clinicalAdvice: "💊 临床干预与检查引导",
+      chiefComplaint: "主诉",
+      presentIllness: "现病史与痛觉机制分析",
+      pastHistory: "既往史与个人习惯风险",
+      menstrualObstetricHistory: "月经与婚育史",
+      clinicalDiagnosis: "临床诊断与筛查建议",
+      clinicalAdvice: "临床干预与检查引导",
       discussionPoints: "📋 建议就诊时与医生讨论：",
       discussionReference: "供就诊讨论参考",
       examPreparation: "💡 患者检查须知：",
@@ -1782,27 +1783,27 @@ const translations = {
     },
     healing: {
       breathing: {
-        title: "🌬️ Breathing Therapy",
+        title: "Breathing Therapy",
         description: "Deep abdominal breathing helps the body relax and alleviates tension caused by pain.",
         steps: "① Find a quiet, comfortable place to sit or lie down\n② Place one hand on your abdomen to feel its movement\n③ Inhale for 4 seconds, feeling your abdomen rise like a balloon\n④ Hold for 4 seconds, letting oxygen enter your bloodstream\n⑤ Exhale for 6 seconds, feeling your abdomen fall\n⑥ Repeat 10-15 times, feeling your body relax"
       },
       heatPack: {
-        title: "🔥 Heat Therapy",
+        title: "Heat Therapy",
         description: "Warmth promotes local circulation and relieves muscle spasms, one of the most effective remedies for dysmenorrhea.",
         steps: "① Prepare a hot water bottle or heating pad (40-45°C)\n② Wrap in a towel to avoid direct skin contact\n③ Apply to lower abdomen or lower back\n④ Each session 15-20 minutes\n⑤ Can be applied 3-4 times daily\n⑥ Stay hydrated, drink plenty of water"
       },
       meditation: {
-        title: "🧘 Mindfulness Meditation",
+        title: "Mindfulness Meditation",
         description: "Shift attention away from pain, accept the present moment without judgment, reducing the psychological burden of pain.",
         steps: "① Find a quiet place to sit comfortably\n② Close your eyes, focus on your breath\n③ When thoughts wander, gently bring them back to your breath\n④ Feel the pain without judging it\n⑤ Imagine the pain passing like clouds\n⑥ Start with 5-10 minutes, gradually increase"
       },
       warmDrink: {
-        title: "☕ Warm Drink Therapy",
+        title: "Warm Drink Therapy",
         description: "Warm beverages not only warm the body but also soothe the mind, an important part of self-care.",
         steps: "① Ginger tea: 3 slices ginger + 1 spoon brown sugar + hot water\n② Longan red date tea: 5 longans + 3 red dates\n③ Warm milk with honey\n④ Avoid cold drinks and caffeine\n⑤ Sip slowly, feel the warmth\n⑥ 2-3 cups daily"
       },
       acupressure: {
-        title: "💆 Acupressure",
+        title: "Acupressure",
         description: "Pressing specific acupoints can block pain signal transmission, clinically proven effective for spasmodic dysmenorrhea.",
         steps: "① Locate Sanyinjiao (SP6, 4 fingers above inner ankle)\n② Press vertically with thumb, follow rhythmic beats\n③ Press down on exhale, lift on inhale\n④ Alternate sides for 1-2 minutes\n⑤ Aim for a sore-aching sensation"
       },

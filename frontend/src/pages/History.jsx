@@ -1,148 +1,718 @@
 // src/pages/HistoryPage.jsx
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useI18n } from '../i18n/i18nContext';
 import RecordDetailModal from '../Components/modals/RecordDetailModal';
 
 // ============================================================
-// 工具函数
+// 常量
+// ============================================================
+const EN_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const WEEKDAYS_ZH = ['日', '一', '二', '三', '四', '五', '六'];
+const WEEKDAYS_EN = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+const CHINESE_TO_KEY_MAP = {
+  '绞痛': 'twist', '刺痛': 'pierce', '坠胀': 'heavy',
+  '坠胀重压': 'heavy', '坠痛': 'heavy', '酸胀': 'wave',
+  '酸胀痛': 'wave', '弥漫酸胀痛': 'wave', '刮痛': 'scrape',
+  '撕裂痛': 'scrape', '撕裂刮痛': 'scrape',
+};
+
+const PAIN_COLORS = {
+  twist: '#e67e22',
+  pierce: '#8e44ad',
+  heavy: '#d35400',
+  wave: '#27ae60',
+  scrape: '#c0392b',
+};
+
+const PAIN_ICONS = {
+  twist: '🌀',
+  pierce: '⚡',
+  heavy: '🪨',
+  wave: '〰️',
+  scrape: '🔪',
+};
+
+const PAIN_ICON_MAP = {
+  '绞痛': '🌀',
+  '刺痛': '⚡',
+  '坠胀': '🪨',
+  '坠痛': '🪨',
+  '酸胀': '〰️',
+  '刮痛': '🔪',
+  '撕裂痛': '🔪',
+};
+
+// ============================================================
+// 工具函数（补零修复）
 // ============================================================
 const normalizeDateStr = (dateStr) => {
   if (!dateStr) return '';
-  const cleanStr = dateStr.replace(/\//g, '-').replace(/\./g, '-');
+  const cleanStr = String(dateStr).replace(/\//g, '-').replace(/\./g, '-');
   const parsed = new Date(cleanStr);
   if (isNaN(parsed.getTime())) return '';
-  return `${parsed.getFullYear()}-${parsed.getMonth() + 1}-${parsed.getDate()}`;
+  const y = parsed.getFullYear();
+  const m = String(parsed.getMonth() + 1).padStart(2, '0');
+  const d = String(parsed.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
 };
 
-const formatDateKey = (year, month, day) => {
-  return `${year}-${month + 1}-${day}`;
-};
+const formatDateKey = (year, month, day) =>
+  `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
 
-const EN_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-
-// 中文痛感词反向映射表
-const CHINESE_TO_KEY_MAP = {
-  '绞痛': 'twist',
-  '刺痛': 'pierce',
-  '坠胀': 'heavy',
-  '坠胀重压': 'heavy',
-  '坠痛': 'heavy',
-  '酸胀': 'wave',
-  '酸胀痛': 'wave',
-  '弥漫酸胀痛': 'wave',
-  '刮痛': 'scrape',
-  '撕裂痛': 'scrape',
-  '撕裂刮痛': 'scrape',
-};
-
-// 安全获取转译后的痛感名称
-const getPainNameDisplay = (record, t) => {
-  if (!record) return '';
-  const key = record.dominantPain || CHINESE_TO_KEY_MAP[record.painName];
-  if (key && t(`painNames.${key}`)) {
-    return t(`painNames.${key}`);
-  }
-  return record.painName || '';
-};
-
-// 格式化年月
-const formatYearMonth = (year, monthIndex, t) => {
-  const isEn = t('history.sun') === 'Sun';
-  if (isEn) {
-    return `${EN_MONTHS[monthIndex]} ${year}`;
-  }
+const formatYearMonth = (year, monthIndex, isEn) => {
+  if (isEn) return `${EN_MONTHS[monthIndex]} ${year}`;
   return `${year}年${monthIndex + 1}月`;
 };
 
+const getPainNameDisplay = (record, t) => {
+  if (!record) return '';
+  const key = record.dominantPain || CHINESE_TO_KEY_MAP[record.painName] || record.type;
+  if (key && t(`painNames.${key}`)) return t(`painNames.${key}`);
+  return record.painName || '';
+};
+
+const getPainIcon = (record) => {
+  if (!record) return '●';
+  const key = record.dominantPain || CHINESE_TO_KEY_MAP[record.painName] || record.type;
+  return PAIN_ICONS[key] || PAIN_ICON_MAP[record.painName] || '●';
+};
+
 // ============================================================
-// 子组件：趋势摘要
+// 子组件：趋势摘要卡片
 // ============================================================
-const TrendSummary = ({ history, t }) => {
-  if (history.length < 2) return null;
+const TrendSummary = ({ history, t, isEn }) => {
+  const stats = useMemo(() => {
+    if (!history || history.length === 0) return null;
 
-  const recent = history.slice(0, 5);
-  const typeFreq = recent.reduce((acc, r) => {
-    const key = r.dominantPain || CHINESE_TO_KEY_MAP[r.painName] || r.type || 'twist';
-    acc[key] = (acc[key] || 0) + 1;
-    return acc;
-  }, {});
-  const sortedTypes = Object.entries(typeFreq).sort((a, b) => b[1] - a[1]);
-  const dominantKey = sortedTypes.length > 0 ? sortedTypes[0][0] : 'twist';
-  
-  const dominantName = t(`painNames.${dominantKey}`) || dominantKey;
+    const typeFreq = {};
+    history.forEach(h => {
+      const key = h.dominantPain || CHINESE_TO_KEY_MAP[h.painName] || 'twist';
+      typeFreq[key] = (typeFreq[key] || 0) + 1;
+    });
 
-  const gaps = history
-    .slice(0, -1)
-    .map((r, i) => {
-      const d1 = new Date(history[i + 1].date.replace(/\//g, '-'));
-      const d2 = new Date(r.date.replace(/\//g, '-'));
-      return Math.abs((d2 - d1) / (1000 * 60 * 60 * 24));
-    })
-    .filter((d) => !isNaN(d));
+    const sortedTypes = Object.entries(typeFreq).sort((a, b) => b[1] - a[1]);
+    const dominantKey = sortedTypes[0]?.[0] || 'twist';
 
-  const avgGap = gaps.length > 0 ? Math.round(gaps.reduce((a, b) => a + b, 0) / gaps.length) : 0;
+    const now = new Date();
+    const thisMonth = history.filter(h => {
+      const d = normalizeDateStr(h.date);
+      return d.startsWith(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`);
+    }).length;
+
+    const uniqueDays = new Set(history.map(h => normalizeDateStr(h.date)).filter(Boolean));
+
+    const dates = history.map(h => normalizeDateStr(h.date)).filter(Boolean).sort();
+    let avgGap = 0;
+    if (dates.length > 1) {
+      const gaps = [];
+      for (let i = 1; i < dates.length; i++) {
+        gaps.push((new Date(dates[i]) - new Date(dates[i - 1])) / 86400000);
+      }
+      avgGap = Math.round(gaps.reduce((a, b) => a + b, 0) / gaps.length);
+    }
+
+    return {
+      sortedTypes,
+      dominantKey,
+      thisMonth,
+      uniqueDays: uniqueDays.size,
+      avgGap,
+      total: history.length,
+    };
+  }, [history]);
+
+  if (!stats) return null;
+
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '20px' }}>
+      <div style={cardStyle}>
+        <div style={cardLabelStyle}>{t('history.totalRecords')}</div>
+        <div style={cardValueStyle}>{stats.total}</div>
+        <div style={cardSubStyle}>
+          {t('history.records', { count: stats.thisMonth })}
+        </div>
+      </div>
+
+      <div style={cardStyle}>
+        <div style={cardLabelStyle}>{t('history.activeDays')}</div>
+        <div style={cardValueStyle}>{stats.uniqueDays}</div>
+        <div style={cardSubStyle}>
+          {isEn ? 'days with records' : '天有记录'}
+        </div>
+      </div>
+
+      <div style={cardStyle}>
+        <div style={cardLabelStyle}>{t('history.mostFrequent')}</div>
+        <div style={cardValueStyle}>
+          <span style={{
+            display: 'inline-block',
+            width: '10px',
+            height: '10px',
+            borderRadius: '50%',
+            background: PAIN_COLORS[stats.dominantKey] || '#888',
+            marginRight: '8px',
+          }} />
+          {t(`painNames.${stats.dominantKey}`) || stats.dominantKey}
+        </div>
+        <div style={cardSubStyle}>
+          {stats.sortedTypes.length > 1
+            ? (isEn ? `+${stats.sortedTypes.length - 1} other types` : `另有 ${stats.sortedTypes.length - 1} 种感受`)
+            : (isEn ? 'Only type' : '唯一感受')}
+        </div>
+      </div>
+
+      <div style={cardStyle}>
+        <div style={cardLabelStyle}>{t('history.avgInterval')}</div>
+        <div style={cardValueStyle}>{stats.avgGap || '—'}</div>
+        <div style={cardSubStyle}>
+          {stats.avgGap ? (isEn ? 'days' : '天') : (isEn ? 'first record' : '首次记录')}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const cardStyle = {
+  background: 'rgba(255,255,255,0.02)',
+  border: '1px solid rgba(255,255,255,0.05)',
+  borderRadius: '14px',
+  padding: '14px 16px',
+  display: 'flex',
+  flexDirection: 'column',
+  gap: '4px',
+  transition: 'background 0.2s ease',
+};
+
+const cardLabelStyle = {
+  color: '#666',
+  fontSize: '12px',
+  letterSpacing: '0.5px',
+};
+
+const cardValueStyle = {
+  color: '#e0e0e0',
+  fontSize: '24px',
+  fontWeight: '300',
+  letterSpacing: '-0.5px',
+};
+
+const cardSubStyle = {
+  color: '#555',
+  fontSize: '12px',
+  marginTop: '2px',
+};
+
+// ============================================================
+// 子组件：疼痛类型分布条
+// ============================================================
+const PainTypeDistribution = ({ history, t }) => {
+  const distribution = useMemo(() => {
+    if (!history || history.length === 0) return [];
+    const freq = {};
+    history.forEach(h => {
+      const key = h.dominantPain || CHINESE_TO_KEY_MAP[h.painName] || 'twist';
+      freq[key] = (freq[key] || 0) + 1;
+    });
+    const total = history.length;
+    return Object.entries(freq)
+      .sort((a, b) => b[1] - a[1])
+      .map(([key, count]) => ({ key, count, pct: Math.round((count / total) * 100) }));
+  }, [history]);
+
+  if (distribution.length === 0 || distribution.every(d => d.pct === 0)) return null;
+
+  return (
+    <div style={{ marginBottom: '20px' }}>
+      <div style={{
+        color: '#666',
+        fontSize: '12px',
+        letterSpacing: '1px',
+        marginBottom: '10px',
+        textTransform: 'uppercase',
+      }}>
+        {t('history.painTypeDistribution')}
+      </div>
+      <div style={{
+        display: 'flex',
+        height: '10px',
+        borderRadius: '5px',
+        overflow: 'hidden',
+        gap: '3px',
+        marginBottom: '12px',
+      }}>
+        {distribution.map(({ key, pct }) => (
+          <div
+            key={key}
+            style={{
+              flex: Math.max(pct, 1),
+              background: PAIN_COLORS[key] || '#444',
+              borderRadius: '5px',
+              transition: 'flex 0.3s ease',
+              minWidth: '6px',
+            }}
+            title={`${t(`painNames.${key}`) || key}: ${pct}%`}
+          />
+        ))}
+      </div>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '16px' }}>
+        {distribution.map(({ key, pct }) => (
+          <div key={key} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <div style={{
+              width: '12px',
+              height: '12px',
+              borderRadius: '50%',
+              background: PAIN_COLORS[key] || '#555',
+            }} />
+            <span style={{ color: '#999', fontSize: '13px' }}>
+              {t(`painNames.${key}`) || key}
+              <span style={{ color: '#666', marginLeft: '4px', fontWeight: '500' }}>{pct}%</span>
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+// ============================================================
+// 子组件：对比视图（支持任意两条记录对比）
+// ============================================================
+const ComparisonView = ({ source, target, t, isEn, onClear }) => {
+  if (!source || !target) {
+    return (
+      <div style={{
+        padding: '20px',
+        textAlign: 'center',
+        color: '#555',
+        fontSize: '13px',
+        border: '1px dashed rgba(255,255,255,0.06)',
+        borderRadius: '12px',
+        marginBottom: '16px',
+      }}>
+        {isEn
+          ? 'Select two records to compare'
+          : '选择两条记录进行对比'}
+      </div>
+    );
+  }
+
+  const sourcePain = getPainNameDisplay(source, t);
+  const targetPain = getPainNameDisplay(target, t);
+  const sourceIcon = getPainIcon(source);
+  const targetIcon = getPainIcon(target);
+
+  const sourceDate = normalizeDateStr(source.date);
+  const targetDate = normalizeDateStr(target.date);
+  const sourceTime = source.time || '';
+  const targetTime = target.time || '';
+
+  // 判断类型是否相同
+  const sameType = (source.dominantPain || CHINESE_TO_KEY_MAP[source.painName]) ===
+                   (target.dominantPain || CHINESE_TO_KEY_MAP[target.painName]);
+  const sameDay = sourceDate === targetDate;
+
+  return (
+    <div style={{
+      marginBottom: '16px',
+      padding: '16px',
+      background: 'rgba(255,255,255,0.02)',
+      borderRadius: '14px',
+      border: '1px solid rgba(255,255,255,0.06)',
+    }}>
+      {/* 标题行 */}
+      <div style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: '14px',
+      }}>
+        <span style={{ color: '#888', fontSize: '12px', letterSpacing: '0.5px' }}>
+          {t('history.compareTitle')}
+        </span>
+        {onClear && (
+          <button
+            onClick={onClear}
+            style={{
+              background: 'transparent',
+              border: 'none',
+              color: '#555',
+              fontSize: '10px',
+              cursor: 'pointer',
+              padding: '2px 8px',
+            }}
+          >
+            {t('history.clearCompare')}
+          </button>
+        )}
+      </div>
+
+      {/* 对比主体 */}
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: '1fr auto 1fr',
+        gap: '12px',
+        alignItems: 'center',
+      }}>
+        {/* 源记录 */}
+        <div style={{ textAlign: 'center' }}>
+          <div style={{
+            color: '#888',
+            fontSize: '10px',
+            textTransform: 'uppercase',
+            letterSpacing: '1px',
+            marginBottom: '6px',
+          }}>
+            {t('history.compareSource')}
+          </div>
+          <div style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '8px',
+            padding: '6px 16px',
+            background: 'rgba(230,126,34,0.12)',
+            border: '1px solid rgba(230,126,34,0.25)',
+            borderRadius: '20px',
+            color: '#e8a87c',
+            fontSize: '15px',
+          }}>
+            <span>{sourceIcon}</span>
+            <span>{sourcePain}</span>
+          </div>
+          <div style={{ color: '#555', fontSize: '11px', marginTop: '6px' }}>
+            {sourceDate} {sourceTime}
+          </div>
+        </div>
+
+        {/* VS 分隔 */}
+        <div style={{
+          color: '#444',
+          fontSize: '14px',
+          fontWeight: '300',
+          letterSpacing: '2px',
+          textAlign: 'center',
+        }}>
+          VS
+        </div>
+
+        {/* 目标记录 */}
+        <div style={{ textAlign: 'center' }}>
+          <div style={{
+            color: '#888',
+            fontSize: '10px',
+            textTransform: 'uppercase',
+            letterSpacing: '1px',
+            marginBottom: '6px',
+          }}>
+            {t('history.compareTarget')}
+          </div>
+          <div style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '8px',
+            padding: '6px 16px',
+            background: 'rgba(76,175,80,0.10)',
+            border: '1px solid rgba(76,175,80,0.20)',
+            borderRadius: '20px',
+            color: '#81c784',
+            fontSize: '15px',
+          }}>
+            <span>{targetIcon}</span>
+            <span>{targetPain}</span>
+          </div>
+          <div style={{ color: '#555', fontSize: '11px', marginTop: '6px' }}>
+            {targetDate} {targetTime}
+          </div>
+        </div>
+      </div>
+
+      {/* 对比洞察 */}
+      <div style={{
+        marginTop: '14px',
+        padding: '10px 14px',
+        background: 'rgba(255,255,255,0.015)',
+        borderRadius: '10px',
+        display: 'flex',
+        flexWrap: 'wrap',
+        gap: '12px',
+        justifyContent: 'center',
+      }}>
+        {sameDay && (
+          <span style={{ color: '#666', fontSize: '11px' }}>
+            {isEn ? '📅 Same day' : '📅 同一天'}
+          </span>
+        )}
+        {sameType ? (
+          <span style={{ color: '#81c784', fontSize: '11px' }}>
+            {isEn ? '🔄 Same pain type' : '🔄 相同感受类型'}
+          </span>
+        ) : (
+          <span style={{ color: '#e8a87c', fontSize: '11px' }}>
+            {isEn ? '🔀 Different pain types' : '🔀 不同感受类型'}
+          </span>
+        )}
+        {!sameDay && (
+          <span style={{ color: '#555', fontSize: '11px' }}>
+            {isEn
+              ? `↔️ Different dates`
+              : `↔️ 不同日期`}
+          </span>
+        )}
+      </div>
+    </div>
+  );
+};
+
+// ============================================================
+// 子组件：记录卡片（含对比按钮）
+// ============================================================
+const RecordCard = ({
+  record, t, isEn, compact = false,
+  onView, onDelete, onCompare,
+  isCompareSelected, isCompareTarget,
+}) => {
+  const painName = getPainNameDisplay(record, t);
+  const painKey = record.dominantPain || CHINESE_TO_KEY_MAP[record.painName];
+  const painColor = PAIN_COLORS[painKey] || '#555';
+  const painIcon = getPainIcon(record);
+  const isQuickLog = record.isQuickLog;
+  const hasReport = record.reportData && !record.isSavedOnly;
+  const displayDate = normalizeDateStr(record.date);
+
+  const displayDateTime = displayDate && record.time
+    ? `${displayDate} ${record.time}`
+    : displayDate || record.time || '';
+
+  if (compact) {
+    return (
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          padding: '6px 12px',
+          marginBottom: '2px',
+          borderRadius: '8px',
+          cursor: 'pointer',
+          transition: 'background 0.15s ease',
+          background: isCompareSelected
+            ? 'rgba(230,126,34,0.08)'
+            : isCompareTarget
+            ? 'rgba(76,175,80,0.06)'
+            : 'transparent',
+        }}
+        onClick={onView}
+        onMouseEnter={(e) => {
+          if (!isCompareSelected && !isCompareTarget) {
+            e.currentTarget.style.background = 'rgba(255,255,255,0.03)';
+          }
+        }}
+        onMouseLeave={(e) => {
+          if (!isCompareSelected && !isCompareTarget) {
+            e.currentTarget.style.background = 'transparent';
+          }
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <span style={{ fontSize: '14px' }}>{painIcon}</span>
+          <span style={{ color: '#aaa', fontSize: '12px' }}>{painName}</span>
+          {isQuickLog && <span style={{ color: '#d32f2f', fontSize: '9px' }}>⚡</span>}
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <span style={{ color: '#444', fontSize: '10px' }}>{displayDate}</span>
+          {onCompare && (
+            <span
+              onClick={(e) => { e.stopPropagation(); onCompare(record); }}
+              style={{
+                color: isCompareSelected ? '#e8a87c' : isCompareTarget ? '#81c784' : '#555',
+                fontSize: '10px',
+                cursor: 'pointer',
+                padding: '2px 4px',
+              }}
+            >
+              {isCompareSelected ? '◎' : isCompareTarget ? '◉' : '○'}
+            </span>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div
       style={{
-        background: '#1a1a1a',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '12px',
+        padding: '12px 16px',
+        marginBottom: '6px',
+        background: isCompareSelected
+          ? 'rgba(230,126,34,0.06)'
+          : isCompareTarget
+          ? 'rgba(76,175,80,0.04)'
+          : 'rgba(255,255,255,0.015)',
+        border: isCompareSelected
+          ? '1px solid rgba(230,126,34,0.2)'
+          : isCompareTarget
+          ? '1px solid rgba(76,175,80,0.15)'
+          : '1px solid rgba(255,255,255,0.04)',
         borderRadius: '12px',
-        padding: '15px',
-        marginBottom: '20px',
-        border: '1px solid #333',
+        cursor: 'pointer',
+        transition: 'all 0.2s ease',
+      }}
+      onClick={onView}
+      onMouseEnter={(e) => {
+        if (!isCompareSelected && !isCompareTarget) {
+          e.currentTarget.style.background = 'rgba(255,255,255,0.035)';
+          e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)';
+        }
+      }}
+      onMouseLeave={(e) => {
+        if (!isCompareSelected && !isCompareTarget) {
+          e.currentTarget.style.background = 'rgba(255,255,255,0.015)';
+          e.currentTarget.style.borderColor = 'rgba(255,255,255,0.04)';
+        }
       }}
     >
-      <p
-        style={{
-          color: '#fff',
-          fontWeight: 'bold',
-          margin: '0 0 10px 0',
-          fontSize: '13px',
-        }}
-      >
-        {t('history.trendTitle')}
-      </p>
-      <div style={{ display: 'flex', gap: '15px' }}>
-        <div style={{ flex: 1, textAlign: 'center' }}>
-          <div style={{ color: '#ef9a9a', fontSize: '20px', fontWeight: 'bold' }}>
-            {dominantName}
-          </div>
-          <div style={{ color: '#666', fontSize: '11px', marginTop: '4px' }}>
-            {t('history.trendMostCommon')}
-          </div>
+      {record.img && !isQuickLog && (
+        <img
+          src={record.img}
+          alt=""
+          style={{
+            width: '42px',
+            height: '42px',
+            borderRadius: '8px',
+            objectFit: 'cover',
+            background: '#111',
+            flexShrink: 0,
+          }}
+        />
+      )}
+      {isQuickLog && (
+        <div style={{
+          width: '42px',
+          height: '42px',
+          borderRadius: '8px',
+          background: 'rgba(211,47,47,0.08)',
+          border: '1px solid rgba(211,47,47,0.12)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          flexShrink: 0,
+        }}>
+          <span style={{ fontSize: '18px' }}>⚡</span>
         </div>
-        <div style={{ flex: 1, textAlign: 'center' }}>
-          <div style={{ color: '#90caf9', fontSize: '20px', fontWeight: 'bold' }}>
-            ~{avgGap}
-            {t('history.days')}
-          </div>
-          <div style={{ color: '#666', fontSize: '11px', marginTop: '4px' }}>
-            {t('history.trendAvgInterval')}
-          </div>
+      )}
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '3px' }}>
+          <span style={{ fontSize: '18px' }}>{painIcon}</span>
+          <span style={{ color: '#d0d0d0', fontSize: '15px', fontWeight: '400' }}>{painName}</span>
+          {isQuickLog && (
+            <span style={{
+              color: '#d32f2f',
+              fontSize: '9px',
+              background: 'rgba(211,47,47,0.08)',
+              padding: '2px 8px',
+              borderRadius: '8px',
+            }}>
+              {isEn ? 'Quick' : '快速'}
+            </span>
+          )}
+          {hasReport && (
+            <span style={{
+              color: '#e8a87c',
+              fontSize: '9px',
+              background: 'rgba(232,168,124,0.12)',
+              padding: '2px 8px',
+              borderRadius: '8px',
+            }}>
+              {isEn ? 'Report' : '报告'}
+            </span>
+          )}
+          {record.isSavedOnly && (
+            <span style={{
+              color: '#666',
+              fontSize: '9px',
+              background: 'rgba(255,255,255,0.05)',
+              padding: '2px 8px',
+              borderRadius: '8px',
+            }}>
+              {isEn ? 'Saved' : '仅保存'}
+            </span>
+          )}
         </div>
-        <div style={{ flex: 1, textAlign: 'center' }}>
-          <div style={{ color: '#a5d6a7', fontSize: '20px', fontWeight: 'bold' }}>
-            {history.length}
-          </div>
-          <div style={{ color: '#666', fontSize: '11px', marginTop: '4px' }}>
-            {t('history.trendTotal')}
-          </div>
+        <div style={{ color: '#555', fontSize: '12px' }}>
+          {displayDateTime}
         </div>
       </div>
-      {avgGap > 0 && (avgGap < 25 || avgGap > 35) ? (
-        <p
+
+      {/* 右侧按钮组 */}
+      <div style={{ display: 'flex', gap: '6px', flexShrink: 0, alignItems: 'center' }}>
+        {onCompare && (
+          <button
+            onClick={(e) => { e.stopPropagation(); onCompare(record); }}
+            style={{
+              background: isCompareSelected
+                ? 'rgba(230,126,34,0.15)'
+                : isCompareTarget
+                ? 'rgba(76,175,80,0.12)'
+                : 'rgba(255,255,255,0.03)',
+              border: isCompareSelected
+                ? '1px solid rgba(230,126,34,0.3)'
+                : isCompareTarget
+                ? '1px solid rgba(76,175,80,0.25)'
+                : '1px solid rgba(255,255,255,0.06)',
+              color: isCompareSelected ? '#e8a87c' : isCompareTarget ? '#81c784' : '#555',
+              fontSize: '10px',
+              cursor: 'pointer',
+              padding: '3px 8px',
+              borderRadius: '8px',
+              whiteSpace: 'nowrap',
+              transition: 'all 0.2s ease',
+            }}
+            onMouseEnter={(e) => {
+              if (!isCompareSelected && !isCompareTarget) {
+                e.currentTarget.style.background = 'rgba(255,255,255,0.06)';
+              }
+            }}
+            onMouseLeave={(e) => {
+              if (!isCompareSelected && !isCompareTarget) {
+                e.currentTarget.style.background = 'rgba(255,255,255,0.03)';
+              }
+            }}
+          >
+            {isCompareSelected
+              ? (isEn ? 'Source' : '已选')
+              : isCompareTarget
+              ? (isEn ? 'Target' : '对比中')
+              : (isEn ? 'Compare' : '对比')}
+          </button>
+        )}
+        <button
+          onClick={(e) => { e.stopPropagation(); onDelete(); }}
           style={{
-            color: '#ff9800',
-            fontSize: '11px',
-            margin: '10px 0 0 0',
-            padding: '8px',
-            background: 'rgba(255,152,0,0.08)',
+            background: 'transparent',
+            border: 'none',
+            color: '#444',
+            fontSize: '13px',
+            cursor: 'pointer',
+            padding: '6px',
+            flexShrink: 0,
             borderRadius: '6px',
+            transition: 'all 0.2s ease',
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = 'rgba(244,67,54,0.1)';
+            e.currentTarget.style.color = '#ef5350';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = 'transparent';
+            e.currentTarget.style.color = '#444';
           }}
         >
-          {t('history.trendDeviation')}
-        </p>
-      ) : null}
+          {t('history.delete')}
+        </button>
+      </div>
     </div>
   );
 };
@@ -151,173 +721,172 @@ const TrendSummary = ({ history, t }) => {
 // 主组件
 // ============================================================
 export default function HistoryPage({
-  lang = 'zh', 
-  setTargetLanguage,
-  onBack,
-  history,
+  history = [],
   setHistory,
-  calendarDate,
+  calendarDate = new Date(),
   setCalendarDate,
-  selectedDate,
+  selectedDate = null,
   setSelectedDate,
-  selectedDateRecords,
+  selectedDateRecords = [],
   setSelectedDateRecords,
-  showGroupedView,
+  showGroupedView = true,
   setShowGroupedView,
-  menstrualDates,
+  menstrualDates = [],
   setMenstrualDates,
-  viewingDiary,
+  viewingDiary = null,
   setViewingDiary,
-  onShareRecord,   
-  onPublishRecord, 
+  onBack,
   exportHistoryPDF,
   showToast,
+  onShareRecord,
+  onPublishRecord,
+  lang = 'zh',
+  setTargetLanguage,
 }) {
   const { t } = useI18n();
   const isEn = lang === 'en';
   const [collapsedMonths, setCollapsedMonths] = useState({});
 
-  const toggleMonth = (month) => {
-    setCollapsedMonths((prev) => ({
-      ...prev,
-      [month]: !prev[month],
-    }));
-  };
+  // 任意两条记录对比
+  const [compareSource, setCompareSource] = useState(null);
+  const [compareTarget, setCompareTarget] = useState(null);
+  const [compareMode, setCompareMode] = useState(false);
 
-  const hasRecordOnDate = (year, month, day) => {
+  const weekdays = isEn ? WEEKDAYS_EN : WEEKDAYS_ZH;
+
+  const year = calendarDate.getFullYear();
+  const month = calendarDate.getMonth();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const firstDay = new Date(year, month, 1).getDay();
+
+  const today = new Date();
+  const todayStr = formatDateKey(today.getFullYear(), today.getMonth(), today.getDate());
+
+  const hasRecordOnDate = (day) => {
     const targetStr = formatDateKey(year, month, day);
-    return history.some((h) => normalizeDateStr(h.date) === targetStr);
+    return history.some(h => normalizeDateStr(h.date) === targetStr);
   };
 
-  const getRecordsOnDate = (year, month, day) => {
+  const getRecordsOnDate = (day) => {
     const targetStr = formatDateKey(year, month, day);
-    return history.filter((h) => normalizeDateStr(h.date) === targetStr);
+    return history.filter(h => normalizeDateStr(h.date) === targetStr);
   };
 
-  const renderCalendar = () => {
-    const year = calendarDate.getFullYear();
-    const month = calendarDate.getMonth();
-    const daysInMonth = new Date(year, month + 1, 0).getDate();
-    const firstDay = new Date(year, month, 1).getDay();
-    const today = new Date();
-
-    const days = [];
-
-    for (let i = 0; i < firstDay; i++) {
-      days.push(
-        <div
-          key={`empty-${i}`}
-          style={{ width: '14.28%', padding: '8px', boxSizing: 'border-box' }}
-        />
-      );
-    }
-
-    for (let d = 1; d <= daysInMonth; d++) {
-      const dateKey = formatDateKey(year, month, d);
-      const hasRecord = hasRecordOnDate(year, month, d);
-      const isSelected = selectedDate === dateKey;
-      const isToday = formatDateKey(today.getFullYear(), today.getMonth(), today.getDate()) === dateKey;
-      const isMenstrual = menstrualDates.includes(dateKey);
-
-      days.push(
-        <div
-          key={d}
-          onClick={() => {
-            setSelectedDate(dateKey);
-            const records = getRecordsOnDate(year, month, d);
-            setSelectedDateRecords(records);
-          }}
-          style={{
-            width: '14.28%',
-            padding: '8px',
-            textAlign: 'center',
-            cursor: 'pointer',
-            position: 'relative',
-            boxSizing: 'border-box',
-          }}
-        >
-          <div
-            style={{
-              width: '36px',
-              height: '36px',
-              margin: '0 auto',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              borderRadius: '50%',
-              background: isSelected
-                ? '#d32f2f'
-                : isToday
-                ? 'rgba(211, 47, 47, 0.3)'
-                : 'transparent',
-              color: isSelected
-                ? '#fff'
-                : isMenstrual
-                ? '#ffcdd2'
-                : isToday
-                ? '#d32f2f'
-                : '#888',
-              fontWeight: isSelected ? 'bold' : isToday ? 'bold' : 'normal',
-              fontSize: '14px',
-            }}
-          >
-            {d}
-          </div>
-          {hasRecord && !isSelected && (
-            <div
-              style={{
-                position: 'absolute',
-                bottom: '4px',
-                left: '50%',
-                transform: 'translateX(-50%)',
-                width: '5px',
-                height: '5px',
-                borderRadius: '50%',
-                background: '#d32f2f',
-              }}
-            />
-          )}
-        </div>
-      );
-    }
-
-    return days;
+  const changeMonth = (delta) => {
+    setCalendarDate(new Date(year, month + delta, 1));
   };
 
-  const groupedHistory = history.reduce((acc, item) => {
-    if (!item.date) return acc;
-    const parts = normalizeDateStr(item.date).split('-');
-    if (parts.length < 2) return acc;
-    const year = parseInt(parts[0]);
-    const monthIdx = parseInt(parts[1]) - 1;
-    const monthKey = formatYearMonth(year, monthIdx, t);
-    if (!acc[monthKey]) acc[monthKey] = [];
-    acc[monthKey].push(item);
-    return acc;
-  }, {});
+  const handleDateClick = (day) => {
+    const dateStr = formatDateKey(year, month, day);
+    setSelectedDate(dateStr);
+    const records = getRecordsOnDate(day);
+    setSelectedDateRecords(records);
+  };
 
   const handleDeleteRecord = (recordId) => {
-    if (window.confirm(t('history.deleteConfirm') || '确定要删除这条记录吗？')) {
-      const updatedHistory = history.filter((h) => h.id !== recordId);
-      setHistory(updatedHistory);
-      localStorage.setItem('painscape_history', JSON.stringify(updatedHistory));
-      setSelectedDateRecords((prev) => prev.filter((h) => h.id !== recordId));
-      if (viewingDiary && viewingDiary.id === recordId) {
-        setViewingDiary(null);
+    if (window.confirm(t('history.deleteConfirm'))) {
+      const updated = history.filter(h => h.id !== recordId);
+      setHistory(updated);
+      try {
+        localStorage.setItem('painscape_history', JSON.stringify(updated));
+      } catch (e) { }
+      setSelectedDateRecords(prev => prev.filter(h => h.id !== recordId));
+      if (viewingDiary?.id === recordId) setViewingDiary(null);
+      // 清除对比中涉及的记录
+      if (compareSource?.id === recordId) {
+        setCompareSource(null);
+        setCompareTarget(null);
+        setCompareMode(false);
       }
-      showToast('recordDeleted');
+      if (compareTarget?.id === recordId) {
+        setCompareTarget(null);
+        setCompareMode(false);
+      }
+      showToast?.('recordDeleted');
     }
+  };
+
+  // 查看详情：过滤 painScore
+  const handleViewRecord = (record) => {
+    const { painScore, ...cleanRecord } = record;
+    setViewingDiary(cleanRecord);
+  };
+
+  // 对比选择
+  const handleCompareSelect = (record) => {
+    const { painScore, ...cleanRecord } = record;
+
+    if (!compareSource) {
+      setCompareSource(cleanRecord);
+      setCompareTarget(null);
+      setCompareMode(false);
+    } else if (compareSource.id === cleanRecord.id) {
+      setCompareSource(null);
+      setCompareTarget(null);
+      setCompareMode(false);
+    } else {
+      setCompareTarget(cleanRecord);
+      setCompareMode(true);
+    }
+  };
+
+  const handleClearCompare = () => {
+    setCompareSource(null);
+    setCompareTarget(null);
+    setCompareMode(false);
+  };
+
+  const groupedHistory = useMemo(() => {
+    return history.reduce((acc, item) => {
+      const parts = normalizeDateStr(item.date).split('-');
+      if (parts.length < 2) return acc;
+      const y = parseInt(parts[0]);
+      const m = parseInt(parts[1]) - 1;
+      const key = formatYearMonth(y, m, isEn);
+      if (!acc[key]) acc[key] = [];
+      acc[key].push(item);
+      return acc;
+    }, {});
+  }, [history, isEn]);
+
+  const toggleMonth = (monthKey) => {
+    setCollapsedMonths(prev => ({ ...prev, [monthKey]: !prev[monthKey] }));
+  };
+
+  const isSelectedDate = (day) => {
+    return formatDateKey(year, month, day) === selectedDate;
+  };
+
+  const isMenstrualDate = (day) => {
+    const dateStr = formatDateKey(year, month, day);
+    return menstrualDates.includes(dateStr);
+  };
+
+  const getDayPainColor = (day) => {
+    const records = getRecordsOnDate(day);
+    if (records.length === 0) return null;
+    const key = records[0].dominantPain || CHINESE_TO_KEY_MAP[records[0].painName];
+    return PAIN_COLORS[key] || '#888';
   };
 
   const getWeekDays = () => {
-    const sun = t('history.sun') || '日';
-    const mon = t('history.mon') || '一';
-    const tue = t('history.tue') || '二';
-    const wed = t('history.wed') || '三';
-    const thu = t('history.thu') || '四';
-    const fri = t('history.fri') || '五';
-    const sat = t('history.sat') || '六';
-    return [sun, mon, tue, wed, thu, fri, sat];
+    return [
+      t('history.sun'),
+      t('history.mon'),
+      t('history.tue'),
+      t('history.wed'),
+      t('history.thu'),
+      t('history.fri'),
+      t('history.sat'),
+    ];
+  };
+
+  const hasMultipleRecordsOnDate = (day) => {
+    return getRecordsOnDate(day).length > 1;
+  };
+
+  const getRecordCountOnDate = (day) => {
+    return getRecordsOnDate(day).length;
   };
 
   return (
@@ -334,7 +903,7 @@ export default function HistoryPage({
         boxSizing: 'border-box',
       }}
     >
-      {/* 顶栏 */}
+      {/* ===== 顶栏 ===== */}
       <div
         style={{
           display: 'flex',
@@ -348,43 +917,36 @@ export default function HistoryPage({
           paddingBottom: '10px',
         }}
       >
-        <h2 style={{ color: '#fff', margin: 0, fontSize: '1.2rem' }}>
+        <h2 style={{ color: '#fff', margin: 0, fontSize: '1.2rem', fontWeight: '400', letterSpacing: '1px' }}>
           {t('history.title')}
         </h2>
-        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-          {/* 🌐 语言一键切换按钮 */}
+        <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
           {setTargetLanguage && (
             <button
               onClick={() => setTargetLanguage(isEn ? 'zh' : 'en')}
               style={{
-                padding: '6px 12px',
-                background: 'rgba(255,255,255,0.08)',
-                border: '1px solid rgba(255,255,255,0.15)',
-                color: '#fff',
-                borderRadius: '20px',
-                fontSize: '12px',
+                padding: '4px 10px',
+                background: 'rgba(255,255,255,0.05)',
+                border: '1px solid rgba(255,255,255,0.08)',
+                color: '#888',
+                borderRadius: '16px',
+                fontSize: '11px',
                 cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '4px',
-                transition: 'background 0.2s',
+                transition: 'all 0.2s',
               }}
-              onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(255,255,255,0.15)')}
-              onMouseLeave={(e) => (e.currentTarget.style.background = 'rgba(255,255,255,0.08)')}
             >
-              🌐 {isEn ? '简体中文' : 'English'}
+              {isEn ? '中文' : 'EN'}
             </button>
           )}
-
           <button
             onClick={exportHistoryPDF}
             style={{
-              padding: '6px 12px',
-              background: '#d32f2f',
-              color: '#fff',
-              border: 'none',
-              borderRadius: '20px',
-              fontSize: '12px',
+              padding: '4px 12px',
+              background: 'rgba(255,255,255,0.05)',
+              border: '1px solid rgba(255,255,255,0.08)',
+              color: '#888',
+              borderRadius: '16px',
+              fontSize: '11px',
               cursor: 'pointer',
             }}
           >
@@ -393,12 +955,12 @@ export default function HistoryPage({
           <button
             onClick={onBack}
             style={{
-              padding: '6px 12px',
-              background: '#333',
-              color: '#fff',
-              border: 'none',
-              borderRadius: '20px',
-              fontSize: '12px',
+              padding: '4px 12px',
+              background: 'rgba(255,255,255,0.05)',
+              border: '1px solid rgba(255,255,255,0.08)',
+              color: '#888',
+              borderRadius: '16px',
+              fontSize: '11px',
               cursor: 'pointer',
             }}
           >
@@ -407,14 +969,30 @@ export default function HistoryPage({
         </div>
       </div>
 
-      <TrendSummary history={history} t={t} />
+      {/* 趋势摘要 */}
+      <TrendSummary history={history} t={t} isEn={isEn} />
 
-      {/* 日历 */}
+      {/* 疼痛类型分布 */}
+      <PainTypeDistribution history={history} t={t} />
+
+      {/* ===== 对比视图（全局） ===== */}
+      {(compareMode || compareSource) && (
+        <ComparisonView
+          source={compareSource}
+          target={compareTarget}
+          t={t}
+          isEn={isEn}
+          onClear={handleClearCompare}
+        />
+      )}
+
+      {/* ===== 日历面板 ===== */}
       <div
         style={{
-          background: '#1a1a1a',
-          borderRadius: '20px',
-          padding: '16px',
+          background: 'rgba(255,255,255,0.02)',
+          border: '1px solid rgba(255,255,255,0.05)',
+          borderRadius: '16px',
+          padding: '18px',
           marginBottom: '20px',
         }}
       >
@@ -423,42 +1001,34 @@ export default function HistoryPage({
             display: 'flex',
             justifyContent: 'space-between',
             alignItems: 'center',
-            marginBottom: '20px',
+            marginBottom: '18px',
           }}
         >
           <button
-            onClick={() =>
-              setCalendarDate(
-                new Date(calendarDate.getFullYear(), calendarDate.getMonth() - 1, 1)
-              )
-            }
+            onClick={() => changeMonth(-1)}
             style={{
               background: 'none',
               border: 'none',
-              color: '#fff',
-              fontSize: '24px',
+              color: '#666',
+              fontSize: '20px',
               cursor: 'pointer',
-              padding: '0 12px',
+              padding: '0 8px',
             }}
           >
             ‹
           </button>
-          <span style={{ color: '#fff', fontWeight: 'bold', fontSize: '16px' }}>
-            {formatYearMonth(calendarDate.getFullYear(), calendarDate.getMonth(), t)}
+          <span style={{ color: '#ccc', fontSize: '15px', fontWeight: '400' }}>
+            {formatYearMonth(year, month, isEn)}
           </span>
           <button
-            onClick={() =>
-              setCalendarDate(
-                new Date(calendarDate.getFullYear(), calendarDate.getMonth() + 1, 1)
-              )
-            }
+            onClick={() => changeMonth(1)}
             style={{
               background: 'none',
               border: 'none',
-              color: '#fff',
-              fontSize: '24px',
+              color: '#666',
+              fontSize: '20px',
               cursor: 'pointer',
-              padding: '0 12px',
+              padding: '0 8px',
             }}
           >
             ›
@@ -467,16 +1037,17 @@ export default function HistoryPage({
 
         <div style={{ display: 'flex', marginBottom: '12px' }}>
           {getWeekDays().map((day) => {
-            const isWeekend = day === (t('history.sun') || '日') || day === (t('history.sat') || '六') || day === 'Sun' || day === 'Sat';
+            const isWeekend = day === t('history.sun') || day === t('history.sat');
             return (
               <div
                 key={day}
                 style={{
                   width: '14.28%',
                   textAlign: 'center',
-                  color: isWeekend ? '#d32f2f' : '#666',
-                  fontSize: '12px',
-                  fontWeight: isWeekend ? 'bold' : 'normal',
+                  color: isWeekend ? 'rgba(211,47,47,0.3)' : '#444',
+                  fontSize: '11px',
+                  fontWeight: isWeekend ? '400' : '300',
+                  letterSpacing: '0.5px',
                 }}
               >
                 {day}
@@ -485,101 +1056,177 @@ export default function HistoryPage({
           })}
         </div>
 
-        <div style={{ display: 'flex', flexWrap: 'wrap' }}>{renderCalendar()}</div>
-      </div>
+        <div style={{ display: 'flex', flexWrap: 'wrap' }}>
+          {Array.from({ length: firstDay }).map((_, i) => (
+            <div key={`empty-${i}`} style={{ width: '14.28%', padding: '6px', boxSizing: 'border-box' }} />
+          ))}
+          {Array.from({ length: daysInMonth }, (_, i) => i + 1).map((day) => {
+            const dateKey = formatDateKey(year, month, day);
+            const hasRecord = hasRecordOnDate(day);
+            const hasMultiple = hasMultipleRecordsOnDate(day);
+            const painColor = getDayPainColor(day);
+            const isSelected = selectedDate === dateKey;
+            const isToday = todayStr === dateKey;
+            const isMenstrual = isMenstrualDate(day);
+            const recordCount = getRecordCountOnDate(day);
 
-      {/* 选中日期下的记录细单 */}
-      {selectedDate && (
-        <div style={{ marginTop: '20px' }}>
-          <h3 style={{ color: '#fff', fontSize: '14px', marginBottom: '12px' }}>
-            📅 {t('history.recordsOfDate', { date: selectedDate }) || `Records for ${selectedDate}`}
-          </h3>
-          {selectedDateRecords.length === 0 ? (
-            <div
-              style={{
-                background: '#1c1c1c',
-                padding: '30px 20px',
-                borderRadius: '12px',
-                textAlign: 'center',
-                color: '#666',
-                fontSize: '13px',
-              }}
-            >
-              🌱 {t('history.noRecordThisDay')}
-            </div>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              {selectedDateRecords.map((record) => (
+            return (
+              <div
+                key={day}
+                onClick={() => handleDateClick(day)}
+                style={{
+                  width: '14.28%',
+                  padding: '6px',
+                  textAlign: 'center',
+                  cursor: 'pointer',
+                  position: 'relative',
+                  boxSizing: 'border-box',
+                }}
+              >
                 <div
-                  key={record.id}
-                  onClick={() => setViewingDiary(record)}
                   style={{
+                    width: '38px',
+                    height: '38px',
+                    margin: '0 auto',
                     display: 'flex',
                     alignItems: 'center',
-                    background: '#1c1c1c',
-                    padding: '12px',
-                    borderRadius: '12px',
-                    cursor: 'pointer',
-                    transition: 'transform 0.1s, background 0.2s',
-                    border: '1px solid #333',
+                    justifyContent: 'center',
+                    borderRadius: '50%',
+                    background: isSelected
+                      ? 'rgba(230,126,34,0.25)'
+                      : hasRecord
+                        ? 'rgba(230,126,34,0.12)'
+                        : isToday
+                          ? 'rgba(255,255,255,0.05)'
+                          : 'transparent',
+                    border: isSelected
+                      ? '2px solid rgba(230,126,34,0.5)'
+                      : hasRecord
+                        ? '1.5px solid rgba(230,126,34,0.25)'
+                        : isToday
+                          ? '1px solid rgba(255,255,255,0.08)'
+                          : '1px solid transparent',
+                    color: isSelected
+                      ? '#f0d0b0'
+                      : hasRecord
+                        ? '#e8c8a8'
+                        : isMenstrual
+                          ? '#ffcdd2'
+                          : isToday
+                            ? '#aaa'
+                            : '#444',
+                    fontWeight: isSelected || hasRecord ? '500' : '300',
+                    fontSize: '14px',
+                    transition: 'all 0.2s ease',
+                    position: 'relative',
                   }}
-                  onMouseEnter={(e) => (e.currentTarget.style.background = '#252525')}
-                  onMouseLeave={(e) => (e.currentTarget.style.background = '#1c1c1c')}
                 >
-                  <img
-                    src={record.img}
+                  {day}
+                  {hasRecord && !isSelected && recordCount > 0 && (
+                    <span style={{
+                      position: 'absolute',
+                      top: '-2px',
+                      right: '-2px',
+                      fontSize: '8px',
+                      color: 'rgba(230,126,34,0.5)',
+                      fontWeight: '400',
+                    }}>
+                      {recordCount}
+                    </span>
+                  )}
+                </div>
+                {/* 疼痛标记点 - 选中时也显示 */}
+                {hasRecord && (
+                  <div
                     style={{
-                      width: '50px',
-                      height: '50px',
-                      borderRadius: '8px',
-                      objectFit: 'cover',
-                      background: '#000',
-                    }}
-                    alt="pain map"
-                  />
-                  <div style={{ marginLeft: '12px', flex: 1 }}>
-                    <div style={{ color: '#fff', fontWeight: 'bold', fontSize: '14px' }}>
-                      {getPainNameDisplay(record, t)}
-                    </div>
-                    <div style={{ color: '#888', fontSize: '12px', marginTop: '4px' }}>
-                      {record.time}
-                    </div>
-                  </div>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleDeleteRecord(record.id);
-                    }}
-                    style={{
-                      background: 'none',
-                      border: 'none',
-                      color: '#666',
-                      fontSize: '14px',
-                      cursor: 'pointer',
-                      padding: '4px 8px',
-                      borderRadius: '6px',
-                      transition: 'background 0.2s, color 0.2s',
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.background = 'rgba(244,67,54,0.1)';
-                      e.currentTarget.style.color = '#ef5350';
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.background = 'transparent';
-                      e.currentTarget.style.color = '#666';
+                      display: 'flex',
+                      justifyContent: 'center',
+                      gap: '2px',
+                      marginTop: '2px',
                     }}
                   >
-                    🗑️
-                  </button>
-                  <span style={{ color: '#666', fontSize: '18px', marginLeft: '4px' }}>›</span>
-                </div>
+                    <div
+                      style={{
+                        width: '5px',
+                        height: '5px',
+                        borderRadius: '50%',
+                        background: isSelected ? '#f0d0b0' : (painColor || '#e67e22'),
+                        opacity: isSelected ? 0.9 : 0.7,
+                      }}
+                    />
+                    {hasMultiple && (
+                      <div
+                        style={{
+                          width: '5px',
+                          height: '5px',
+                          borderRadius: '50%',
+                          background: isSelected ? '#f0d0b0' : (painColor || '#e67e22'),
+                          opacity: isSelected ? 0.6 : 0.35,
+                        }}
+                      />
+                    )}
+                  </div>
+                )}
+                {!hasRecord && (
+                  <div style={{ height: '9px' }} />
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* ===== 选中日期记录列表 ===== */}
+      {selectedDate && (
+        <div style={{ marginTop: '18px' }}>
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            marginBottom: '12px',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={{ color: '#666', fontSize: '14px' }}>📅</span>
+              <span style={{ color: '#888', fontSize: '14px', fontWeight: '300' }}>
+                {t('history.recordsOfDate', { date: selectedDate })}
+              </span>
+              <span style={{ color: '#444', fontSize: '12px' }}>
+                · {selectedDateRecords.length} {isEn ? 'records' : '条记录'}
+              </span>
+            </div>
+          </div>
+
+          {selectedDateRecords.length === 0 ? (
+            <div style={{
+              background: 'rgba(255,255,255,0.01)',
+              padding: '32px 20px',
+              borderRadius: '12px',
+              textAlign: 'center',
+              border: '1px dashed rgba(255,255,255,0.04)',
+            }}>
+              <span style={{ color: '#444', fontSize: '14px' }}>{t('history.noRecordThisDay')}</span>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              {selectedDateRecords.map((record) => (
+                <RecordCard
+                  key={record.id}
+                  record={record}
+                  t={t}
+                  isEn={isEn}
+                  onView={() => handleViewRecord(record)}
+                  onDelete={() => handleDeleteRecord(record.id)}
+                  onCompare={handleCompareSelect}
+                  isCompareSelected={compareSource?.id === record.id}
+                  isCompareTarget={compareTarget?.id === record.id}
+                />
               ))}
             </div>
           )}
         </div>
       )}
 
-      {/* 汇总分组折叠视图 */}
+      {/* ===== 汇总分组折叠视图 ===== */}
       {history.length > 0 && (
         <div style={{ marginTop: '30px' }}>
           <div
@@ -588,174 +1235,112 @@ export default function HistoryPage({
               justifyContent: 'space-between',
               alignItems: 'center',
               marginBottom: '12px',
-              borderTop: '1px solid #222',
+              borderTop: '1px solid rgba(255,255,255,0.04)',
               paddingTop: '20px',
             }}
           >
-            <h3 style={{ color: '#fff', fontSize: '14px', margin: 0 }}>
-              📋 {t('history.allRecords')}
-            </h3>
+            <span style={{ color: '#666', fontSize: '13px', letterSpacing: '0.5px' }}>
+              {t('history.allRecords')}
+            </span>
             <button
               onClick={() => setShowGroupedView(!showGroupedView)}
               style={{
                 background: 'none',
                 border: 'none',
-                color: '#4caf50',
+                color: '#555',
                 fontSize: '12px',
                 cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '4px',
               }}
             >
-              {showGroupedView ? '▲ ' + (t('history.collapseLabel') || 'Collapse') : '▼ ' + (t('history.expandLabel') || 'Expand')}
+              {showGroupedView
+                ? t('history.collapseLabel')
+                : t('history.expandLabel')}
             </button>
           </div>
 
-          {showGroupedView &&
-            Object.entries(groupedHistory).map(([month, records]) => (
-              <div key={month} style={{ marginBottom: '16px' }}>
-                <div
-                  onClick={() => toggleMonth(month)}
-                  style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    padding: '10px 12px',
-                    background: '#151515',
-                    borderRadius: '10px',
-                    borderLeft: `3px solid ${
-                      collapsedMonths[month] ? '#666' : '#d32f2f'
-                    }`,
-                    cursor: 'pointer',
-                    marginBottom: '8px',
-                  }}
-                >
-                  <span style={{ color: '#fff', fontSize: '13px', fontWeight: '500' }}>
-                    {month}
-                  </span>
-                  <span style={{ color: '#888', fontSize: '11px' }}>
-                    {t('history.recordsCount', { count: records.length })} {collapsedMonths[month] ? '▶' : '▼'}
-                  </span>
-                </div>
-
-                {!collapsedMonths[month] && (
+          {showGroupedView && Object.entries(groupedHistory)
+            .sort((a, b) => b[0].localeCompare(a[0]))
+            .map(([monthKey, records]) => {
+              const isCollapsed = collapsedMonths[monthKey] || false;
+              return (
+                <div key={monthKey} style={{ marginBottom: '8px' }}>
                   <div
+                    onClick={() => toggleMonth(monthKey)}
                     style={{
                       display: 'flex',
-                      flexDirection: 'column',
-                      gap: '8px',
-                      marginLeft: '8px',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      padding: '10px 14px',
+                      background: 'rgba(255,255,255,0.015)',
+                      borderRadius: '10px',
+                      cursor: 'pointer',
+                      transition: 'background 0.2s ease',
                     }}
                   >
-                    {records.map((record) => (
-                      <div
-                        key={record.id}
-                        onClick={() => setViewingDiary(record)}
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          background: '#1c1c1c',
-                          padding: '10px',
-                          borderRadius: '10px',
-                          cursor: 'pointer',
-                          transition: 'background 0.2s',
-                        }}
-                        onMouseEnter={(e) => (e.currentTarget.style.background = '#252525')}
-                        onMouseLeave={(e) => (e.currentTarget.style.background = '#1c1c1c')}
-                      >
-                        <img
-                          src={record.img}
-                          style={{
-                            width: '40px',
-                            height: '40px',
-                            borderRadius: '6px',
-                            objectFit: 'cover',
-                            background: '#000',
-                          }}
-                          alt=""
-                        />
-                        <div style={{ marginLeft: '12px', flex: 1 }}>
-                          <div
-                            style={{
-                              color: '#fff',
-                              fontSize: '13px',
-                              fontWeight: '500',
-                            }}
-                          >
-                            {record.date}
-                          </div>
-                          <div
-                            style={{
-                              fontSize: '11px',
-                              color: '#888',
-                              marginTop: '2px',
-                            }}
-                          >
-                            {getPainNameDisplay(record, t)} · {record.time}
-                          </div>
-                        </div>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleDeleteRecord(record.id);
-                          }}
-                          style={{
-                            background: 'none',
-                            border: 'none',
-                            color: '#555',
-                            fontSize: '13px',
-                            cursor: 'pointer',
-                            padding: '4px 8px',
-                            borderRadius: '6px',
-                            transition: 'background 0.2s, color 0.2s',
-                          }}
-                          onMouseEnter={(e) => {
-                            e.currentTarget.style.background = 'rgba(244,67,54,0.1)';
-                            e.currentTarget.style.color = '#ef5350';
-                          }}
-                          onMouseLeave={(e) => {
-                            e.currentTarget.style.background = 'transparent';
-                            e.currentTarget.style.color = '#555';
-                          }}
-                        >
-                          🗑️
-                        </button>
-                        <span style={{ color: '#555', marginLeft: '4px' }}>›</span>
-                      </div>
-                    ))}
+                    <span style={{ color: '#888', fontSize: '13px' }}>{monthKey}</span>
+                    <span style={{ color: '#555', fontSize: '11px' }}>
+                      {t('history.recordsCount', { count: records.length })}
+                      <span style={{ marginLeft: '6px', color: '#444' }}>
+                        {isCollapsed ? '▶' : '▼'}
+                      </span>
+                    </span>
                   </div>
-                )}
-              </div>
-            ))}
+
+                  {!isCollapsed && (
+                    <div style={{ padding: '4px 0 0 4px' }}>
+                      {records.map((record) => (
+                        <RecordCard
+                          key={record.id}
+                          record={record}
+                          t={t}
+                          isEn={isEn}
+                          compact
+                          onView={() => handleViewRecord(record)}
+                          onDelete={() => handleDeleteRecord(record.id)}
+                          onCompare={handleCompareSelect}
+                          isCompareSelected={compareSource?.id === record.id}
+                          isCompareTarget={compareTarget?.id === record.id}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
         </div>
       )}
 
+      {/* ===== 空状态 ===== */}
       {history.length === 0 && (
-        <div
-          style={{
-            textAlign: 'center',
-            padding: '80px 20px',
-            color: '#555',
-          }}
-        >
-          <div style={{ fontSize: '56px', marginBottom: '16px' }}>📖</div>
-          <p style={{ fontSize: '15px', color: '#666' }}>{t('history.empty')}</p>
+        <div style={{
+          textAlign: 'center',
+          padding: '80px 20px',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: '12px',
+        }}>
+          <div style={{ fontSize: '48px', opacity: 0.3 }}>🌱</div>
+          <p style={{ color: '#555', fontSize: '15px', fontWeight: '300', lineHeight: '1.6' }}>
+            {t('history.empty')}
+          </p>
+          <p style={{ color: '#333', fontSize: '13px', fontWeight: '300' }}>
+            {isEn
+              ? 'Your journey of listening to your body starts here'
+              : '倾听身体的旅程，从这里开始'}
+          </p>
         </div>
       )}
 
-      {/* 🌟 复用抽离出来的痛觉记录/详情通用弹窗 */}
+      {/* ===== 记录详情弹窗 ===== */}
       <RecordDetailModal
         viewingDiary={viewingDiary}
         mode="history"
         onClose={() => setViewingDiary(null)}
         onDelete={handleDeleteRecord}
-        onShare={(record) => {
-          if (onShareRecord) onShareRecord(record);
-        }}
-        onPublish={(record, customText) => {
-          if (onPublishRecord) onPublishRecord(record, customText);
-        }}
+        onShare={(record) => onShareRecord?.(record)}
+        onPublish={(record, customText) => onPublishRecord?.(record, customText)}
         lang={lang}
       />
     </div>

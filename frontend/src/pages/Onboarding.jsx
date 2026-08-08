@@ -7,6 +7,7 @@ import OnboardingTooltip from '../Components/OnboardingTooltip';
 
 // 子组件：可折叠多选下拉框
 const CollapsibleMultiSelect = ({ label, options, selectedValues, onChange, placeholder }) => {
+  const { t } = useI18n();
   const [isOpen, setIsOpen] = useState(false);
   const triggerRef = React.useRef(null);
 
@@ -21,8 +22,8 @@ const CollapsibleMultiSelect = ({ label, options, selectedValues, onChange, plac
   };
 
   const displayText = selectedValues?.length > 0
-    ? `${selectedValues.length} 项已选`
-    : placeholder || '请选择';
+    ? `${selectedValues.length} ${t('common.itemsSelected')}`
+    : placeholder || t('common.pleaseSelect');
 
 
   return (
