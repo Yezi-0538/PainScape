@@ -938,7 +938,20 @@ export default function ResultPage({
             fontSize: '14px',
             boxShadow: '0 4px 12px rgba(76,175,80,0.2)',
           }}
-          onClick={() => prepareSharePreview && prepareSharePreview(content)} // 🌟 调取海报预审弹窗
+          type="button"
+          onClick={() => {
+            try {
+              // 调试日志，便于在浏览器控制台定位问题
+              // eslint-disable-next-line no-console
+              console.log('ResultPage: share button clicked', { prepareSharePreview, onShare, content, imgUrl });
+            } catch (e) {}
+            if (prepareSharePreview) {
+              prepareSharePreview(content);
+            } else if (onShare) {
+              // 回退：如果没有预览流程则直接调用 onShare
+              onShare(content?.historyImg || imgUrl);
+            }
+          }} // 🌟 调取海报预审弹窗
         >
           {t('result.shareCard')}
         </button>
@@ -955,8 +968,18 @@ export default function ResultPage({
             fontSize: '14px',
             boxShadow: '0 4px 12px rgba(33,150,243,0.2)',
           }}
+          type="button"
           onClick={() => {
-            if (onPublish) onPublish(); // 🌟 调取社区发布弹窗
+            try {
+              // eslint-disable-next-line no-console
+              console.log('ResultPage: publish button clicked', { onPublish, setShowPublish: typeof setShowPostModal !== 'undefined' });
+            } catch (e) {}
+            if (onPublish) {
+              onPublish(); // 🌟 调取社区发布弹窗
+            } else if (typeof setShowPostModal !== 'undefined') {
+              // 回退：如果父组件是以 setShowPostModal 管理弹窗，尝试打开
+              setShowPostModal(true);
+            }
           }}
         >
           {t('result.publish')}

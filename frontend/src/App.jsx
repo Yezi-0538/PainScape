@@ -185,6 +185,56 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
   const [posts, setPosts] = useState([]);
   const [hasLoadedCommunity, setHasLoadedCommunity] = useState(false);
 
+  // 如果本地没有帖子，则注入预设示例帖子，便于本地开发和演示
+  useEffect(() => {
+    try {
+      const existing = JSON.parse(localStorage.getItem('painscape_posts') || '[]');
+      if (!Array.isArray(existing) || existing.length === 0) {
+        const now = new Date().toISOString();
+        const seed = [
+          {
+            id: 'seed_1',
+            userId: 'user_seed',
+            authorId: 'user_seed',
+            nickname: '小红',
+            avatar: '❤️',
+            text: '今天画了痛觉图谱，感觉被看见了。大家也来试试吧～',
+            img: '',
+            painTags: ['twist'],
+            likes: 3,
+            hugs: 1,
+            userExperience: '热敷与深呼吸有效缓解',
+            experienceTags: ['self-care'],
+            is_anonymous: false,
+            created_at: now,
+            createdAt: now,
+          },
+          {
+            id: 'seed_2',
+            userId: 'user_seed2',
+            authorId: 'user_seed2',
+            nickname: '小明',
+            avatar: '🌿',
+            text: '分享我的恢复方法：短时散步 + 放松呼吸，疼痛减轻许多。',
+            img: '',
+            painTags: ['wave'],
+            likes: 5,
+            hugs: 2,
+            userExperience: '运动与呼吸结合',
+            experienceTags: ['movement'],
+            is_anonymous: false,
+            created_at: now,
+            createdAt: now,
+          },
+        ];
+        localStorage.setItem('painscape_posts', JSON.stringify(seed));
+      }
+    } catch (e) {
+      // eslint-disable-next-line no-console
+      console.warn('Seed posts failed:', e);
+    }
+  }, []);
+
   useEffect(() => {
     if (page === 'community' && !hasLoadedCommunity) {
       (async () => {

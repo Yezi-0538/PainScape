@@ -65,8 +65,25 @@ export async function createPost(postData) {
  * 获取帖子列表（含匿名处理 + 数据字段双向兼容）
  */
 export async function getPosts(limit = 50) {
+  const localPosts = JSON.parse(localStorage.getItem('painscape_posts') || '[]')
   if (!supabase) {
-    return JSON.parse(localStorage.getItem('painscape_posts') || '[]')
+    return (Array.isArray(localPosts) ? localPosts : []).map((post) => ({
+      ...post,
+      id: String(post.id || post.local_id || `local_${Date.now()}`),
+      userId: post.userId || post.user_id || post.authorId || post.author_id || 'user_guest',
+      authorId: post.authorId || post.userId || post.user_id || post.author_id || 'user_guest',
+      user_id: post.user_id || post.userId || post.authorId || post.author_id || 'user_guest',
+      nickname: post.nickname || post.authorName || post.displayName || '同伴',
+      authorName: post.authorName || post.nickname || post.displayName || '同伴',
+      avatar: post.avatar || post.authorAvatar || post.customAvatar || '🩸',
+      authorAvatar: post.authorAvatar || post.avatar || '🩸',
+      customAvatar: post.customAvatar || post.custom_avatar || '',
+      painTags: post.painTags || post.pain_tags || [],
+      dominantPain: post.dominantPain || post.painTags?.[0] || post.pain_tags?.[0] || 'twist',
+      userExperience: post.userExperience || post.user_experience || '',
+      experienceTags: post.experienceTags || post.experience_tags || [],
+      createdAt: post.createdAt || post.created_at,
+    }))
   }
 
   const { data, error } = await supabase
@@ -78,34 +95,64 @@ export async function getPosts(limit = 50) {
       img,
       likes,
       hugs,
+      helpful_votes,
       user_experience,
       experience_tags,
       is_anonymous,
       user_id,
       created_at,
-      updated_at
+      updated_at,
+      profiles (nickname, avatar, custom_avatar)
     `)
     .order('created_at', { ascending: false })
     .limit(limit)
 
   if (error) {
     console.error('Get posts error:', error)
-    return JSON.parse(localStorage.getItem('painscape_posts') || '[]')
+    return (Array.isArray(localPosts) ? localPosts : []).map((post) => ({
+      ...post,
+      id: String(post.id || post.local_id || `local_${Date.now()}`),
+      userId: post.userId || post.user_id || post.authorId || post.author_id || 'user_guest',
+      authorId: post.authorId || post.userId || post.user_id || post.author_id || 'user_guest',
+      user_id: post.user_id || post.userId || post.authorId || post.author_id || 'user_guest',
+      nickname: post.nickname || post.authorName || post.displayName || '同伴',
+      authorName: post.authorName || post.nickname || post.displayName || '同伴',
+      avatar: post.avatar || post.authorAvatar || post.customAvatar || '🩸',
+      authorAvatar: post.authorAvatar || post.avatar || '🩸',
+      customAvatar: post.customAvatar || post.custom_avatar || '',
+      painTags: post.painTags || post.pain_tags || [],
+      dominantPain: post.dominantPain || post.painTags?.[0] || post.pain_tags?.[0] || 'twist',
+      userExperience: post.userExperience || post.user_experience || '',
+      experienceTags: post.experienceTags || post.experience_tags || [],
+      createdAt: post.createdAt || post.created_at,
+    }))
   }
 
-  return data.map(post => ({
-    ...post,
-    id: String(post.id),
-    userId: post.is_anonymous ? undefined : post.user_id,
-    authorId: post.is_anonymous ? undefined : post.user_id,
-    displayName: post.is_anonymous ? '匿名用户' : null,
-    user_id: post.is_anonymous ? undefined : post.user_id,
-    painTags: post.pain_tags || [],
-    dominantPain: post.pain_tags?.[0] || 'twist',
-    userExperience: post.user_experience || '',
-    experienceTags: post.experience_tags || [],
-    createdAt: post.created_at,
-  }))
+  return data.map(post => {
+    const profile = post.profiles || {};
+    const nickname = post.is_anonymous ? '匿名用户' : (profile.nickname || post.nickname || '同伴');
+    const avatar = post.is_anonymous ? '🩸' : (profile.avatar || post.avatar || '🩸');
+    const customAvatar = post.is_anonymous ? '' : (profile.custom_avatar || post.customAvatar || '');
+
+    return {
+      ...post,
+      id: String(post.id),
+      userId: post.is_anonymous ? undefined : post.user_id,
+      authorId: post.is_anonymous ? undefined : post.user_id,
+      displayName: post.is_anonymous ? '匿名用户' : null,
+      user_id: post.is_anonymous ? undefined : post.user_id,
+      nickname,
+      authorName: nickname,
+      avatar,
+      authorAvatar: avatar,
+      customAvatar,
+      painTags: post.pain_tags || [],
+      dominantPain: post.pain_tags?.[0] || 'twist',
+      userExperience: post.user_experience || '',
+      experienceTags: post.experience_tags || [],
+      createdAt: post.created_at,
+    }
+  })
 }
 
 /**
