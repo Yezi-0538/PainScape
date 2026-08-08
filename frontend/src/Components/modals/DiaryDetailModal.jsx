@@ -43,11 +43,37 @@ export default function DiaryDetailModal({
     onClose();
   };
 
+  const [showPublishConfirm, setShowPublishConfirm] = useState(false);
+
   const handlePublish = () => {
+    // 检查是否有编辑过的文字内容
+    const hasCustomText = viewingDiary.customText ||
+      viewingDiary.postText ||
+      (viewingDiary.content && (
+        viewingDiary.content.workText ||
+        viewingDiary.content.partnerText ||
+        viewingDiary.content.reportText
+      ));
+
+    if (!hasCustomText) {
+      // 没有任何文字内容，弹窗确认
+      setShowPublishConfirm(true);
+    } else {
+      // 有内容，直接发布
+      doPublish();
+    }
+  };
+
+  const doPublish = () => {
     onPublish(viewingDiary.img);
     onClose();
   };
 
+  const handleConfirmEmptyPublish = () => {
+    setShowPublishConfirm(false);
+    doPublish();
+  };
+  
   return (
     <div
       style={{

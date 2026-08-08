@@ -22,3 +22,5 @@ Thumbs.db
 
 # 后端日志文件
 *.log
+
+node_modules/
