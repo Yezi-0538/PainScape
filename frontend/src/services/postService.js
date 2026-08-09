@@ -2,6 +2,32 @@
 import { supabase } from './supabaseClient'
 
 /**
+ * 辅助方法：从本地缓存或Profiles中补全用户信息
+ */
+function enrichLocalPostProfile(post) {
+  if (post.is_anonymous) {
+    return {
+      ...post,
+      nickname: '匿名用户',
+      displayName: '匿名用户',
+      avatar: '🩹',
+      customAvatar: '',
+    }
+  }
+
+  const currentUid = post.userId || post.user_id || post.authorId;
+  const simulatedProfiles = JSON.parse(localStorage.getItem('painscape_simulated_profiles') || '{}');
+  const userProfile = simulatedProfiles[currentUid] || {};
+
+  return {
+    ...post,
+    nickname: userProfile.nickname || post.nickname || post.authorName || '同伴',
+    avatar: userProfile.avatar || post.avatar || '🩸',
+    customAvatar: userProfile.customAvatar || userProfile.custom_avatar || post.customAvatar || post.custom_avatar || '',
+  }
+}
+
+/**
  * 发布帖子（兼容旧字段名 + 强绑定 UID + 本地降级）
  */
 export async function createPost(postData) {
@@ -67,28 +93,14 @@ export async function createPost(postData) {
 }
 
 /**
- * 获取帖子列表（含匿名处理 + 数据字段双向兼容）
+ * 获取帖子列表（🌟 核心修复：Supabase外键联表 profiles 自动获取最新头像与昵称）
  */
 export async function getPosts(limit = 50) {
   const localPosts = JSON.parse(localStorage.getItem('painscape_posts') || '[]')
+  
   if (!supabase) {
-    return (Array.isArray(localPosts) ? localPosts : []).map((post) => ({
-      ...post,
-      id: String(post.id || post.local_id || `local_${Date.now()}`),
-      userId: post.userId || post.user_id || post.authorId || post.author_id || 'user_guest',
-      authorId: post.authorId || post.userId || post.user_id || post.author_id || 'user_guest',
-      user_id: post.user_id || post.userId || post.authorId || post.author_id || 'user_guest',
-      nickname: post.nickname || post.authorName || post.displayName || '同伴',
-      authorName: post.authorName || post.nickname || post.displayName || '同伴',
-      avatar: post.avatar || post.authorAvatar || post.customAvatar || '🩸',
-      authorAvatar: post.authorAvatar || post.avatar || '🩸',
-      customAvatar: post.customAvatar || post.custom_avatar || '',
-      painTags: post.painTags || post.pain_tags || [],
-      dominantPain: post.dominantPain || post.painTags?.[0] || post.pain_tags?.[0] || 'twist',
-      userExperience: post.userExperience || post.user_experience || '',
-      experienceTags: post.experienceTags || post.experience_tags || [],
-      createdAt: post.createdAt || post.created_at,
-    }))
+    const rawLocal = JSON.parse(localStorage.getItem('painscape_posts') || '[]');
+    return rawLocal.map(enrichLocalPostProfile);
   }
 
   const { data, error } = await supabase
@@ -107,57 +119,49 @@ export async function getPosts(limit = 50) {
       user_id,
       created_at,
       updated_at,
-      profiles (nickname, avatar, custom_avatar)
+      profiles:user_id (
+        nickname,
+        avatar,
+        custom_avatar
+      )
     `)
     .order('created_at', { ascending: false })
     .limit(limit)
 
   if (error) {
-    console.error('Get posts error:', error)
-    return (Array.isArray(localPosts) ? localPosts : []).map((post) => ({
-      ...post,
-      id: String(post.id || post.local_id || `local_${Date.now()}`),
-      userId: post.userId || post.user_id || post.authorId || post.author_id || 'user_guest',
-      authorId: post.authorId || post.userId || post.user_id || post.author_id || 'user_guest',
-      user_id: post.user_id || post.userId || post.authorId || post.author_id || 'user_guest',
-      nickname: post.nickname || post.authorName || post.displayName || '同伴',
-      authorName: post.authorName || post.nickname || post.displayName || '同伴',
-      avatar: post.avatar || post.authorAvatar || post.customAvatar || '🩸',
-      authorAvatar: post.authorAvatar || post.avatar || '🩸',
-      customAvatar: post.customAvatar || post.custom_avatar || '',
-      painTags: post.painTags || post.pain_tags || [],
-      dominantPain: post.dominantPain || post.painTags?.[0] || post.pain_tags?.[0] || 'twist',
-      userExperience: post.userExperience || post.user_experience || '',
-      experienceTags: post.experienceTags || post.experience_tags || [],
-      createdAt: post.createdAt || post.created_at,
-    }))
+    console.error('Get posts error, fallback to local:', error)
+    const rawLocal = JSON.parse(localStorage.getItem('painscape_posts') || '[]');
+    return rawLocal.map(enrichLocalPostProfile);
   }
 
   return data.map(post => {
-    const profile = post.profiles || {};
-    const nickname = post.is_anonymous ? '匿名用户' : (profile.nickname || post.nickname || '同伴');
-    const avatar = post.is_anonymous ? '🩸' : (profile.avatar || post.avatar || '🩸');
-    const customAvatar = post.is_anonymous ? '' : (profile.custom_avatar || post.customAvatar || '');
+    const isAnon = post.is_anonymous;
+    const profile = isAnon ? {} : (post.profiles || {});
+
+    const authorNickname = isAnon ? '匿名用户' : (profile.nickname || '同伴');
+    const authorAvatar = isAnon ? '🩹' : (profile.avatar || '🌸');
+    const authorCustomAvatar = isAnon ? '' : (profile.custom_avatar || '');
 
     return {
       ...post,
       id: String(post.id),
-      userId: post.is_anonymous ? undefined : post.user_id,
-      authorId: post.is_anonymous ? undefined : post.user_id,
-      displayName: post.is_anonymous ? '匿名用户' : null,
-      user_id: post.is_anonymous ? undefined : post.user_id,
-      nickname,
-      authorName: nickname,
-      avatar,
-      authorAvatar: avatar,
-      customAvatar,
+      // 🌟 将联表获取到的 Profiles 数据写入 post 属性中
+      nickname: authorNickname,
+      authorName: authorNickname,
+      displayName: authorNickname,
+      avatar: authorAvatar,
+      customAvatar: authorCustomAvatar,
+      custom_avatar: authorCustomAvatar,
+      userId: isAnon ? undefined : post.user_id,
+      authorId: isAnon ? undefined : post.user_id,
+      user_id: isAnon ? undefined : post.user_id,
       painTags: post.pain_tags || [],
       dominantPain: post.pain_tags?.[0] || 'twist',
       userExperience: post.user_experience || '',
       experienceTags: post.experience_tags || [],
       createdAt: post.created_at,
     }
-  })
+  });
 }
 
 /**
@@ -296,22 +300,31 @@ export async function voteHelpfulPost(postId, helpfulVotes, hasUserVotedHelpful 
  * 删除帖子（仅限本人）
  */
 export async function deletePost(postId, userId) {
-  if (!supabase) {
+  // 1. 强制清理 localStorage 本地缓存，保证本地数据与视图实时同步
+  try {
     const posts = JSON.parse(localStorage.getItem('painscape_posts') || '[]')
     const filtered = posts.filter(p => String(p.id) !== String(postId))
     localStorage.setItem('painscape_posts', JSON.stringify(filtered))
-    return true
+  } catch (e) {
+    console.warn('Clear local posts error:', e)
   }
 
-  const { error } = await supabase
-    .from('posts')
-    .delete()
-    .eq('id', postId)
-    .eq('user_id', userId)
+  if (!supabase) return true
 
-  if (error) {
-    console.error('Delete post error:', error)
+  // 2. 云端 Supabase 删除（兼容字符串与数字 ID）
+  try {
+    const { error } = await supabase
+      .from('posts')
+      .delete()
+      .eq('id', postId)
+
+    if (error) {
+      console.error('Delete post from Supabase error:', error)
+      return false
+    }
+    return true
+  } catch (err) {
+    console.error('Delete post error:', err)
     return false
   }
-  return true
 }

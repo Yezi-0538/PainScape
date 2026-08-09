@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { I18nProvider, useI18n } from './i18n/i18nContext';
 import { UserProvider, useUser } from './contexts/UserContext';
+// import { getPainNameDisplay } from './utils/painUtils.js';
 
 // ===== 页面导入 =====
 import SplashPage from './pages/SplashPage';
@@ -36,6 +37,12 @@ const API_BASE = window.location.hostname === 'localhost' || window.location.hos
   ? 'http://127.0.0.1:8000'
   : 'https://painscape-api.onrender.com';
 
+const CHINESE_TO_KEY_MAP = {
+  '绞痛': 'twist', '刺痛': 'pierce', '坠胀': 'heavy',
+  '坠胀重压': 'heavy', '坠痛': 'heavy', '酸胀': 'wave',
+  '酸胀痛': 'wave', '弥漫酸胀痛': 'wave', '刮痛': 'scrape',
+  '撕裂痛': 'scrape', '撕裂刮痛': 'scrape',
+};
 function AppContent({ targetLanguage, setTargetLanguage }) {
   const isEn = targetLanguage === 'en';
   const { t } = useI18n();
@@ -648,6 +655,214 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
       setPage('result');
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const exportHistoryPDF = (recordsToExport) => {
+    // 如果没有传入 recordsToExport，使用全部 history
+    const records = recordsToExport || history;
+
+    if (!records || records.length === 0) {
+      showToast('noHistoryToExport');
+      return;
+    }
+
+    try {
+      const printWindow = window.open('', '_blank', 'width=900,height=700');
+      if (!printWindow) {
+        showToast('popupBlocked');
+        return;
+      }
+
+      const docTitle = t('pdf.docTitle') || 'PainScape Somatic Report';
+      const exportTimeLabel = t('pdf.exportTime') || 'Exported: ';
+      const totalRecordsLabel = t('pdf.totalCount', { count: records.length }) || `${records.length} records`;
+      const timeLocale = isEn ? 'en-US' : 'zh-CN';
+
+      // ✅ CHINESE_TO_KEY_MAP 已从 painUtils.js 导入，直接使用
+      const containsChinese = (str) => /[\u4e00-\u9fa5]/.test(String(str || ''));
+
+      // ✅ 生成每条记录的 HTML，包含图片
+      const recordsHtml = records.map((record, idx) => {
+        const dominantKey = record.dominantPain || CHINESE_TO_KEY_MAP[record.painName] || 'twist';
+        const painNameDisplay = t(`painNames.${dominantKey}`) || record.painName || '';
+
+        let rd = record.reportData || {};
+        if (isEn) {
+          const freshEn = generateContent(dominantKey);
+          const prefKey = record.userPrefs?.[0] || 'care';
+          const actionsArr = t(`partnerActions.${prefKey}`, { returnObjects: true }) || [];
+          const actionEn = Array.isArray(actionsArr)
+            ? actionsArr.map(a => String(a).replace('{{med}}', 'Ibuprofen')).join('\n')
+            : '';
+
+          rd = {
+            chief_complaint: containsChinese(rd.chief_complaint) ? freshEn.chief_complaint : rd.chief_complaint,
+            present_illness: containsChinese(rd.present_illness) ? freshEn.present_illness : rd.present_illness,
+            clinical_diagnosis: containsChinese(rd.clinical_diagnosis) ? freshEn.clinical_diagnosis : rd.clinical_diagnosis,
+            clinical_suggestions: containsChinese(rd.clinical_suggestions) ? freshEn.clinical_suggestions : rd.clinical_suggestions,
+            analogy: containsChinese(rd.analogy) ? freshEn.analogy : rd.analogy,
+            selfCare: containsChinese(rd.selfCare) ? freshEn.selfCare : rd.selfCare,
+            action: containsChinese(rd.action) ? actionEn : rd.action,
+            work: containsChinese(rd.work) ? (t('workTemplate') ? t('workTemplate').replace('{{pain}}', painNameDisplay) : rd.work) : rd.work,
+          };
+        }
+
+        const formatText = (val) => {
+          if (!val) return '';
+          if (Array.isArray(val)) return val.join(isEn ? '; ' : '；');
+          if (typeof val === 'object') return JSON.stringify(val);
+          return String(val);
+        };
+
+        // ✅ 嵌入图片（如果存在）
+        let imgHtml = '';
+        if (record.img) {
+          imgHtml = `
+          <div style="text-align:center; margin:12px 0;">
+            <img src="${record.img}" style="max-width:100%; max-height:400px; border:1px solid #ddd; border-radius:6px; box-shadow:0 2px 8px rgba(0,0,0,0.08);" />
+          </div>
+        `;
+        }
+
+        return `
+        <div style="margin-bottom:28px; page-break-inside:avoid; border-bottom:1px solid #e8e8e8; padding-bottom:20px;">
+          <h3 style="margin:0 0 8px; color:#c62828; font-size:16px; font-weight:600;">
+            ${t('pdf.record', { index: idx + 1 })} — ${record.date || ''} ${record.time || ''}
+          </h3>
+          ${imgHtml}
+          <p style="margin:4px 0; font-size:13px; line-height:1.7;">
+            <strong>${t('pdf.painType') || 'Pain Type:'}</strong> ${painNameDisplay}
+          </p>
+          ${rd.chief_complaint ? `<p style="margin:4px 0; font-size:13px; line-height:1.7;"><strong>${t('pdf.chiefComplaint') || 'Chief Complaint:'}</strong> ${formatText(rd.chief_complaint)}</p>` : ''}
+          ${rd.present_illness ? `<p style="margin:4px 0; font-size:13px; line-height:1.7;"><strong>${t('pdf.presentIllness') || 'Present Illness:'}</strong> ${formatText(rd.present_illness)}</p>` : ''}
+          ${rd.clinical_diagnosis ? `<p style="margin:4px 0; font-size:13px; line-height:1.7;"><strong>${t('pdf.clinicalDiagnosis') || 'Clinical Diagnosis:'}</strong> ${formatText(rd.clinical_diagnosis)}</p>` : ''}
+          ${rd.clinical_suggestions ? `<p style="margin:4px 0; font-size:13px; line-height:1.7;"><strong>${t('pdf.suggestions') || 'Suggestions:'}</strong> ${formatText(rd.clinical_suggestions)}</p>` : ''}
+          ${rd.analogy ? `<p style="margin:4px 0; font-size:13px; line-height:1.7;"><strong>${t('pdf.analogy') || 'Analogy:'}</strong> ${formatText(rd.analogy)}</p>` : ''}
+          ${rd.selfCare ? `<p style="margin:4px 0; font-size:13px; line-height:1.7;"><strong>${t('pdf.selfCare') || 'Self-Care:'}</strong> ${formatText(rd.selfCare)}</p>` : ''}
+          ${rd.action ? `<p style="margin:4px 0; font-size:13px; line-height:1.7;"><strong>${t('pdf.action') || 'Action:'}</strong> ${formatText(rd.action)}</p>` : ''}
+          ${rd.work ? `<p style="margin:4px 0; font-size:13px; line-height:1.7;"><strong>${t('pdf.work') || 'Work:'}</strong> ${formatText(rd.work)}</p>` : ''}
+        </div>
+      `;
+      }).join('');
+
+      printWindow.document.write(`<!DOCTYPE html>
+      <html>
+      <head>
+        <title>${docTitle}</title>
+        <meta charset="UTF-8">
+        <style>
+          * { box-sizing: border-box; }
+          body {
+            font-family: -apple-system, 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', sans-serif;
+            padding: 30px 40px;
+            color: #333;
+            line-height: 1.7;
+            max-width: 900px;
+            margin: 0 auto;
+            background: #fafafa;
+          }
+          h1 {
+            color: #c62828;
+            border-bottom: 3px solid #c62828;
+            padding-bottom: 12px;
+            font-size: 28px;
+            font-weight: 600;
+            letter-spacing: 1px;
+          }
+          .meta {
+            color: #888;
+            font-size: 13px;
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #eee;
+          }
+          h3 {
+            font-size: 16px;
+            color: #1a1a1a;
+          }
+          p {
+            font-size: 13px;
+            margin: 5px 0;
+            line-height: 1.7;
+          }
+          strong {
+            color: #555;
+            font-weight: 600;
+          }
+          img {
+            max-width: 100%;
+            height: auto;
+            border-radius: 6px;
+          }
+          @media print {
+            body { background: #fff; padding: 20px; }
+          }
+          @media (max-width: 600px) {
+            body { padding: 15px; }
+            h1 { font-size: 22px; }
+          }
+        </style>
+      </head>
+      <body>
+        <h1>${docTitle}</h1>
+        <div class="meta">
+          <span>${exportTimeLabel} ${new Date().toLocaleString(timeLocale)}</span>
+          <span>${totalRecordsLabel}</span>
+        </div>
+        ${recordsHtml}
+        <div style="text-align:center; color:#aaa; font-size:12px; margin-top:30px; padding-top:15px; border-top:1px solid #eee;">
+          PainScape — ${isEn ? 'Generated by Somatic AI Engine' : '由体感 AI 引擎生成'}
+        </div>
+        <div style="text-align:center; margin-top:16px; color:#bbb; font-size:11px;">
+          ${isEn ? '💡 Right-click → Print (or Ctrl+P) to save as PDF' : '💡 右键 → 打印（或 Ctrl+P）可保存为 PDF'}
+        </div>
+      </body>
+      </html>
+    `);
+
+      printWindow.document.close();
+
+      // 等待图片加载完成后自动打开打印对话框
+      const images = printWindow.document.querySelectorAll('img');
+      let imagesLoaded = 0;
+      const totalImages = images.length;
+
+      if (totalImages === 0) {
+        setTimeout(() => printWindow.print(), 500);
+      } else {
+        images.forEach((img) => {
+          if (img.complete) {
+            imagesLoaded++;
+            if (imagesLoaded === totalImages) {
+              setTimeout(() => printWindow.print(), 400);
+            }
+          } else {
+            img.onload = () => {
+              imagesLoaded++;
+              if (imagesLoaded === totalImages) {
+                setTimeout(() => printWindow.print(), 400);
+              }
+            };
+            img.onerror = () => {
+              imagesLoaded++;
+              if (imagesLoaded === totalImages) {
+                setTimeout(() => printWindow.print(), 400);
+              }
+            };
+          }
+        });
+        // 超时保护
+        setTimeout(() => {
+          printWindow.print();
+        }, 5000);
+      }
+
+    } catch (e) {
+      console.error('❌ 导出失败:', e);
+      showToast('exportFailed');
     }
   };
   const handleSaveOnly = () => {
@@ -1449,6 +1664,7 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
             viewingDiary={viewingDiary}
             setViewingDiary={setViewingDiary}
             onBack={() => setPage('onboarding')}
+            exportHistoryPDF={exportHistoryPDF}
             onShareRecord={(record) => {
               prepareSharePreview({
                 ...record.reportData,
@@ -1458,104 +1674,7 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
               });
             }}
             onPublishRecord={(record, customText) => handlePublishPost(record, customText)}
-            exportHistoryPDF={() => {
-              if (!history || history.length === 0) {
-                showToast('noHistoryToExport');
-                return;
-              }
-              try {
-                const printWindow = window.open('', '_blank', 'width=800,height=600');
-                if (!printWindow) {
-                  showToast('popupBlocked');
-                  return;
-                }
-                const docTitle = t('pdf.docTitle');
-                const exportTimeLabel = t('pdf.exportTime');
-                const totalRecordsLabel = t('pdf.totalCount', { count: history.length });
-                const timeLocale = isEn ? 'en-US' : 'zh-CN';
 
-                const CHINESE_TO_KEY = {
-                  '绞痛': 'twist', '刺痛': 'pierce',
-                  '坠胀': 'heavy', '坠胀重压': 'heavy', '坠痛': 'heavy',
-                  '酸胀': 'wave', '酸胀痛': 'wave', '弥漫酸胀痛': 'wave',
-                  '刮痛': 'scrape', '撕裂痛': 'scrape', '撕裂刮痛': 'scrape'
-                };
-
-                const containsChinese = (str) => /[\u4e00-\u9fa5]/.test(String(str || ''));
-                const recordsHtml = history.map((record, idx) => {
-                  const dominantKey = record.dominantPain || CHINESE_TO_KEY[record.painName] || 'twist';
-                  const painNameDisplay = t(`painNames.${dominantKey}`) || record.painName || '';
-
-                  let rd = record.reportData || {};
-                  if (isEn) {
-                    const freshEn = generateContent(dominantKey);
-
-                    const prefKey = record.userPrefs?.[0] || 'care';
-                    const actionsArr = t(`partnerActions.${prefKey}`, { returnObjects: true }) || [];
-                    const actionEn = Array.isArray(actionsArr)
-                      ? actionsArr.map(a => String(a).replace('{{med}}', 'Ibuprofen')).join('\n')
-                      : '';
-
-                    rd = {
-                      chief_complaint: containsChinese(rd.chief_complaint) ? freshEn.chief_complaint : rd.chief_complaint,
-                      present_illness: containsChinese(rd.present_illness) ? freshEn.present_illness : rd.present_illness,
-                      clinical_diagnosis: containsChinese(rd.clinical_diagnosis) ? freshEn.clinical_diagnosis : rd.clinical_diagnosis,
-                      clinical_suggestions: containsChinese(rd.clinical_suggestions) ? freshEn.clinical_suggestions : rd.clinical_suggestions,
-                      analogy: containsChinese(rd.analogy) ? freshEn.analogy : rd.analogy,
-                      selfCare: containsChinese(rd.selfCare) ? freshEn.selfCare : rd.selfCare,
-                      action: containsChinese(rd.action) ? actionEn : rd.action,
-                      work: containsChinese(rd.work) ? (t('workTemplate') ? t('workTemplate').replace('{{pain}}', painNameDisplay) : rd.work) : rd.work,
-                    };
-                  }
-
-                  const formatText = (val) => {
-                    if (!val) return '';
-                    if (Array.isArray(val)) return val.join(isEn ? '; ' : '；');
-                    if (typeof val === 'object') return JSON.stringify(val);
-                    return val;
-                  };
-
-                  return `
-                    <div style="margin-bottom:24px; page-break-inside:avoid; border-bottom:1px solid #ddd; padding-bottom:16px;">
-                      <h3 style="margin:0 0 8px; color:#c62828;">${t('pdf.record', { index: idx + 1 })} — ${record.date || ''} ${record.time || ''}</h3>
-                      <p><strong>${t('pdf.painType')}</strong>${painNameDisplay}</p>
-                      <p><strong>${t('pdf.painScore')}</strong>${record.painScore ?? '-'}</p>
-                      ${rd.chief_complaint ? `<p><strong>${t('pdf.chiefComplaint')}</strong>${formatText(rd.chief_complaint)}</p>` : ''}
-                      ${rd.present_illness ? `<p><strong>${t('pdf.presentIllness')}</strong>${formatText(rd.present_illness)}</p>` : ''}
-                      ${rd.clinical_diagnosis ? `<p><strong>${t('pdf.clinicalDiagnosis')}</strong>${formatText(rd.clinical_diagnosis)}</p>` : ''}
-                      ${rd.clinical_suggestions ? `<p><strong>${t('pdf.suggestions')}</strong>${formatText(rd.clinical_suggestions)}</p>` : ''}
-                      ${rd.analogy ? `<p><strong>${t('pdf.analogy')}</strong>${formatText(rd.analogy)}</p>` : ''}
-                      ${rd.selfCare ? `<p><strong>${t('pdf.selfCare')}</strong>${formatText(rd.selfCare)}</p>` : ''}
-                      ${rd.action ? `<p><strong>${t('pdf.action')}</strong>${formatText(rd.action)}</p>` : ''}
-                      ${rd.work ? `<p><strong>${t('pdf.work')}</strong>${formatText(rd.work)}</p>` : ''}
-                    </div>`;
-                }).join('');
-
-                printWindow.document.write(`<!DOCTYPE html>
-                  <html><head><title>${docTitle}</title>
-                  <style>
-                    body { font-family: -apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif; padding: 20px; color: #333; line-height: 1.6; }
-                    h1 { color: #c62828; border-bottom: 2px solid #c62828; padding-bottom: 8px; }
-                    h3 { font-size: 15px; }
-                    p { font-size: 13px; margin: 4px 0; }
-                    @media print { body { padding: 0; } }
-                  </style></head>
-                  <body>
-                    <h1>${docTitle}</h1>
-                    <p>${exportTimeLabel}${new Date().toLocaleString(timeLocale)}　|　${totalRecordsLabel}</p>
-                    <hr/>
-                    ${recordsHtml}
-                  </body></html>`);
-
-                printWindow.document.close();
-                setTimeout(() => {
-                  printWindow.print();
-                }, 500);
-              } catch (e) {
-                console.error('❌ PDF 导出失败:', e);
-                showToast('exportFailed');
-              }
-            }}
             showToast={showToast}
           />
         );
@@ -1568,6 +1687,7 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
             medicalBackground={medicalBackground}
             history={history}
             posts={posts}
+            setPosts={setPosts}
             lang={targetLanguage}
             setTargetLanguage={setTargetLanguage}
             onBack={() => {
