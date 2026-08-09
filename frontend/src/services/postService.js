@@ -78,12 +78,17 @@ export async function createPost(postData) {
 
   return {
     ...data,
-    userId: currentUid,
-    authorId: currentUid,
+    id: String(data.id),
+    userId: data.user_id || currentUid,
+    authorId: data.user_id || currentUid,
+    user_id: data.user_id || currentUid,
     nickname: postData.nickname || '同伴',
     avatar: postData.avatar || '🩸',
     customAvatar: postData.customAvatar || '',
     userExperience: data.user_experience || postData.userExperience || '',
+    painTags: data.pain_tags || postData.painTags || [],
+    experienceTags: data.experience_tags || postData.experienceTags || [],
+    createdAt: data.created_at || new Date().toISOString(),
   }
 }
 
@@ -91,6 +96,8 @@ export async function createPost(postData) {
  * 获取帖子列表（🌟 核心修复：Supabase外键联表 profiles 自动获取最新头像与昵称）
  */
 export async function getPosts(limit = 50) {
+  const localPosts = JSON.parse(localStorage.getItem('painscape_posts') || '[]')
+  
   if (!supabase) {
     const rawLocal = JSON.parse(localStorage.getItem('painscape_posts') || '[]');
     return rawLocal.map(enrichLocalPostProfile);
@@ -105,6 +112,7 @@ export async function getPosts(limit = 50) {
       img,
       likes,
       hugs,
+      helpful_votes,
       user_experience,
       experience_tags,
       is_anonymous,
@@ -137,24 +145,22 @@ export async function getPosts(limit = 50) {
     return {
       ...post,
       id: String(post.id),
-      userId: isAnon ? undefined : post.user_id,
-      authorId: isAnon ? undefined : post.user_id,
-      user_id: isAnon ? undefined : post.user_id,
-      
-      // 🌟 将联表获取到的 Profiles 数据写入 post 属性中，精准供给组件使用
+      // 🌟 将联表获取到的 Profiles 数据写入 post 属性中
       nickname: authorNickname,
       authorName: authorNickname,
       displayName: authorNickname,
       avatar: authorAvatar,
       customAvatar: authorCustomAvatar,
       custom_avatar: authorCustomAvatar,
-
+      userId: isAnon ? undefined : post.user_id,
+      authorId: isAnon ? undefined : post.user_id,
+      user_id: isAnon ? undefined : post.user_id,
       painTags: post.pain_tags || [],
       dominantPain: post.pain_tags?.[0] || 'twist',
       userExperience: post.user_experience || '',
       experienceTags: post.experience_tags || [],
       createdAt: post.created_at,
-    };
+    }
   });
 }
 
@@ -183,7 +189,7 @@ export async function getMyPosts(userId) {
 /**
  * 点赞帖子
  */
-export async function likePost(postId, userId) {
+export async function likePost(postId) {
   if (!supabase) {
     const posts = JSON.parse(localStorage.getItem('painscape_posts') || '[]')
     const post = posts.find(p => String(p.id) === String(postId))
@@ -256,6 +262,35 @@ export async function updatePostExperience(postId, experience, tags = []) {
 
   if (error) {
     console.error('Update experience error:', error)
+    return null
+  }
+  return data
+}
+
+/**
+ * 更新帖子“有用投票”计数（兼容本地/云端）
+ */
+export async function voteHelpfulPost(postId, helpfulVotes, hasUserVotedHelpful = false) {
+  const posts = JSON.parse(localStorage.getItem('painscape_posts') || '[]')
+  const post = posts.find(p => String(p.id) === String(postId))
+  if (post) {
+    post.helpfulVotes = helpfulVotes
+    post.helpful_votes = helpfulVotes
+    post.hasUserVotedHelpful = hasUserVotedHelpful
+  }
+  localStorage.setItem('painscape_posts', JSON.stringify(posts))
+
+  if (!supabase) return post
+
+  const { data, error } = await supabase
+    .from('posts')
+    .update({ helpful_votes: helpfulVotes })
+    .eq('id', postId)
+    .select()
+    .single()
+
+  if (error) {
+    console.error('Vote helpful error:', error)
     return null
   }
   return data

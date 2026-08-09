@@ -610,6 +610,8 @@ const translations = {
       shareContext: "选择分享场景：",
       share: "📤 分享",
       publish: "🌐 发布",
+      publishConfirmTitle: "确认发布",
+      publishConfirmMessage: "该日记将发布到社区广场，其他同伴将可见。是否继续？",
       compareToggle: "📊 与上次对比",
       compareHide: "隐藏对比",
       compareThis: "本次",

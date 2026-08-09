@@ -30,22 +30,25 @@ export default function AuthModal({ isOpen, onAuthSuccess, onGuestLogin }) {
       const { data, error } = await supabase.auth.signUp({ email, password });
       if (error) throw error;
 
-      if (data.user) {
-        // 注册成功后，同步在 profiles 数据表中插入该用户的自定义昵称和头像
-        const { error: profileError } = await supabase
-          .from("profiles")
-          .upsert({
-            id: data.user.id,
-            email: email,
-            nickname: nickname,
-            avatar: avatar,
-            signature: "让说不出的痛，换一种方式抵达。🧘",
-            bg_index: 0
-          });
-        
-        if (profileError) throw profileError;
-        onAuthSuccess(data.user.id);
+      const userId = data?.user?.id ?? data?.session?.user?.id;
+      if (!userId) {
+        throw new Error('注册成功但未获取用户信息，请检查邮箱是否已确认。');
       }
+
+      // 注册成功后，同步在 profiles 数据表中插入该用户的自定义昵称和头像
+      const { error: profileError } = await supabase
+        .from("profiles")
+        .upsert({
+          id: userId,
+          email: email,
+          nickname: nickname,
+          avatar: avatar,
+          signature: "让说不出的痛，换一种方式抵达。🧘",
+          bg_index: 0
+        });
+      
+      if (profileError) throw profileError;
+      onAuthSuccess(userId);
     } catch (err) {
       setErrorMsg(err.message || "注册失败，请检查网络或格式");
     } finally {
@@ -66,9 +69,11 @@ export default function AuthModal({ isOpen, onAuthSuccess, onGuestLogin }) {
     try {
       const { data, error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) throw error;
-      if (data.user) {
-        onAuthSuccess(data.user.id);
+      const userId = data?.user?.id ?? data?.session?.user?.id;
+      if (!userId) {
+        throw new Error('登录成功但未获取用户信息，请稍后重试。');
       }
+      onAuthSuccess(userId);
     } catch (err) {
       setErrorMsg(err.message || "登录失败，请检查账号密码");
     } finally {

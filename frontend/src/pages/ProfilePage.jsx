@@ -22,7 +22,8 @@ export default function ProfilePage({
   setPosts, // 🌟 接收 setPosts，保证删帖后实时更新视图
   lang = 'zh',
   setTargetLanguage, 
-  onBack 
+  onBack,
+  onLogout,
 }) {
   const { t } = useI18n();
   const { userInfo, setUserInfo, logout, activeBackground } = useUser();
@@ -962,7 +963,10 @@ export default function ProfilePage({
         {/* ===== 安全退出 ===== */}
         {isSelf && (
           <button
-            onClick={logout}
+            onClick={async () => {
+              await logout();
+              onLogout?.();
+            }}
             style={{
               width: '100%',
               padding: '14px 0',
