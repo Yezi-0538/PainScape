@@ -1,7 +1,7 @@
 -- ============================================================
 -- PainScape 初始数据库迁移
 -- 创建时间: 2026-07-23 01:20:10
--- 更新时间: 2026-07-30 (新增用户资料字段)
+-- 更新时间: 2026-08-10 (修复 RLS 策略)
 -- ============================================================
 
 -- 1. 创建 profiles 表（用户档案）
@@ -93,16 +93,19 @@ ALTER TABLE posts ENABLE ROW LEVEL SECURITY;
 -- ============================================================
 
 -- 用户只能查看自己的档案
+DROP POLICY IF EXISTS "Users can view own profile" ON profiles;
 CREATE POLICY "Users can view own profile"
   ON profiles FOR SELECT
   USING (id = auth.uid());
 
 -- 用户只能插入自己的档案
+DROP POLICY IF EXISTS "Users can insert own profile" ON profiles;
 CREATE POLICY "Users can insert own profile"
   ON profiles FOR INSERT
   WITH CHECK (id = auth.uid());
 
 -- 用户只能更新自己的档案
+DROP POLICY IF EXISTS "Users can update own profile" ON profiles;
 CREATE POLICY "Users can update own profile"
   ON profiles FOR UPDATE
   USING (id = auth.uid())
@@ -113,16 +116,19 @@ CREATE POLICY "Users can update own profile"
 -- ============================================================
 
 -- 用户只能查看自己的疼痛记录
+DROP POLICY IF EXISTS "Users can view own pain records" ON pain_records;
 CREATE POLICY "Users can view own pain records"
   ON pain_records FOR SELECT
-  USING (user_id = auth.uid());
+  USING (user_id = auth.uid());  -- ✅ 添加分号
 
 -- 用户只能插入自己的疼痛记录
+DROP POLICY IF EXISTS "Users can insert own pain records" ON pain_records;
 CREATE POLICY "Users can insert own pain records"
   ON pain_records FOR INSERT
   WITH CHECK (user_id = auth.uid());
 
 -- 用户只能删除自己的疼痛记录
+DROP POLICY IF EXISTS "Users can delete own pain records" ON pain_records;
 CREATE POLICY "Users can delete own pain records"
   ON pain_records FOR DELETE
   USING (user_id = auth.uid());
@@ -132,22 +138,26 @@ CREATE POLICY "Users can delete own pain records"
 -- ============================================================
 
 -- 任何人都可以查看帖子（公开社区）
+DROP POLICY IF EXISTS "Anyone can view posts" ON posts;
 CREATE POLICY "Anyone can view posts"
   ON posts FOR SELECT
   USING (true);
 
 -- 用户只能插入自己的帖子
+DROP POLICY IF EXISTS "Users can insert own posts" ON posts;
 CREATE POLICY "Users can insert own posts"
   ON posts FOR INSERT
   WITH CHECK (user_id = auth.uid());
 
 -- 用户只能更新自己的帖子
+DROP POLICY IF EXISTS "Users can update own posts" ON posts;
 CREATE POLICY "Users can update own posts"
   ON posts FOR UPDATE
   USING (user_id = auth.uid())
   WITH CHECK (user_id = auth.uid());
 
 -- 用户只能删除自己的帖子
+DROP POLICY IF EXISTS "Users can delete own posts" ON posts;
 CREATE POLICY "Users can delete own posts"
   ON posts FOR DELETE
   USING (user_id = auth.uid());
