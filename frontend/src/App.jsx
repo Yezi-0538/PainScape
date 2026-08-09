@@ -759,6 +759,33 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
       showToast('exportFailed');
     }
   };
+
+  const handleShareSavedPainting = async () => {
+    const canvasImg = generateCompositeCanvas() || getFallbackImgUrl();
+
+    // 优先使用原生分享 API（支持微信、系统分享等）
+    if (navigator.share) {
+      try {
+        const blob = await (await fetch(canvasImg)).blob();
+        const file = new File([blob], `painscape_${new Date().toISOString().slice(0, 10)}.png`, {
+          type: 'image/png',
+        });
+        await navigator.share({
+          title: 'PainScape',
+          text: '',
+          files: [file],
+        });
+      } catch (e) {
+        console.log('Share cancelled');
+      }
+    } else {
+      // 降级：下载图片
+      const link = document.createElement('a');
+      link.download = `painscape_${new Date().toISOString().slice(0, 10)}.png`;
+      link.href = canvasImg;
+      link.click();
+    }
+  };
   const handleSaveOnly = () => {
     saveSnapshot();
 
@@ -1213,6 +1240,7 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
             bgBackRef={bgBackRef}
             camRef={camRef}
             brushCounts={brushCounts}
+            onShareSaved={handleShareSavedPainting}
             dynamicParticles={dynamicParticles}
             staticParticles={staticParticles}
             particlePositions={particlePositions}
@@ -1571,6 +1599,7 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
             medicalBackground={medicalBackground}
             history={history}
             posts={posts}
+            setPosts={setPosts}
             lang={targetLanguage}
             setTargetLanguage={setTargetLanguage}
             onBack={() => {

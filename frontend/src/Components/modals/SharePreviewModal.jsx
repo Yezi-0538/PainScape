@@ -1,76 +1,119 @@
 // src/Components/modals/SharePreviewModal.jsx
 import React, { useState } from 'react';
+import { useI18n } from '../../i18n/i18nContext';
+
+const CONTEXT_TYPES = [
+  {
+    key: 'partner',
+    emoji: '🫂',
+    color: '#ef5350',
+  },
+  {
+    key: 'work',
+    emoji: '💼',
+    color: '#ff9800',
+  },
+  {
+    key: 'medical',
+    emoji: '🏥',
+    color: '#2196f3',
+  },
+  {
+    key: 'selfcare',
+    emoji: '🌿',
+    color: '#4caf50',
+  },
+];
 
 export default function SharePreviewModal({
   isOpen,
   shareContent,
   imgUrl,
-  pgFrontRef,
-  isSideEmpty,
-  getContextTitle,
   onConfirm,
   onCancel,
-  t,
 }) {
+  const { t } = useI18n();
   if (!isOpen || !shareContent) return null;
+  console.log('🔍 shareContent:', shareContent);
 
-  // 🌟 1. 精准判断语言模式：支持中文模式显示中文、英文模式显示英文
   const isEn = t('history.sun') === 'Sun';
 
-  // 🌟 2. 核心新增：分享接收对象选择器（对应需求 5：伴侣、家人与朋友）
-  const [selectedRecipient, setSelectedRecipient] = useState(shareContent.identity || 'partner');
+  const workSubScenes = [
+    { key: 'manager', emoji: t('shareText.workSub.manager.emoji') },
+    { key: 'teacher', emoji: t('shareText.workSub.teacher.emoji') },
+    { key: 'friend', emoji: t('shareText.workSub.friend.emoji') },
+    { key: 'client', emoji: t('shareText.workSub.client.emoji') },
+  ];
 
-  const safeSlice = (text, len = 90) => {
+  const [workSubScene, setWorkSubScene] = useState(shareContent.workScenario || 'manager');
+
+  const [selectedContext, setSelectedContext] = useState(shareContent.identity || 'partner');
+  const [blurEnabled, setBlurEnabled] = useState(false);
+  const [blurLevel, setBlurLevel] = useState(8);
+
+  const safeSlice = (text, len = 150) => {
     if (!text) return '';
     const str = typeof text === 'object' ? JSON.stringify(text) : String(text);
     return str.length > len ? str.slice(0, len) + '...' : str;
   };
 
-  // 🌟 3. 动态多语言与不同对象文本生成
-  const getPreviewText = () => {
-    const analogyText = shareContent.analogy || shareContent.chief_complaint || (isEn ? 'Somatic Pain Map Record' : '痛觉图谱记录');
-    const actionText = shareContent.action || (isEn ? '• Warm your palms and place on lower belly\n• Prepare a heat pad' : '• 搓热手掌贴敷下腹\n• 准备温热水袋');
-    const workText = shareContent.workText || (isEn ? 'Requesting sick leave today due to dysmenorrhea.' : '因突发经期痛经，今天申请请假休息。');
-
-    switch (selectedRecipient) {
-      case 'partner':
+  const getContextContent = () => {
+    console.log('🔍 selectedContext:', selectedContext);
+    console.log('🔍 shareContent keys:', Object.keys(shareContent));
+    const painLabel = shareContent.pain || '';
+    switch (selectedContext) {
+      case 'partner': {
+        const text = shareContent.partnerText || shareContent.analogy || '';
         return {
-          title: isEn ? 'Somatic Companion Guide (For Partner)' : '经期陪伴指南 (致伴侣)',
-          content: `${isEn ? 'She is experiencing: ' : '她正在经历：'}${shareContent.pain || (isEn ? 'Dysmenorrhea' : '痛经')}\n${safeSlice(analogyText)}\n\n${isEn ? 'Care Suggestions:' : '关怀指南：'}\n${safeSlice(actionText)}`,
+          title: t('sharePreview.contextPartnerTitle'),
+          content: `${t('sharePreview.contextPartnerPrefix')}${painLabel}\n\n${safeSlice(text)}`,
         };
-      case 'family':
+      }
+      case 'work': {
+        const text = shareContent.workText || shareContent.action || '';
+        const subSceneLabel = t(`sharePreview.workSub.${workSubScene}`);
         return {
-          title: isEn ? 'Family Care Notice (For Family)' : '家庭关怀告知单 (致家人)',
-          content: `${isEn ? 'Current Status: ' : '身体状况：'}${shareContent.pain || (isEn ? 'Dysmenorrhea' : '痛经')}\n${safeSlice(analogyText)}\n\n${isEn ? 'Care Actions:' : '行动支持：'}\n${safeSlice(actionText)}`,
+          title: `${t('sharePreview.contextWorkTitle')} · ${subSceneLabel}`,
+          content: safeSlice(text),
         };
-      case 'friend':
+      }
+      case 'medical': {
+        const text = shareContent.reportText || shareContent.chief_complaint || '';
+        const ref = shareContent.present_illness || shareContent.med_reference || '';
         return {
-          title: isEn ? 'Somatic Status Explanation (For Friend)' : '体感情况说明 (致朋友)',
-          content: safeSlice(workText || (isEn ? 'Sorry, experiencing period pain today and need to rest.' : '抱歉，今日经期痉挛疼痛，需要在家休息。')),
+          title: t('sharePreview.contextMedicalTitle'),
+          content: `${t('sharePreview.contextMedicalChief')}${safeSlice(text, 100)}\n\n${t('sharePreview.contextMedicalRef')}${safeSlice(ref, 100)}`,
         };
-      case 'work':
+      }
+      case 'selfcare': {
+        const text = shareContent.selfCare || shareContent.selfcareText || '';
         return {
-          title: isEn ? 'Somatic Leave Statement (For Manager)' : '体感请假说明 (致领导)',
-          content: safeSlice(workText),
+          title: t('sharePreview.contextSelfcareTitle'),
+          content: safeSlice(text),
         };
+      }
       default:
         return {
-          title: isEn ? 'Somatic Pain Statement' : '体感痛觉声明',
-          content: safeSlice(analogyText),
+          title: t('sharePreview.contextDefaultTitle'),
+          content: safeSlice(shareContent.analogy || ''),
         };
     }
   };
 
-  const previewText = getPreviewText();
+  const contextContent = getContextContent();
   const previewImg = shareContent.historyImg || imgUrl;
+  const currentContext = CONTEXT_TYPES.find(c => c.key === selectedContext);
 
   const handleConfirmShare = () => {
     if (onConfirm) {
       onConfirm({
         ...shareContent,
-        identity: selectedRecipient,
-        previewTitle: previewText.title,
-        previewContent: previewText.content,
+        identity: selectedContext,
+        workSubScene: selectedContext === 'work' ? workSubScene : undefined,
+        previewTitle: contextContent.title,
+        previewContent: contextContent.content,
+        blurEnabled,
+        blurLevel: blurEnabled ? blurLevel : 0,
       });
     }
   };
@@ -110,113 +153,272 @@ export default function SharePreviewModal({
         }}
         onClick={(e) => e.stopPropagation()}
       >
-        <h3
-          style={{
-            color: '#fff',
-            margin: '0 0 12px 0',
-            textAlign: 'center',
-            fontSize: '16px',
-            fontWeight: 'bold',
-          }}
-        >
-          📋 {t('sharePreview.title') || (isEn ? 'Share Card Preview' : '分享海报预审')}
+        <h3 style={{
+          color: '#fff',
+          margin: '0 0 8px 0',
+          textAlign: 'center',
+          fontSize: '16px',
+          fontWeight: 'bold',
+        }}>
+          {t('sharePreview.title')}
         </h3>
 
-        <p
-          style={{
-            color: '#888',
-            fontSize: '12px',
-            textAlign: 'center',
-            marginBottom: '16px',
-          }}
-        >
-          {isEn ? '💡 Choose recipient and confirm layout before generating poster' : '💡 请选择分享对象并确认海报排版，确认后生成高清海报'}
+        <p style={{
+          color: '#888',
+          fontSize: '12px',
+          textAlign: 'center',
+          marginBottom: '16px',
+        }}>
+          {t('sharePreview.subtitle')}
         </p>
 
-        {/* 🌟 4. 分享对象选择器 (伴侣 🫂 / 家人 🏠 / 朋友 👥) */}
+        {/* 语境选择器 */}
         <div style={{ marginBottom: '16px' }}>
-          <span style={{ color: '#888', fontSize: '11.5px', display: 'block', marginBottom: '8px', textAlign: 'center' }}>
-            {isEn ? 'Select Recipient:' : '选择分享对象：'}
+          <span style={{
+            color: '#888',
+            fontSize: '11px',
+            display: 'block',
+            marginBottom: '8px',
+            textAlign: 'center',
+            letterSpacing: '0.5px',
+          }}>
+            {t('sharePreview.selectContext')}
           </span>
-          <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
-            {[
-              { key: 'partner', label: isEn ? 'Partner 🫂' : '伴侣 🫂' },
-              { key: 'family', label: isEn ? 'Family 🏠' : '家人 🏠' },
-              { key: 'friend', label: isEn ? 'Friend 👥' : '朋友 👥' },
-            ].map((item) => (
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: '1fr 1fr',
+            gap: '8px',
+          }}>
+            {CONTEXT_TYPES.map((ctx) => (
               <button
-                key={item.key}
-                onClick={() => setSelectedRecipient(item.key)}
+                key={ctx.key}
+                onClick={() => setSelectedContext(ctx.key)}
                 style={{
-                  flex: 1,
-                  padding: '8px 0',
-                  borderRadius: '10px',
-                  fontSize: '12px',
-                  fontWeight: selectedRecipient === item.key ? 'bold' : 'normal',
-                  background: selectedRecipient === item.key ? '#d32f2f' : 'rgba(255,255,255,0.04)',
-                  color: selectedRecipient === item.key ? '#fff' : '#888',
-                  border: selectedRecipient === item.key ? 'none' : '1px solid #333',
+                  padding: '10px 8px',
+                  borderRadius: '12px',
+                  border: selectedContext === ctx.key
+                    ? `1.5px solid ${ctx.color}`
+                    : '1px solid rgba(255,255,255,0.08)',
+                  background: selectedContext === ctx.key
+                    ? `${ctx.color}18`
+                    : 'rgba(255,255,255,0.02)',
                   cursor: 'pointer',
                   transition: 'all 0.2s',
+                  textAlign: 'center',
                 }}
               >
-                {item.label}
+                <div style={{ fontSize: '20px', marginBottom: '4px' }}>{ctx.emoji}</div>
+                <div style={{
+                  color: selectedContext === ctx.key ? '#fff' : '#888',
+                  fontSize: '11px',
+                  fontWeight: selectedContext === ctx.key ? '600' : '400',
+                }}>
+                  {t(`sharePreview.contextLabel.${ctx.key}`)}
+                </div>
+                <div style={{
+                  color: selectedContext === ctx.key ? '#aaa' : '#555',
+                  fontSize: '9px',
+                  marginTop: '2px',
+                }}>
+                  {t(`sharePreview.contextDesc.${ctx.key}`)}
+                </div>
               </button>
             ))}
           </div>
         </div>
-
-        {/* 绘制图片预览 */}
-        <div
-          style={{
-            background: '#0a0a0a',
-            borderRadius: '16px',
-            padding: '12px',
+        {selectedContext === 'work' && (
+          <div style={{
             marginBottom: '16px',
-            display: 'flex',
-            justifyContent: 'center',
-            border: '1px solid #222',
-          }}
-        >
-          <img
-            src={previewImg}
-            style={{
-              width: '100%',
-              maxWidth: '320px',
-              maxHeight: '220px',
-              objectFit: 'contain',
-              borderRadius: '12px',
-            }}
-            alt="preview"
-          />
+            padding: '10px 12px',
+            background: 'rgba(255,255,255,0.02)',
+            borderRadius: '10px',
+            border: '1px solid rgba(255,255,255,0.05)',
+          }}>
+            <span style={{
+              color: '#888',
+              fontSize: '10px',
+              display: 'block',
+              marginBottom: '8px',
+              textAlign: 'center',
+              letterSpacing: '0.5px',
+            }}>
+              {t('shareText.selectWorkSub')}
+            </span>
+            <div style={{
+              display: 'flex',
+              gap: '6px',
+              flexWrap: 'wrap',
+              justifyContent: 'center',
+            }}>
+              {workSubScenes.map((sub) => (
+                <button
+                  key={sub.key}
+                  onClick={() => setWorkSubScene(sub.key)}
+                  style={{
+                    padding: '6px 10px',
+                    borderRadius: '8px',
+                    border: workSubScene === sub.key
+                      ? '1px solid rgba(255,152,0,0.4)'
+                      : '1px solid rgba(255,255,255,0.06)',
+                    background: workSubScene === sub.key
+                      ? 'rgba(255,152,0,0.12)'
+                      : 'transparent',
+                    color: workSubScene === sub.key ? '#ffb74d' : '#888',
+                    fontSize: '10px',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s',
+                  }}
+                >
+                  {sub.emoji} {t(`shareText.workSub.${sub.key}.label`)}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+        {/* 图片预览区 + 模糊控制 */}
+        <div style={{
+          background: '#0a0a0a',
+          borderRadius: '16px',
+          padding: '12px',
+          marginBottom: '12px',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          border: '1px solid #222',
+        }}>
+          <div style={{
+            position: 'relative',
+            width: '100%',
+            maxWidth: '320px',
+            borderRadius: '12px',
+            overflow: 'hidden',
+          }}>
+            <img
+              src={previewImg}
+              style={{
+                width: '100%',
+                maxHeight: '220px',
+                objectFit: 'contain',
+                borderRadius: '12px',
+                filter: blurEnabled ? `blur(${blurLevel}px)` : 'none',
+                transition: 'filter 0.3s ease',
+              }}
+              alt="preview"
+            />
+            {blurEnabled && (
+              <div style={{
+                position: 'absolute',
+                top: '8px',
+                right: '8px',
+                background: 'rgba(0,0,0,0.7)',
+                borderRadius: '8px',
+                padding: '4px 8px',
+                color: '#ff9800',
+                fontSize: '10px',
+              }}>
+                🔒 {t('sharePreview.blurred')}
+              </div>
+            )}
+          </div>
+
+          {/* 模糊控制栏 */}
+          <div style={{
+            width: '100%',
+            maxWidth: '320px',
+            marginTop: '12px',
+            padding: '10px 12px',
+            background: 'rgba(255,255,255,0.03)',
+            borderRadius: '10px',
+            border: '1px solid rgba(255,255,255,0.06)',
+          }}>
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              marginBottom: blurEnabled ? '10px' : '0',
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '16px' }}>{blurEnabled ? '🔒' : '🔓'}</span>
+                <span style={{ color: '#aaa', fontSize: '12px' }}>
+                  {t('sharePreview.blurArtwork')}
+                </span>
+              </div>
+              <button
+                onClick={() => setBlurEnabled(!blurEnabled)}
+                style={{
+                  width: '44px',
+                  height: '24px',
+                  borderRadius: '12px',
+                  border: 'none',
+                  background: blurEnabled ? '#ff9800' : '#444',
+                  cursor: 'pointer',
+                  position: 'relative',
+                  padding: 0,
+                }}
+              >
+                <div style={{
+                  width: '20px',
+                  height: '20px',
+                  borderRadius: '50%',
+                  background: '#fff',
+                  position: 'absolute',
+                  top: '2px',
+                  left: blurEnabled ? '22px' : '2px',
+                  transition: 'left 0.2s ease',
+                }} />
+              </button>
+            </div>
+            {blurEnabled && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ color: '#555', fontSize: '10px' }}>{t('sharePreview.blurLight')}</span>
+                <input
+                  type="range"
+                  min="2"
+                  max="20"
+                  value={blurLevel}
+                  onChange={(e) => setBlurLevel(Number(e.target.value))}
+                  style={{ flex: 1, height: '3px', accentColor: '#ff9800', cursor: 'pointer' }}
+                />
+                <span style={{ color: '#555', fontSize: '10px' }}>{t('sharePreview.blurStrong')}</span>
+              </div>
+            )}
+          </div>
+          {blurEnabled && (
+            <p style={{
+              color: '#666',
+              fontSize: '10px',
+              margin: '8px 0 0 0',
+              textAlign: 'center',
+              lineHeight: '1.4',
+            }}>
+              {t('sharePreview.blurHint')}
+            </p>
+          )}
         </div>
 
-        {/* 动态语言与对象文本预览 */}
-        <div
-          style={{
-            background: 'rgba(255,255,255,0.03)',
-            border: '1px solid rgba(255,255,255,0.08)',
-            borderLeft: `4px solid ${
-              selectedRecipient === 'partner' ? '#ef5350' :
-              selectedRecipient === 'family' ? '#ff9800' : '#2196f3'
-            }`,
-            borderRadius: '12px',
-            padding: '14px',
-            marginBottom: '20px',
-          }}
-        >
-          <p
-            style={{
-              color: '#fff',
-              fontSize: '14px',
-              fontWeight: 'bold',
-              margin: '0 0 8px 0',
-            }}
-          >
-            {previewText.title}
-          </p>
-          <p style={{ color: '#ccc', fontSize: '12.5px', margin: 0, lineHeight: '1.6', whiteSpace: 'pre-line' }}>
-            {previewText.content}
+        {/* 语境文本预览 */}
+        <div style={{
+          background: 'rgba(255,255,255,0.03)',
+          border: '1px solid rgba(255,255,255,0.08)',
+          borderLeft: `4px solid ${currentContext?.color || '#888'}`,
+          borderRadius: '12px',
+          padding: '14px',
+          marginBottom: '20px',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
+            <span style={{ fontSize: '16px' }}>{currentContext?.emoji}</span>
+            <p style={{ color: '#fff', fontSize: '14px', fontWeight: 'bold', margin: 0 }}>
+              {contextContent.title}
+            </p>
+          </div>
+          <p style={{
+            color: '#ccc',
+            fontSize: '12.5px',
+            margin: 0,
+            lineHeight: '1.6',
+            whiteSpace: 'pre-line',
+          }}>
+            {contextContent.content || t('sharePreview.noContextText')}
           </p>
         </div>
 
@@ -235,24 +437,25 @@ export default function SharePreviewModal({
             }}
             onClick={onCancel}
           >
-            {t('sharePreview.cancel') || (isEn ? 'Cancel' : '取消')}
+            {t('sharePreview.cancel')}
           </button>
           <button
             style={{
               flex: 1.5,
               padding: '12px',
               borderRadius: '14px',
-              background: 'linear-gradient(135deg, #4caf50, #2e7d32)',
+              background: blurEnabled
+                ? 'linear-gradient(135deg, #ff9800, #e65100)'
+                : `linear-gradient(135deg, ${currentContext?.color || '#4caf50'}, ${currentContext?.color || '#2e7d32'}88)`,
               border: 'none',
               color: '#fff',
               fontWeight: 'bold',
               cursor: 'pointer',
               fontSize: '13px',
-              boxShadow: '0 4px 12px rgba(76,175,80,0.3)',
             }}
             onClick={handleConfirmShare}
           >
-            ✨ {t('sharePreview.confirm') || (isEn ? 'Generate Poster' : '确认生成海报')}
+            {blurEnabled ? t('sharePreview.confirmBlurred') : t('sharePreview.confirm')}
           </button>
         </div>
       </div>

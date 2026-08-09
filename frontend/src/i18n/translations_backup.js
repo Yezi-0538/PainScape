@@ -617,7 +617,7 @@ const translations = {
 
     sharePreview: {
       shareTitle: "我的疼痛声明卡片",
-      title: "📤 分享预览",
+      title: "分享预览",
       loading: "加载中...",
       noContent: "暂无绘制内容",
       livePreview: "实时绘制预览",

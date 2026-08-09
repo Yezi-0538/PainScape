@@ -412,6 +412,7 @@ const translations = {
       frontView: "🔄 正面视图",
       backView: "🔄 背面视图",
       blindView: "🎨 盲画模式",
+      share: "分享",
     },
 
     result: {
@@ -657,7 +658,7 @@ const translations = {
 
     sharePreview: {
       shareTitle: "我的疼痛声明卡片",
-      title: "📤 分享预览",
+      title: "分享预览",
       loading: "加载中...",
       noContent: "暂无绘制内容",
       livePreview: "实时绘制预览",
@@ -667,6 +668,38 @@ const translations = {
       defaultTitle: "状态声明",
       defaultDoctorContent: "具身疼痛图谱记录",
       defaultContent: "正在经历 {{pain}}",
+      title: "分享预审",
+      subtitle: "选择分享卡片的语境",
+      selectContext: "分享语境",
+      cancel: "取消",
+      confirm: "✨ 确认分享",
+      confirmBlurred: "🔒 模糊分享",
+      blurred: "已模糊",
+      blurArtwork: "模糊画作",
+      blurLight: "轻",
+      blurStrong: "强",
+      blurHint: "画作将被模糊处理以保护隐私。社区成员将看到大致轮廓，但看不到细节。",
+      noContextText: "此语境暂无文本内容",
+      contextLabel: {
+        partner: "伴侣陪伴指南",
+        work: "请假 / 推约文本",
+        medical: "医疗就诊报告",
+        selfcare: "自愈照护指南",
+      },
+      contextDesc: {
+        partner: "用隐喻表达感受，帮助伴侣理解",
+        work: "发给上司、客户或老师",
+        medical: "规范的临床初诊记录格式",
+        selfcare: "缓解方法与氛围音景",
+      },
+      contextPartnerTitle: "伴侣陪伴指南",
+      contextPartnerPrefix: "她正在经历：",
+      contextWorkTitle: "请假 / 推约文本",
+      contextMedicalTitle: "医疗就诊报告",
+      contextMedicalChief: "主诉：",
+      contextMedicalRef: "临床参考：",
+      contextSelfcareTitle: "自愈照护指南",
+      contextDefaultTitle: "痛觉记录",
     },
     common: {
       cancel: "取消",
@@ -691,7 +724,30 @@ const translations = {
       self: {
         title: "🌿 她的具身隐喻：",
         solution: "🧘 推荐自愈方案："
-      }
+      },
+      workSub: {
+        manager: {
+          label: "领导/上级",
+          emoji: "👔",
+        },
+        teacher: {
+          label: "老师/教授",
+          emoji: "📚",
+        },
+        friend: {
+          label: "朋友推约",
+          emoji: "👋",
+        },
+        client: {
+          label: "客户/合作伙伴",
+          emoji: "🤝",
+        },
+        partner: {
+          label: "伴侣/家人",
+          emoji: "💕",
+        },
+      },
+      selectWorkSub: "发送对象",
     },
     // ============ Supabase User System ============
     supabase: {
@@ -1200,6 +1256,7 @@ const translations = {
       frontView: "🔄 Front View",
       backView: "🔄 Back View",
       blindView: "🎨 Blind Mode",
+      share: "Share",
     },
     // ============ Splash ============
     splash: {
@@ -1763,7 +1820,7 @@ const translations = {
 
     sharePreview: {
       shareTitle: "My Pain Statement Card",
-      title: "📤 Share Preview",
+      title: "Share Preview",
       loading: "Loading...",
       noContent: "No drawing content",
       livePreview: "Live Drawing Preview",
@@ -1773,6 +1830,38 @@ const translations = {
       defaultTitle: "Status Statement",
       defaultDoctorContent: "Embodied pain map recorded",
       defaultContent: "Currently experiencing {{pain}}",
+      title: "Share Preview",
+      subtitle: "Choose a context for your shared card",
+      selectContext: "SHARE CONTEXT",
+      cancel: "Cancel",
+      confirm: "✨ Share Now",
+      confirmBlurred: "🔒 Share Blurred",
+      blurred: "Blurred",
+      blurArtwork: "Blur artwork",
+      blurLight: "Light",
+      blurStrong: "Strong",
+      blurHint: "Your artwork will be blurred to protect privacy. Community members will see the general shape but not details.",
+      noContextText: "No text available for this context",
+      contextLabel: {
+        partner: "Partner Guide",
+        work: "Leave / Excuse Note",
+        medical: "Medical Report",
+        selfcare: "Self-Care Guide",
+      },
+      contextDesc: {
+        partner: "Gentle metaphors for intimate support",
+        work: "For manager, client, or teacher",
+        medical: "Structured clinical intake record",
+        selfcare: "Evidence-based techniques & soundscapes",
+      },
+      contextPartnerTitle: "Partner Companion Guide",
+      contextPartnerPrefix: "She is experiencing: ",
+      contextWorkTitle: "Leave / Excuse Note",
+      contextMedicalTitle: "Medical Intake Report",
+      contextMedicalChief: "Chief Complaint: ",
+      contextMedicalRef: "Clinical Reference: ",
+      contextSelfcareTitle: "Self-Care Guide",
+      contextDefaultTitle: "Pain Record",
     },
     common: {
       cancel: "Cancel",
@@ -1798,7 +1887,30 @@ const translations = {
       self: {
         title: "🌿 Her Embodied Metaphor:",
         solution: "🧘 Recommended Self-Care:"
-      }
+      },
+      workSub: {
+        manager: {
+          label: "Manager",
+          emoji: "👔",
+        },
+        teacher: {
+          label: "Teacher",
+          emoji: "📚",
+        },
+        friend: {
+          label: "Friend",
+          emoji: "👋",
+        },
+        client: {
+          label: "Client",
+          emoji: "🤝",
+        },
+        partner: {
+          label: "Partner",
+          emoji: "💕",
+        },
+      },
+      selectWorkSub: "Send to",
     },
     // ============ Supabase User System ============
     supabase: {
