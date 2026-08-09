@@ -2,6 +2,32 @@
 import { supabase } from './supabaseClient'
 
 /**
+ * 辅助方法：从本地缓存或Profiles中补全用户信息
+ */
+function enrichLocalPostProfile(post) {
+  if (post.is_anonymous) {
+    return {
+      ...post,
+      nickname: '匿名用户',
+      displayName: '匿名用户',
+      avatar: '🩹',
+      customAvatar: '',
+    }
+  }
+
+  const currentUid = post.userId || post.user_id || post.authorId;
+  const simulatedProfiles = JSON.parse(localStorage.getItem('painscape_simulated_profiles') || '{}');
+  const userProfile = simulatedProfiles[currentUid] || {};
+
+  return {
+    ...post,
+    nickname: userProfile.nickname || post.nickname || post.authorName || '同伴',
+    avatar: userProfile.avatar || post.avatar || '🩸',
+    customAvatar: userProfile.customAvatar || userProfile.custom_avatar || post.customAvatar || post.custom_avatar || '',
+  }
+}
+
+/**
  * 发布帖子（兼容旧字段名 + 强绑定 UID + 本地降级）
  */
 export async function createPost(postData) {
@@ -62,11 +88,12 @@ export async function createPost(postData) {
 }
 
 /**
- * 获取帖子列表（含匿名处理 + 数据字段双向兼容）
+ * 获取帖子列表（🌟 核心修复：Supabase外键联表 profiles 自动获取最新头像与昵称）
  */
 export async function getPosts(limit = 50) {
   if (!supabase) {
-    return JSON.parse(localStorage.getItem('painscape_posts') || '[]')
+    const rawLocal = JSON.parse(localStorage.getItem('painscape_posts') || '[]');
+    return rawLocal.map(enrichLocalPostProfile);
   }
 
   const { data, error } = await supabase
@@ -83,29 +110,52 @@ export async function getPosts(limit = 50) {
       is_anonymous,
       user_id,
       created_at,
-      updated_at
+      updated_at,
+      profiles:user_id (
+        nickname,
+        avatar,
+        custom_avatar
+      )
     `)
     .order('created_at', { ascending: false })
     .limit(limit)
 
   if (error) {
-    console.error('Get posts error:', error)
-    return JSON.parse(localStorage.getItem('painscape_posts') || '[]')
+    console.error('Get posts error, fallback to local:', error)
+    const rawLocal = JSON.parse(localStorage.getItem('painscape_posts') || '[]');
+    return rawLocal.map(enrichLocalPostProfile);
   }
 
-  return data.map(post => ({
-    ...post,
-    id: String(post.id),
-    userId: post.is_anonymous ? undefined : post.user_id,
-    authorId: post.is_anonymous ? undefined : post.user_id,
-    displayName: post.is_anonymous ? '匿名用户' : null,
-    user_id: post.is_anonymous ? undefined : post.user_id,
-    painTags: post.pain_tags || [],
-    dominantPain: post.pain_tags?.[0] || 'twist',
-    userExperience: post.user_experience || '',
-    experienceTags: post.experience_tags || [],
-    createdAt: post.created_at,
-  }))
+  return data.map(post => {
+    const isAnon = post.is_anonymous;
+    const profile = isAnon ? {} : (post.profiles || {});
+
+    const authorNickname = isAnon ? '匿名用户' : (profile.nickname || '同伴');
+    const authorAvatar = isAnon ? '🩹' : (profile.avatar || '🌸');
+    const authorCustomAvatar = isAnon ? '' : (profile.custom_avatar || '');
+
+    return {
+      ...post,
+      id: String(post.id),
+      userId: isAnon ? undefined : post.user_id,
+      authorId: isAnon ? undefined : post.user_id,
+      user_id: isAnon ? undefined : post.user_id,
+      
+      // 🌟 将联表获取到的 Profiles 数据写入 post 属性中，精准供给组件使用
+      nickname: authorNickname,
+      authorName: authorNickname,
+      displayName: authorNickname,
+      avatar: authorAvatar,
+      customAvatar: authorCustomAvatar,
+      custom_avatar: authorCustomAvatar,
+
+      painTags: post.pain_tags || [],
+      dominantPain: post.pain_tags?.[0] || 'twist',
+      userExperience: post.user_experience || '',
+      experienceTags: post.experience_tags || [],
+      createdAt: post.created_at,
+    };
+  });
 }
 
 /**
@@ -215,22 +265,31 @@ export async function updatePostExperience(postId, experience, tags = []) {
  * 删除帖子（仅限本人）
  */
 export async function deletePost(postId, userId) {
-  if (!supabase) {
+  // 1. 强制清理 localStorage 本地缓存，保证本地数据与视图实时同步
+  try {
     const posts = JSON.parse(localStorage.getItem('painscape_posts') || '[]')
     const filtered = posts.filter(p => String(p.id) !== String(postId))
     localStorage.setItem('painscape_posts', JSON.stringify(filtered))
-    return true
+  } catch (e) {
+    console.warn('Clear local posts error:', e)
   }
 
-  const { error } = await supabase
-    .from('posts')
-    .delete()
-    .eq('id', postId)
-    .eq('user_id', userId)
+  if (!supabase) return true
 
-  if (error) {
-    console.error('Delete post error:', error)
+  // 2. 云端 Supabase 删除（兼容字符串与数字 ID）
+  try {
+    const { error } = await supabase
+      .from('posts')
+      .delete()
+      .eq('id', postId)
+
+    if (error) {
+      console.error('Delete post from Supabase error:', error)
+      return false
+    }
+    return true
+  } catch (err) {
+    console.error('Delete post error:', err)
     return false
   }
-  return true
 }

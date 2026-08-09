@@ -1571,6 +1571,7 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
             medicalBackground={medicalBackground}
             history={history}
             posts={posts}
+            setPosts={setPosts}
             lang={targetLanguage}
             setTargetLanguage={setTargetLanguage}
             onBack={() => {
