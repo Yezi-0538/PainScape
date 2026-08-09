@@ -33,7 +33,7 @@ export default function QuickLogPage({
   const [isPressing, setIsPressing] = useState(false);
   const [pressure, setPressure] = useState(0);
   const [holdProgress, setHoldProgress] = useState(0);
-  const [stage, setStage] = useState('idle'); // idle | pressing | holding | generating
+  const [stage, setStage] = useState('idle');
   const [displayText, setDisplayText] = useState('');
 
   const ballRef = useRef(null);
@@ -44,20 +44,19 @@ export default function QuickLogPage({
   // ✅ 根据 colorTemp 获取色系
   const getColorPalette = (temp) => {
     if (temp < 33) {
-      const t = temp / 33;
-      return { r: 200 - t * 60, g: 60 + t * 40, b: 60 + t * 60 };
+      const tVal = temp / 33;
+      return { r: 200 - tVal * 60, g: 60 + tVal * 40, b: 60 + tVal * 60 };
     } else if (temp < 66) {
-      const t = (temp - 33) / 33;
-      return { r: 140 - t * 60, g: 100 + t * 60, b: 120 + t * 60 };
+      const tVal = (temp - 33) / 33;
+      return { r: 140 - tVal * 60, g: 100 + tVal * 60, b: 120 + tVal * 60 };
     } else {
-      const t = (temp - 66) / 34;
-      return { r: 80 - t * 40, g: 160 - t * 80, b: 180 + t * 40 };
+      const tVal = (temp - 66) / 34;
+      return { r: 80 - tVal * 40, g: 160 - tVal * 80, b: 180 + tVal * 40 };
     }
   };
 
   const getIntensityFactor = (p) => Math.min(1, p / 100);
 
-  // ✅ 根据 colorTemp + pressure 计算球体颜色
   const getBallColor = () => {
     const intensity = getIntensityFactor(pressure);
     const base = getColorPalette(colorTemp);
@@ -86,13 +85,13 @@ export default function QuickLogPage({
     return `rgba(${r}, ${g}, ${b}, ${0.04 + intensity * 0.12})`;
   };
 
-  // ✅ 根据 pressure 返回阶段文字
+  // ✅ 根据 pressure 返回阶段文字（使用 i18n）
   const getFeelingText = (p) => {
     const val = p || pressure;
-    if (val < 30) return t('quickLog.feelingMild') || '轻微';
-    if (val < 55) return t('quickLog.feelingModerate') || '中度';
-    if (val < 80) return t('quickLog.feelingStrong') || '强烈';
-    return t('quickLog.feelingSevere') || '剧烈';
+    if (val < 30) return t('quickLog.feelingMild');
+    if (val < 55) return t('quickLog.feelingModerate');
+    if (val < 80) return t('quickLog.feelingStrong');
+    return t('quickLog.feelingSevere');
   };
 
   const getActiveColor = () => {
@@ -162,10 +161,8 @@ export default function QuickLogPage({
       if (progress >= 1) {
         clearInterval(pressTimerRef.current);
         pressTimerRef.current = null;
-        // ✅ 达到阈值后保持状态，让用户点击生成
         setIsPressing(false);
         setStage('holding');
-        // 不自动触发生成
       }
     }, 50);
   }, [selectedPain, stage, isPressing]);
@@ -180,12 +177,9 @@ export default function QuickLogPage({
 
     setIsPressing(false);
 
-    // ✅ 关键修复：松开手后保持当前状态，不重置
-    // 如果 pressure > 20，进入 holding 状态，等待用户决定
     if (pressure >= 20) {
       setStage('holding');
     } else {
-      // 如果压力太小，重置到 idle
       setStage('idle');
       setPressure(0);
       setHoldProgress(0);
@@ -193,7 +187,6 @@ export default function QuickLogPage({
     }
   }, [isPressing, pressure]);
 
-  // ✅ 重置状态（用户点击"重新按压"）
   const handleReset = useCallback(() => {
     setStage('idle');
     setPressure(0);
@@ -202,7 +195,6 @@ export default function QuickLogPage({
     isGeneratingRef.current = false;
   }, []);
 
-  // ✅ 手动生成
   const handleManualGenerate = useCallback(() => {
     if (!selectedPain) return;
     if (pressure < 20) return;
@@ -210,14 +202,12 @@ export default function QuickLogPage({
     triggerGenerate();
   }, [selectedPain, pressure, stage, triggerGenerate]);
 
-  // 清理定时器
   useEffect(() => {
     return () => {
       if (pressTimerRef.current) clearInterval(pressTimerRef.current);
     };
   }, []);
 
-  // ✅ 使用 pointer 事件
   useEffect(() => {
     const ball = ballRef.current;
     if (!ball) return;
@@ -251,7 +241,6 @@ export default function QuickLogPage({
   const ballSize = 120 + pressure * 0.8;
   const isInteractive = selectedPain && (stage === 'idle' || stage === 'holding');
   const canGenerate = selectedPain && pressure >= 20 && stage !== 'generating';
-  const showHoldingState = stage === 'holding' && pressure >= 20;
 
   return (
     <div
@@ -374,7 +363,6 @@ export default function QuickLogPage({
                   userSelect: 'none',
                 }}
               >
-                {/* ✅ 修复：使用完整版渲染逻辑 */}
                 {brush?.isImage ? (
                   <img
                     src={brush.icon}
@@ -412,7 +400,6 @@ export default function QuickLogPage({
 
         {/* ===== 呼吸球 ===== */}
         <div style={{ position: 'relative', marginBottom: '12px' }}>
-          {/* 涟漪 - 按压时显示 */}
           {isPressing && (
             <>
               <div style={{
@@ -438,7 +425,6 @@ export default function QuickLogPage({
             </>
           )}
 
-          {/* ✅ 呼吸球主体 */}
           <div
             ref={ballRef}
             style={{
@@ -636,7 +622,7 @@ export default function QuickLogPage({
           </div>
         )}
 
-        {/* ✅ Holding 状态提示 - 松开后显示 */}
+        {/* ✅ Holding 状态提示 - 使用 i18n */}
         {stage === 'holding' && pressure >= 20 && (
           <div style={{
             color: 'rgba(76,175,80,0.2)',
@@ -644,7 +630,7 @@ export default function QuickLogPage({
             letterSpacing: '2px',
             height: '14px',
           }}>
-            ✦ {t('quickLog.readyToGenerate') || '已记录，点击下方生成'}
+            ✦ {t('quickLog.readyToGenerate')}
           </div>
         )}
 
@@ -659,14 +645,13 @@ export default function QuickLogPage({
           </div>
         )}
 
-        {/* ✅ 底部按钮组 */}
+        {/* ✅ 底部按钮组 - 使用 i18n */}
         <div style={{
           display: 'flex',
           gap: '10px',
           marginTop: '16px',
           alignItems: 'center',
         }}>
-          {/* 生成按钮 - 只要有 pressure >= 20 就显示 */}
           {canGenerate && (
             <button
               onClick={handleManualGenerate}
@@ -682,11 +667,10 @@ export default function QuickLogPage({
                 letterSpacing: '1px',
               }}
             >
-              {t('quickLog.generateNow') || '生成记录 ✦'}
+              {t('quickLog.generateNow')}
             </button>
           )}
 
-          {/* 重置/重新按压按钮 - holding 或 pressing 状态显示 */}
           {(stage === 'holding' || stage === 'pressing') && (
             <button
               onClick={handleReset}
@@ -701,7 +685,7 @@ export default function QuickLogPage({
                 transition: 'all 0.3s ease',
               }}
             >
-              {t('quickLog.reset') || '重新按压 ↺'}
+              {t('quickLog.reset')}
             </button>
           )}
         </div>
