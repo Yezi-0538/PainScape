@@ -3,7 +3,7 @@ import React from 'react';
 import { useI18n } from '../i18n/i18nContext';
 import { PAIN_NAME_MAP } from '../i18n/translationsConstants';
 import CommunityPostDetailModal from '../Components/modals/CommunityPostDetailModal';
-import { likePost, hugPost, updatePostExperience } from '../services/postService';
+import { likePost, hugPost, updatePostExperience, deletePost } from '../services/postService';
 
 const PAIN_KEY_MAP = {
   'twist': 'twist', '绞痛': 'twist',
@@ -135,6 +135,18 @@ export default function CommunityPage({
     }
 
     await likePost(postId, nextLikes);
+  };
+
+   // 🌟 4. 删除帖子处理函数
+  const handleDeletePost = async (postId) => {
+    // 1. 本地立即移除视图
+    setPosts((prev) => prev.filter((p) => String(p.id) !== String(postId)));
+    if (viewingPost && String(viewingPost.id) === String(postId)) {
+      setViewingPost(null);
+    }
+    // 2. 调接口同步删数据库与 localStorage
+    await deletePost(postId, currentUserId);
+    if (showToast) showToast('postDeleted');
   };
 
   return (
@@ -315,6 +327,11 @@ export default function CommunityPage({
         {filteredPosts.map((post) => {
           const painKey = getPostPainKey(post);
           const postAuthorUid = post.userId || post.user_id || post.authorId || "user_guest";
+          const authorProfile = post.profiles || {};
+          const authorNickname = authorProfile.nickname || post.nickname || post.authorName || post.author_name || post.displayName || "同伴";
+          const authorAvatar = authorProfile.avatar || post.avatar || post.authorAvatar || post.author_avatar || "🌸";
+          const authorCustomAvatar = authorProfile.custom_avatar || post.customAvatar || post.custom_avatar || "";
+
           return (
             <div
               key={post.id}
@@ -356,14 +373,15 @@ export default function CommunityPage({
                   overflow: 'hidden',
                   flexShrink: 0,
                 }}>
-                  {post.customAvatar ? (
-                    <img src={post.customAvatar} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="avatar" />
+                  {/*  优先渲染自定义头像 */}
+                  {authorCustomAvatar ? (
+                    <img src={authorCustomAvatar} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="avatar" />
                   ) : (
-                    (post.avatar || post.authorAvatar || "🌸")
+                    authorAvatar
                   )}
                 </div>
                 <span style={{ color: '#ccc', fontSize: '12px', fontWeight: '500', flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                  {post.nickname || post.authorName || post.displayName || "同伴"}
+                  {authorNickname}
                 </span>
               </div>
 
@@ -420,6 +438,7 @@ export default function CommunityPage({
           onHug={handleHug}
           onLike={handleLike}
           onSaveExperience={handleSaveExperience}
+          onDelete={handleDeletePost}
           t={t}
         />
       )}
