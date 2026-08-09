@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { useI18n } from '../i18n/i18nContext';
 import EditableBlock from '../Components/EditableBlock';
 import PublishPostModal from '../Components/modals/PublishPostModal'; // 🌟 引入发布弹窗组件
+import PeriodScience from '../Components/PeriodScience'; 
 
 export default function ResultPage({
   // 导航
@@ -47,7 +48,7 @@ export default function ResultPage({
   randomPartnerTips = [],
   handleCopy = () => {},
 }) {
-  const { t } = useI18n();
+  const { t, lang, toggleLang } = useI18n();
 
   // 🌟 1. 新增：控制发布弹窗与输入标题文本的状态
   const [showPublishModal, setShowPublishModal] = useState(false);
@@ -268,69 +269,7 @@ export default function ResultPage({
             </div>
 
             {/* 伴侣科普 */}
-            <div style={{ marginTop: '24px', paddingTop: '16px', borderTop: '1px solid #222' }}>
-              <h4
-                style={{
-                  color: '#ef5350',
-                  fontSize: '14px',
-                  fontWeight: '600',
-                  margin: '0 0 14px 0',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                }}
-              >
-                🔴 {t('resultLabels.companionGuide')}
-              </h4>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                {Array.isArray(randomPartnerTips) && randomPartnerTips.map((tip, idx) => {
-                  const titleStr = typeof tip === 'string' ? tip : (tip?.title || '');
-                  const descStr = typeof tip === 'string' ? '' : (tip?.desc || '');
-                  const isWarning = titleStr.includes('警告') || titleStr.toLowerCase().includes('alert');
-                  return (
-                    <div
-                      key={idx}
-                      style={{
-                        background: isWarning
-                          ? 'linear-gradient(145deg, #241414, #121212)'
-                          : '#161616',
-                        borderRadius: '14px',
-                        padding: '16px',
-                        border: isWarning
-                          ? '1px solid rgba(211,47,47,0.2)'
-                          : '1px solid #222',
-                        borderLeft: isWarning
-                          ? '4px solid #d32f2f'
-                          : '4px solid rgba(211, 47, 47, 0.5)',
-                      }}
-                    >
-                      <div
-                        style={{
-                          color: '#fff',
-                          fontSize: '14px',
-                          fontWeight: '600',
-                          marginBottom: '8px',
-                        }}
-                      >
-                        {titleStr || '陪伴提示'}
-                      </div>
-                      {descStr && (
-                        <div
-                          style={{
-                            color: '#aaa',
-                            fontSize: '12.5px',
-                            lineHeight: '1.6',
-                            textAlign: 'justify',
-                          }}
-                        >
-                          {descStr}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
+            <PeriodScience />
           </>
         )}
 
@@ -917,6 +856,7 @@ export default function ResultPage({
       <div
         style={{
           display: 'flex',
+          alignItems: 'center',
           gap: '10px',
           width: '100%',
           maxWidth: identity === 'doctor' ? '580px' : '380px',
@@ -927,16 +867,17 @@ export default function ResultPage({
       >
         <button
           style={{
-            flex: 2,
-            padding: '14px',
-            borderRadius: '25px',
+            flex: 1.8,
+            padding: '11px',
+            borderRadius: '22px',
             background: '#4caf50',
             color: '#fff',
             border: 'none',
             fontWeight: 'bold',
             cursor: 'pointer',
-            fontSize: '14px',
+            fontSize: '13px',
             boxShadow: '0 4px 12px rgba(76,175,80,0.2)',
+            whiteSpace: 'nowrap',
           }}
           type="button"
           onClick={() => {
@@ -958,15 +899,16 @@ export default function ResultPage({
         <button
           style={{
             flex: 1.5,
-            padding: '14px',
-            borderRadius: '25px',
+            padding: '11px',
+            borderRadius: '22px',
             background: '#2196f3',
             color: '#fff',
             border: 'none',
             fontWeight: 'bold',
             cursor: 'pointer',
-            fontSize: '14px',
+            fontSize: '13px',
             boxShadow: '0 4px 12px rgba(33,150,243,0.2)',
+            whiteSpace: 'nowrap',
           }}
           type="button"
           onClick={() => {
@@ -986,18 +928,40 @@ export default function ResultPage({
         </button>
         <button
           style={{
-            flex: 1.2,
-            padding: '14px',
-            borderRadius: '25px',
+            flex: 1.1,
+            padding: '10px',
+            borderRadius: '20px',
             background: 'rgba(255,255,255,0.06)',
             border: '1px solid #444',
             color: '#fff',
             cursor: 'pointer',
-            fontSize: '13px',
+            fontSize: '12px',
+            whiteSpace: 'nowrap',
           }}
           onClick={onBack}
         >
           {t('result.backHome')}
+        </button>
+        <button
+          type="button"
+          style={{
+            flex: 0.75,
+            padding: '9px 0',
+            borderRadius: '18px',
+            background: 'rgba(255,255,255,0.08)', 
+            border: '1px solid #444', 
+            color: '#fff',
+            cursor: 'pointer',
+            fontSize: '12px',
+            fontWeight: 'bold',
+            whiteSpace: 'nowrap',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+          onClick={toggleLang}
+        >
+          {lang === 'zh' ? 'EN' : '中'} 
         </button>
       </div>
     </div>

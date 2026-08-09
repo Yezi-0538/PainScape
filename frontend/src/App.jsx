@@ -433,8 +433,19 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
 
   const generateContent = useCallback((overrideType, externalLlm = null, externalReportData = null) => {
     try {
+      const isEn = targetLanguage === 'en';
       const activeLlm = externalReportData || externalLlm || currentReportData || llmData;
-      const hasLlm = activeLlm && (activeLlm.status === 'success' || activeLlm.chief_complaint || activeLlm.present_illness);
+
+      // 🌟 双向检测工具函数：确保中英文模式切换时，卡片内容双向实时归位！
+      const containsChinese = (str) => /[\u4e00-\u9fa5]/.test(String(str || ''));
+      const getLocalizedText = (activeText, defaultText) => {
+        if (!activeText) return defaultText;
+        // 1. 在英文模式下，如果原文本包含中文，强制归位为英文模板
+        if (isEn && containsChinese(activeText)) return defaultText;
+        // 2. 在中文模式下，如果原文本不含中文（即纯英文文本），强制归位为中文模板
+        if (!isEn && !containsChinese(activeText)) return defaultText;
+        return activeText;
+      };
 
       const dominant = overrideType || getDominantPain() || 'twist';
       const painName = t(`painNames.${dominant}`) || (isEn ? 'Dysmenorrhea' : '痛经');
@@ -455,9 +466,21 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
         ? `Patient reports regular menstrual cycles. Sudden onset of ${painName} today (day ${cycleDay || 'X'} of menstruation). Pain image reconstruction shows high pain scores with typical ${defaultAnalogy}, limited activity.`
         : `患者自述既往月经规律。自述于今日（行经第${cycleDay || 'X'}天）突发${painName}。图像特征向量重构显示：痛感评分较高，伴有典型的${defaultAnalogy}，活动受限。`;
 
+      const defaultPastHistory = isEn
+        ? `Generally in good health. No history of hypertension or diabetes. No surgical history or known drug/food allergies.`
+        : `平素健康状况良好。无明确高血压、糖尿病等慢性病史，无外科手术及食物药物过敏记录。`;
+
+      const defaultMenstrualHistory = isEn
+        ? `Menstrual History: Menarche age 13, period 5 days, cycle 28-30 days.`
+        : `月经史：13岁初潮，经期5天，周期28-30天（5/28-30天）。`;
+
       const defaultClinicalDiagnosis = isEn
         ? `Based on pain imaging, recommend evaluation for endometriosis, uterine smooth muscle spasms, or pelvic organic congestion. Pelvic ultrasound is recommended.`
         : `结合痛觉成像，建议排查子宫内膜异位症、子宫平滑肌痉挛或盆腔器质性充血。建议行妇科超声筛查。`;
+
+      const defaultClinicalSuggestions = isEn
+        ? `Apply warm compress to lower abdomen and lumbar area; rest quietly. If symptoms worsen, seek outpatient pelvic ultrasound examination.`
+        : `温敷小腹与腰骶，静卧休养。若症状持续加重建议常规门诊行超声探查。`;
 
       const prefKey = (Array.isArray(userPrefs) && userPrefs[0]) ? userPrefs[0] : 'care';
       const actionsTemplates = t(`partnerActions.${prefKey}`, { returnObjects: true });
@@ -470,22 +493,23 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
 
       const defaultWorkText = t('workTemplate')
         ? t('workTemplate').replace('{{pain}}', painName)
-        : (isEn ? `Dear Manager, I am experiencing severe acute pain (${painName}) today and am unable to work. I kindly request a day off. Thank you for your understanding.`
-          : `领导您好：本人今日突发严重痛经（${painName}），申请休假一天，望批准。`);
+        : (isEn ? `Dear Manager, I am experiencing severe acute pain (${painName}) today and am unable to work as usual. I kindly request a day off. Urgent tasks have been arranged. Thank you for your understanding.`
+          : `领导您好：本人今日突发严重痛经（${painName}），身体状态无法维持正常工作，申请休假一天，望批准。紧急事务已做交接安排。感谢您的理解。`);
 
-      if (hasLlm) {
+      // 🌟 双向切换处理：无论是“中切英”还是“英切中”，内容均可无缝实时匹配当前语言
+      if (activeLlm) {
         return {
-          pain: activeLlm.pain || painName,
-          analogy: activeLlm.analogy || defaultAnalogy,
-          workText: activeLlm.workText || activeLlm.work || defaultWorkText,
-          action: activeLlm.action || defaultAction,
-          selfCare: activeLlm.selfCare || defaultSelfCare,
-          chief_complaint: activeLlm.chief_complaint || activeLlm.med_complaint || defaultComplaint,
-          present_illness: activeLlm.present_illness || activeLlm.med_reference || defaultPresentIllness,
-          past_history: activeLlm.past_history || t('defaultTemplates.past_history'),
-          menstrual_history: activeLlm.menstrual_history || t('defaultTemplates.menstrual_history'),
-          clinical_diagnosis: activeLlm.clinical_diagnosis || defaultClinicalDiagnosis,
-          clinical_suggestions: activeLlm.clinical_suggestions || t('defaultTemplates.clinical_suggestions'),
+          pain: painName,
+          analogy: getLocalizedText(activeLlm.analogy, defaultAnalogy),
+          workText: getLocalizedText(activeLlm.workText || activeLlm.work, defaultWorkText),
+          action: getLocalizedText(activeLlm.action, defaultAction),
+          selfCare: getLocalizedText(activeLlm.selfCare, defaultSelfCare),
+          chief_complaint: getLocalizedText(activeLlm.chief_complaint || activeLlm.med_complaint, defaultComplaint),
+          present_illness: getLocalizedText(activeLlm.present_illness || activeLlm.med_reference, defaultPresentIllness),
+          past_history: getLocalizedText(activeLlm.past_history, defaultPastHistory),
+          menstrual_history: getLocalizedText(activeLlm.menstrual_history, defaultMenstrualHistory),
+          clinical_diagnosis: getLocalizedText(activeLlm.clinical_diagnosis, defaultClinicalDiagnosis),
+          clinical_suggestions: getLocalizedText(activeLlm.clinical_suggestions, defaultClinicalSuggestions),
           exam_advice: activeLlm.exam_advice || null,
         };
       }
@@ -498,28 +522,30 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
         selfCare: defaultSelfCare,
         chief_complaint: defaultComplaint,
         present_illness: defaultPresentIllness,
-        past_history: t('defaultTemplates.past_history'),
-        menstrual_history: isEn ? t('defaultTemplates.menstrual_history') : '月经史：13岁初潮，经期5天，周期28-30天（5/28-30天）。',
+        past_history: defaultPastHistory,
+        menstrual_history: defaultMenstrualHistory,
         clinical_diagnosis: defaultClinicalDiagnosis,
-        clinical_suggestions: t('defaultTemplates.clinical_suggestions'),
+        clinical_suggestions: defaultClinicalSuggestions,
         exam_advice: null,
       };
     } catch (err) {
       console.warn('⚠️ generateContent 降级兜底:', err);
       return {
-        pain: isEn ? 'Dysmenorrhea' : '痛经',
-        analogy: isEn ? 'Severe pelvic discomfort.' : '强烈的痛觉。',
-        workText: isEn ? 'Taking sick leave today.' : '申请病假一天。',
-        action: isEn ? '• Keep warm and rest.' : '• 热敷并休息。',
-        selfCare: isEn ? 'Rest well.' : '好好休息。',
-        chief_complaint: isEn ? 'Recurrent pelvic pain.' : '周期性下腹痛经。',
-        present_illness: isEn ? 'Sudden onset of dysmenorrhea.' : '突发痛经。',
-        clinical_diagnosis: isEn ? 'Pelvic pain evaluation needed.' : '建议妇科超声筛查。',
-        clinical_suggestions: isEn ? 'Warm compress and rest.' : '温敷小腹与腰骶。'
+        pain: targetLanguage === 'en' ? 'Dysmenorrhea' : '痛经',
+        analogy: targetLanguage === 'en' ? 'Severe pelvic discomfort.' : '强烈的痛觉。',
+        workText: targetLanguage === 'en' ? 'Taking sick leave today.' : '申请病假一天。',
+        action: targetLanguage === 'en' ? '• Keep warm and rest.' : '• 热敷并休息。',
+        selfCare: targetLanguage === 'en' ? 'Rest well.' : '好好休息。',
+        chief_complaint: targetLanguage === 'en' ? 'Recurrent pelvic pain.' : '周期性下腹痛经。',
+        present_illness: targetLanguage === 'en' ? 'Sudden onset of dysmenorrhea.' : '突发痛经。',
+        past_history: targetLanguage === 'en' ? 'No chronic medical history.' : '无慢性病史。',
+        menstrual_history: targetLanguage === 'en' ? 'Regular menstrual cycle.' : '月经规律。',
+        clinical_diagnosis: targetLanguage === 'en' ? 'Pelvic pain evaluation needed.' : '建议妇科超声筛查。',
+        clinical_suggestions: targetLanguage === 'en' ? 'Warm compress and rest.' : '温敷小腹与腰骶。'
       };
     }
-  }, [currentReportData, llmData, getDominantPain, t, medicalBackground, cycleDay, userPrefs, isEn]);
-
+  }, [currentReportData, llmData, getDominantPain, t, medicalBackground, cycleDay, userPrefs, targetLanguage]);
+  
   const getEditedOrDefault = useCallback((key, defaultVal) => {
     return editedContents[key] !== undefined ? editedContents[key] : defaultVal;
   }, [editedContents]);
@@ -1806,7 +1832,7 @@ export default function App() {
   const [targetLanguage, setTargetLanguage] = useState('zh');
 
   return (
-    <I18nProvider lang={targetLanguage}>
+    <I18nProvider lang={targetLanguage} setLang={setTargetLanguage}>
       <UserProvider>
         <AppContent
           targetLanguage={targetLanguage}
