@@ -46,46 +46,74 @@ export const UserProvider = ({ children }) => {
     const [isReady, setIsReady] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
 
+    const resetUserInfo = useCallback(() => {
+        setUserInfo(DEFAULT_USER_INFO);
+        localStorage.removeItem('painscape_user_custom_info');
+    }, []);
+
+    const syncProfileFromSupabase = useCallback(async (sessionUser, cancelled = false) => {
+        if (!sessionUser || cancelled) return;
+        setUserId(sessionUser.id);
+        const profileData = await getOrCreateProfile(sessionUser.id);
+        if (profileData && !cancelled) {
+            setProfile(profileData);
+            if (profileData.nickname || profileData.avatar || profileData.signature) {
+                setUserInfo(prev => ({
+                    ...prev,
+                    nickname: profileData.nickname || prev.nickname,
+                    avatar: profileData.avatar || prev.avatar,
+                    signature: profileData.signature || prev.signature,
+                    bgIndex: profileData.bg_index !== undefined ? profileData.bg_index : prev.bgIndex,
+                    customAvatar: profileData.custom_avatar || prev.customAvatar,
+                    customBg: profileData.custom_bg || prev.customBg,
+                }));
+            }
+        }
+    }, []);
+
     // 1. 同步 userInfo 到 localStorage
     useEffect(() => {
         localStorage.setItem('painscape_user_custom_info', JSON.stringify(userInfo));
     }, [userInfo]);
 
-    // 2. 初始化 Supabase 匿名登录
+    // 2. 初始化 Supabase 会话并监听登录/登出变化
     useEffect(() => {
         let cancelled = false;
-        (async () => {
+
+        const initSession = async () => {
             try {
                 const session = await ensureSession();
                 if (!session || cancelled) {
                     setIsReady(true);
                     return;
                 }
-                setUserId(session.user.id);
-                const profileData = await getOrCreateProfile(session.user.id);
-                if (profileData && !cancelled) {
-                    setProfile(profileData);
-                    // 从 Supabase 回填用户信息
-                    if (profileData.nickname || profileData.avatar || profileData.signature) {
-                        setUserInfo(prev => ({
-                            ...prev,
-                            nickname: profileData.nickname || prev.nickname,
-                            avatar: profileData.avatar || prev.avatar,
-                            signature: profileData.signature || prev.signature,
-                            bgIndex: profileData.bg_index !== undefined ? profileData.bg_index : prev.bgIndex,
-                            customAvatar: profileData.custom_avatar || prev.customAvatar,
-                            customBg: profileData.custom_bg || prev.customBg,
-                        }));
-                    }
-                }
+                await syncProfileFromSupabase(session.user, cancelled);
             } catch (e) {
                 console.warn('Supabase init failed, using local mode:', e);
             } finally {
                 if (!cancelled) setIsReady(true);
             }
-        })();
-        return () => { cancelled = true; };
-    }, []);
+        };
+
+        initSession();
+
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+            if (!session?.user) {
+                setUserId(null);
+                setProfile(null);
+                resetUserInfo();
+                setIsReady(true);
+                return;
+            }
+            await syncProfileFromSupabase(session.user);
+            setIsReady(true);
+        });
+
+        return () => {
+            cancelled = true;
+            subscription?.unsubscribe();
+        };
+    }, [resetUserInfo, syncProfileFromSupabase]);
 
     // 3. 更新用户信息（本地 + Supabase）
     const updateUserInfo = useCallback(async (updates) => {
@@ -118,7 +146,8 @@ export const UserProvider = ({ children }) => {
         }
         setUserId(null);
         setProfile(null);
-    }, []);
+        resetUserInfo();
+    }, [resetUserInfo]);
 
     // 5. 获取当前主题
     const activeBackground = PRESET_BACKGROUNDS[userInfo.bgIndex] || PRESET_BACKGROUNDS[0];

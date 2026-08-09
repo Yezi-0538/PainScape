@@ -52,12 +52,17 @@ export async function createPost(postData) {
 
   return {
     ...data,
-    userId: currentUid,
-    authorId: currentUid,
+    id: String(data.id),
+    userId: data.user_id || currentUid,
+    authorId: data.user_id || currentUid,
+    user_id: data.user_id || currentUid,
     nickname: postData.nickname || '同伴',
     avatar: postData.avatar || '🩸',
     customAvatar: postData.customAvatar || '',
     userExperience: data.user_experience || postData.userExperience || '',
+    painTags: data.pain_tags || postData.painTags || [],
+    experienceTags: data.experience_tags || postData.experienceTags || [],
+    createdAt: data.created_at || new Date().toISOString(),
   }
 }
 

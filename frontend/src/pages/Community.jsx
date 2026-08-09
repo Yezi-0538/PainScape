@@ -44,6 +44,8 @@ export default function CommunityPage({
   setExpTags,
   handleAddExperience,
   showToast,
+  isLoading,
+  onRefreshCommunity,
 }) {
   const { t } = useI18n();
 
@@ -165,9 +167,27 @@ export default function CommunityPage({
           paddingBottom: '10px',
         }}
       >
-        <h2 style={{ color: '#fff', margin: 0, fontSize: '1.2rem' }}>
-          {t('community.title')}
-        </h2>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <h2 style={{ color: '#fff', margin: 0, fontSize: '1.2rem' }}>
+            {t('community.title')}
+          </h2>
+          <button
+            onClick={onRefreshCommunity}
+            disabled={isLoading}
+            style={{
+              margin: 0,
+              padding: '6px 14px',
+              background: isLoading ? '#444' : '#555',
+              color: '#fff',
+              border: 'none',
+              borderRadius: '20px',
+              fontSize: '12px',
+              cursor: isLoading ? 'not-allowed' : 'pointer',
+            }}
+          >
+            {isLoading ? t('community.refreshing') || '刷新中...' : t('community.refresh') || '刷新'}
+          </button>
+        </div>
         <button
           style={{
             margin: 0,
