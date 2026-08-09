@@ -81,6 +81,7 @@ export default function RecordDetailModal({
 }) {
   const { t } = useI18n();
   const [postText, setPostText] = useState('');
+  const [showPublishConfirm, setShowPublishConfirm] = useState(false);
 
   if (!viewingDiary) return null;
 
@@ -96,10 +97,19 @@ export default function RecordDetailModal({
   };
 
   const handlePublishSubmit = () => {
+    setShowPublishConfirm(true);
+  };
+
+  const confirmPublish = () => {
+    setShowPublishConfirm(false);
     if (onPublish) {
       onPublish(viewingDiary, postText);
-      onClose();
     }
+    onClose();
+  };
+
+  const cancelPublish = () => {
+    setShowPublishConfirm(false);
   };
 
   return (
@@ -397,6 +407,78 @@ export default function RecordDetailModal({
           </div>
         )}
       </div>
+      {showPublishConfirm && (
+        <div
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            width: '100%',
+            height: '100%',
+            background: 'rgba(0, 0, 0, 0.65)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            borderRadius: '24px',
+            padding: '16px',
+            boxSizing: 'border-box',
+            zIndex: 10,
+          }}
+          onClick={cancelPublish}
+        >
+          <div
+            style={{
+              background: '#181818',
+              border: '1px solid #333',
+              borderRadius: '20px',
+              padding: '22px',
+              width: '100%',
+              maxWidth: '420px',
+              boxSizing: 'border-box',
+              boxShadow: '0 18px 40px rgba(0,0,0,0.45)',
+              color: '#fff',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ marginBottom: '14px', fontSize: '16px', fontWeight: '700' }}>
+              {t('diary.publishConfirmTitle') || (isEn ? 'Confirm Publish' : '确认发布到社区')}
+            </div>
+            <div style={{ color: '#ccc', fontSize: '13px', lineHeight: '1.7', marginBottom: '20px' }}>
+              {t('diary.publishConfirmMessage') || (isEn ? 'This diary entry will be shared to the community feed and become visible to other members.' : '该日记将发布到社区广场，其他同伴将可见。是否继续？')}
+            </div>
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <button
+                onClick={cancelPublish}
+                style={{
+                  flex: 1,
+                  padding: '12px 0',
+                  borderRadius: '14px',
+                  border: '1px solid #444',
+                  background: '#222',
+                  color: '#bbb',
+                  cursor: 'pointer',
+                }}
+              >
+                {t('common.cancel') || (isEn ? 'Cancel' : '取消')}
+              </button>
+              <button
+                onClick={confirmPublish}
+                style={{
+                  flex: 1,
+                  padding: '12px 0',
+                  borderRadius: '14px',
+                  border: 'none',
+                  background: '#2196f3',
+                  color: '#fff',
+                  cursor: 'pointer',
+                }}
+              >
+                {t('common.confirm') || (isEn ? 'Confirm' : '确认')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

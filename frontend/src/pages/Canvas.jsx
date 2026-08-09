@@ -29,7 +29,8 @@ export default function CanvasPage({
   onGenerate,
   onSaveOnly,
   onViewHistory,
-
+  onShareSaved,
+  
   // 画板状态
   bodyMode,
   setBodyMode,
@@ -961,6 +962,28 @@ export default function CanvasPage({
               >
                 💾 {t('canvas.download')}
               </button>
+              {/* 🌟 新增：分享 */}
+              {onShareSaved && (
+                <button
+                  style={{
+                    background: 'rgba(33,150,243,0.15)',
+                    border: '1px solid #2196f3',
+                    color: '#2196f3',
+                    padding: '10px',
+                    borderRadius: '20px',
+                    cursor: 'pointer',
+                    fontSize: '13px',
+                    fontWeight: 'bold',
+                    width: '100%',
+                  }}
+                  onClick={() => {
+                    setSaveSuccess(false);
+                    onShareSaved();
+                  }}
+                >
+                  📤 {t('canvas.share')}
+                </button>
+              )}
               {/* 查看历史记录 */}
               {onViewHistory && (
                 <button

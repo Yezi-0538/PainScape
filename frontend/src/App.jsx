@@ -79,6 +79,40 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
   const [currentUserId, setCurrentUserId] = useState(null);
   const [isGuest, setIsGuest] = useState(false);
   const [targetUserId, setTargetUserId] = useState(null);
+  const [authReady, setAuthReady] = useState(false);
+
+  const handleAuthSuccess = useCallback((userId) => {
+    setCurrentUserId(userId);
+    setTargetUserId(userId);
+    setIsGuest(false);
+    setAuthReady(true);
+    if (page === 'splash') {
+      setPage('modeSelection');
+    }
+  }, [page]);
+
+  const handleGuestLogin = useCallback((guestId) => {
+    setCurrentUserId(guestId);
+    setTargetUserId(guestId);
+    setIsGuest(true);
+    setAuthReady(true);
+    if (page === 'splash') {
+      setPage('modeSelection');
+    }
+  }, [page]);
+
+  const handleLogout = useCallback(async () => {
+    try {
+      await supabase.auth.signOut();
+    } catch (err) {
+      console.warn('Supabase signOut failed:', err);
+    }
+    setCurrentUserId(null);
+    setTargetUserId(null);
+    setIsGuest(false);
+    setAuthReady(true);
+    setPage('splash');
+  }, []);
 
   const [showContent, setShowContent] = useState('basicInfo');
   const [appMode, setAppMode] = useState('medical');
@@ -160,8 +194,8 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
     };
 
     try {
-      await createPost(newPost);
-      setPosts(prev => [newPost, ...prev]);
+      const savedPost = await createPost(newPost);
+      setPosts(prev => [savedPost, ...prev]);
       showToast('publishSuccess', { count: 8, pain: painNameDisplay });
       setPage('community');
     } catch (err) {
@@ -190,22 +224,76 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
   }, [history]);
 
   const [posts, setPosts] = useState([]);
-  const [hasLoadedCommunity, setHasLoadedCommunity] = useState(false);
+  const [isCommunityLoading, setIsCommunityLoading] = useState(false);
+
+  // 如果本地没有帖子，则注入预设示例帖子，便于本地开发和演示
+  useEffect(() => {
+    try {
+      const existing = JSON.parse(localStorage.getItem('painscape_posts') || '[]');
+      if (!Array.isArray(existing) || existing.length === 0) {
+        const now = new Date().toISOString();
+        const seed = [
+          {
+            id: 'seed_1',
+            userId: 'user_seed',
+            authorId: 'user_seed',
+            nickname: '小红',
+            avatar: '❤️',
+            text: '今天画了痛觉图谱，感觉被看见了。大家也来试试吧～',
+            img: '',
+            painTags: ['twist'],
+            likes: 3,
+            hugs: 1,
+            userExperience: '热敷与深呼吸有效缓解',
+            experienceTags: ['self-care'],
+            is_anonymous: false,
+            created_at: now,
+            createdAt: now,
+          },
+          {
+            id: 'seed_2',
+            userId: 'user_seed2',
+            authorId: 'user_seed2',
+            nickname: '小明',
+            avatar: '🌿',
+            text: '分享我的恢复方法：短时散步 + 放松呼吸，疼痛减轻许多。',
+            img: '',
+            painTags: ['wave'],
+            likes: 5,
+            hugs: 2,
+            userExperience: '运动与呼吸结合',
+            experienceTags: ['movement'],
+            is_anonymous: false,
+            created_at: now,
+            createdAt: now,
+          },
+        ];
+        localStorage.setItem('painscape_posts', JSON.stringify(seed));
+      }
+    } catch (e) {
+      // eslint-disable-next-line no-console
+      console.warn('Seed posts failed:', e);
+    }
+  }, []);
+
+  const refreshCommunity = useCallback(async () => {
+    setIsCommunityLoading(true);
+    try {
+      const loadedPosts = await getPosts();
+      setPosts(Array.isArray(loadedPosts) ? loadedPosts : []);
+    } catch (e) {
+      console.error('❌ 加载社区帖子失败:', e);
+      showToast('loadPostsFailed');
+    } finally {
+      setIsCommunityLoading(false);
+    }
+  }, [showToast]);
 
   useEffect(() => {
-    if (page === 'community' && !hasLoadedCommunity) {
-      (async () => {
-        try {
-          const loadedPosts = await getPosts();
-          setPosts(Array.isArray(loadedPosts) ? loadedPosts : []);
-          setHasLoadedCommunity(true);
-        } catch (e) {
-          console.error('❌ 加载社区帖子失败:', e);
-          showToast('loadPostsFailed');
-        }
-      })();
+    if (page === 'community') {
+      refreshCommunity();
     }
-  }, [page, hasLoadedCommunity, showToast]);
+  }, [page, refreshCommunity]);
 
   useEffect(() => {
     const checkActiveSession = async () => {
@@ -214,12 +302,30 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
         if (session && session.user) {
           setCurrentUserId(session.user.id);
           setTargetUserId(session.user.id);
+          setIsGuest(false);
         }
       } catch (err) {
         console.warn("自动检测云端登录态失败，已自动开启安全降级本地模式:", err);
+      } finally {
+        setAuthReady(true);
       }
     };
     checkActiveSession();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session?.user) {
+        setCurrentUserId(session.user.id);
+        setTargetUserId(session.user.id);
+        setIsGuest(false);
+      } else {
+        setCurrentUserId(null);
+        setTargetUserId(null);
+        setIsGuest(false);
+      }
+      setAuthReady(true);
+    });
+
+    return () => subscription?.unsubscribe();
   }, []);
 
   const [userPrefs, setUserPrefs] = useState(['care']);
@@ -759,6 +865,33 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
       showToast('exportFailed');
     }
   };
+
+  const handleShareSavedPainting = async () => {
+    const canvasImg = generateCompositeCanvas() || getFallbackImgUrl();
+
+    // 优先使用原生分享 API（支持微信、系统分享等）
+    if (navigator.share) {
+      try {
+        const blob = await (await fetch(canvasImg)).blob();
+        const file = new File([blob], `painscape_${new Date().toISOString().slice(0, 10)}.png`, {
+          type: 'image/png',
+        });
+        await navigator.share({
+          title: 'PainScape',
+          text: '',
+          files: [file],
+        });
+      } catch (e) {
+        console.log('Share cancelled');
+      }
+    } else {
+      // 降级：下载图片
+      const link = document.createElement('a');
+      link.download = `painscape_${new Date().toISOString().slice(0, 10)}.png`;
+      link.href = canvasImg;
+      link.click();
+    }
+  };
   const handleSaveOnly = () => {
     saveSnapshot();
 
@@ -1171,9 +1304,19 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
               setPage('canvas');
             }}
             onBack={() => setPage('modeSelection')}
-            onCommunity={() => setPage('community')}
+            onCommunity={() => {
+              if (isGuest) {
+                alert('游客仅能使用基础功能，登录后可进入社区和个人主页。');
+                return;
+              }
+              setPage('community');
+            }}
             onHistory={() => setPage('history')}
             onProfile={() => {
+              if (isGuest) {
+                alert('游客仅能使用基础功能，登录后可进入社区和个人主页。');
+                return;
+              }
               setTargetUserId(currentUserId);
               setPage('profile');
             }}
@@ -1213,6 +1356,7 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
             bgBackRef={bgBackRef}
             camRef={camRef}
             brushCounts={brushCounts}
+            onShareSaved={handleShareSavedPainting}
             dynamicParticles={dynamicParticles}
             staticParticles={staticParticles}
             particlePositions={particlePositions}
@@ -1510,8 +1654,8 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
             setExpText={setExpText}
             expTags={expTags}
             setExpTags={setExpTags}
-            isLoading={isLoading}
-            setIsLoading={setIsLoading}
+            isLoading={isCommunityLoading}
+            onRefreshCommunity={refreshCommunity}
             onBack={() => setPage('onboarding')}
             onViewProfile={(userId) => {
               setTargetUserId(userId);
@@ -1581,10 +1725,7 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
                 setPage('onboarding');
               }
             }}
-            onLogout={() => {
-              alert("模拟退出登录成功。");
-              setPage('splash');
-            }}
+            onLogout={handleLogout}
           />
         );
 
@@ -1634,16 +1775,9 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
 
       {/* 登录/游客拦截弹窗 */}
       <AuthModal
-        isOpen={currentUserId === null && !isGuest}
-        onAuthSuccess={(userId) => {
-          setCurrentUserId(userId);
-          setTargetUserId(userId);
-        }}
-        onGuestLogin={(guestId) => {
-          setCurrentUserId(guestId);
-          setTargetUserId(guestId);
-          setIsGuest(true);
-        }}
+        isOpen={!authReady ? false : currentUserId === null && !isGuest}
+        onAuthSuccess={handleAuthSuccess}
+        onGuestLogin={handleGuestLogin}
       />
 
       <ToastContainer />

@@ -482,6 +482,7 @@ const RecordCard = ({
   exportMode = false,
   isExportSelected = false,
   onToggleExport,
+  onShare,
 }) => {
   const painName = getPainNameDisplay(record, t);
   const painKey = record.dominantPain || CHINESE_TO_KEY_MAP[record.painName];
@@ -560,6 +561,24 @@ const RecordCard = ({
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
           <span style={{ color: '#444', fontSize: '10px' }}>{displayDate}</span>
+          {/* 分享按钮 */}
+          {onShare && (
+            <button
+              onClick={(e) => { e.stopPropagation(); onShare(record); }}
+              style={{
+                background: 'rgba(33,150,243,0.08)',
+                border: '1px solid rgba(33,150,243,0.15)',
+                color: '#64b5f6',
+                fontSize: '10px',
+                cursor: 'pointer',
+                padding: '3px 8px',
+                borderRadius: '8px',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {isEn ? 'Share' : '分享'}
+            </button>
+          )}
           {onCompare && (
             <span
               onClick={(e) => { e.stopPropagation(); onCompare(record); }}
@@ -716,6 +735,24 @@ const RecordCard = ({
 
       {/* 右侧按钮组 */}
       <div style={{ display: 'flex', gap: '6px', flexShrink: 0, alignItems: 'center' }}>
+        {/* 分享按钮 */}
+        {onShare && (
+          <button
+            onClick={(e) => { e.stopPropagation(); onShare(record); }}
+            style={{
+              background: 'rgba(33,150,243,0.08)',
+              border: '1px solid rgba(33,150,243,0.15)',
+              color: '#64b5f6',
+              fontSize: '10px',
+              cursor: 'pointer',
+              padding: '3px 8px',
+              borderRadius: '8px',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {isEn ? 'Share' : '分享'}
+          </button>
+        )}
         {onCompare && (
           <button
             onClick={(e) => { e.stopPropagation(); onCompare(record); }}
@@ -1339,6 +1376,7 @@ export default function HistoryPage({
                     }
                     setSelectedForExport(newSet);
                   }}
+                  onShare={(record) => onShareRecord?.(record)}
                 />
               ))}
             </div>
@@ -1431,6 +1469,7 @@ export default function HistoryPage({
                             }
                             setSelectedForExport(newSet);
                           }}
+                          onShare={(record) => onShareRecord?.(record)}
                         />
                       ))}
                     </div>
