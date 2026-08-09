@@ -185,7 +185,7 @@ export async function getMyPosts(userId) {
 /**
  * 点赞帖子
  */
-export async function likePost(postId, userId) {
+export async function likePost(postId) {
   if (!supabase) {
     const posts = JSON.parse(localStorage.getItem('painscape_posts') || '[]')
     const post = posts.find(p => String(p.id) === String(postId))
@@ -258,6 +258,35 @@ export async function updatePostExperience(postId, experience, tags = []) {
 
   if (error) {
     console.error('Update experience error:', error)
+    return null
+  }
+  return data
+}
+
+/**
+ * 更新帖子“有用投票”计数（兼容本地/云端）
+ */
+export async function voteHelpfulPost(postId, helpfulVotes, hasUserVotedHelpful = false) {
+  const posts = JSON.parse(localStorage.getItem('painscape_posts') || '[]')
+  const post = posts.find(p => String(p.id) === String(postId))
+  if (post) {
+    post.helpfulVotes = helpfulVotes
+    post.helpful_votes = helpfulVotes
+    post.hasUserVotedHelpful = hasUserVotedHelpful
+  }
+  localStorage.setItem('painscape_posts', JSON.stringify(posts))
+
+  if (!supabase) return post
+
+  const { data, error } = await supabase
+    .from('posts')
+    .update({ helpful_votes: helpfulVotes })
+    .eq('id', postId)
+    .select()
+    .single()
+
+  if (error) {
+    console.error('Vote helpful error:', error)
     return null
   }
   return data

@@ -3,7 +3,7 @@ import React from 'react';
 import { useI18n } from '../i18n/i18nContext';
 import { PAIN_NAME_MAP } from '../i18n/translationsConstants';
 import CommunityPostDetailModal from '../Components/modals/CommunityPostDetailModal';
-import { likePost, hugPost, updatePostExperience } from '../services/postService';
+import { likePost, hugPost, updatePostExperience, voteHelpfulPost } from '../services/postService';
 
 const PAIN_KEY_MAP = {
   'twist': 'twist', '绞痛': 'twist',
@@ -121,7 +121,30 @@ export default function CommunityPage({
     await hugPost(postId, nextHugs);
   };
 
-  // 🌟 3. 实时比心/点赞并同步弹窗 (无需重新退出进入)
+  // 🌟 3. 实时赞同/有用投票并同步弹窗
+  const handleHelpfulVote = async (postId, e) => {
+    if (e) e.stopPropagation();
+    const post = posts.find((p) => String(p.id) === String(postId));
+    if (!post) return;
+
+    const hasVoted = post.hasUserVotedHelpful || false;
+    const nextVotes = (post.helpfulVotes || post.helpful_votes || 0) + (hasVoted ? -1 : 1);
+    const updates = {
+      helpfulVotes: nextVotes,
+      helpful_votes: nextVotes,
+      hasUserVotedHelpful: !hasVoted,
+    };
+
+    setPosts((prev) => prev.map((p) => (String(p.id) === String(postId) ? { ...p, ...updates } : p)));
+    if (viewingPost && String(viewingPost.id) === String(postId)) {
+      setViewingPost((prev) => (prev ? { ...prev, ...updates } : null));
+    }
+
+    if (showToast) showToast(hasVoted ? 'helpfulRemoved' : 'helpfulAdded');
+    await voteHelpfulPost(postId, nextVotes, !hasVoted);
+  };
+
+  // 🌟 4. 实时比心/点赞并同步弹窗 (无需重新退出进入)
   const handleLike = async (postId, e) => {
     if (e) e.stopPropagation();
     const post = posts.find((p) => String(p.id) === String(postId));
@@ -319,6 +342,32 @@ export default function CommunityPage({
                 </p>
                 <div style={{ marginTop: '10px', color: '#888', fontSize: '11px', textAlign: 'right' }}>
                   by {tip.nickname || tip.authorName || tip.displayName || '同伴'} ›
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '10px', paddingTop: '8px', borderTop: '1px solid #222' }}>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setViewingPost(tip);
+                    }}
+                    style={{ background: 'none', border: 'none', color: '#888', fontSize: '11px', cursor: 'pointer', textDecoration: 'underline' }}
+                  >
+                    查看详情
+                  </button>
+                  <button
+                    onClick={(e) => handleHelpfulVote(tip.id, e)}
+                    style={{
+                      background: tip.hasUserVotedHelpful ? 'rgba(76,175,80,0.15)' : 'rgba(255,255,255,0.03)',
+                      border: '1px solid rgba(76,175,80,0.3)',
+                      borderRadius: '12px',
+                      color: '#4caf50',
+                      padding: '3px 8px',
+                      fontSize: '10.5px',
+                      cursor: 'pointer',
+                      fontWeight: 'bold',
+                    }}
+                  >
+                    {tip.hasUserVotedHelpful ? t('post.votedHelpful') || '已认可' : '+ ' + (t('post.markHelpful') || '亲测有用')}
+                  </button>
                 </div>
               </div>
             ))}
