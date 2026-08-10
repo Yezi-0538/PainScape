@@ -285,7 +285,7 @@ const PainTypeDistribution = ({ history, t }) => {
 };
 
 // ============================================================
-// 子组件：对比视图（支持任意两条记录对比）
+// 子组件：对比视图（增强版 - 支持多维度对比）
 // ============================================================
 const ComparisonView = ({ source, target, t, isEn, onClear }) => {
   if (!source || !target) {
@@ -299,9 +299,7 @@ const ComparisonView = ({ source, target, t, isEn, onClear }) => {
         borderRadius: '12px',
         marginBottom: '16px',
       }}>
-        {isEn
-          ? 'Select two records to compare'
-          : '选择两条记录进行对比'}
+        {t('history.selectTwoRecords')}
       </div>
     );
   }
@@ -320,6 +318,95 @@ const ComparisonView = ({ source, target, t, isEn, onClear }) => {
   const sameType = (source.dominantPain || CHINESE_TO_KEY_MAP[source.painName]) ===
     (target.dominantPain || CHINESE_TO_KEY_MAP[target.painName]);
   const sameDay = sourceDate === targetDate;
+
+  // 🌟 新增：计算间隔天数
+  const getDaysDiff = () => {
+    const d1 = new Date(sourceDate);
+    const d2 = new Date(targetDate);
+    return Math.abs(Math.round((d1 - d2) / 86400000));
+  };
+  const daysDiff = getDaysDiff();
+  // 🌟 修复：获取身体部位描述（支持新分区）
+  const getLocationDesc = (record) => {
+    const map = record.spatialMap || {};
+    const parts = [];
+
+    // 检查是正面还是背面（通过字段判断）
+    const isFront = 'head' in map || 'chest' in map || 'upperAbdomen' in map || 'lowerAbdomen' in map || 'legs' in map;
+    const isBack = 'upperBack' in map || 'waist' in map || 'sacrum' in map;
+
+    if (isFront) {
+      // 正面五分区
+      const head = (map.head || 0) * 100;
+      const chest = (map.chest || 0) * 100;
+      const upperAbdomen = (map.upperAbdomen || 0) * 100;
+      const lowerAbdomen = (map.lowerAbdomen || 0) * 100;
+      const legs = (map.legs || 0) * 100;
+
+      if (head > 3) parts.push(`${t('history.bodyHead')} ${Math.round(head)}%`);
+      if (chest > 3) parts.push(`${t('history.bodyChest')} ${Math.round(chest)}%`);
+      if (upperAbdomen > 3) parts.push(`${t('history.bodyUpperAbdomen')} ${Math.round(upperAbdomen)}%`);
+      if (lowerAbdomen > 3) parts.push(`${t('history.bodyLowerAbdomen')} ${Math.round(lowerAbdomen)}%`);
+      if (legs > 3) parts.push(`${t('history.bodyLegs')} ${Math.round(legs)}%`);
+    } else if (isBack) {
+      // 背面三分区
+      const upperBack = (map.upperBack || 0) * 100;
+      const waist = (map.waist || 0) * 100;
+      const sacrum = (map.sacrum || 0) * 100;
+
+      if (upperBack > 3) parts.push(`${t('history.bodyUpperBack')} ${Math.round(upperBack)}%`);
+      if (waist > 3) parts.push(`${t('history.bodyWaist')} ${Math.round(waist)}%`);
+      if (sacrum > 3) parts.push(`${t('history.bodySacrum')} ${Math.round(sacrum)}%`);
+    }
+
+    // 如果没有任何数据，尝试从旧的字段读取（兼容旧数据）
+    if (parts.length === 0) {
+      // 兼容旧的三分区
+      const abdomen = (map.abdomen || 0) * 100;
+      const lowerBack = (map.lowerBack || 0) * 100;
+      const upperBody = (map.upperBody || 0) * 100;
+      if (abdomen > 5) parts.push(`${t('history.bodyAbdomen')} ${Math.round(abdomen)}%`);
+      if (lowerBack > 5) parts.push(`${t('history.bodyLowerBack')} ${Math.round(lowerBack)}%`);
+      if (upperBody > 5) parts.push(`${t('history.bodyUpperBody')} ${Math.round(upperBody)}%`);
+    }
+
+    if (parts.length === 0) {
+      // 如果有 bodyMode 但没有 spatialMap，显示 bodyMode 信息
+      const mode = record.bodyMode || record.meta?.bodyMode;
+      if (mode === 'front') return t('history.bodyFront');
+      if (mode === 'back') return t('history.bodyBack');
+      return t('history.bodyNotRecorded');
+    }
+
+    return parts.join(' · ');
+  };
+
+  // 🌟 新增：获取颜色描述
+  const getColorDesc = (record) => {
+    const colorMap = {
+      crimson: { zh: t('history.colorCrimson'), en: t('history.colorCrimsonEn') },
+      dark: { zh: t('history.colorDark'), en: t('history.colorDarkEn') },
+      purple: { zh: t('history.colorPurple'), en: t('history.colorPurpleEn') },
+      blue: { zh: t('history.colorBlue'), en: t('history.colorBlueEn') },
+    };
+    const c = record.colorPalette || 'crimson';
+    return isEn ? colorMap[c]?.en || c : colorMap[c]?.zh || c;
+  };
+
+  // 🌟 新增：获取伴随症状
+  const getSymptoms = (record) => {
+    const symptoms = record.accompanyingSymptoms || [];
+    return symptoms.length > 0 ? symptoms.join('、') : t('history.symptomsNone');
+  };
+
+  const sourceLocation = getLocationDesc(source);
+  const targetLocation = getLocationDesc(target);
+  const sourceColor = getColorDesc(source);
+  const targetColor = getColorDesc(target);
+  const sourceSymptoms = getSymptoms(source);
+  const targetSymptoms = getSymptoms(target);
+  const locationChanged = sourceLocation !== targetLocation && sourceLocation !== t('history.bodyNotRecorded') && targetLocation !== t('history.bodyNotRecorded');
+  const colorChanged = sourceColor !== targetColor;
 
   return (
     <div style={{
@@ -356,86 +443,130 @@ const ComparisonView = ({ source, target, t, isEn, onClear }) => {
         )}
       </div>
 
-      {/* 对比主体 */}
+      {/* 对比主体 - 增强版 */}
       <div style={{
         display: 'grid',
         gridTemplateColumns: '1fr auto 1fr',
         gap: '12px',
-        alignItems: 'center',
+        alignItems: 'stretch',
       }}>
-        {/* 源记录 */}
-        <div style={{ textAlign: 'center' }}>
+        {/* 本次记录 */}
+        <div style={{
+          textAlign: 'center',
+          padding: '12px',
+          background: 'rgba(230,126,34,0.04)',
+          borderRadius: '10px',
+        }}>
           <div style={{
             color: '#888',
-            fontSize: '10px',
+            fontSize: '9px',
             textTransform: 'uppercase',
             letterSpacing: '1px',
             marginBottom: '6px',
           }}>
             {t('history.compareSource')}
           </div>
+          <div style={{ fontSize: '11px', color: '#aaa', marginBottom: '4px' }}>
+            {sourceDate} {sourceTime}
+          </div>
           <div style={{
             display: 'inline-flex',
             alignItems: 'center',
-            gap: '8px',
-            padding: '6px 16px',
+            gap: '6px',
+            padding: '4px 12px',
             background: 'rgba(230,126,34,0.12)',
-            border: '1px solid rgba(230,126,34,0.25)',
-            borderRadius: '20px',
+            borderRadius: '16px',
             color: '#e8a87c',
-            fontSize: '15px',
+            fontSize: '13px',
+            marginBottom: '6px',
           }}>
             <span>{sourceIcon}</span>
             <span>{sourcePain}</span>
           </div>
-          <div style={{ color: '#555', fontSize: '11px', marginTop: '6px' }}>
-            {sourceDate} {sourceTime}
+          <div style={{ fontSize: '10px', color: '#666', marginTop: '4px' }}>
+            📍 {sourceLocation}
           </div>
+          <div style={{ fontSize: '10px', color: '#666' }}>
+            🌡️ {sourceColor}
+          </div>
+          {sourceSymptoms !== t('history.symptomsNone') && (
+            <div style={{ fontSize: '10px', color: '#666' }}>
+              🤢 {sourceSymptoms}
+            </div>
+          )}
         </div>
 
         {/* VS 分隔 */}
         <div style={{
-          color: '#444',
-          fontSize: '14px',
-          fontWeight: '300',
-          letterSpacing: '2px',
-          textAlign: 'center',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: '4px',
         }}>
-          VS
+          <div style={{
+            color: '#444',
+            fontSize: '12px',
+            fontWeight: '300',
+            letterSpacing: '2px',
+          }}>
+            VS
+          </div>
+          {daysDiff > 0 && (
+            <div style={{ fontSize: '9px', color: '#555' }}>
+              {daysDiff} {t('history.daysUnit')}
+            </div>
+          )}
         </div>
 
-        {/* 目标记录 */}
-        <div style={{ textAlign: 'center' }}>
+        {/* 上次记录 */}
+        <div style={{
+          textAlign: 'center',
+          padding: '12px',
+          background: 'rgba(184,168,152,0.04)',
+          borderRadius: '10px',
+        }}>
           <div style={{
             color: '#888',
-            fontSize: '10px',
+            fontSize: '9px',
             textTransform: 'uppercase',
             letterSpacing: '1px',
             marginBottom: '6px',
           }}>
             {t('history.compareTarget')}
           </div>
+          <div style={{ fontSize: '11px', color: '#aaa', marginBottom: '4px' }}>
+            {targetDate} {targetTime}
+          </div>
           <div style={{
             display: 'inline-flex',
             alignItems: 'center',
-            gap: '8px',
-            padding: '6px 16px',
-            background: 'rgba(76,175,80,0.10)',
-            border: '1px solid rgba(76,175,80,0.20)',
-            borderRadius: '20px',
-            color: '#81c784',
-            fontSize: '15px',
+            gap: '6px',
+            padding: '4px 12px',
+            background: 'rgba(184,168,152,0.10)',
+            borderRadius: '16px',
+            color: '#b8a898',
+            fontSize: '13px',
+            marginBottom: '6px',
           }}>
             <span>{targetIcon}</span>
             <span>{targetPain}</span>
           </div>
-          <div style={{ color: '#555', fontSize: '11px', marginTop: '6px' }}>
-            {targetDate} {targetTime}
+          <div style={{ fontSize: '10px', color: '#666', marginTop: '4px' }}>
+            📍 {targetLocation}
           </div>
+          <div style={{ fontSize: '10px', color: '#666' }}>
+            🌡️ {targetColor}
+          </div>
+          {targetSymptoms !== t('history.symptomsNone') && (
+            <div style={{ fontSize: '10px', color: '#666' }}>
+              🤢 {targetSymptoms}
+            </div>
+          )}
         </div>
       </div>
 
-      {/* 对比洞察 */}
+      {/* 对比洞察 - 增强版 */}
       <div style={{
         marginTop: '14px',
         padding: '10px 14px',
@@ -446,25 +577,45 @@ const ComparisonView = ({ source, target, t, isEn, onClear }) => {
         gap: '12px',
         justifyContent: 'center',
       }}>
+        {/* 间隔天数 */}
+        {daysDiff > 0 && (
+          <span style={{ color: '#666', fontSize: '10px' }}>
+            ⏱️ {daysDiff} {t('history.daysUnit')} {isEn ? 'apart' : '间隔'}
+          </span>
+        )}
+
+        {/* 同一天标记 */}
         {sameDay && (
-          <span style={{ color: '#666', fontSize: '11px' }}>
-            {isEn ? '📅 Same day' : '📅 同一天'}
+          <span style={{ color: '#666', fontSize: '10px' }}>
+            📅 {t('history.sameDay')}
           </span>
         )}
-        {sameType ? (
-          <span style={{ color: '#81c784', fontSize: '11px' }}>
-            {isEn ? '🔄 Same pain type' : '🔄 相同感受类型'}
-          </span>
-        ) : (
-          <span style={{ color: '#e8a87c', fontSize: '11px' }}>
-            {isEn ? '🔀 Different pain types' : '🔀 不同感受类型'}
+
+        {/* 痛感类型变化 */}
+        <span style={{ color: sameType ? '#81c784' : '#e8a87c', fontSize: '10px' }}>
+          {sameType
+            ? `🔄 ${t('history.sameType')}`
+            : `🔀 ${t('history.diffType')}`}
+        </span>
+
+        {/* 位置变化 */}
+        {locationChanged && (
+          <span style={{ color: '#64b5f6', fontSize: '10px' }}>
+            📍 {t('history.locationChanged')}
           </span>
         )}
-        {!sameDay && (
-          <span style={{ color: '#555', fontSize: '11px' }}>
-            {isEn
-              ? `↔️ Different dates`
-              : `↔️ 不同日期`}
+
+        {/* 颜色/体感变化 */}
+        {colorChanged && (
+          <span style={{ color: '#ce93d8', fontSize: '10px' }}>
+            🌡️ {t('history.sensationChanged')}
+          </span>
+        )}
+
+        {/* 无变化标记 */}
+        {sameType && !locationChanged && !colorChanged && (
+          <span style={{ color: '#555', fontSize: '10px' }}>
+            {t('history.noSignificantChange')}
           </span>
         )}
       </div>

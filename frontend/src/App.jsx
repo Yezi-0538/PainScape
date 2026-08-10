@@ -1371,6 +1371,102 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
                 const canvasImg = generateCompositeCanvas() || getFallbackImgUrl();
                 setImgUrl(canvasImg);
 
+                // ============================================================
+                // 🌟 身体区域映射配置
+                // ============================================================
+                const BODY_ZONES = {
+                  front: {
+                    // 头部：图的上部 8%
+                    head: { x: [0.35, 0.65], y: [0.00, 0.08] },
+                    // 胸部：8% - 28%
+                    chest: { x: [0.20, 0.80], y: [0.08, 0.28] },
+                    // 上腹：28% - 46%
+                    upperAbdomen: { x: [0.22, 0.78], y: [0.28, 0.46] },
+                    // 下腹：46% - 66%
+                    lowerAbdomen: { x: [0.25, 0.75], y: [0.46, 0.66] },
+                    // 腿部：66% - 100%
+                    legs: { x: [0.20, 0.80], y: [0.66, 1.00] },
+                  },
+                  back: {
+                    // 上背：8% - 38%
+                    upperBack: { x: [0.20, 0.80], y: [0.08, 0.38] },
+                    // 腰部：38% - 58%
+                    waist: { x: [0.22, 0.78], y: [0.38, 0.58] },
+                    // 骶部：58% - 82%
+                    sacrum: { x: [0.25, 0.75], y: [0.58, 0.82] },
+                  },
+                };
+
+                const isInZone = (x, y, zone) => {
+                  return x >= zone.x[0] && x <= zone.x[1] &&
+                    y >= zone.y[0] && y <= zone.y[1];
+                };
+
+                const getDefaultSpatialMap = (mode) => {
+                  if (mode === 'back') {
+                    return { upperBack: 0.3, waist: 0.5, sacrum: 0.2 };
+                  }
+                  return { head: 0.0, chest: 0.1, upperAbdomen: 0.4, lowerAbdomen: 0.5, legs: 0.0 };
+                };
+
+                // ✅ 计算空间分布
+                const calculateSpatialMap = (positions, mode, p5) => {
+                  if (!p5 || !p5.width || !p5.height) {
+                    return getDefaultSpatialMap(mode);
+                  }
+
+                  const activeImg = mode === 'back' ? bgBackRef.current : bgFrontRef.current;
+                  if (!activeImg) {
+                    return getDefaultSpatialMap(mode);
+                  }
+
+                  const currentBgScale = bgScaleRef.current || 1.0;
+                  const imgScale = ((p5.height * 0.8) / activeImg.height) * currentBgScale;
+                  const imgWidth = activeImg.width * imgScale;
+                  const imgHeight = activeImg.height * imgScale;
+                  const imgLeft = (p5.width / 2) - imgWidth / 2;
+                  const imgTop = (p5.height / 2) - imgHeight / 2;
+
+                  const zones = mode === 'back' ? BODY_ZONES.back : BODY_ZONES.front;
+                  const zoneKeys = Object.keys(zones);
+                  const counts = {};
+                  zoneKeys.forEach(key => counts[key] = 0);
+
+                  let totalInBody = 0;
+
+                  positions.forEach(p => {
+                    if (!p || p.x == null || p.y == null) return;
+
+                    const normX = (p.x - imgLeft) / imgWidth;
+                    const normY = (p.y - imgTop) / imgHeight;
+
+                    if (normX < 0 || normX > 1 || normY < 0 || normY > 1) return;
+
+                    totalInBody++;
+
+                    for (const key of zoneKeys) {
+                      if (isInZone(normX, normY, zones[key])) {
+                        counts[key] += 1;
+                        break;
+                      }
+                    }
+                  });
+
+                  if (totalInBody === 0) {
+                    return getDefaultSpatialMap(mode);
+                  }
+
+                  const result = {};
+                  zoneKeys.forEach(key => {
+                    result[key] = counts[key] / totalInBody;
+                  });
+
+                  return result;
+                };
+
+                // ============================================================
+                // 提取数据
+                // ============================================================
                 const dominant = getDominantPain() || 'twist';
                 const bc = brushCounts.current || {};
                 const brushNameMap = { heavy: 'sink', wave: 'swell' };
@@ -1378,8 +1474,10 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
                 const mappedBc = Object.fromEntries(
                   Object.entries(bc).map(([k, v]) => [brushNameMap[k] || k, v])
                 );
+
                 const toneMap = { polite: 'neutral', objective: 'formal' };
                 const mappedWorkTone = toneMap[leaveTone] || leaveTone || 'neutral';
+
                 const totalBrushes = Object.values(bc).reduce((a, b) => a + b, 0);
                 const painScore = Math.min(100, Math.max(10, Math.round(totalBrushes * 1.5)));
 
@@ -1390,24 +1488,21 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
                 const avgPressure = prHist.length > 0 ? prHist.reduce((a, b) => a + b, 0) / prHist.length : 0.5;
 
                 const positions = particlePositions.current || [];
-                let abdomenWeight = 0, lowerBackWeight = 0, upperBodyWeight = 0;
-                positions.forEach(p => {
-                  if (p && p.y != null) {
-                    const normY = p.y / (p.canvasH || 600);
-                    if (normY < 0.33) upperBodyWeight += 1;
-                    else if (normY < 0.66) abdomenWeight += 1;
-                    else lowerBackWeight += 1;
-                  }
-                });
-                const posTotal = abdomenWeight + lowerBackWeight + upperBodyWeight || 1;
-                const spatialMap = {
-                  abdomen: abdomenWeight / posTotal || 0.5,
-                  lowerBack: lowerBackWeight / posTotal || 0.5,
-                  upperBody: upperBodyWeight / posTotal || 0.0,
+                const p5 = p5Ref.current;
+
+                // ✅ 使用新的 calculateSpatialMap
+                const spatialMap = calculateSpatialMap(positions, bodyMode, p5);
+
+                const timeRhythm = {
+                  morning: 0.33,
+                  afternoon: 0.33,
+                  night: 0.34,
+                  dominantPeriod: 'morning',
                 };
 
-                const timeRhythm = { morning: 0.33, afternoon: 0.33, night: 0.34, dominantPeriod: 'morning' };
-
+                // ============================================================
+                // 构建请求体
+                // ============================================================
                 const requestBody = {
                   appMode: appMode || 'medical',
                   dominantPain: mappedDominant,
@@ -1428,7 +1523,9 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
                   workTone: mappedWorkTone,
                 };
 
-                // 2. 网络调用防崩溃
+                // ============================================================
+                // 调用后端 API
+                // ============================================================
                 let apiResult = null;
                 try {
                   const resp = await fetch(`${API_BASE}/api/generate`, {
@@ -1451,9 +1548,13 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
                   setCurrentReportData(content);
                 }
 
+                // ============================================================
+                // 保存历史记录
+                // ============================================================
                 const now = new Date();
                 const dateStr = `${now.getFullYear()}/${String(now.getMonth() + 1).padStart(2, '0')}/${String(now.getDate()).padStart(2, '0')}`;
                 const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+
                 const historyEntry = {
                   id: Date.now().toString(),
                   userId: currentUserId || 'user_guest',
@@ -1469,10 +1570,17 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
                   userPrefs,
                   tonePreference,
                   cycleDay,
+                  // ✅ 存储 spatialMap 供历史查看使用
+                  spatialMap,
+                  colorPalette: activeColor || 'crimson',
+                  accompanyingSymptoms: medicalBackground.accompanyingSymptomsArr || [],
                 };
+
                 setHistory(prev => [historyEntry, ...prev]);
 
-                // 3. 顺利进入结果页
+                // ============================================================
+                // 进入结果页
+                // ============================================================
                 setPage('result');
               } catch (e) {
                 console.error('❌ 生成失败处理:', e);
