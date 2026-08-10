@@ -51,6 +51,7 @@ export const UserProvider = ({ children }) => {
         localStorage.removeItem('painscape_user_custom_info');
     }, []);
 
+
     const syncProfileFromSupabase = useCallback(async (sessionUser, cancelled = false) => {
         if (!sessionUser || cancelled) return;
         setUserId(sessionUser.id);
@@ -66,11 +67,12 @@ export const UserProvider = ({ children }) => {
                     bgIndex: profileData.bg_index !== undefined ? profileData.bg_index : prev.bgIndex,
                     customAvatar: profileData.custom_avatar || prev.customAvatar,
                     customBg: profileData.custom_bg || prev.customBg,
+                    // ✅ 新增：同步引导状态
+                    hasSeenGuide: profileData.has_seen_guide || false,
                 }));
             }
         }
     }, []);
-
     // 1. 同步 userInfo 到 localStorage
     useEffect(() => {
         localStorage.setItem('painscape_user_custom_info', JSON.stringify(userInfo));
@@ -123,14 +125,17 @@ export const UserProvider = ({ children }) => {
         // 同步到 Supabase
         if (userId) {
             try {
-                await updateProfile(userId, {
+                // 支持 has_seen_guide 字段
+                const profileUpdates = {
                     nickname: newInfo.nickname,
                     avatar: newInfo.avatar,
                     signature: newInfo.signature,
                     bg_index: newInfo.bgIndex,
                     custom_avatar: newInfo.customAvatar,
                     custom_bg: newInfo.customBg,
-                });
+                    has_seen_guide: newInfo.hasSeenGuide, // 新增
+                };
+                await updateProfile(userId, profileUpdates);
             } catch (e) {
                 console.warn('Failed to sync profile to Supabase:', e);
             }

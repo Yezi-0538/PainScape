@@ -6,6 +6,7 @@ import { BRUSHES, PALETTES } from '../i18n/translationsConstants';
 import { PainParticle } from '../Components/PainParticle';
 import { useAudio } from '../hooks/useAudio';
 import OnboardingGuide from '../Components/OnboardingGuide';
+import { useUser } from '../contexts/UserContext';
 
 // ============================================================
 // 子组件：画笔颜色描述
@@ -30,7 +31,7 @@ export default function CanvasPage({
   onSaveOnly,
   onViewHistory,
   onShareSaved,
-  
+
   // 画板状态
   bodyMode,
   setBodyMode,
@@ -84,11 +85,49 @@ export default function CanvasPage({
   // 仅保存绘画图片
   const [showSaveConfirm, setShowSaveConfirm] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
-  // 首次进入 canvas 显示引导
-  const [showGuide, setShowGuide] = useState(true);
+  const { userId, userInfo, setUserInfo } = useUser();
   // const [showGuide, setShowGuide] = useState(() => {
   //   return !localStorage.getItem('paintScape_guide_seen');
   // });
+  const [showGuide, setShowGuide] = useState(false);
+  const [guideLoading, setGuideLoading] = useState(true);
+
+  useEffect(() => {
+    const checkUserGuideStatus = async () => {
+      // 如果用户已登录，从 userInfo 读取
+      if (userId && userInfo) {
+        const hasSeen = userInfo.hasSeenGuide || false;
+        setShowGuide(!hasSeen);
+        setGuideLoading(false);
+        return;
+      }
+
+      // 未登录用户使用 localStorage 存储
+      const hasSeen = localStorage.getItem('paintScape_guide_seen') === 'true';
+      setShowGuide(!hasSeen);
+      setGuideLoading(false);
+    };
+
+    checkUserGuideStatus();
+  }, [userId, userInfo]);
+
+  // ✅ 用户完成引导后更新状态
+  const handleGuideClose = async () => {
+    setShowGuide(false);
+    localStorage.setItem('paintScape_guide_seen', 'true');
+
+    // 如果用户已登录，同步更新到数据库
+    if (userId) {
+      try {
+        // 更新 userInfo 并同步到 Supabase
+        await setUserInfo({ hasSeenGuide: true });
+        console.log('✅ 引导状态已同步到云端');
+      } catch (err) {
+        console.warn('更新引导状态失败:', err);
+      }
+    }
+  };
+
   // 方向提示自动消失
   useEffect(() => {
     setTipVisible(true);
@@ -413,27 +452,28 @@ export default function CanvasPage({
           pointerEvents: 'none',
         }}
       >
-        {/* 顶部导航栏 */}
+        {/* 顶部导航栏 - 极简版 */}
         <div
           style={{
             position: 'absolute',
             top: 0,
             left: 0,
             width: '100%',
-            height: '60px',
+            height: '48px',
             background: 'rgba(10, 10, 10, 0.85)',
             backdropFilter: 'blur(12px)',
             borderBottom: '1px solid #1a1a1a',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
-            padding: '0 16px',
+            padding: '0 10px',
             boxSizing: 'border-box',
             pointerEvents: 'auto',
+            zIndex: 100,
           }}
         >
-          {/* 左侧 */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          {/* 左侧：返回 + 静音 */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
             <button
               onClick={onBack}
               style={{
@@ -442,165 +482,167 @@ export default function CanvasPage({
                 color: '#fff',
                 width: '32px',
                 height: '32px',
+                minWidth: '32px',
+                minHeight: '32px',
                 borderRadius: '50%',
                 fontSize: '14px',
                 cursor: 'pointer',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
+                flexShrink: 0,
+                padding: 0,
+                lineHeight: 1,
               }}
             >
               ←
             </button>
             <button
-              onClick={(e) => {
-                e.stopPropagation();
-                setIsMuted(!isMuted);
-              }}
+              onClick={(e) => { e.stopPropagation(); setIsMuted(!isMuted); }}
               style={{
                 background: 'rgba(255,255,255,0.05)',
                 border: `1px solid ${isMuted ? '#444' : '#4caf50'}`,
                 borderRadius: '50%',
                 width: '32px',
                 height: '32px',
+                minWidth: '32px',
+                minHeight: '32px',
                 fontSize: '14px',
                 cursor: 'pointer',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 color: isMuted ? '#666' : '#4caf50',
+                flexShrink: 0,
+                padding: 0,
+                lineHeight: 1,
               }}
             >
               {isMuted ? '🔇' : '🔊'}
             </button>
-            
-            {/*  一键语言切换 */}
             <button
-              onClick={(e) => {
-                e.stopPropagation();
-                 toggleLang();
-              }}
+              onClick={(e) => { e.stopPropagation(); toggleLang(); }}
               style={{
                 background: 'rgba(255,255,255,0.08)',
                 border: '1px solid #444',
                 color: '#fff',
-                padding: '4px 10px',
-                borderRadius: '16px',
-                fontSize: '12px',
+                padding: '2px 10px',
+                borderRadius: '12px',
+                fontSize: '10px',
                 fontWeight: 'bold',
                 cursor: 'pointer',
+                flexShrink: 0,
+                minHeight: '26px',
+                height: '26px',
+                display: 'flex',
+                alignItems: 'center',
               }}
             >
               {lang === 'zh' ? 'EN' : '中'}
             </button>
           </div>
 
-          {/* 中间：正反面切换 */}
+          {/* 中间：模式切换 - 精简为图标+文字 */}
           <div
             style={{
               display: 'flex',
               background: 'rgba(255,255,255,0.03)',
-              borderRadius: '20px',
+              borderRadius: '14px',
               padding: '2px',
               border: '1px solid #222',
+              flexShrink: 0,
             }}
           >
             <button
               style={{
-                padding: '6px 14px',
-                borderRadius: '16px',
+                padding: '3px 8px',
+                borderRadius: '12px',
                 border: 'none',
                 cursor: 'pointer',
-                fontSize: '12px',
+                fontSize: '9px',
                 fontWeight: 'bold',
                 background: bodyMode === 'front' ? '#4caf50' : 'transparent',
                 color: bodyMode === 'front' ? '#fff' : '#888',
                 transition: 'all 0.2s',
+                minHeight: '24px',
+                whiteSpace: 'nowrap',
               }}
-              onClick={(e) => {
-                e.stopPropagation();
-                setBodyMode('front');
-              }}
+              onClick={(e) => { e.stopPropagation(); setBodyMode('front'); }}
             >
               {t('canvas.bodyFront')}
             </button>
             <button
               style={{
-                padding: '6px 15px',
-                borderRadius: '16px',
+                padding: '3px 8px',
+                borderRadius: '12px',
                 border: 'none',
                 cursor: 'pointer',
-                fontSize: '13px',
+                fontSize: '9px',
                 fontWeight: 'bold',
                 background: bodyMode === 'back' ? '#4caf50' : 'transparent',
                 color: bodyMode === 'back' ? '#fff' : '#888',
+                transition: 'all 0.2s',
+                minHeight: '24px',
+                whiteSpace: 'nowrap',
               }}
-              onClick={(e) => {
-                e.stopPropagation();
-                setBodyMode('back');
-              }}
+              onClick={(e) => { e.stopPropagation(); setBodyMode('back'); }}
             >
               {t('canvas.bodyBack')}
             </button>
             {appMode === 'general' && (
               <button
                 style={{
-                  padding: '6px 15px',
-                  borderRadius: '16px',
+                  padding: '3px 6px',
+                  borderRadius: '12px',
                   border: 'none',
                   cursor: 'pointer',
-                  fontSize: '13px',
+                  fontSize: '9px',
                   fontWeight: 'bold',
                   background: bodyMode === 'none' ? '#d32f2f' : 'transparent',
                   color: bodyMode === 'none' ? '#fff' : '#888',
+                  transition: 'all 0.2s',
+                  minHeight: '24px',
+                  whiteSpace: 'nowrap',
                 }}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setBodyMode('none');
-                }}
+                onClick={(e) => { e.stopPropagation(); setBodyMode('none'); }}
               >
                 {t('canvas.bodyNone')}
               </button>
             )}
           </div>
 
-          {/* 右侧按钮组 */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            {/* 仅保存按钮 - 次要样式 */}
+          {/* 右侧：仅保存 + 生成（不包含缩放） */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
             <button
               style={{
                 background: 'rgba(255,255,255,0.08)',
                 color: '#aaa',
                 border: '1px solid #444',
-                padding: '6px 14px',
-                borderRadius: '20px',
+                padding: '4px 10px',
+                borderRadius: '12px',
                 cursor: 'pointer',
                 fontWeight: 'bold',
-                fontSize: '12px',
+                fontSize: '9px',
                 whiteSpace: 'nowrap',
+                minHeight: '26px',
               }}
-              onClick={() => {
-                setShowSaveConfirm(false);
-                onSaveOnly();
-                setSaveSuccess(true);
-              }}
+              onClick={() => { onSaveOnly(); setSaveSuccess(true); }}
             >
               {t('canvas.saveOnly')}
             </button>
-
-            {/* 生成按钮 - 主样式 */}
             <button
               style={{
                 background: '#d32f2f',
                 color: '#fff',
                 border: 'none',
-                padding: '6px 16px',
-                borderRadius: '20px',
+                padding: '4px 12px',
+                borderRadius: '12px',
                 cursor: 'pointer',
                 fontWeight: 'bold',
-                fontSize: '13px',
-                boxShadow: '0 4px 12px rgba(211,47,47,0.3)',
+                fontSize: '9px',
+                boxShadow: '0 2px 8px rgba(211,47,47,0.3)',
                 whiteSpace: 'nowrap',
+                minHeight: '26px',
               }}
               onClick={onGenerate}
             >
@@ -608,6 +650,49 @@ export default function CanvasPage({
             </button>
           </div>
         </div>
+        {/* 缩放调节 - 长条扁版 */}
+        {bodyMode !== 'none' && (
+          <div
+            style={{
+              position: 'absolute',
+              top: '72px',
+              left: '16px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              background: 'rgba(20,20,20,0.75)',
+              backdropFilter: 'blur(8px)',
+              padding: '0 5px',
+              borderRadius: '10px',
+              border: '1px solid rgba(255,255,255,0.06)',
+              pointerEvents: 'auto',
+              zIndex: 50,
+              boxShadow: '0 2px 12px rgba(0,0,0,0.3)',
+            }}
+          >
+            <span style={{ color: '#666', fontSize: '11px', fontWeight: '400' }}>
+              {t('canvas.scale')}
+            </span>
+            <input
+              type="range"
+              min="0.5"
+              max="2.0"
+              step="0.05"
+              value={bgScale}
+              onChange={(e) => setBgScale(parseFloat(e.target.value))}
+              style={{
+                accentColor: '#4caf50',
+                width: '80px',
+                height: '3px',
+                cursor: 'pointer',
+                margin: '0 4px',
+              }}
+            />
+            <span style={{ color: '#aaa', fontSize: '11px', minWidth: '36px', textAlign: 'center' }}>
+              {Math.round(bgScale * 100)}%
+            </span>
+          </div>
+        )}
 
         {/* 方向提示 */}
         <div
@@ -631,45 +716,6 @@ export default function CanvasPage({
           {bodyMode === 'none' && t('canvas.bodyNone')}
         </div>
 
-        {/* 缩放调节 */}
-        {bodyMode !== 'none' && (
-          <div
-            style={{
-              position: 'absolute',
-              top: '75px',
-              left: '20px',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              background: 'rgba(20,20,20,0.85)',
-              padding: '6px 12px',
-              borderRadius: '12px',
-              border: '1px solid #2d2d2d',
-              pointerEvents: 'auto',
-            }}
-          >
-            <span style={{ color: '#888', fontSize: '11px', whiteSpace: 'nowrap' }}>
-              🗺️ {t('canvas.scale')}
-            </span>
-            <input
-              type="range"
-              min="0.5"
-              max="2.0"
-              step="0.05"
-              value={bgScale}
-              onChange={(e) => setBgScale(parseFloat(e.target.value))}
-              style={{
-                accentColor: '#4caf50',
-                width: '60px',
-                height: '4px',
-                cursor: 'pointer',
-              }}
-            />
-            <span style={{ color: '#aaa', fontSize: '11px', minWidth: '32px' }}>
-              {Math.round(bgScale * 100)}%
-            </span>
-          </div>
-        )}
 
         {/* 右侧工具栏 */}
         <div
@@ -1045,13 +1091,10 @@ export default function CanvasPage({
           </div>
         </div>
       )}
-      {/* 新手引导 */}
-      {showGuide && (
+      {/* ✅ 新手引导 - 加载完成后才显示 */}
+      {!guideLoading && showGuide && (
         <OnboardingGuide
-          onClose={() => {
-            setShowGuide(false);
-            localStorage.setItem('paintScape_guide_seen', 'true');
-          }}
+          onClose={handleGuideClose}
         />
       )}
     </div>

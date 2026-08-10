@@ -505,7 +505,14 @@ export default function QuickLogPage({
               }} />
 
               {/* 内部内容 */}
-              <div style={{ textAlign: 'center', position: 'relative', zIndex: 2 }}>
+              <div style={{
+                textAlign: 'center',
+                position: 'relative',
+                zIndex: 2,
+                pointerEvents: 'none',      // ✅ 阻止指针事件
+                userSelect: 'none',
+                WebkitUserSelect: 'none',
+              }}>
                 {stage === 'idle' && (
                   <>
                     <div style={{
@@ -718,13 +725,14 @@ export default function QuickLogPage({
             max="100"
             value={colorTemp}
             onChange={(e) => setColorTemp(Number(e.target.value))}
+            className="color-slider"  // ✅ 添加 className
             style={{
               width: '100%',
-              height: '2px',
+              height: '3px',
               WebkitAppearance: 'none',
               appearance: 'none',
               background: 'linear-gradient(90deg, #e53935, #7b1fa2, #1e88e5, #00acc1)',
-              borderRadius: '1px',
+              borderRadius: '2px',
               outline: 'none',
               cursor: 'pointer',
             }}

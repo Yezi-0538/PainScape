@@ -76,35 +76,34 @@ export default function ModeSelectionPage({
           {t('modeSelection.title')}
         </h2>
 
-        {/* Mode toggle */}
+        {/* ===== 模式切换按钮 ===== */}
         <div
           style={{
             display: 'flex',
-            background: '#1a1a1a',
-            borderRadius: '30px',
-            padding: '5px',
+            background: '#141414',
+            borderRadius: '20px',
+            padding: '3px',
             width: '100%',
-            marginBottom: '28px',
-            boxSizing: 'border-box',
-            position: 'relative',
-            border: '1px solid #2a2a2a',
+            maxWidth: '320px',
+            border: '1px solid #2d2d2d',
+            marginBottom: '20px', // ✅ 添加与下方卡片的间距
           }}
         >
           <button
             onClick={() => setSelectedTempMode('medical')}
             style={{
               flex: 1,
-              padding: '12px 0',
-              borderRadius: '25px',
-              background: isMedical ? 'rgb(211, 47, 47)' : 'transparent',
-              color: isMedical ? '#fff' : '#888',
+              padding: '10px 8px',
+              borderRadius: '16px',
               border: 'none',
-              fontSize: '15px',
-              fontWeight: '600',
+              fontSize: 'var(--text-sm, 12px)',
+              fontWeight: 'bold',
               cursor: 'pointer',
+              background: selectedTempMode === 'medical' ? '#d32f2f' : 'transparent', // ✅ 使用 selectedTempMode
+              color: selectedTempMode === 'medical' ? '#fff' : '#666',
+              minHeight: 'var(--btn-min-touch, 44px)',
+              whiteSpace: 'nowrap',
               transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
-              zIndex: 2,
-              boxShadow: isMedical ? '0 3px 12px rgba(211, 47, 47, 0.4)' : 'none',
             }}
           >
             {t('modeSelection.medicalTab')}
@@ -113,33 +112,33 @@ export default function ModeSelectionPage({
             onClick={() => setSelectedTempMode('general')}
             style={{
               flex: 1,
-              padding: '12px 0',
-              borderRadius: '25px',
-              background: !isMedical ? 'rgb(76, 175, 80)' : 'transparent',
-              color: !isMedical ? '#fff' : '#888',
+              padding: '10px 8px',
+              borderRadius: '16px',
               border: 'none',
-              fontSize: '15px',
-              fontWeight: '600',
+              fontSize: 'var(--text-sm, 12px)',
+              fontWeight: 'bold',
               cursor: 'pointer',
+              background: selectedTempMode === 'general' ? '#4caf50' : 'transparent', // ✅ 使用 selectedTempMode
+              color: selectedTempMode === 'general' ? '#fff' : '#666',
+              minHeight: 'var(--btn-min-touch, 44px)',
+              whiteSpace: 'nowrap',
               transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
-              zIndex: 2,
-              boxShadow: !isMedical ? '0 3px 12px rgba(76, 175, 80, 0.4)' : 'none',
             }}
           >
             {t('modeSelection.generalTab')}
           </button>
         </div>
 
-        {/* Feature cards */}
+        {/* ===== Feature cards ===== */}
         <div
           style={{
             width: '100%',
             background: '#161616',
-            border: `1.5px solid ${activeColor}`,
+            border: `1.5px solid ${selectedTempMode === 'medical' ? 'rgb(211, 47, 47)' : 'rgb(76, 175, 80)'}`,
             borderRadius: '20px',
             padding: '28px 24px',
             boxSizing: 'border-box',
-            boxShadow: `0 0 25px ${activeShadow}`,
+            boxShadow: `0 0 25px ${selectedTempMode === 'medical' ? 'rgba(211, 47, 47, 0.25)' : 'rgba(76, 175, 80, 0.25)'}`,
             transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
             display: 'flex',
             flexDirection: 'column',
@@ -148,18 +147,24 @@ export default function ModeSelectionPage({
             minHeight: '148px',
           }}
         >
-          {(isMedical
+          {(selectedTempMode === 'medical'
             ? t('modeSelection.medicalFeatures', { returnObjects: true })
             : t('modeSelection.generalFeatures', { returnObjects: true })
           ).map((featureText, idx) => (
             <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-              <span style={{ color: activeColor, fontSize: '18px', fontWeight: 'bold' }}>✓</span>
+              <span style={{
+                color: selectedTempMode === 'medical' ? 'rgb(211, 47, 47)' : 'rgb(76, 175, 80)',
+                fontSize: '18px',
+                fontWeight: 'bold'
+              }}>
+                ✓
+              </span>
               <span style={{ color: '#eee', fontSize: '15px', lineHeight: '1.5' }}>{featureText}</span>
             </div>
           ))}
         </div>
 
-        {/* Common features */}
+        {/* ===== Common features ===== */}
         <div
           style={{
             width: '100%',
@@ -179,7 +184,7 @@ export default function ModeSelectionPage({
                 border: '1px solid rgba(255, 255, 255, 0.08)',
                 borderRadius: '20px',
                 padding: '6px 14px',
-                fontSize: '13px',
+                fontSize: 'var(--text-xs, 11px)',
                 color: '#888',
                 whiteSpace: 'nowrap',
                 letterSpacing: '0.5px',

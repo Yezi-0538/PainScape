@@ -5,7 +5,7 @@ import { useI18n } from '../i18n/i18nContext';
 const GUIDES = [
   {
     icon: (
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
         <circle cx="12" cy="12" r="10"/>
         <path d="M12 6v6l4 2"/>
       </svg>
@@ -15,7 +15,7 @@ const GUIDES = [
   },
   {
     icon: (
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
         <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
         <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
       </svg>
@@ -25,7 +25,7 @@ const GUIDES = [
   },
   {
     icon: (
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
         <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
         <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
       </svg>
@@ -41,7 +41,6 @@ export default function OnboardingGuide({ onClose }) {
   const [visible, setVisible] = useState(true);
   const [fading, setFading] = useState(false);
 
-  // 3 秒自动切换
   useEffect(() => {
     const timer = setTimeout(() => {
       if (step < GUIDES.length - 1) {
@@ -77,33 +76,6 @@ export default function OnboardingGuide({ onClose }) {
         pointerEvents: fading ? 'none' : 'auto',
       }}
     >
-      {/* 关闭按钮 */}
-      <div style={{
-        display: 'flex',
-        justifyContent: 'flex-end',
-        padding: '0 20px 6px 0',
-      }}>
-        <button
-          onClick={handleClose}
-          style={{
-            background: 'rgba(20,20,20,0.9)',
-            border: '1px solid #333',
-            color: '#666',
-            width: '28px',
-            height: '28px',
-            borderRadius: '50%',
-            fontSize: '12px',
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            backdropFilter: 'blur(10px)',
-          }}
-        >
-          ✕
-        </button>
-      </div>
-
       {/* 卡片 */}
       <div
         style={{
@@ -111,17 +83,47 @@ export default function OnboardingGuide({ onClose }) {
           backdropFilter: 'blur(16px)',
           borderTop: '1px solid #222',
           borderRadius: '20px 20px 0 0',
-          padding: '20px 24px calc(20px + env(safe-area-inset-bottom))',
+          padding: '16px 20px calc(16px + env(safe-area-inset-bottom))',
+          position: 'relative',
         }}
       >
-        {/* 图标 + 标题行 */}
+        {/* ✅ 关闭按钮 - 修复为圆形 */}
+        <button
+          onClick={handleClose}
+          style={{
+            position: 'absolute',
+            top: '12px',
+            right: '16px',
+            background: 'rgba(255,255,255,0.05)',
+            border: '1px solid #333',
+            color: '#666',
+            width: '28px',
+            height: '28px',
+            minWidth: '28px',
+            minHeight: '28px',
+            borderRadius: '50%',
+            fontSize: '12px',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: 0,
+            lineHeight: 1,
+            flexShrink: 0,
+          }}
+        >
+          ✕
+        </button>
+
+        {/* 图标 + 标题行 - 右边留出关闭按钮空间 */}
         <div style={{
           display: 'flex',
           alignItems: 'center',
           gap: '10px',
-          marginBottom: '10px',
+          marginBottom: '8px',
+          paddingRight: '40px',
         }}>
-          <span style={{ color: '#4caf50', display: 'flex' }}>
+          <span style={{ color: '#4caf50', display: 'flex', flexShrink: 0 }}>
             {GUIDES[step].icon}
           </span>
           <span style={{
@@ -138,8 +140,9 @@ export default function OnboardingGuide({ onClose }) {
           color: '#888',
           fontSize: '12px',
           lineHeight: '1.6',
-          margin: '0 0 16px 0',
+          margin: '0 0 14px 0',
           paddingLeft: '30px',
+          paddingRight: '4px',
         }}>
           {t(GUIDES[step].descKey)}
         </p>
@@ -165,7 +168,7 @@ export default function OnboardingGuide({ onClose }) {
               />
             ))}
           </div>
-          <div style={{ display: 'flex', gap: '8px' }}>
+          <div style={{ display: 'flex', gap: '6px', flexShrink: 0 }}>
             {step > 0 && (
               <button
                 onClick={() => setStep(step - 1)}
@@ -173,9 +176,11 @@ export default function OnboardingGuide({ onClose }) {
                   background: 'transparent',
                   border: 'none',
                   color: '#555',
-                  fontSize: '11px',
+                  fontSize: '10px',
                   cursor: 'pointer',
-                  padding: '4px 8px',
+                  padding: '3px 8px',
+                  borderRadius: '8px',
+                  minHeight: '24px',
                 }}
               >
                 {t('guide.prev')}
@@ -190,13 +195,14 @@ export default function OnboardingGuide({ onClose }) {
                 }
               }}
               style={{
-                background: 'rgba(76,175,80,0.15)',
+                background: 'rgba(76,175,80,0.12)',
                 border: 'none',
                 color: '#4caf50',
-                fontSize: '11px',
+                fontSize: '10px',
                 cursor: 'pointer',
-                padding: '4px 12px',
-                borderRadius: '12px',
+                padding: '3px 12px',
+                borderRadius: '10px',
+                minHeight: '24px',
               }}
             >
               {step < GUIDES.length - 1 ? t('guide.next') : t('guide.gotIt')}

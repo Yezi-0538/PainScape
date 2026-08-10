@@ -491,10 +491,111 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
         defaultAction = isEn ? '☑️ Apply warm compress and prepare pain medication.' : '☑️ 帮她热敷小腹并准备好止痛药。';
       }
 
-      const defaultWorkText = t('workTemplate')
-        ? t('workTemplate').replace('{{pain}}', painName)
-        : (isEn ? `Dear Manager, I am experiencing severe acute pain (${painName}) today and am unable to work as usual. I kindly request a day off. Urgent tasks have been arranged. Thank you for your understanding.`
-          : `领导您好：本人今日突发严重痛经（${painName}），身体状态无法维持正常工作，申请休假一天，望批准。紧急事务已做交接安排。感谢您的理解。`);
+      // ✅ 根据 leaveRecipient 和 leaveTone 生成 workText
+      const getWorkText = () => {
+        // 优先使用 LLM 返回的 work 字段
+        if (activeLlm?.work) {
+          return getLocalizedText(activeLlm.work, '');
+        }
+
+        // 如果 LLM 返回了 work 对象（包含所有场景），根据当前选择提取
+        if (activeLlm?.work && typeof activeLlm.work === 'object') {
+          const workObj = activeLlm.work;
+          // 根据当前 leaveRecipient 和 leaveTone 提取
+          const recipient = leaveRecipient || 'manager';
+          const tone = leaveTone || 'neutral';
+          if (workObj[recipient] && workObj[recipient][tone]) {
+            return workObj[recipient][tone];
+          }
+          // 如果 tone 不存在，尝试 formal
+          if (workObj[recipient] && workObj[recipient]['formal']) {
+            return workObj[recipient]['formal'];
+          }
+          // 回退到第一个场景
+          const firstRecipient = Object.keys(workObj)[0];
+          if (firstRecipient && workObj[firstRecipient]) {
+            const firstTone = Object.keys(workObj[firstRecipient])[0];
+            return workObj[firstRecipient][firstTone];
+          }
+        }
+
+        // ✅ 降级：使用本地 WORK_SCENARIOS 配置
+        const workScenarios = {
+          zh: {
+            manager: {
+              formal: '领导您好：因身体不适，申请今天休假一天。紧急事务已交接，明天恢复正常工作。',
+              neutral: '今天身体不适，请假一天。工作已安排妥当。',
+              casual: '身体不太舒服，今天请假休息一天，不好意思。',
+            },
+            teacher: {
+              formal: '老师您好！因身体不适，今日无法到课。已安排同学代为记录课堂内容。',
+              neutral: '今天身体不适，请假缺席课程。会及时补上学习内容。',
+              casual: '老师好，今天身体不舒服，请一天假。后续会补上笔记。',
+            },
+            friend: {
+              formal: '今天身体不适，需取消本次见面。改日再约，抱歉。',
+              neutral: '今天不太舒服，咱们改天再约吧。',
+              casual: '身体有点扛不住了，今天先鸽了，回头约！',
+            },
+            client: {
+              formal: '因突发身体不适，需将今日会议改期。已协调同事代为对接，给您带来不便深表歉意。',
+              neutral: '今天身体不适，需要将会议改期。已安排同事协助对接。',
+              casual: '今天临时身体不适，会议改天再约。相关问题已同步给同事。',
+            },
+            partner: {
+              formal: '今天身体不适，需要安静休息。晚间事宜需请你代为处理。',
+              neutral: '今天不太舒服，想好好休息一下。家里的事麻烦你多担待。',
+              casual: '今天疼得厉害，想躺平一天。辛苦你照顾啦。',
+            },
+          },
+          en: {
+            manager: {
+              formal: 'Requesting sick leave today. Urgent matters have been delegated. Expected return tomorrow.',
+              neutral: 'Taking a sick day today. Work is covered.',
+              casual: 'Not feeling well today — taking the day off. Will catch up tomorrow.',
+            },
+            teacher: {
+              formal: 'Unable to attend class today due to a health condition. Arranged for notes to be shared.',
+              neutral: 'Can\'t make it to class today — health flare-up. Will catch up on materials.',
+              casual: 'Professor — not feeling well today. Will get notes from a classmate.',
+            },
+            friend: {
+              formal: 'Need to cancel today\'s plans due to a health issue. Let\'s reschedule soon.',
+              neutral: 'Not feeling great today — let\'s reschedule.',
+              casual: 'Feeling rough today — gonna have to rain check. Let\'s catch up soon!',
+            },
+            client: {
+              formal: 'Due to a sudden health matter, I need to reschedule today\'s meeting. A colleague will handle urgent matters. Apologies for the inconvenience.',
+              neutral: 'Need to reschedule today\'s meeting due to a health issue. A colleague is briefed and available.',
+              casual: 'Not feeling well today — need to push our meeting. Colleague is up to speed if anything urgent.',
+            },
+            partner: {
+              formal: 'Need to rest today due to a health condition. Would appreciate your support with household matters.',
+              neutral: 'Not feeling great today. Need some quiet rest — could use your help around the house.',
+              casual: 'Feeling awful today — going to be horizontal. Thanks for taking care of things.',
+            },
+          },
+        };
+
+        const langKey = isEn ? 'en' : 'zh';
+        const recipient = leaveRecipient || 'manager';
+        const tone = leaveTone || 'neutral';
+
+        const scenarios = workScenarios[langKey];
+        if (scenarios && scenarios[recipient] && scenarios[recipient][tone]) {
+          return scenarios[recipient][tone];
+        }
+        // 如果 tone 不存在，回退到 neutral
+        if (scenarios && scenarios[recipient] && scenarios[recipient]['neutral']) {
+          return scenarios[recipient]['neutral'];
+        }
+        // 最终回退
+        return isEn
+          ? `Requesting sick leave today due to a health condition.`
+          : `因身体不适，申请今天休假一天。`;
+      };
+
+      const defaultWorkText = getWorkText();
 
       // 🌟 双向切换处理：无论是“中切英”还是“英切中”，内容均可无缝实时匹配当前语言
       if (activeLlm) {
@@ -544,8 +645,7 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
         clinical_suggestions: targetLanguage === 'en' ? 'Warm compress and rest.' : '温敷小腹与腰骶。'
       };
     }
-  }, [currentReportData, llmData, getDominantPain, t, medicalBackground, cycleDay, userPrefs, targetLanguage]);
-  
+  }, [currentReportData, llmData, getDominantPain, t, medicalBackground, cycleDay, userPrefs, targetLanguage, leaveRecipient, leaveTone]);
   const getEditedOrDefault = useCallback((key, defaultVal) => {
     return editedContents[key] !== undefined ? editedContents[key] : defaultVal;
   }, [editedContents]);
@@ -1836,8 +1936,8 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
               });
             }}
             onPublishRecord={(record, customText) => handlePublishPost(record, customText)}
-
             showToast={showToast}
+            currentUserId={currentUserId}
           />
         );
 

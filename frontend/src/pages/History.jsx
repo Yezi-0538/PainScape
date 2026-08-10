@@ -725,24 +725,73 @@ const RecordCard = ({
                 padding: '3px 8px',
                 borderRadius: '8px',
                 whiteSpace: 'nowrap',
+                minHeight: 'auto',
+                minWidth: '30px',
               }}
             >
               {isEn ? 'Share' : '分享'}
             </button>
           )}
           {onCompare && (
-            <span
+            <button
               onClick={(e) => { e.stopPropagation(); onCompare(record); }}
               style={{
+                background: isCompareSelected
+                  ? 'rgba(230,126,34,0.15)'
+                  : isCompareTarget
+                    ? 'rgba(76,175,80,0.12)'
+                    : 'rgba(255,255,255,0.03)',
+                border: isCompareSelected
+                  ? '1px solid rgba(230,126,34,0.3)'
+                  : isCompareTarget
+                    ? '1px solid rgba(76,175,80,0.25)'
+                    : '1px solid rgba(255,255,255,0.06)',
                 color: isCompareSelected ? '#e8a87c' : isCompareTarget ? '#81c784' : '#555',
-                fontSize: '10px',
+                fontSize: '9px',
                 cursor: 'pointer',
-                padding: '2px 4px',
+                padding: '3px 6px',
+                borderRadius: '6px',
+                whiteSpace: 'nowrap',
+                flexShrink: 0,
+                minHeight: 'auto', // ✅ 覆盖全局 min-height
+                minWidth: '30px',
+                transition: 'all 0.2s ease',
+                textAlign: 'center',
               }}
             >
-              {isCompareSelected ? '◎' : isCompareTarget ? '◉' : '○'}
-            </span>
+              {isCompareSelected
+                ? (isEn ? 'Source' : '已选')
+                : isCompareTarget
+                  ? (isEn ? 'Target' : '对比')
+                  : (isEn ? 'Compare' : '对比')}
+            </button>
           )}
+          {/* 删除按钮 */}
+          <button
+            onClick={(e) => { e.stopPropagation(); onDelete(); }}
+            style={{
+              background: 'transparent',
+              border: 'none',
+              color: '#444',
+              fontSize: '11px',
+              cursor: 'pointer',
+              padding: '3px 4px',
+              flexShrink: 0,
+              borderRadius: '6px',
+              minHeight: 'auto', // ✅ 覆盖全局 min-height
+              transition: 'all 0.2s ease',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = 'rgba(244,67,54,0.1)';
+              e.currentTarget.style.color = '#ef5350';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = 'transparent';
+              e.currentTarget.style.color = '#444';
+            }}
+          >
+            {t('history.delete')}
+          </button>
         </div>
       </div>
     );
@@ -885,7 +934,15 @@ const RecordCard = ({
       </div>
 
       {/* 右侧按钮组 */}
-      <div style={{ display: 'flex', gap: '6px', flexShrink: 0, alignItems: 'center' }}>
+      <div style={{
+        display: 'flex',
+        gap: '4px',
+        flexShrink: 0,
+        alignItems: 'center',
+        flexWrap: 'wrap',
+        justifyContent: 'flex-end',
+        minWidth: '70px',
+      }}>
         {/* 分享按钮 */}
         {onShare && (
           <button
@@ -894,16 +951,19 @@ const RecordCard = ({
               background: 'rgba(33,150,243,0.08)',
               border: '1px solid rgba(33,150,243,0.15)',
               color: '#64b5f6',
-              fontSize: '10px',
+              fontSize: '9px',
               cursor: 'pointer',
-              padding: '3px 8px',
-              borderRadius: '8px',
+              padding: '3px 6px',
+              borderRadius: '6px',
               whiteSpace: 'nowrap',
+              flexShrink: 0,
+              minWidth: '30px',
             }}
           >
             {isEn ? 'Share' : '分享'}
           </button>
         )}
+        {/* 对比按钮 */}
         {onCompare && (
           <button
             onClick={(e) => { e.stopPropagation(); onCompare(record); }}
@@ -919,40 +979,34 @@ const RecordCard = ({
                   ? '1px solid rgba(76,175,80,0.25)'
                   : '1px solid rgba(255,255,255,0.06)',
               color: isCompareSelected ? '#e8a87c' : isCompareTarget ? '#81c784' : '#555',
-              fontSize: '10px',
+              fontSize: '8px',
               cursor: 'pointer',
-              padding: '3px 8px',
-              borderRadius: '8px',
+              padding: '3px 4px',
+              borderRadius: '6px',
               whiteSpace: 'nowrap',
+              flexShrink: 0,
+              minWidth: '24px',
               transition: 'all 0.2s ease',
-            }}
-            onMouseEnter={(e) => {
-              if (!isCompareSelected && !isCompareTarget) {
-                e.currentTarget.style.background = 'rgba(255,255,255,0.06)';
-              }
-            }}
-            onMouseLeave={(e) => {
-              if (!isCompareSelected && !isCompareTarget) {
-                e.currentTarget.style.background = 'rgba(255,255,255,0.03)';
-              }
+              textAlign: 'center',
             }}
           >
             {isCompareSelected
-              ? (isEn ? 'Source' : '已选')
+              ? (isEn ? 'Src' : '已选')
               : isCompareTarget
-                ? (isEn ? 'Target' : '对比中')
-                : (isEn ? 'Compare' : '对比')}
+                ? (isEn ? 'Tgt' : '对比')
+                : (isEn ? 'Cmp' : '对比')}
           </button>
         )}
+        {/* 删除按钮 */}
         <button
           onClick={(e) => { e.stopPropagation(); onDelete(); }}
           style={{
             background: 'transparent',
             border: 'none',
             color: '#444',
-            fontSize: '13px',
+            fontSize: '11px',
             cursor: 'pointer',
-            padding: '6px',
+            padding: '3px 4px',
             flexShrink: 0,
             borderRadius: '6px',
             transition: 'all 0.2s ease',
@@ -998,6 +1052,7 @@ export default function HistoryPage({
   onPublishRecord,
   lang = 'zh',
   setTargetLanguage,
+  currentUserId = null,
 }) {
   const { t } = useI18n();
   const isEn = lang === 'en';
@@ -1042,6 +1097,16 @@ export default function HistoryPage({
   };
 
   const handleDeleteRecord = (recordId) => {
+    // ✅ 找到要删除的记录
+    const recordToDelete = history.find(h => h.id === recordId);
+    if (!recordToDelete) return;
+
+    // ✅ 验证记录是否属于当前用户
+    if (currentUserId && recordToDelete.userId && recordToDelete.userId !== currentUserId) {
+      showToast?.('noPermission');
+      return;
+    }
+
     if (window.confirm(t('history.deleteConfirm'))) {
       const updated = history.filter(h => h.id !== recordId);
       setHistory(updated);
@@ -1167,35 +1232,39 @@ export default function HistoryPage({
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
-          marginBottom: '20px',
+          marginBottom: '16px',
           position: 'sticky',
           top: 0,
           background: '#0a0a0a',
           zIndex: 10,
-          paddingBottom: '10px',
+          paddingBottom: '8px',
+          flexWrap: 'wrap',
+          gap: '6px',
         }}
       >
-        <h2 style={{ color: '#fff', margin: 0, fontSize: '1.2rem', fontWeight: '400', letterSpacing: '1px' }}>
+        <h2 style={{ color: '#fff', margin: 0, fontSize: '1.1rem', fontWeight: '400', letterSpacing: '1px' }}>
           {t('history.title')}
         </h2>
-        <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: '4px', alignItems: 'center', flexWrap: 'wrap' }}>
           {setTargetLanguage && (
             <button
               onClick={() => setTargetLanguage(isEn ? 'zh' : 'en')}
               style={{
-                padding: '4px 10px',
+                padding: '3px 8px',
                 background: 'rgba(255,255,255,0.05)',
                 border: '1px solid rgba(255,255,255,0.08)',
                 color: '#888',
-                borderRadius: '16px',
-                fontSize: '11px',
+                borderRadius: '12px',
+                fontSize: '10px',
                 cursor: 'pointer',
                 transition: 'all 0.2s',
+                whiteSpace: 'nowrap',
               }}
             >
               {isEn ? '中文' : 'EN'}
             </button>
           )}
+
           {/* 导出按钮 */}
           <button
             onClick={() => {
@@ -1205,7 +1274,6 @@ export default function HistoryPage({
                   showToast?.('noExportSelected');
                   return;
                 }
-                // ✅ 传入选中的记录列表
                 exportHistoryPDF(recordsToExport);
                 setExportMode(false);
                 setSelectedForExport(new Set());
@@ -1215,13 +1283,14 @@ export default function HistoryPage({
               }
             }}
             style={{
-              padding: '4px 12px',
+              padding: '3px 10px',
               background: exportMode ? 'rgba(230,126,34,0.15)' : 'rgba(255,255,255,0.05)',
               border: exportMode ? '1px solid rgba(230,126,34,0.3)' : '1px solid rgba(255,255,255,0.08)',
               color: exportMode ? '#e8a87c' : '#888',
-              borderRadius: '16px',
-              fontSize: '11px',
+              borderRadius: '12px',
+              fontSize: '10px',
               cursor: 'pointer',
+              whiteSpace: 'nowrap',
             }}
           >
             {exportMode
@@ -1229,7 +1298,7 @@ export default function HistoryPage({
               : t('history.export')}
           </button>
 
-          {/* 取消按钮 - 仅在导出模式下显示 */}
+          {/* ✅ 取消按钮 - 仅在导出模式下显示（只保留这一个） */}
           {exportMode && (
             <button
               onClick={() => {
@@ -1237,28 +1306,32 @@ export default function HistoryPage({
                 setSelectedForExport(new Set());
               }}
               style={{
-                padding: '4px 10px',
+                padding: '2px 8px',
                 background: 'rgba(255,255,255,0.05)',
                 border: '1px solid rgba(255,255,255,0.08)',
                 color: '#888',
-                borderRadius: '16px',
-                fontSize: '11px',
+                borderRadius: '12px',
+                fontSize: '10px',
                 cursor: 'pointer',
+                whiteSpace: 'nowrap',
               }}
             >
               {isEn ? 'Cancel' : '取消'}
             </button>
           )}
+
+          {/* ✅ 返回按钮（只保留这一个） */}
           <button
             onClick={onBack}
             style={{
-              padding: '4px 12px',
+              padding: '3px 10px',
               background: 'rgba(255,255,255,0.05)',
               border: '1px solid rgba(255,255,255,0.08)',
               color: '#888',
-              borderRadius: '16px',
-              fontSize: '11px',
+              borderRadius: '12px',
+              fontSize: '10px',
               cursor: 'pointer',
+              whiteSpace: 'nowrap',
             }}
           >
             {t('history.back')}

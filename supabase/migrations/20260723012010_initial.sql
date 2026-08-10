@@ -14,6 +14,7 @@ CREATE TABLE IF NOT EXISTS profiles (
   bg_index    INTEGER DEFAULT 0,
   custom_avatar TEXT,
   custom_bg   TEXT,
+  has_seen_guide BOOLEAN DEFAULT FALSE,  -- 新增：首次引导标记
   -- 原有字段
   language    TEXT NOT NULL DEFAULT 'zh',
   app_mode    TEXT NOT NULL DEFAULT 'medical',

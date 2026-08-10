@@ -333,80 +333,93 @@ export default function OnboardingPage({
 
       {/* Help button */}
       <div style={{ position: 'absolute', top: '15px', right: '15px', zIndex: 10 }}>
-        <button
-          onClick={() => setShowGuide(!showGuide)}
-          style={{
-            background: 'rgba(255,255,255,0.05)',
-            border: '1px solid rgba(255,255,255,0.1)',
-            color: '#888',
-            width: '32px',
-            height: '32px',
-            borderRadius: '50%',
-            fontSize: '16px',
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-        >
-          ?
-        </button>
-        {showGuide && (
-          <div
+        <div style={{ position: 'absolute', top: '15px', right: '15px', zIndex: 10 }}>
+          <button
+            onClick={() => setShowGuide(!showGuide)}
             style={{
-              position: 'absolute',
-              top: '40px',
-              right: '0',
-              background: 'rgba(20,20,20,0.97)',
-              border: '1px solid rgba(255,255,255,0.05)',
-              borderRadius: '16px',
-              padding: '20px',
-              width: '260px',
-              backdropFilter: 'blur(20px)',
-              zIndex: 200,
+              background: 'rgba(255,255,255,0.05)',
+              border: '1px solid rgba(255,255,255,0.1)',
+              color: '#888',
+              width: '32px',
+              height: '32px',
+              minWidth: '32px',
+              minHeight: '32px',
+              borderRadius: '50%',
+              fontSize: '16px',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexShrink: 0,
+              padding: 0,
+              lineHeight: 1,
             }}
           >
-            <p
+            ?
+          </button>
+          {showGuide && (
+            <div
               style={{
-                color: '#eee',
-                fontSize: '14px',
-                fontWeight: 'bold',
-                margin: '0 0 12px 0',
+                position: 'absolute',
+                top: '40px',
+                right: '0',
+                background: 'rgba(20,20,20,0.97)',
+                border: '1px solid rgba(255,255,255,0.05)',
+                borderRadius: '16px',
+                padding: '20px',
+                width: '260px',
+                backdropFilter: 'blur(20px)',
+                zIndex: 200,
               }}
             >
-              {t('onboarding.guideTitle')}
-            </p>
-            {t('onboarding.guideItems').map(([title, desc], idx) => (
-              <div key={idx} style={{ marginBottom: '8px' }}>
-                <span style={{ color: '#fff', fontSize: '12px', fontWeight: 'bold' }}>{title}</span>
-                <p style={{ color: '#888', fontSize: '11px', margin: '2px 0 0 0' }}>{desc}</p>
-              </div>
-            ))}
-            <button
-              onClick={() => setShowGuide(false)}
-              style={{
-                marginTop: '8px',
-                width: '100%',
-                background: 'transparent',
-                border: '1px solid rgba(255,255,255,0.1)',
-                color: '#666',
-                padding: '6px',
-                borderRadius: '10px',
-                fontSize: '10px',
-                cursor: 'pointer',
-              }}
-            >
-              {t('onboarding.gotIt')}
-            </button>
-          </div>
-        )}
+              <p
+                style={{
+                  color: '#eee',
+                  fontSize: '14px',
+                  fontWeight: 'bold',
+                  margin: '0 0 12px 0',
+                }}
+              >
+                {t('onboarding.guideTitle')}
+              </p>
+              {t('onboarding.guideItems').map(([title, desc], idx) => (
+                <div key={idx} style={{ marginBottom: '8px' }}>
+                  <span style={{ color: '#fff', fontSize: '12px', fontWeight: 'bold' }}>{title}</span>
+                  <p style={{ color: '#888', fontSize: '11px', margin: '2px 0 0 0' }}>{desc}</p>
+                </div>
+              ))}
+              <button
+                onClick={() => setShowGuide(false)}
+                style={{
+                  marginTop: '8px',
+                  width: '100%',
+                  background: 'transparent',
+                  border: '1px solid rgba(255,255,255,0.1)',
+                  color: '#666',
+                  padding: '6px',
+                  borderRadius: '10px',
+                  fontSize: '10px',
+                  cursor: 'pointer',
+                }}
+              >
+                {t('onboarding.gotIt')}
+              </button>
+            </div>
+          )}
+        </div>
       </div>
 
       <h1 style={{ color: '#fff', marginBottom: '5px', fontSize: '2rem', marginTop: '20px' }}>
         PainScape
       </h1>
       <p style={{ color: '#aaa', marginBottom: '20px' }}>{t('app.subtitle')}</p>
-
+      {/*操作指引*/}
+      {tooltipStep && (
+        <OnboardingTooltip
+          step={tooltipStep}
+          onClose={() => setTooltipStep(null)}
+        />
+      )}
       {/* Content area */}
       <div style={{ width: '100%', boxSizing: 'border-box' }}>
         {/* STEP 1: Basic Info */}
@@ -1227,27 +1240,34 @@ export default function OnboardingPage({
         )}
       </div>
 
-      {/* Footer */}
+      {/* ===== Footer ===== */}
       <footer
         style={{
           marginTop: '40px',
           display: 'flex',
-          gap: '24px',
-          borderTop: '1px solid #222',
-          paddingTop: '20px',
+          flexWrap: 'wrap',
+          gap: '8px 16px',
+          borderTop: '1px solid rgba(255,255,255,0.06)',
+          paddingTop: '16px',
           width: '100%',
           justifyContent: 'center',
+          alignItems: 'center',
         }}
       >
         <button
           style={{
             background: 'none',
             border: 'none',
-            color: '#555',
-            fontSize: '13px',
+            color: '#888',
+            fontSize: 'var(--text-sm, 12px)',
             cursor: 'pointer',
+            padding: '6px 10px',
+            whiteSpace: 'nowrap',
+            transition: 'color 0.2s',
           }}
           onClick={onCommunity}
+          onMouseEnter={(e) => e.currentTarget.style.color = '#ccc'}
+          onMouseLeave={(e) => e.currentTarget.style.color = '#888'}
         >
           {t('onboarding.exploreCommunity')}
         </button>
@@ -1255,11 +1275,16 @@ export default function OnboardingPage({
           style={{
             background: 'none',
             border: 'none',
-            color: '#555',
-            fontSize: '13px',
+            color: '#888',
+            fontSize: 'var(--text-sm, 12px)',
             cursor: 'pointer',
+            padding: '6px 10px',
+            whiteSpace: 'nowrap',
+            transition: 'color 0.2s',
           }}
           onClick={onHistory}
+          onMouseEnter={(e) => e.currentTarget.style.color = '#ccc'}
+          onMouseLeave={(e) => e.currentTarget.style.color = '#888'}
         >
           {t('onboarding.painDiary')}
         </button>
@@ -1267,23 +1292,40 @@ export default function OnboardingPage({
           style={{
             background: 'none',
             border: 'none',
-            color: '#555',
-            fontSize: '13px',
+            color: '#888',
+            fontSize: 'var(--text-sm, 12px)',
             cursor: 'pointer',
+            padding: '6px 10px',
+            whiteSpace: 'nowrap',
+            transition: 'color 0.2s',
           }}
           onClick={onProfile}
+          onMouseEnter={(e) => e.currentTarget.style.color = '#ccc'}
+          onMouseLeave={(e) => e.currentTarget.style.color = '#888'}
         >
           {t('onboarding.myProfile')}
         </button>
         <button
           style={{
-            background: 'none',
-            border: 'none',
-            color: '#555',
-            fontSize: '13px',
+            background: 'rgba(255,255,255,0.04)',
+            border: '1px solid rgba(255,255,255,0.08)',
+            color: '#888',
+            fontSize: 'var(--text-sm, 12px)',
             cursor: 'pointer',
+            padding: '4px 12px',
+            borderRadius: '14px',
+            whiteSpace: 'nowrap',
+            transition: 'all 0.2s',
           }}
           onClick={() => setTargetLanguage(targetLanguage === 'zh' ? 'en' : 'zh')}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = 'rgba(255,255,255,0.08)';
+            e.currentTarget.style.color = '#ccc';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = 'rgba(255,255,255,0.04)';
+            e.currentTarget.style.color = '#888';
+          }}
         >
           {targetLanguage === 'zh'
             ? t('onboarding.english') || 'English'
@@ -1344,12 +1386,12 @@ export default function OnboardingPage({
           <span style={{ color: '#d32f2f', fontSize: '14px', marginLeft: 'auto' }}>→</span>
         </button>
       </div>
-      {tooltipStep && (
+      {/* {tooltipStep && (
         <OnboardingTooltip
           step={tooltipStep}
           onClose={() => setTooltipStep(null)}
         />
-      )}
+      )} */}
 
     </div>
 

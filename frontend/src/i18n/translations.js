@@ -93,26 +93,26 @@ const translations = {
       ],
     },
     modeSelection: {
-      title: "选择您的记录目的",
+      title: "选择您的使用场景",
       medicalTab: "就诊协助",
       generalTab: "日常自愈",
-      confirmBtn: "确认并进入画布",
+      confirmBtn: "确认并继续",
       medicalFeatures: [
-        "📋 标准妇科门诊病理采集",
-        "🔬 智能生成现病史与报告",
-        "📍 人体腹部/腰骶精准解剖定位"
+        "📋 生成结构化病历",
+        "🔬 辅助医患沟通",
+        "📍 疼痛区域直观映射",
       ],
       generalFeatures: [
-        "👁️ 沉浸式盲画情绪发泄",
-        "🌿 经期自愈与呼吸干预指导",
-        "✉️ 伴侣通感说明书与请假模板"
+        "🎨 自由绘画表达感受",
+        "🌿 获取自愈安抚建议",
+        "💬 一键生成沟通文本",
       ],
       commonFeatures: [
-        "📓 疼痛记录",
-        "📊 日历趋势",
-        "🌍 社群分享",
-        "💬 多语境转译"
-      ]
+        "🎨 具身绘画表达",
+        "🤖 AI 多语境转译",
+        "📊 疼痛日记与趋势",
+        "🌍 匿名社群共鸣"
+      ],
     },
     // ============ Onboarding 页 ============
     onboarding: {
@@ -863,6 +863,7 @@ const translations = {
       refineSuccess: "内容精调成功！",
       refineNoChange: "精调后内容无变化",
       refineFallback: "已使用本地模板精调",
+      noPermission: "你没有权限操作这条记录",
     },
 
     painTemplates: {
@@ -1309,26 +1310,26 @@ const translations = {
       ],
     },
     modeSelection: {
-      title: "Choose your recording purpose",
-      medicalTab: "Medical Aid",
+      title: "Choose Your Purpose",
+      medicalTab: "Clinical Support",
       generalTab: "Self-Care",
-      confirmBtn: "Confirm & Enter Canvas",
+      confirmBtn: "Confirm & Continue",
       medicalFeatures: [
-        "📋 Standard Gynecological Intake",
-        "🔬 AI-Generated Medical History & Report",
-        "📍 Precise Abdominal/Lumbosacral Mapping"
+        "📋 Generate structured records",
+        "🔬 Facilitate doctor communication",
+        "📍 Map pain areas intuitively",
       ],
       generalFeatures: [
-        "👁️ Immersive Blind Drawing for Emotional Release",
-        "🌿 Menstrual Self-Care & Breathing Guidance",
-        "✉️ Partner Synesthesia Guide & Leave Templates"
+        "🎨 Express through painting",
+        "🌿 Get self-care guidance",
+        "💬 Generate messages for any context",
       ],
       commonFeatures: [
-        "📓 Pain Diary",
-        "📊 Calendar Trends",
-        "🌍 Community Sharing",
-        "💬 Multi-Context Translation"
-      ]
+        "🎨 Embodied painting",
+        "🤖 AI multi-context translation",
+        "📊 Pain diary & trends",
+        "🌍 Anonymous community",
+      ],
     },
     // ============ Onboarding ============
     onboarding: {
@@ -2055,6 +2056,7 @@ const translations = {
       refineFailed: '❌ AI optimization failed, API may not be deployed or network error',
       apiGenerateFallback: "Cloud generation unavailable, switched to local template mode",
       noExportSelected: "Please select records to export",
+      noPermission: "You don't have permission to modify this record",
     },
 
     painTemplates: {
