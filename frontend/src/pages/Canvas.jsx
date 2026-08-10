@@ -73,7 +73,7 @@ export default function CanvasPage({
   handleClear,
   resetView,
 }) {
-  const { t } = useI18n();
+  const { t, lang, toggleLang } = useI18n();
   const { playBrushSound } = useAudio(isMuted);
   const [tipVisible, setTipVisible] = useState(true);
   const isDrawingStrokeRef = useRef(false);
@@ -472,6 +472,26 @@ export default function CanvasPage({
               }}
             >
               {isMuted ? '🔇' : '🔊'}
+            </button>
+            
+            {/*  一键语言切换 */}
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                 toggleLang();
+              }}
+              style={{
+                background: 'rgba(255,255,255,0.08)',
+                border: '1px solid #444',
+                color: '#fff',
+                padding: '4px 10px',
+                borderRadius: '16px',
+                fontSize: '12px',
+                fontWeight: 'bold',
+                cursor: 'pointer',
+              }}
+            >
+              {lang === 'zh' ? 'EN' : '中'}
             </button>
           </div>
 

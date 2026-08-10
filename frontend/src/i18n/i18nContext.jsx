@@ -12,38 +12,46 @@ function t(obj, path, variables = {}) {
 
   for (const key of keys) {
     if (value === undefined || value === null) {
-      // ✅ 返回 [key] 而不是完整路径，便于调试
       return `[${keys[keys.length - 1]}]`;
     }
     value = value[key];
   }
 
-  // 如果是数组，直接返回数组（不进行字符串替换）
   if (Array.isArray(value)) {
     return value;
   }
 
-  // 如果不是字符串，也直接返回
   if (typeof value !== "string") return value;
 
-  // 替换模版变量
   return value.replace(/\{\{(\w+)\}\}/g, (_, key) => {
     return variables[key] !== undefined ? variables[key] : `{{${key}}}`;
   });
 }
 
-export function I18nProvider({ lang, children }) {
-  console.log('🔵 I18nProvider lang:', lang);  // ✅ 添加这行
+// 🌟 修复关键：安全接收 setLang 和 setTargetLanguage 参数
+export function I18nProvider({ lang, setLang, setTargetLanguage, children }) {
+  console.log('🔵 I18nProvider lang:', lang);
 
   const value = useMemo(() => {
     const texts = translations[lang] || translations.zh;
-    console.log('🟢 texts loaded for:', lang);  // ✅ 添加这行
+    console.log('🟢 texts loaded for:', lang);
+
+    // 获取可用的修改语言函数
+    const activeUpdater = setLang || setTargetLanguage;
+
     return {
-      lang,
+      lang: lang || 'zh',
+      setLang: activeUpdater,
+      // 安全的切换语言函数
+      toggleLang: () => {
+        if (typeof activeUpdater === 'function') {
+          activeUpdater((prev) => (prev === 'zh' ? 'en' : 'zh'));
+        }
+      },
       t: (path, vars) => t(texts, path, vars),
       texts,
     };
-  }, [lang]);
+  }, [lang, setLang, setTargetLanguage]);
 
   return <I18nContext.Provider value={value}>{children}</I18nContext.Provider>;
 }
