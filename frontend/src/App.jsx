@@ -1903,6 +1903,8 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
             handleAddExperience={() => { }}
             updatePostInCloud={async () => { }}
             showToast={showToast}
+            targetLanguage={targetLanguage}
+            setTargetLanguage={setTargetLanguage}
           />
         );
 

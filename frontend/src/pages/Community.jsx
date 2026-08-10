@@ -46,8 +46,11 @@ export default function CommunityPage({
   showToast,
   isLoading,
   onRefreshCommunity,
+  targetLanguage,
+  setTargetLanguage,
 }) {
   const { t } = useI18n();
+  const isEn = targetLanguage === 'en';
 
   const getPostPainKey = (post) => {
     if (!post) return 'twist';
@@ -223,21 +226,39 @@ export default function CommunityPage({
             {isLoading ? t('community.refreshing') || '刷新中...' : t('community.refresh') || '刷新'}
           </button>
         </div>
-        <button
-          style={{
-            margin: 0,
-            padding: '6px 15px',
-            background: '#333',
-            color: '#fff',
-            border: 'none',
-            borderRadius: '20px',
-            fontSize: '12px',
-            cursor: 'pointer',
-          }}
-          onClick={onBack}
-        >
-          {t('community.back')}
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          {setTargetLanguage && (
+            <button
+              onClick={() => setTargetLanguage(isEn ? 'zh' : 'en')}
+              style={{
+                padding: '6px 14px',
+                background: 'rgba(255,255,255,0.06)',
+                color: '#fff',
+                border: '1px solid rgba(255,255,255,0.12)',
+                borderRadius: '20px',
+                fontSize: '12px',
+                cursor: 'pointer',
+              }}
+            >
+              {isEn ? '中文' : 'EN'}
+            </button>
+          )}
+          <button
+            style={{
+              margin: 0,
+              padding: '6px 15px',
+              background: '#333',
+              color: '#fff',
+              border: 'none',
+              borderRadius: '20px',
+              fontSize: '12px',
+              cursor: 'pointer',
+            }}
+            onClick={onBack}
+          >
+            {t('community.back')}
+          </button>
+        </div>
       </div>
 
       {/* 周数据统计 */}
