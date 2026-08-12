@@ -1,12 +1,14 @@
 // src/Components/modals/CommunityPostDetailModal.jsx
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useI18n } from '../../i18n/i18nContext';
 
+// 中文痛感词反向映射字典
 const PAIN_KEY_MAP = {
-  'twist': 'twist', '绞痛': 'twist', 'Twist': 'twist',
-  'pierce': 'pierce', '刺痛': 'pierce', 'Pierce': 'pierce',
-  'heavy': 'heavy', 'sink': 'heavy', '坠胀': 'heavy', '坠胀重压': 'heavy', '坠痛': 'heavy', 'Dragging Sinking': 'heavy', 'Sinking': 'heavy', 'Heavy': 'heavy',
-  'wave': 'wave', 'swell': 'wave', '酸胀': 'wave', '酸胀痛': 'wave', '弥漫酸胀痛': 'wave', 'Wave': 'wave',
-  'scrape': 'scrape', '刮痛': 'scrape', '撕裂痛': 'scrape', '撕裂刮痛': 'scrape', 'Scrape': 'scrape'
+  'twist': 'twist', '绞痛': 'twist',
+  'pierce': 'pierce', '刺痛': 'pierce',
+  'heavy': 'heavy', 'sink': 'heavy', '坠胀': 'heavy', '坠胀重压': 'heavy', '坠痛': 'heavy',
+  'wave': 'wave', 'swell': 'wave', '酸胀': 'wave', '酸胀痛': 'wave', '酸胀痛': 'wave',
+  'scrape': 'scrape', '刮痛': 'scrape', '撕裂痛': 'scrape', '撕裂刮痛': 'scrape'
 };
 
 const parseCleanText = (rawText) => {
@@ -22,8 +24,6 @@ const parseCleanText = (rawText) => {
   return String(rawText);
 };
 
-const containsChinese = (str) => /[\u4e00-\u9fa5]/.test(String(str || ''));
-
 export default function CommunityPostDetailModal({
   post,
   currentUserId,
@@ -32,73 +32,33 @@ export default function CommunityPostDetailModal({
   onHug,
   onLike,
   onSaveExperience,
-  onDelete,
-  targetLanguage,
-  t,
 }) {
-  const isEn = targetLanguage === 'en';
-  const [experienceInput, setExperienceInput] = useState(post?.userExperience || post?.user_experience || '');
+  const { t } = useI18n();
+  const [experienceInput, setExperienceInput] = useState(post?.userExperience || '');
   const [isEditingExp, setIsEditingExp] = useState(false);
+
+  // 🌟 当帖子数据实时更新（如赞数、抱抱、经验）时，同步更新输入框
+  useEffect(() => {
+    if (post?.userExperience) {
+      setExperienceInput(post.userExperience);
+    }
+  }, [post?.userExperience]);
 
   if (!post) return null;
 
-  const authorProfile = post.profiles || {};
-  const authorNickname = authorProfile.nickname || post.nickname || post.authorName || post.author_name || post.displayName || (isEn ? "Companion" : "同伴");
-  const authorAvatar = authorProfile.avatar || post.avatar || post.authorAvatar || post.author_avatar || "🌸";
-  const authorCustomAvatar = authorProfile.custom_avatar || post.customAvatar || post.custom_avatar || "";
-  const postAuthorUid = post.userId || post.user_id || post.authorId || "user_guest";
+  const painKey = post.dominantPain || PAIN_KEY_MAP[post.painName] || 'twist';
+  const displayPainName = t(`painNames.${painKey}`) || post.painName || '痛经';
 
-  const rawPain = post.dominantPain || post.painName || '';
-  const painKey = PAIN_KEY_MAP[rawPain] || 'twist';
-  const displayPainName = t(`painNames.${painKey}`) || (isEn ? 'Dysmenorrhea' : '痛经');
+  // 🌟 强绑定判断：是否为贴主自己
+  const postAuthorUid = post.userId || post.authorId || "user_guest";
+  const isAuthor = currentUserId && (postAuthorUid === currentUserId);
+  const cleanTitleText = parseCleanText(post.text);
 
-  const isAuthor = currentUserId && String(postAuthorUid) === String(currentUserId);
-
-  // 多语言标题转译
-  const getLocalizedTitle = (text) => {
-    const cleanText = parseCleanText(text);
-    if (!isEn) return cleanText;
-
-    if (cleanText === '分享具身痛觉图谱') {
-      return 'Sharing somatic pain mapping';
-    }
-
-    if (containsChinese(cleanText)) {
-      return `Recurrent lower abdominal ${displayPainName.toLowerCase()} during menstruation, accompanied by no significant symptoms for 1 day.`;
-    }
-    return cleanText;
-  };
-
-  // 多语言经验转译
-  const getLocalizedExp = (text) => {
-    if (!text || !String(text).trim()) return '';
-    const str = String(text).trim();
-    if (isEn && containsChinese(str)) {
-      if (str.includes('热敷') || str.includes('休息') || str.includes('喝水')) {
-        return 'Relieved by warm compress, deep breathing, and rest.';
-      }
-      return 'Relief experience shared by companion.';
-    }
-    return str;
-  };
-
-  const handleSaveExp = () => {
+  const handleConfirmExperience = () => {
     if (onSaveExperience) {
       onSaveExperience(post.id, experienceInput);
     }
     setIsEditingExp(false);
-  };
-
-  const handleDeletePost = async () => {
-    const msg = isEn 
-      ? 'Are you sure you want to delete this somatic pain post?' 
-      : '确定要删除这条具身痛觉分享吗？删除后无法恢复。';
-    if (window.confirm(msg)) {
-      if (onDelete) {
-        await onDelete(post.id);
-      }
-      onClose();
-    }
   };
 
   return (
@@ -136,46 +96,27 @@ export default function CommunityPostDetailModal({
         }}
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Header Title & Actions */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px', gap: '8px' }}>
-          <h3 style={{ color: '#fff', fontSize: 'var(--text-md)', fontWeight: 'bold', margin: 0, lineHeight: '1.5', flex: 1 }}>
-            {post.text || '分享具身痛觉图谱'}
+        {/* 1. 标题（发布时输入的自定义文案） */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
+          <h3 style={{ color: '#fff', fontSize: 'var(--text-md)', fontWeight: 'bold', margin: 0, lineHeight: '1.5', flex: 1, paddingRight: '12px' }}>
+            {cleanTitleText}
           </h3>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            {isAuthor && (
-              <button
-                onClick={handleDeletePost}
-                style={{
-                  background: 'rgba(239, 83, 80, 0.12)',
-                  border: '1px solid rgba(239, 83, 80, 0.3)',
-                  color: '#ef5350',
-                  padding: '4px 10px',
-                  borderRadius: 'var(--radius-sm)',
-                  fontSize: '11px',
-                  cursor: 'pointer',
-                  fontWeight: 'bold',
-                }}
-              >
-                🗑️ {isEn ? 'Delete' : '删除'}
-              </button>
-            )}
-            <button
-              onClick={onClose}
-              style={{
-                background: 'transparent',
-                border: 'none',
-                color: '#888',
-                fontSize: '20px',
-                cursor: 'pointer',
-                padding: '0 4px',
-              }}
-            >
-              ✕
-            </button>
-          </div>
+          <button
+            onClick={onClose}
+            style={{
+              background: 'transparent',
+              border: 'none',
+              color: '#888',
+              fontSize: '20px',
+              cursor: 'pointer',
+              padding: '0 4px',
+            }}
+          >
+            ✕
+          </button>
         </div>
 
-        {/* Author Info */}
+        {/* 2. 作者名片栏 (绑定真实 postAuthorUid，点击跳转对方个人主页) */}
         <div
           onClick={() => {
             onViewProfile && onViewProfile(postAuthorUid);
@@ -193,6 +134,8 @@ export default function CommunityPostDetailModal({
             cursor: 'pointer',
             transition: 'background 0.2s',
           }}
+          onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(255,255,255,0.06)')}
+          onMouseLeave={(e) => (e.currentTarget.style.background = 'rgba(255,255,255,0.03)')}
         >
           <div style={{
             width: '38px',
@@ -207,18 +150,18 @@ export default function CommunityPostDetailModal({
             overflow: 'hidden',
             flexShrink: 0,
           }}>
-            {authorCustomAvatar ? (
-              <img src={authorCustomAvatar} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="avatar" />
+            {post.customAvatar ? (
+              <img src={post.customAvatar} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="avatar" />
             ) : (
-              authorAvatar
+              (post.avatar || post.authorAvatar || "🌸")
             )}
           </div>
           <div style={{ flex: 1 }}>
             <div style={{ color: '#fff', fontSize: 'var(--text-base)', fontWeight: 'bold' }}>
-              {authorNickname}
+              {post.nickname || post.authorName || "同伴"}
             </div>
             <div style={{ color: '#666', fontSize: '11px', marginTop: '2px' }}>
-              {post.createdAt || post.created_at ? new Date(post.createdAt || post.created_at).toLocaleDateString() : (isEn ? 'Posted in community' : '发布于社区')}
+              {post.createdAt ? new Date(post.createdAt).toLocaleDateString() : '发布于社区'}
             </div>
           </div>
           <span style={{ color: '#ef5350', fontSize: '11px', background: 'rgba(239,83,80,0.12)', padding: '4px 10px', borderRadius: '10px', fontWeight: 'bold' }}>
@@ -226,14 +169,14 @@ export default function CommunityPostDetailModal({
           </span>
         </div>
 
-        {/* Image */}
+        {/* 3. 绘制图片展示 */}
         {post.img && (
           <div style={{ borderRadius: 'var(--radius-md)', overflow: 'hidden', border: '1px solid #222', background: '#000', marginBottom: '20px' }}>
-            <img src={post.img} style={{ width: '100%', display: 'block', objectFit: 'contain', maxHeight: '280px' }} alt="Pain Mapping" />
+            <img src={post.img} style={{ width: '100%', display: 'block', objectFit: 'contain', maxHeight: '280px' }} alt="Pain Map" />
           </div>
         )}
 
-        {/* Relief Experience Section */}
+        {/* 4. 经验分享区 (贴主可编辑确认，确认后同步汇入智慧货架) */}
         <div style={{
           background: 'linear-gradient(135deg, #161a16, #121212)',
           border: '1px solid rgba(76, 175, 80, 0.3)',
@@ -243,14 +186,14 @@ export default function CommunityPostDetailModal({
         }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
             <span style={{ color: '#4caf50', fontSize: '13px', fontWeight: 'bold' }}>
-              💡 {isEn ? 'Relief Experience Shared' : '缓解经验分享区'}
+              💡 缓解经验分享区
             </span>
             {isAuthor && (
               <button
                 onClick={() => setIsEditingExp(!isEditingExp)}
                 style={{ background: 'none', border: 'none', color: '#4caf50', fontSize: '11px', cursor: 'pointer', textDecoration: 'underline' }}
               >
-                {isEditingExp ? (isEn ? 'Cancel' : '取消') : ((post.userExperience || post.user_experience) ? (isEn ? '✏️ Edit Experience' : '✏️ 编辑经验') : (isEn ? '+ Share My Relief Experience' : '+ 填写我的经验'))}
+                {isEditingExp ? '取消' : (post.userExperience ? '✏️ 编辑经验' : '+ 填写我的经验')}
               </button>
             )}
           </div>
@@ -261,7 +204,7 @@ export default function CommunityPostDetailModal({
                 rows={3}
                 value={experienceInput}
                 onChange={(e) => setExperienceInput(e.target.value)}
-                placeholder={isEn ? "Share what relieved your pain..." : "填写你本次缓解疼痛的方法..."}
+                placeholder="填写你本次缓解疼痛的方法（例如：热水袋热敷下腹15分钟、喝红糖姜茶...确认后将同步汇入智慧货架）"
                 style={{
                   width: '100%',
                   background: '#0a0a0a',
@@ -278,7 +221,7 @@ export default function CommunityPostDetailModal({
                 }}
               />
               <button
-                onClick={handleSaveExp}
+                onClick={handleConfirmExperience}
                 style={{
                   width: '100%',
                   padding: '9px',
@@ -291,19 +234,19 @@ export default function CommunityPostDetailModal({
                   cursor: 'pointer',
                 }}
               >
-                {isEn ? 'Save & Sync' : '确认经验（同步至智慧货架）'}
+                确认经验（同步至智慧货架）
               </button>
             </div>
           ) : (
-            <p style={{ color: '#ccc', fontSize: '12.5px', lineHeight: '1.6', margin: 0, whiteSpace: 'pre-line' }}>
-              {(post.userExperience || post.user_experience)?.trim()
-                ? `“${getLocalizedExp(post.userExperience || post.user_experience)}”`
-                : (isAuthor ? (isEn ? 'You haven\'t shared a relief experience yet. Tap "+ Share My Relief Experience" above.' : '你尚未填写本次缓解经验。点击右上角“+ 填写我的经验”即可分享给姐妹们。') : (isEn ? 'No relief experience shared yet.' : '贴主暂未填写本次缓解经验。'))}
+            <p style={{ color: '#ccc', fontSize: '12.5px', lineHeight: '1.6', margin: 0, whitespace: 'pre-line' }}>
+              {post.userExperience && post.userExperience.trim()
+                ? `“${post.userExperience}”`
+                : (isAuthor ? '你尚未填写本次缓解经验。点击右上角“+ 填写我的经验”即可分享给姐妹们。' : '贴主暂未填写本次缓解经验。')}
             </p>
           )}
         </div>
 
-        {/* Hug & Like Actions */}
+        {/* 5. 底部抱抱与比心赞同按钮 (🌟 实时响应，即点即刷) */}
         <div style={{ display: 'flex', gap: '12px' }}>
           <button
             onClick={(e) => onHug && onHug(post.id, e)}
@@ -323,7 +266,7 @@ export default function CommunityPostDetailModal({
               gap: '6px',
             }}
           >
-            🫂 {isEn ? 'Hug' : '给予抱抱'} ({post.hugs || 0})
+            🫂 给予抱抱 ({post.hugs || 0})
           </button>
           <button
             onClick={(e) => onLike && onLike(post.id, e)}
@@ -343,7 +286,7 @@ export default function CommunityPostDetailModal({
               gap: '6px',
             }}
           >
-            ❤️ {isEn ? 'Like' : '比心赞同'} ({post.likes || 0})
+            ❤️ 比心赞同 ({post.likes || 0})
           </button>
         </div>
       </div>

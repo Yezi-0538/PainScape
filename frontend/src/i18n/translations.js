@@ -669,6 +669,7 @@ const translations = {
 
     post: {
       title: "PainScape 具身痛觉证据",
+      text: "分享具身痛觉图谱",
       aiAnalysis: "🧠 AI 痛觉分析：",
       aiDefault: "根据图像特征，该疼痛表现出典型的机械性收缩特征，伴有深层局部组织压迫感。",
       selfExperience: "🌿 她的缓解经验：",
@@ -1869,6 +1870,7 @@ const translations = {
 
     post: {
       title: "PainScape Embodied Evidence",
+      text: "Sharing Embodied Pain Mapping",
       aiAnalysis: "🧠 AI Pain Analysis:",
       aiDefault: "Based on image characteristics, this pain exhibits typical mechanical contraction features with deep localized tissue pressure.",
       selfExperience: "🌿 Her Relief Experience:",
