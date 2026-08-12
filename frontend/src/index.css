@@ -7,52 +7,8 @@
   --accent-blue: #2196f3;
   --text-main: #f0f0f0;
   --text-sub: #a0a0a0;
-}
 
-/* ===== 全局基础样式 ===== */
-* {
-  box-sizing: border-box;
-  -webkit-tap-highlight-color: transparent;
-}
-
-body {
-  margin: 0;
-  padding: 0;
-  background: var(--bg-color);
-  color: var(--text-main);
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  overflow: hidden;
-  /* 防止页面整体滚动，由各页面内部控制 */
-}
-
-/* ===== 滚动容器 ===== */
-.scrollable {
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
-}
-
-.scrollable::-webkit-scrollbar {
-  width: 0;
-  display: none;
-}
-
-/* ===== 全局通用按钮重置 ===== */
-button {
-  font-family: inherit;
-  outline: none;
-}
-
-button:active {
-  transform: scale(0.97);
-  transition: transform 0.1s;
-}
-
-/* ============================================================
-   🌟 PainScape 全局响应式字体系统
-   ============================================================ */
-
-:root {
-  /* 基础字体大小 — 桌面端 */
+  /* ===== 响应式字体系统 ===== */
   --text-xs: 10px;
   --text-sm: 12px;
   --text-base: 14px;
@@ -62,12 +18,34 @@ button:active {
   --text-2xl: 24px;
   --text-3xl: 28px;
 
-  /* 按钮最小尺寸 */
+  /* ===== 响应式间距系统 ===== */
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 12px;
+  --space-lg: 16px;
+  --space-xl: 20px;
+  --space-2xl: 24px;
+
+  /* ===== 组件尺寸 ===== */
   --btn-min-height: 40px;
   --btn-min-touch: 44px;
+  --btn-height-sm: 32px;
+  --btn-height-xs: 28px;
+
+  /* ===== 容器宽度 ===== */
+  --container-max: 500px;
+  --container-sm: 380px;
+
+  /* ===== 圆角 ===== */
+  --radius-sm: 10px;
+  --radius-md: 14px;
+  --radius-lg: 20px;
 }
 
-/* 小屏幕手机 (≤ 375px) */
+/* ============================================================
+   响应式断点
+   ============================================================ */
+
 @media (max-width: 375px) {
   :root {
     --text-xs: 8px;
@@ -80,10 +58,19 @@ button:active {
     --text-3xl: 24px;
     --btn-min-height: 36px;
     --btn-min-touch: 40px;
+    --btn-height-sm: 28px;
+    --btn-height-xs: 24px;
+    --space-sm: 6px;
+    --space-md: 10px;
+    --space-lg: 14px;
+    --space-xl: 16px;
+    --container-max: 340px;
+    --radius-sm: 8px;
+    --radius-md: 12px;
+    --radius-lg: 16px;
   }
 }
 
-/* 标准手机 (376px - 428px) */
 @media (min-width: 376px) and (max-width: 428px) {
   :root {
     --text-xs: 9px;
@@ -96,10 +83,16 @@ button:active {
     --text-3xl: 26px;
     --btn-min-height: 38px;
     --btn-min-touch: 42px;
+    --btn-height-sm: 30px;
+    --btn-height-xs: 26px;
+    --space-sm: 7px;
+    --space-md: 11px;
+    --space-lg: 15px;
+    --container-max: 380px;
+    --radius-md: 13px;
   }
 }
 
-/* 大手机/小平板 (429px - 768px) */
 @media (min-width: 429px) and (max-width: 768px) {
   :root {
     --text-xs: 10px;
@@ -112,28 +105,72 @@ button:active {
     --text-3xl: 27px;
     --btn-min-height: 40px;
     --btn-min-touch: 44px;
-  }
-}
-
-/* 桌面端 (≥ 769px) — 保持原样 */
-@media (min-width: 769px) {
-  :root {
-    --text-xs: 10px;
-    --text-sm: 12px;
-    --text-base: 14px;
-    --text-md: 16px;
-    --text-lg: 18px;
-    --text-xl: 20px;
-    --text-2xl: 24px;
-    --text-3xl: 28px;
-    --btn-min-height: 44px;
-    --btn-min-touch: 48px;
+    --container-max: 440px;
   }
 }
 
 /* ============================================================
-   🌟 全局按钮 Touch 友好
+   全局基础样式
    ============================================================ */
+
+* {
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  background: var(--bg-color);
+  color: var(--text-main);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  overflow: hidden;
+}
+
+/* ============================================================
+   滚动容器
+   ============================================================ */
+
+.scrollable {
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.scrollable::-webkit-scrollbar {
+  width: 0;
+  display: none;
+}
+
+/* ============================================================
+   全局按钮重置 & Touch 友好
+   ============================================================ */
+
+button {
+  font-family: inherit;
+  outline: none;
+  font-size: var(--text-sm);
+  min-height: var(--btn-min-touch);
+}
+
+button:active {
+  transform: scale(0.97);
+  transition: transform 0.1s;
+}
+
+/* 按钮尺寸变体 */
+.btn-sm {
+  min-height: var(--btn-height-sm);
+  padding: 4px 12px;
+  font-size: var(--text-xs);
+  border-radius: var(--radius-sm);
+}
+
+.btn-xs {
+  min-height: var(--btn-height-xs);
+  padding: 2px 8px;
+  font-size: var(--text-xs);
+  border-radius: 8px;
+}
 
 button,
 input,
@@ -141,195 +178,30 @@ select,
 textarea,
 [role="button"],
 .clickable {
-  min-height: var(--btn-min-touch, 44px);
-  /* 确保移动端可点击区域 ≥ 44px */
+  min-height: var(--btn-min-touch);
 }
 
-/* 小按钮（如标签、徽章）可以更小，但保留触摸友好 */
-.btn-sm {
-  min-height: var(--btn-min-height, 36px);
-  padding: 4px 12px;
-}
+/* ============================================================
+   输入框通用
+   ============================================================ */
 
-/* 底部导航按钮特殊处理 */
-.footer-btn {
-  min-height: var(--btn-min-touch, 44px);
-  padding: 6px 10px;
-  font-size: var(--text-xs, 10px);
-  white-space: nowrap;
-  /* 默认不换行 */
-}
-
-/* 如果按钮内容过长，允许换行 */
-.footer-btn-wrap {
-  white-space: normal;
-  word-break: break-word;
-  text-align: center;
-  line-height: 1.2;
-}
-
-/* ===== 输入框通用 ===== */
 textarea,
 select {
   font-family: inherit;
   outline: none;
 }
 
-/* ===== p5.js 画布专用 ===== */
-canvas {
-  touch-action: none !important;
-  /* 彻底禁用浏览器的默认触摸动作，保证 p5.js 画画顺畅 */
-  user-select: none !important;
-  -webkit-user-select: none !important;
-  -webkit-touch-callout: none !important;
-}
-
-/* ===== 画板页面外层锁定 ===== */
-.canvas-screen-wrapper {
-  touch-action: none !important;
-  overscroll-behavior: none !important;
-  user-select: none !important;
-  -webkit-user-select: none !important;
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100vw;
-  height: 100vh;
-  overflow: hidden;
-}
-
-.canvas-screen-wrapper div,
-.canvas-screen-wrapper button {
-  touch-action: none !important;
-  overscroll-behavior: none !important;
-}
 /* ============================================================
-   🌟 弹窗通用样式优化（解决拥挤和字号问题）
+   滑动条重置
    ============================================================ */
-
-/* 弹窗容器 */
-.modal-content {
-  font-size: var(--text-sm, 13px);
-  line-height: 1.5;
-}
-
-/* 弹窗标题 */
-.modal-title {
-  font-size: var(--text-base, 15px);
-  font-weight: 600;
-  margin-bottom: 12px;
-}
-
-/* 弹窗正文 */
-.modal-body {
-  font-size: var(--text-sm, 13px);
-  color: #ccc;
-  line-height: 1.6;
-}
-
-/* 弹窗按钮组 */
-.modal-actions {
-  display: flex;
-  gap: 10px;
-  margin-top: 16px;
-}
-
-/* 弹窗按钮 - 主要 */
-.modal-btn-primary {
-  flex: 1;
-  padding: 10px 16px;
-  font-size: var(--text-sm, 13px);
-  font-weight: 600;
-  border: none;
-  border-radius: 12px;
-  cursor: pointer;
-  min-height: 40px;
-  transition: all 0.2s;
-}
-
-/* 弹窗按钮 - 次要 */
-.modal-btn-secondary {
-  flex: 1;
-  padding: 10px 16px;
-  font-size: var(--text-sm, 13px);
-  font-weight: 500;
-  border: 1px solid #444;
-  border-radius: 12px;
-  cursor: pointer;
-  min-height: 40px;
-  background: transparent;
-  color: #888;
-  transition: all 0.2s;
-}
-
-/* 弹窗按钮 - 危险（删除） */
-.modal-btn-danger {
-  flex: 1;
-  padding: 10px 16px;
-  font-size: var(--text-sm, 13px);
-  font-weight: 600;
-  border: 1px solid rgba(244,67,54,0.3);
-  border-radius: 12px;
-  cursor: pointer;
-  min-height: 40px;
-  background: rgba(244,67,54,0.08);
-  color: #ef5350;
-  transition: all 0.2s;
-}
-
-/* 弹窗按钮 hover 效果 */
-.modal-btn-primary:hover {
-  opacity: 0.85;
-}
-.modal-btn-secondary:hover {
-  background: rgba(255,255,255,0.05);
-  color: #ccc;
-}
-.modal-btn-danger:hover {
-  background: rgba(244,67,54,0.15);
-}
-
-/* 弹窗按钮 active 效果 */
-.modal-btn-primary:active,
-.modal-btn-secondary:active,
-.modal-btn-danger:active {
-  transform: scale(0.97);
-}
-
-/* ============================================================
-   🌟 通用按钮尺寸修复（防止全局按钮过大）
-   ============================================================ */
-
-/* 覆盖全局 button 的 min-height，只对弹窗内的按钮生效 */
-.modal-content button {
-  min-height: 40px;
-  font-size: var(--text-sm, 13px);
-}
-
-/* 小按钮（标签、徽章类） */
-.btn-tiny {
-  min-height: 28px;
-  padding: 3px 10px;
-  font-size: var(--text-xs, 10px);
-  border-radius: 8px;
-}
-
-/* 紧凑按钮（用于列表项右侧） */
-.btn-compact {
-  min-height: 32px;
-  padding: 4px 10px;
-  font-size: var(--text-xs, 10px);
-  border-radius: 8px;
-}
-
 
 input[type="range"] {
-  min-height: auto !important;  /* 重置全局 min-height */
+  min-height: auto !important;
   padding: 0;
   margin: 0;
 }
 
-/* ===== 自定义颜色滑动条 ===== */
+/* 自定义颜色滑动条 */
 input[type="range"].color-slider {
   -webkit-appearance: none;
   appearance: none;
@@ -350,7 +222,7 @@ input[type="range"].color-slider::-webkit-slider-thumb {
   background: #fff;
   border: 2px solid #444;
   cursor: pointer;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
   transition: transform 0.2s;
 }
 
@@ -366,7 +238,7 @@ input[type="range"].color-slider::-moz-range-thumb {
   background: #fff;
   border: 2px solid #444;
   cursor: pointer;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
 }
 
 input[type="range"].color-slider::-moz-range-thumb:hover {
@@ -381,13 +253,126 @@ input[type="range"].color-slider::-moz-range-track {
   border: none;
 }
 
-/* ===== 画布顶部导航栏 ===== */
+/* ============================================================
+   弹窗通用样式
+   ============================================================ */
+
+.modal-content {
+  font-size: var(--text-sm);
+  line-height: 1.5;
+}
+
+.modal-title {
+  font-size: var(--text-base);
+  font-weight: 600;
+  margin-bottom: var(--space-md);
+}
+
+.modal-body {
+  font-size: var(--text-sm);
+  color: #ccc;
+  line-height: 1.6;
+}
+
+.modal-actions {
+  display: flex;
+  gap: var(--space-sm);
+  margin-top: var(--space-lg);
+}
+
+.modal-content button {
+  min-height: 40px;
+  font-size: var(--text-sm);
+}
+
+/* 弹窗按钮变体 */
+.modal-btn-primary {
+  flex: 1;
+  padding: var(--space-sm) var(--space-lg);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  border: none;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  min-height: 40px;
+  transition: all 0.2s;
+}
+
+.modal-btn-secondary {
+  flex: 1;
+  padding: var(--space-sm) var(--space-lg);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  border: 1px solid #444;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  min-height: 40px;
+  background: transparent;
+  color: #888;
+  transition: all 0.2s;
+}
+
+.modal-btn-danger {
+  flex: 1;
+  padding: var(--space-sm) var(--space-lg);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  border: 1px solid rgba(244, 67, 54, 0.3);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  min-height: 40px;
+  background: rgba(244, 67, 54, 0.08);
+  color: #ef5350;
+  transition: all 0.2s;
+}
+
+.modal-btn-primary:hover { opacity: 0.85; }
+.modal-btn-secondary:hover { background: rgba(255, 255, 255, 0.05); color: #ccc; }
+.modal-btn-danger:hover { background: rgba(244, 67, 54, 0.15); }
+.modal-btn-primary:active,
+.modal-btn-secondary:active,
+.modal-btn-danger:active { transform: scale(0.97); }
+
+/* ============================================================
+   p5.js 画布专用
+   ============================================================ */
+
+canvas {
+  touch-action: none !important;
+  user-select: none !important;
+  -webkit-user-select: none !important;
+  -webkit-touch-callout: none !important;
+}
+
+.canvas-screen-wrapper {
+  touch-action: none !important;
+  overscroll-behavior: none !important;
+  user-select: none !important;
+  -webkit-user-select: none !important;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+}
+
+.canvas-screen-wrapper div,
+.canvas-screen-wrapper button {
+  touch-action: none !important;
+  overscroll-behavior: none !important;
+}
+
+/* ============================================================
+   画布顶部导航栏
+   ============================================================ */
+
 .top-bar {
   position: absolute;
   top: 0;
   left: 0;
   width: 100%;
-  padding: 20px;
+  padding: var(--space-xl);
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
@@ -397,26 +382,29 @@ input[type="range"].color-slider::-moz-range-track {
   box-sizing: border-box;
 }
 
-.top-bar>* {
+.top-bar > * {
   pointer-events: auto;
 }
 
-/* ===== 画布底部工具栏 ===== */
+/* ============================================================
+   画布底部工具栏
+   ============================================================ */
+
 .toolbar {
   position: absolute;
-  bottom: max(20px, env(safe-area-inset-bottom));
+  bottom: max(var(--space-xl), env(safe-area-inset-bottom));
   left: 50%;
   transform: translateX(-50%);
   width: 92%;
-  max-width: 380px;
+  max-width: var(--container-max);
   background: rgba(20, 20, 20, 0.95);
   backdrop-filter: blur(12px);
   border: 1px solid #2a2a2a;
-  border-radius: 24px;
-  padding: 12px 16px;
+  border-radius: var(--radius-lg);
+  padding: var(--space-md) var(--space-lg);
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: var(--space-sm);
   z-index: 100;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
   box-sizing: border-box;
@@ -433,9 +421,9 @@ input[type="range"].color-slider::-moz-range-track {
   background: transparent;
   border: none;
   color: #888;
-  border-radius: 10px;
+  border-radius: var(--radius-sm);
   padding: 8px 0;
-  font-size: 12px;
+  font-size: var(--text-sm);
   cursor: pointer;
   display: flex;
   flex-direction: column;
@@ -449,14 +437,14 @@ input[type="range"].color-slider::-moz-range-track {
 }
 
 .brush-icon {
-  font-size: 20px;
+  font-size: var(--text-xl);
   margin-bottom: 2px;
 }
 
 .color-row {
   display: flex;
   justify-content: center;
-  gap: 20px;
+  gap: var(--space-xl);
   margin-top: 5px;
 }
 
@@ -474,7 +462,10 @@ input[type="range"].color-slider::-moz-range-track {
   transform: scale(1.2);
 }
 
-/* ===== 画布右侧工具按钮 ===== */
+/* ============================================================
+   画布右侧工具按钮
+   ============================================================ */
+
 .side-tools {
   position: absolute;
   right: 15px;
@@ -487,7 +478,7 @@ input[type="range"].color-slider::-moz-range-track {
   pointer-events: none;
 }
 
-.side-tools>* {
+.side-tools > * {
   pointer-events: auto;
 }
 
@@ -512,24 +503,27 @@ input[type="range"].color-slider::-moz-range-track {
   transform: scale(0.9);
 }
 
-/* ===== 结果页 Tab 切换 ===== */
+/* ============================================================
+   结果页 Tab & 卡片
+   ============================================================ */
+
 .tab-group {
   display: flex;
-  gap: 8px;
+  gap: var(--space-sm);
   width: 100%;
-  max-width: 380px;
-  margin: 24px 0 16px 0;
+  max-width: var(--container-max);
+  margin: var(--space-2xl) 0 var(--space-lg) 0;
 }
 
 .tab {
   flex: 1;
-  padding: 12px 0;
+  padding: var(--space-md) 0;
   background: rgba(20, 20, 20, 0.6);
   color: #666;
   border: 1px solid #222;
-  border-radius: 12px;
+  border-radius: var(--radius-md);
   cursor: pointer;
-  font-size: 13px;
+  font-size: var(--text-sm);
   transition: all 0.2s;
   text-align: center;
 }
@@ -541,13 +535,12 @@ input[type="range"].color-slider::-moz-range-track {
   font-weight: bold;
 }
 
-/* ===== 结果页信息卡片 ===== */
 .info-card {
   background: #121212;
-  padding: 24px;
-  border-radius: 20px;
+  padding: var(--space-2xl);
+  border-radius: var(--radius-lg);
   width: 100%;
-  max-width: 380px;
+  max-width: var(--container-max);
   border: 1px solid #222;
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6);
   box-sizing: border-box;
@@ -558,12 +551,10 @@ input[type="range"].color-slider::-moz-range-track {
   max-width: 580px;
 }
 
-/* ===== 医生模式专用宽屏 ===== */
-.doctor-wide {
-  max-width: 580px;
-}
+/* ============================================================
+   可编辑块
+   ============================================================ */
 
-/* ===== 可编辑块悬停效果 ===== */
 .editable-block {
   cursor: text;
   padding: 6px 8px;
@@ -576,91 +567,58 @@ input[type="range"].color-slider::-moz-range-track {
   border-color: #555;
 }
 
-/* ===== Toast 动画 ===== */
+/* ============================================================
+   通用工具类
+   ============================================================ */
+
+.text-center { text-align: center; }
+.text-muted { color: var(--text-sub); }
+.w-full { width: 100%; }
+.flex-center { display: flex; align-items: center; justify-content: center; }
+.gap-sm { gap: var(--space-sm); }
+.gap-md { gap: var(--space-md); }
+.gap-lg { gap: var(--space-lg); }
+
+/* ============================================================
+   动画
+   ============================================================ */
+
 @keyframes toastIn {
-  0% {
-    opacity: 0;
-    transform: translateY(20px) scale(0.95);
-  }
-  100% {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
+  0% { opacity: 0; transform: translateY(20px) scale(0.95); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
 }
 
-/* ===== Loading 旋转动画 ===== */
 @keyframes spin {
-  0% {
-    transform: rotate(0deg);
-  }
-  100% {
-    transform: rotate(360deg);
-  }
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
 }
 
-/* ===== 自愈舱呼吸球动画 ===== */
 @keyframes breathPulse {
-  0%,
-  100% {
-    transform: scale(1);
-  }
-  50% {
-    transform: scale(1.06);
-  }
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.06); }
 }
 
 @keyframes ringPulse {
-  0%,
-  100% {
-    transform: scale(1);
-    opacity: 0.3;
-  }
-  50% {
-    transform: scale(1.15);
-    opacity: 0;
-  }
+  0%, 100% { transform: scale(1); opacity: 0.3; }
+  50% { transform: scale(1.15); opacity: 0; }
 }
 
-/* ===== 通用工具类 ===== */
-.text-center {
-  text-align: center;
-}
+/* ============================================================
+   响应式微调
+   ============================================================ */
 
-.text-muted {
-  color: var(--text-sub);
-}
-
-.w-full {
-  width: 100%;
-}
-
-.flex-center {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.gap-8 {
-  gap: 8px;
-}
-
-.gap-12 {
-  gap: 12px;
-}
-
-/* ===== 响应式微调 ===== */
 @media (max-width: 480px) {
   .toolbar {
-    padding: 10px 12px;
+    padding: var(--space-sm) var(--space-md);
   }
 
   .brush-btn {
-    font-size: 10px;
+    font-size: var(--text-xs);
     padding: 6px 0;
   }
 
   .brush-icon {
-    font-size: 16px;
+    font-size: var(--text-md);
   }
 
   .side-btn {
@@ -670,11 +628,11 @@ input[type="range"].color-slider::-moz-range-track {
   }
 
   .info-card {
-    padding: 18px;
+    padding: var(--space-lg);
   }
 
   .tab {
-    font-size: 11px;
-    padding: 10px 0;
+    font-size: var(--text-xs);
+    padding: var(--space-sm) 0;
   }
 }

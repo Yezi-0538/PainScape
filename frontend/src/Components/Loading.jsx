@@ -63,7 +63,7 @@ const Loading = ({
           color: '#fff',
           marginTop: '20px',
           letterSpacing: '2px',
-          fontSize: '14px',
+          fontSize: 'var(--text-base)',
         }}
       >
         {_message}

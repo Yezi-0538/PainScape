@@ -298,7 +298,7 @@ export default function QuickLogPage({
             fontSize: '13px',
             cursor: 'pointer',
             padding: '6px 14px',
-            borderRadius: '20px',
+            borderRadius: 'var(--radius-lg)',
             backdropFilter: 'blur(8px)',
           }}
         >
@@ -348,7 +348,7 @@ export default function QuickLogPage({
                 style={{
                   width: '60px',
                   height: '60px',
-                  borderRadius: '16px',
+                  borderRadius: 'var(--radius-md)',
                   border: isSelected ? '1px solid rgba(76,175,80,0.6)' : '1px solid rgba(255,255,255,0.08)',
                   background: isSelected ? 'rgba(76,175,80,0.1)' : 'rgba(255,255,255,0.03)',
                   color: isSelected ? '#e0e0e0' : '#666',
@@ -536,7 +536,7 @@ export default function QuickLogPage({
                 {(stage === 'pressing' || stage === 'holding') && (
                   <div style={{
                     color: 'rgba(255,255,255,0.6)',
-                    fontSize: '16px',
+                    fontSize: 'var(--text-md)',
                     fontWeight: '300',
                     letterSpacing: '1px',
                     transition: 'all 0.3s ease',
@@ -683,7 +683,7 @@ export default function QuickLogPage({
               onClick={handleReset}
               style={{
                 padding: '8px 16px',
-                borderRadius: '20px',
+                borderRadius: 'var(--radius-lg)',
                 border: '1px solid rgba(255,255,255,0.06)',
                 background: 'rgba(255,255,255,0.02)',
                 color: 'rgba(255,255,255,0.3)',

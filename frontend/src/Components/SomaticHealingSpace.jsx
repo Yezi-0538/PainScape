@@ -2,11 +2,11 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useI18n } from '../i18n/i18nContext';
 
-const SomaticHealingSpace = ({ 
-  isOpen, 
-  activeTab = 'breathing', 
-  onClose, 
-  language, 
+const SomaticHealingSpace = ({
+  isOpen,
+  activeTab = 'breathing',
+  onClose,
+  language,
   aiSelfCareTips = [],
   dominantPainName,
   onPublishSharedTip // 🌟 闭环：一键分享至共鸣广场的回调函数
@@ -19,8 +19,8 @@ const SomaticHealingSpace = ({
   const [timerCount, setTimerCount] = useState(0);
 
   // 1. 呼吸法多模态切换（4-4-6, 4-7-8, 4-4-4-4）
-  const [breathMode, setBreathMode] = useState('slow'); 
-  
+  const [breathMode, setBreathMode] = useState('slow');
+
   // 2. 步骤滑动卡索引
   const [activeStep, setActiveStep] = useState(0);
 
@@ -33,7 +33,7 @@ const SomaticHealingSpace = ({
   const timerIntervalRef = useRef(null);
   const cycleTimeoutRef = useRef(null);
 
-  
+
 
   // 使用 i18n 系统的翻译
   const t = {
@@ -84,7 +84,7 @@ const SomaticHealingSpace = ({
     acupressure: tFn('somaticHealing.stepDatabase.acupressure') || [],
     thermal: tFn('somaticHealing.stepDatabase.thermal') || [],
   };
-  
+
   const startHealing = () => {
     setIsPlaying(true);
     if (!audioRef.current) {
@@ -183,10 +183,10 @@ const SomaticHealingSpace = ({
     if (onPublishSharedTip) {
       const activeTipsText = aiSelfCareTips[0] || (STEP_DATABASES[activeTab]?.[0]?.desc) || "";
       const cleanedTipText = activeTipsText.replace(/✨|•/g, '').trim();
-      const shareText = effectiveLang === 'en' 
+      const shareText = effectiveLang === 'en'
         ? `When experiencing "${dominantPainName}", I did "${t[activeTab]}" somatic healing and found it very helpful! Tip: ${cleanedTipText}`
         : `我在经历"${dominantPainName}"时，进行了"${t[activeTab]}"自愈调理，亲测非常有帮助！提示：${cleanedTipText}`;
-      
+
       onPublishSharedTip(shareText, activeTab);
     }
     setEvaluationResult('shared');
@@ -211,7 +211,7 @@ const SomaticHealingSpace = ({
     if (!steps) return null;
     const current = steps[activeStep];
     return (
-      <div style={{ background: '#1c1c1c', border: '1px solid #2d2d2d', borderRadius: '16px', padding: '16px 20px', boxSizing: 'border-box' }}>
+      <div style={{ background: '#1c1c1c', border: '1px solid #2d2d2d', borderRadius: 'var(--radius-md)', padding: '16px 20px', boxSizing: 'border-box' }}>
         <span style={{ fontSize: '10px', background: '#2196f3', color: '#fff', padding: '2px 8px', borderRadius: '10px', fontWeight: 'bold' }}>
           {current.step}
         </span>
@@ -219,14 +219,14 @@ const SomaticHealingSpace = ({
           {current.desc}
         </p>
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: '10px' }}>
-          <button 
+          <button
             disabled={activeStep === 0}
             onClick={() => setActiveStep(prev => prev - 1)}
             style={{ flex: 1, padding: '8px', background: '#2c2c2c', border: 'none', borderRadius: '6px', color: activeStep === 0 ? '#444' : '#888', fontSize: '11px', cursor: activeStep === 0 ? 'not-allowed' : 'pointer', fontWeight: 'bold' }}
           >
             {t.stepPrev}
           </button>
-          <button 
+          <button
             disabled={activeStep === steps.length - 1}
             onClick={() => setActiveStep(prev => prev + 1)}
             style={{ flex: 1, padding: '8px', background: '#2c2c2c', border: 'none', borderRadius: '6px', color: activeStep === steps.length - 1 ? '#444' : '#888', fontSize: '11px', cursor: activeStep === steps.length - 1 ? 'not-allowed' : 'pointer', fontWeight: 'bold' }}
@@ -258,7 +258,7 @@ const SomaticHealingSpace = ({
                 transition: 'transform 4s cubic-bezier(0.4, 0, 0.2, 1)'
               }} />
             </div>
-            <div style={{ color: '#4caf50', fontSize: '14px', fontWeight: '600', marginTop: '20px', height: '20px' }}>
+            <div style={{ color: '#4caf50', fontSize: 'var(--text-base)', fontWeight: '600', marginTop: '20px', height: '20px' }}>
               {isPlaying ? t[phase] : " "}
             </div>
           </div>
@@ -295,7 +295,7 @@ const SomaticHealingSpace = ({
               background: isPlaying ? 'rgba(33, 150, 243, 0.1)' : 'rgba(255,255,255,0.02)',
               border: isPlaying ? '2.5px solid #2196f3' : '1.5px solid #333',
               boxShadow: isPlaying ? '0 0 40px rgba(33, 150, 243, 0.2)' : 'none',
-              animation: isPlaying ? 'pulse 1s infinite steps(2)' : 'none', 
+              animation: isPlaying ? 'pulse 1s infinite steps(2)' : 'none',
               margin: '0 auto 20px auto',
               display: 'flex', alignItems: 'center', justifyContent: 'center'
             }}>
@@ -351,9 +351,9 @@ const SomaticHealingSpace = ({
         <h3 style={{ color: '#fff', fontSize: '15px', margin: 0, fontWeight: 'bold' }}>
           {t[activeTab]}
         </h3>
-        <button 
+        <button
           onClick={handleExitRequest}
-          style={{ background: 'rgba(255,255,255,0.05)', border: 'none', color: '#888', padding: '6px 14px', borderRadius: '20px', fontSize: '12px', cursor: 'pointer' }}
+          style={{ background: 'rgba(255,255,255,0.05)', border: 'none', color: '#888', padding: '6px 14px', borderRadius: 'var(--radius-lg)', fontSize: '12px', cursor: 'pointer' }}
         >
           {t.close}
         </button>
@@ -361,11 +361,11 @@ const SomaticHealingSpace = ({
 
       {/* 1. 呼吸大类特殊阀门：提供多套呼吸模态选择 */}
       {activeTab === 'breathing' && (
-        <div style={{ width: '100%', maxWidth: '380px', marginBottom: '20px' }}>
-          <select 
-            value={breathMode} 
+        <div style={{ width: '100%', maxWidth: 'var(--container-sm)', marginBottom: '20px' }}>
+          <select
+            value={breathMode}
             onChange={(e) => { stopHealing(); setBreathMode(e.target.value); }}
-            style={{ width: '100%', padding: '12px', background: '#1c1c1c', color: '#4caf50', border: '1px solid #333', borderRadius: '12px', fontSize: '12.5px', outline: 'none' }}
+            style={{ width: '100%', padding: 'var(--space-md)', background: '#1c1c1c', color: '#4caf50', border: '1px solid #333', borderRadius: 'var(--radius-sm)', fontSize: '12.5px', outline: 'none' }}
           >
             <option value="slow">{t.breathModes.slow}</option>
             <option value="deep">{t.breathModes.deep}</option>
@@ -381,17 +381,17 @@ const SomaticHealingSpace = ({
 
       {/* 如果是体位、穴位、热敷大类，在圆环下方渲染具体的操作指导步骤卡 */}
       {activeTab !== 'breathing' && (
-        <div style={{ width: '100%', maxWidth: '380px', marginBottom: '20px' }}>
+        <div style={{ width: '100%', maxWidth: 'var(--container-sm)', marginBottom: '20px' }}>
           {renderStepCard(activeTab)}
         </div>
       )}
 
       {/* 激活控制条 */}
-      <div style={{ width: '100%', maxWidth: '380px', marginBottom: '24px' }}>
+      <div style={{ width: '100%', maxWidth: 'var(--container-sm)', marginBottom: '24px' }}>
         <button
           onClick={isPlaying ? stopHealing : startHealing}
           style={{
-            width: '100%', padding: '16px',
+            width: '100%', padding: 'var(--space-lg)',
             background: isPlaying ? '#2c2c2c' : '#4caf50',
             border: 'none', borderRadius: '30px', color: '#fff',
             fontWeight: 'bold', fontSize: '15px', cursor: 'pointer',
@@ -404,19 +404,19 @@ const SomaticHealingSpace = ({
       </div>
 
       {/* 物理安全底线免责警示 */}
-      <p style={{ width: '100%', maxWidth: '360px', color: '#ff9800', fontSize: '11px', lineHeight: '1.6', textAlign: 'center', background: 'rgba(255,152,0,0.04)', padding: '10px 14px', borderRadius: '12px', border: '1px dashed rgba(255,152,0,0.15)', margin: '0 0 24px 0', boxSizing: 'border-box' }}>
+      <p style={{ width: '100%', maxWidth: '360px', color: '#ff9800', fontSize: '11px', lineHeight: '1.6', textAlign: 'center', background: 'rgba(255,152,0,0.04)', padding: '10px 14px', borderRadius: 'var(--radius-sm)', border: '1px dashed rgba(255,152,0,0.15)', margin: '0 0 24px 0', boxSizing: 'border-box' }}>
         {t.disclaimer}
       </p>
 
       {/* 医生端/自愈特调方案板块 */}
-      <div style={{ width: '100%', maxWidth: '380px', background: '#141414', border: '1px solid #222', borderRadius: '20px', padding: '20px', boxSizing: 'border-box', marginBottom: '30px' }}>
+      <div style={{ width: '100%', maxWidth: 'var(--container-sm)', background: '#141414', border: '1px solid #222', borderRadius: 'var(--radius-lg)', padding: 'var(--space-xl)', boxSizing: 'border-box', marginBottom: '30px' }}>
         <h4 style={{ color: '#ab47bc', fontSize: '13px', margin: '0 0 16px 0', fontWeight: 'bold', borderBottom: '1px solid #222', paddingBottom: '10px' }}>
           {t.somaticTipsTitle}
         </h4>
         {aiSelfCareTips && aiSelfCareTips.length > 0 ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
             {aiSelfCareTips.map((tip, idx) => (
-              <div key={idx} style={{ background: 'rgba(255,255,255,0.01)', border: '1px solid rgba(255,255,255,0.03)', borderRadius: '12px', padding: '12px 14px' }}>
+              <div key={idx} style={{ background: 'rgba(255,255,255,0.01)', border: '1px solid rgba(255,255,255,0.03)', borderRadius: 'var(--radius-sm)', padding: '12px 14px' }}>
                 <p style={{ color: '#ccc', fontSize: '12.5px', margin: 0, lineHeight: '1.65', textAlign: 'justify' }}>{tip}</p>
               </div>
             ))}
@@ -430,22 +430,22 @@ const SomaticHealingSpace = ({
       {showEvaluation && (
         <div style={{
           position: 'fixed', zIndex: 11000, top: 0, left: 0, width: '100vw', height: '100vh',
-          background: 'rgba(0,0,0,0.95)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px', boxSizing: 'border-box'
+          background: 'rgba(0,0,0,0.95)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 'var(--space-xl)', boxSizing: 'border-box'
         }}>
           <div style={{ background: '#141414', border: '1px solid #333', borderRadius: '24px', padding: '24px', maxWidth: '360px', width: '100%', textAlign: 'center' }}>
             <h3 style={{ color: '#fff', fontSize: '18px', margin: '0 0 16px 0' }}>{t.evalTitle}</h3>
-            
+
             {evaluationResult === null && (
               <>
-                <p style={{ color: '#aaa', fontSize: '14px', lineHeight: '1.6', marginBottom: '24px' }}>{t.evalQuestion}</p>
+                <p style={{ color: '#aaa', fontSize: 'var(--text-base)', lineHeight: '1.6', marginBottom: '24px' }}>{t.evalQuestion}</p>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                  <button 
+                  <button
                     onClick={() => setEvaluationResult('helped')}
                     style={{ padding: '14px', background: 'rgba(76,175,80,0.1)', border: '1px solid #4caf50', borderRadius: '30px', color: '#4caf50', fontWeight: 'bold', cursor: 'pointer' }}
                   >
                     {t.evalHelped}
                   </button>
-                  <button 
+                  <button
                     onClick={() => { setShowEvaluation(false); onClose(); }}
                     style={{ padding: '14px', background: '#2c2c2c', border: 'none', borderRadius: '30px', color: '#888', cursor: 'pointer' }}
                   >
@@ -457,18 +457,18 @@ const SomaticHealingSpace = ({
 
             {evaluationResult === 'helped' && (
               <>
-                 <p style={{ color: '#4caf50', fontSize: '24px', margin: '0 0 12px 0' }}>🤗</p>
-    <p style={{ color: '#ccc', fontSize: '13px', lineHeight: '1.6', marginBottom: '24px', textAlign: 'justify' }}>
-      {t.sharePrompt}
+                <p style={{ color: '#4caf50', fontSize: '24px', margin: '0 0 12px 0' }}>🤗</p>
+                <p style={{ color: '#ccc', fontSize: '13px', lineHeight: '1.6', marginBottom: '24px', textAlign: 'justify' }}>
+                  {t.sharePrompt}
                 </p>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                  <button 
+                  <button
                     onClick={handleShareToSquare}
                     style={{ padding: '14px', background: 'linear-gradient(135deg, #ab47bc, #4caf50)', border: 'none', borderRadius: '30px', color: '#fff', fontWeight: 'bold', cursor: 'pointer', boxShadow: '0 4px 12px rgba(171,71,188,0.3)' }}
                   >
                     {t.shareBtn}
                   </button>
-                  <button 
+                  <button
                     onClick={() => { setShowEvaluation(false); onClose(); }}
                     style={{ padding: '10px', background: 'transparent', border: 'none', color: '#666', cursor: 'pointer', fontSize: '12px' }}
                   >
@@ -481,7 +481,7 @@ const SomaticHealingSpace = ({
             {evaluationResult === 'shared' && (
               <div style={{ padding: '20px 0' }}>
                 <p style={{ fontSize: '32px', margin: '0 0 16px 0' }}>🌸</p>
-                <p style={{ color: '#4caf50', fontSize: '14px', fontWeight: 'bold' }}>{t.shareSuccess}</p>
+                <p style={{ color: '#4caf50', fontSize: 'var(--text-base)', fontWeight: 'bold' }}>{t.shareSuccess}</p>
               </div>
             )}
           </div>

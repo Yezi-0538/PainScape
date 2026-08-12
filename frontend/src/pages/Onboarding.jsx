@@ -266,10 +266,10 @@ export default function OnboardingPage({
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'flex-start',
-        padding: '20px',
+        padding: 'var(--space-xl)',
         paddingBottom: '120px',
         boxSizing: 'border-box',
-        maxWidth: '500px',
+        maxWidth: 'var(--container-max)',
         margin: '0 auto',
       }}
     >
@@ -278,7 +278,7 @@ export default function OnboardingPage({
         style={{
           display: 'flex',
           background: '#141414',
-          borderRadius: '20px',
+          borderRadius: 'var(--radius-lg)',
           padding: '3px',
           width: '100%',
           maxWidth: '320px',
@@ -296,7 +296,7 @@ export default function OnboardingPage({
           style={{
             flex: 1,
             padding: '8px 0',
-            borderRadius: '16px',
+            borderRadius: 'var(--radius-md)',
             border: 'none',
             fontSize: '12px',
             cursor: 'pointer',
@@ -317,7 +317,7 @@ export default function OnboardingPage({
           style={{
             flex: 1,
             padding: '8px 0',
-            borderRadius: '16px',
+            borderRadius: 'var(--radius-md)',
             border: 'none',
             fontSize: '12px',
             cursor: 'pointer',
@@ -345,7 +345,7 @@ export default function OnboardingPage({
               minWidth: '32px',
               minHeight: '32px',
               borderRadius: '50%',
-              fontSize: '16px',
+              fontSize: 'var(--text-md)',
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
@@ -365,8 +365,8 @@ export default function OnboardingPage({
                 right: '0',
                 background: 'rgba(20,20,20,0.97)',
                 border: '1px solid rgba(255,255,255,0.05)',
-                borderRadius: '16px',
-                padding: '20px',
+                borderRadius: 'var(--radius-md)',
+                padding: 'var(--space-xl)',
                 width: '260px',
                 backdropFilter: 'blur(20px)',
                 zIndex: 200,
@@ -375,7 +375,7 @@ export default function OnboardingPage({
               <p
                 style={{
                   color: '#eee',
-                  fontSize: '14px',
+                  fontSize: 'var(--text-base)',
                   fontWeight: 'bold',
                   margin: '0 0 12px 0',
                 }}
@@ -427,8 +427,8 @@ export default function OnboardingPage({
           <div
             style={{
               background: '#1c1c1c',
-              borderRadius: '20px',
-              padding: '20px',
+              borderRadius: 'var(--radius-lg)',
+              padding: 'var(--space-xl)',
               border: '1px solid #333',
             }}
           >
@@ -437,7 +437,7 @@ export default function OnboardingPage({
               <h3
                 style={{
                   color: '#fff',
-                  fontSize: '16px',
+                  fontSize: 'var(--text-md)',
                   margin: '8px 0 4px 0',
                   fontWeight: '500',
                 }}
@@ -461,11 +461,11 @@ export default function OnboardingPage({
                   }
                   style={{
                     width: '100%',
-                    padding: '12px',
+                    padding: 'var(--space-md)',
                     background: '#111',
                     color: '#fff',
                     border: '1.5px solid #333',
-                    borderRadius: '12px',
+                    borderRadius: 'var(--radius-sm)',
                     fontSize: '13px',
                   }}
                 >
@@ -491,11 +491,11 @@ export default function OnboardingPage({
                     }
                     style={{
                       width: '100%',
-                      padding: '12px',
+                      padding: 'var(--space-md)',
                       background: '#111',
                       color: '#fff',
                       border: '1.5px solid #333',
-                      borderRadius: '12px',
+                      borderRadius: 'var(--radius-sm)',
                       fontSize: '13px',
                       boxSizing: 'border-box',
                     }}
@@ -514,11 +514,11 @@ export default function OnboardingPage({
                     }
                     style={{
                       width: '100%',
-                      padding: '12px',
+                      padding: 'var(--space-md)',
                       background: '#111',
                       color: '#fff',
                       border: '1.5px solid #333',
-                      borderRadius: '12px',
+                      borderRadius: 'var(--radius-sm)',
                       fontSize: '13px',
                       boxSizing: 'border-box',
                     }}
@@ -537,11 +537,11 @@ export default function OnboardingPage({
                   }
                   style={{
                     width: '100%',
-                    padding: '12px',
+                    padding: 'var(--space-md)',
                     background: '#111',
                     color: '#fff',
                     border: '1.5px solid #333',
-                    borderRadius: '12px',
+                    borderRadius: 'var(--radius-sm)',
                     fontSize: '13px',
                   }}
                 >
@@ -596,8 +596,8 @@ export default function OnboardingPage({
           <div
             style={{
               background: '#1c1c1c',
-              borderRadius: '20px',
-              padding: '20px',
+              borderRadius: 'var(--radius-lg)',
+              padding: 'var(--space-xl)',
               border: '1px solid #333',
             }}
           >
@@ -606,7 +606,7 @@ export default function OnboardingPage({
               <h3
                 style={{
                   color: '#fff',
-                  fontSize: '16px',
+                  fontSize: 'var(--text-md)',
                   margin: '8px 0 4px 0',
                   fontWeight: '500',
                 }}
@@ -623,7 +623,7 @@ export default function OnboardingPage({
               <div
                 style={{
                   background: '#131313',
-                  borderRadius: '16px',
+                  borderRadius: 'var(--radius-md)',
                   padding: '14px',
                   border: '1.5px solid #2d2d2d',
                 }}
@@ -662,7 +662,7 @@ export default function OnboardingPage({
                         background: '#111',
                         color: '#fff',
                         border: '1.5px solid #333',
-                        borderRadius: '12px',
+                        borderRadius: 'var(--radius-sm)',
                         fontSize: '12px',
                         boxSizing: 'border-box',
                       }}
@@ -685,7 +685,7 @@ export default function OnboardingPage({
                         background: '#111',
                         color: '#fff',
                         border: '1.5px solid #333',
-                        borderRadius: '12px',
+                        borderRadius: 'var(--radius-sm)',
                         fontSize: '12px',
                         boxSizing: 'border-box',
                       }}
@@ -715,7 +715,7 @@ export default function OnboardingPage({
                       background: '#111',
                       color: '#fff',
                       border: '1.5px solid #333',
-                      borderRadius: '12px',
+                      borderRadius: 'var(--radius-sm)',
                       fontSize: '12px',
                     }}
                   >
@@ -754,11 +754,11 @@ export default function OnboardingPage({
                       }}
                       style={{
                         width: '100%',
-                        padding: '12px',
+                        padding: 'var(--space-md)',
                         background: '#111',
                         color: '#fff',
                         border: '1.5px solid #333',
-                        borderRadius: '12px',
+                        borderRadius: 'var(--radius-sm)',
                         fontSize: '13px',
                         boxSizing: 'border-box',
                         cursor: 'pointer',
@@ -798,7 +798,7 @@ export default function OnboardingPage({
                         onClick={() => setCycleDay(cycleDay === item ? '' : item)}
                         style={{
                           padding: '6px 14px',
-                          borderRadius: '20px',
+                          borderRadius: 'var(--radius-lg)',
                           fontSize: '12px',
                           cursor: 'pointer',
                           background: cycleDay === item ? '#d32f2f' : '#111',
@@ -882,7 +882,7 @@ export default function OnboardingPage({
                     background: '#111',
                     color: '#fff',
                     border: '1.5px solid #333',
-                    borderRadius: '12px',
+                    borderRadius: 'var(--radius-sm)',
                     fontSize: '12px',
                   }}
                 >
@@ -911,7 +911,7 @@ export default function OnboardingPage({
                     background: '#111',
                     color: '#fff',
                     border: '1.5px solid #333',
-                    borderRadius: '12px',
+                    borderRadius: 'var(--radius-sm)',
                     fontSize: '12px',
                   }}
                 >
@@ -941,7 +941,7 @@ export default function OnboardingPage({
                       background: '#111',
                       color: '#fff',
                       border: '1.5px solid #333',
-                      borderRadius: '12px',
+                      borderRadius: 'var(--radius-sm)',
                       fontSize: '12px',
                     }}
                   >
@@ -1004,8 +1004,8 @@ export default function OnboardingPage({
           <div
             style={{
               background: '#1c1c1c',
-              borderRadius: '20px',
-              padding: '20px',
+              borderRadius: 'var(--radius-lg)',
+              padding: 'var(--space-xl)',
               border: '1px solid #333',
               display: 'flex',
               flexDirection: 'column',
@@ -1017,7 +1017,7 @@ export default function OnboardingPage({
               <h3
                 style={{
                   color: '#fff',
-                  fontSize: '16px',
+                  fontSize: 'var(--text-md)',
                   margin: '8px 0 4px 0',
                   fontWeight: '500',
                 }}
@@ -1077,8 +1077,8 @@ export default function OnboardingPage({
                   onClick={() => setTonePreference('gentle')}
                   style={{
                     flex: 1,
-                    padding: '12px',
-                    borderRadius: '12px',
+                    padding: 'var(--space-md)',
+                    borderRadius: 'var(--radius-sm)',
                     fontSize: '13px',
                     cursor: 'pointer',
                     background: tonePreference === 'gentle' ? 'rgba(76, 175, 80, 0.15)' : '#111',
@@ -1093,8 +1093,8 @@ export default function OnboardingPage({
                   onClick={() => setTonePreference('direct')}
                   style={{
                     flex: 1,
-                    padding: '12px',
-                    borderRadius: '12px',
+                    padding: 'var(--space-md)',
+                    borderRadius: 'var(--radius-sm)',
                     fontSize: '13px',
                     cursor: 'pointer',
                     background: tonePreference === 'direct' ? 'rgba(33, 150, 243, 0.15)' : '#111',
@@ -1150,7 +1150,7 @@ export default function OnboardingPage({
                 border: showContent === step.key ? '2px solid #d32f2f' : '1px solid #444',
                 background: showContent === step.key ? 'rgba(211, 47, 47, 0.15)' : 'transparent',
                 color: showContent === step.key ? '#fff' : '#666',
-                fontSize: '14px',
+                fontSize: 'var(--text-base)',
                 fontWeight: 'bold',
                 cursor: 'pointer',
                 display: 'flex',
@@ -1341,7 +1341,7 @@ export default function OnboardingPage({
           transform: 'translateX(-50%)',
           zIndex: 150,
           width: '88%',
-          maxWidth: '380px',
+          maxWidth: 'var(--container-sm)',
         }}
       >
         <button
@@ -1355,7 +1355,7 @@ export default function OnboardingPage({
             padding: '14px 20px',
             background: 'rgba(211, 47, 47, 0.08)',
             border: '1px solid rgba(211, 47, 47, 0.2)',
-            borderRadius: '16px',
+            borderRadius: 'var(--radius-md)',
             cursor: 'pointer',
             backdropFilter: 'blur(10px)',
             transition: 'all 0.2s ease',
@@ -1383,7 +1383,7 @@ export default function OnboardingPage({
           </div>
 
           {/* 箭头 */}
-          <span style={{ color: '#d32f2f', fontSize: '14px', marginLeft: 'auto' }}>→</span>
+          <span style={{ color: '#d32f2f', fontSize: 'var(--text-base)', marginLeft: 'auto' }}>→</span>
         </button>
       </div>
       {/* {tooltipStep && (

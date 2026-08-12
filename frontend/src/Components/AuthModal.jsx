@@ -46,7 +46,7 @@ export default function AuthModal({ isOpen, onAuthSuccess, onGuestLogin }) {
           signature: "让说不出的痛，换一种方式抵达。🧘",
           bg_index: 0
         });
-      
+
       if (profileError) throw profileError;
       onAuthSuccess(userId);
     } catch (err) {
@@ -99,7 +99,7 @@ export default function AuthModal({ isOpen, onAuthSuccess, onGuestLogin }) {
       alignItems: 'center',
       justifyContent: 'center',
       zIndex: 9999, // 确保处于绝对最上层
-      padding: '16px',
+      padding: 'var(--space-lg)',
       boxSizing: 'border-box'
     }}>
       <div style={{
@@ -108,11 +108,11 @@ export default function AuthModal({ isOpen, onAuthSuccess, onGuestLogin }) {
         borderRadius: '24px',
         padding: '24px',
         width: '100%',
-        maxWidth: '380px',
+        maxWidth: 'var(--container-sm)',
         boxSizing: 'border-box',
         boxShadow: '0 20px 50px rgba(0,0,0,0.8)'
       }}>
-        
+
         <h2 style={{ color: '#fff', margin: '0 0 10px 0', fontSize: '20px', fontWeight: 'bold', textAlign: 'center' }}>
           PainScape
         </h2>
@@ -155,13 +155,13 @@ export default function AuthModal({ isOpen, onAuthSuccess, onGuestLogin }) {
 
         {/* 核心表单区域 */}
         <form onSubmit={activeTab === 'login' ? handleLogin : handleRegister} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-          
+
           <input
             type="email"
             placeholder="请输入电子邮箱 (Email)"
             value={email}
             onChange={e => setEmail(e.target.value)}
-            style={{ width: '100%', background: '#0a0a0a', color: '#fff', border: '1px solid #333', borderRadius: '12px', padding: '12px', fontSize: '13px', boxSizing: 'border-box', outline: 'none' }}
+            style={{ width: '100%', background: '#0a0a0a', color: '#fff', border: '1px solid #333', borderRadius: 'var(--radius-sm)', padding: 'var(--space-md)', fontSize: '13px', boxSizing: 'border-box', outline: 'none' }}
           />
 
           <input
@@ -169,7 +169,7 @@ export default function AuthModal({ isOpen, onAuthSuccess, onGuestLogin }) {
             placeholder="请输入账户密码 (Password)"
             value={password}
             onChange={e => setPassword(e.target.value)}
-            style={{ width: '100%', background: '#0a0a0a', color: '#fff', border: '1px solid #333', borderRadius: '12px', padding: '12px', fontSize: '13px', boxSizing: 'border-box', outline: 'none' }}
+            style={{ width: '100%', background: '#0a0a0a', color: '#fff', border: '1px solid #333', borderRadius: 'var(--radius-sm)', padding: 'var(--space-md)', fontSize: '13px', boxSizing: 'border-box', outline: 'none' }}
           />
 
           {/* 只有在“注册”时才显示昵称和头像选择 */}
@@ -181,7 +181,7 @@ export default function AuthModal({ isOpen, onAuthSuccess, onGuestLogin }) {
                 placeholder="设置您的自愈昵称"
                 value={nickname}
                 onChange={e => setNickname(e.target.value)}
-                style={{ width: '100%', background: '#0a0a0a', color: '#fff', border: '1px solid #333', borderRadius: '12px', padding: '12px', fontSize: '13px', boxSizing: 'border-box', outline: 'none' }}
+                style={{ width: '100%', background: '#0a0a0a', color: '#fff', border: '1px solid #333', borderRadius: 'var(--radius-sm)', padding: 'var(--space-md)', fontSize: '13px', boxSizing: 'border-box', outline: 'none' }}
               />
 
               <div>
@@ -217,7 +217,7 @@ export default function AuthModal({ isOpen, onAuthSuccess, onGuestLogin }) {
             type="submit"
             disabled={loading}
             style={{
-              width: '100%', padding: '12px 0', border: 'none', borderRadius: '30px', fontSize: '14px', fontWeight: 'bold', cursor: 'pointer', marginTop: '10px',
+              width: '100%', padding: '12px 0', border: 'none', borderRadius: '30px', fontSize: 'var(--text-base)', fontWeight: 'bold', cursor: 'pointer', marginTop: '10px',
               background: 'linear-gradient(135deg, #ff9800, #f44336)', color: '#fff',
               boxShadow: '0 4px 15px rgba(244, 67, 54, 0.3)'
             }}

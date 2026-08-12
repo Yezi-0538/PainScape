@@ -40,8 +40,8 @@ const API_BASE = window.location.hostname === 'localhost' || window.location.hos
 const CHINESE_TO_KEY_MAP = {
   '绞痛': 'twist', '刺痛': 'pierce', '坠胀': 'heavy',
   '坠胀重压': 'heavy', '坠痛': 'heavy', '酸胀': 'wave',
-  '酸胀痛': 'wave', '弥漫酸胀痛': 'wave', '刮痛': 'scrape',
-  '撕裂痛': 'scrape', '撕裂刮痛': 'scrape',
+  '酸胀痛': 'wave', '酸胀痛': 'wave', '刮痛': 'scrape',
+  '撕裂痛': 'scrape', '撕刮痛': 'scrape',
 };
 function AppContent({ targetLanguage, setTargetLanguage }) {
   const isEn = targetLanguage === 'en';
@@ -1974,17 +1974,26 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
       {renderPage()}
 
       {/* 社区发布弹窗 */}
+      // App.jsx - PublishPostModal 调用
       <PublishPostModal
         isOpen={showPostModal}
         imgUrl={imgUrl}
         postText={postText}
         setPostText={setPostText}
         onClose={() => setShowPostModal(false)}
-        onSubmit={(customText) => {
-          handlePublishPost({ img: imgUrl, reportData: generateContent() }, customText);
+        onSubmit={(submitData) => {
+          // ✅ submitData 包含 text, blurEnabled, blurLevel
+          handlePublishPost({
+            img: imgUrl,
+            reportData: generateContent(),
+            blurEnabled: submitData.blurEnabled,
+            blurLevel: submitData.blurLevel,
+          }, submitData.text);
           setShowPostModal(false);
           setPostText('');
         }}
+        isAnonymous={isAnonymous}
+        setIsAnonymous={setIsAnonymous}
       />
 
       {/* 分享海报排版预览 Modal */}

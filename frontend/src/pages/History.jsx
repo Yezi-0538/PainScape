@@ -2,9 +2,8 @@
 import React, { useState, useMemo } from 'react';
 import { useI18n } from '../i18n/i18nContext';
 import RecordDetailModal from '../Components/modals/RecordDetailModal';
-// App.jsx 顶部
-// import { CHINESE_TO_KEY_MAP, PAIN_COLORS, PAIN_ICONS } from './utils/painUtils';
-// getPainNameDisplay,
+import PublishPostModal from '../Components/modals/PublishPostModal';
+
 // ============================================================
 // 常量
 // ============================================================
@@ -44,12 +43,6 @@ const PAIN_ICON_MAP = {
   '刮痛': '🔪',
   '撕裂痛': '🔪',
 };
-// const CHINESE_TO_KEY_MAP = {
-//   '绞痛': 'twist', '刺痛': 'pierce', '坠胀': 'heavy',
-//   '坠胀重压': 'heavy', '坠痛': 'heavy', '酸胀': 'wave',
-//   '酸胀痛': 'wave', '弥漫酸胀痛': 'wave', '刮痛': 'scrape',
-//   '撕裂痛': 'scrape', '撕裂刮痛': 'scrape',
-// };
 
 
 // ============================================================
@@ -291,12 +284,12 @@ const ComparisonView = ({ source, target, t, isEn, onClear }) => {
   if (!source || !target) {
     return (
       <div style={{
-        padding: '20px',
+        padding: 'var(--space-2xl)',
         textAlign: 'center',
         color: '#555',
         fontSize: '13px',
         border: '1px dashed rgba(255,255,255,0.06)',
-        borderRadius: '12px',
+        borderRadius: 'var(--radius-sm)',
         marginBottom: '16px',
       }}>
         {t('history.selectTwoRecords')}
@@ -411,7 +404,7 @@ const ComparisonView = ({ source, target, t, isEn, onClear }) => {
   return (
     <div style={{
       marginBottom: '16px',
-      padding: '16px',
+      padding: 'var(--space-lg)',
       background: 'rgba(255,255,255,0.02)',
       borderRadius: '14px',
       border: '1px solid rgba(255,255,255,0.06)',
@@ -453,7 +446,7 @@ const ComparisonView = ({ source, target, t, isEn, onClear }) => {
         {/* 本次记录 */}
         <div style={{
           textAlign: 'center',
-          padding: '12px',
+          padding: 'var(--space-md)',
           background: 'rgba(230,126,34,0.04)',
           borderRadius: '10px',
         }}>
@@ -475,7 +468,7 @@ const ComparisonView = ({ source, target, t, isEn, onClear }) => {
             gap: '6px',
             padding: '4px 12px',
             background: 'rgba(230,126,34,0.12)',
-            borderRadius: '16px',
+            borderRadius: 'var(--radius-md)',
             color: '#e8a87c',
             fontSize: '13px',
             marginBottom: '6px',
@@ -522,7 +515,7 @@ const ComparisonView = ({ source, target, t, isEn, onClear }) => {
         {/* 上次记录 */}
         <div style={{
           textAlign: 'center',
-          padding: '12px',
+          padding: 'var(--space-md)',
           background: 'rgba(184,168,152,0.04)',
           borderRadius: '10px',
         }}>
@@ -544,7 +537,7 @@ const ComparisonView = ({ source, target, t, isEn, onClear }) => {
             gap: '6px',
             padding: '4px 12px',
             background: 'rgba(184,168,152,0.10)',
-            borderRadius: '16px',
+            borderRadius: 'var(--radius-md)',
             color: '#b8a898',
             fontSize: '13px',
             marginBottom: '6px',
@@ -706,7 +699,7 @@ const RecordCard = ({
           </div>
         )}
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <span style={{ fontSize: '14px' }}>{painIcon}</span>
+          <span style={{ fontSize: 'var(--text-base)' }}>{painIcon}</span>
           <span style={{ color: '#aaa', fontSize: '12px' }}>{painName}</span>
           {isQuickLog && <span style={{ color: '#d32f2f', fontSize: '9px' }}>⚡</span>}
         </div>
@@ -815,7 +808,7 @@ const RecordCard = ({
           : isCompareTarget
             ? '1px solid rgba(76,175,80,0.15)'
             : '1px solid rgba(255,255,255,0.04)',
-        borderRadius: '12px',
+        borderRadius: 'var(--radius-sm)',
         cursor: 'pointer',
         transition: 'all 0.2s ease',
       }}
@@ -958,6 +951,11 @@ const RecordCard = ({
               whiteSpace: 'nowrap',
               flexShrink: 0,
               minWidth: '30px',
+              minHeight: '24px',    // ✅ 添加固定高度
+              height: '24px',       // ✅ 固定高度
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
             }}
           >
             {isEn ? 'Share' : '分享'}
@@ -981,11 +979,16 @@ const RecordCard = ({
               color: isCompareSelected ? '#e8a87c' : isCompareTarget ? '#81c784' : '#555',
               fontSize: '8px',
               cursor: 'pointer',
-              padding: '3px 4px',
+              padding: '2px 5px',
               borderRadius: '6px',
               whiteSpace: 'nowrap',
               flexShrink: 0,
               minWidth: '24px',
+              minHeight: '24px',    // ✅ 添加固定高度
+              height: '24px',       // ✅ 固定高度
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
               transition: 'all 0.2s ease',
               textAlign: 'center',
             }}
@@ -1006,9 +1009,14 @@ const RecordCard = ({
             color: '#444',
             fontSize: '11px',
             cursor: 'pointer',
-            padding: '3px 4px',
+            padding: '2px 4px',
             flexShrink: 0,
             borderRadius: '6px',
+            minHeight: '24px',      // ✅ 添加固定高度
+            height: '24px',         // ✅ 固定高度
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
             transition: 'all 0.2s ease',
           }}
           onMouseEnter={(e) => {
@@ -1064,6 +1072,10 @@ export default function HistoryPage({
   const [compareSource, setCompareSource] = useState(null);
   const [compareTarget, setCompareTarget] = useState(null);
   const [compareMode, setCompareMode] = useState(false);
+
+  const [showPublishModal, setShowPublishModal] = useState(false);
+  const [publishTarget, setPublishTarget] = useState(null);
+  const [publishCustomText, setPublishCustomText] = useState('');
 
   const weekdays = isEn ? WEEKDAYS_EN : WEEKDAYS_ZH;
 
@@ -1221,7 +1233,7 @@ export default function HistoryPage({
         height: '100vh',
         overflowY: 'auto',
         WebkitOverflowScrolling: 'touch',
-        padding: '20px',
+        padding: 'var(--space-xl)',
         paddingBottom: '120px',
         boxSizing: 'border-box',
       }}
@@ -1254,7 +1266,7 @@ export default function HistoryPage({
                 background: 'rgba(255,255,255,0.05)',
                 border: '1px solid rgba(255,255,255,0.08)',
                 color: '#888',
-                borderRadius: '12px',
+                borderRadius: 'var(--radius-sm)',
                 fontSize: '10px',
                 cursor: 'pointer',
                 transition: 'all 0.2s',
@@ -1287,7 +1299,7 @@ export default function HistoryPage({
               background: exportMode ? 'rgba(230,126,34,0.15)' : 'rgba(255,255,255,0.05)',
               border: exportMode ? '1px solid rgba(230,126,34,0.3)' : '1px solid rgba(255,255,255,0.08)',
               color: exportMode ? '#e8a87c' : '#888',
-              borderRadius: '12px',
+              borderRadius: 'var(--radius-sm)',
               fontSize: '10px',
               cursor: 'pointer',
               whiteSpace: 'nowrap',
@@ -1310,7 +1322,7 @@ export default function HistoryPage({
                 background: 'rgba(255,255,255,0.05)',
                 border: '1px solid rgba(255,255,255,0.08)',
                 color: '#888',
-                borderRadius: '12px',
+                borderRadius: 'var(--radius-sm)',
                 fontSize: '10px',
                 cursor: 'pointer',
                 whiteSpace: 'nowrap',
@@ -1328,7 +1340,7 @@ export default function HistoryPage({
               background: 'rgba(255,255,255,0.05)',
               border: '1px solid rgba(255,255,255,0.08)',
               color: '#888',
-              borderRadius: '12px',
+              borderRadius: 'var(--radius-sm)',
               fontSize: '10px',
               cursor: 'pointer',
               whiteSpace: 'nowrap',
@@ -1361,7 +1373,7 @@ export default function HistoryPage({
         style={{
           background: 'rgba(255,255,255,0.02)',
           border: '1px solid rgba(255,255,255,0.05)',
-          borderRadius: '16px',
+          borderRadius: 'var(--radius-md)',
           padding: '18px',
           marginBottom: '20px',
         }}
@@ -1486,7 +1498,7 @@ export default function HistoryPage({
                             ? '#aaa'
                             : '#444',
                     fontWeight: isSelected || hasRecord ? '500' : '300',
-                    fontSize: '14px',
+                    fontSize: 'var(--text-base)',
                     transition: 'all 0.2s ease',
                     position: 'relative',
                   }}
@@ -1556,8 +1568,8 @@ export default function HistoryPage({
             marginBottom: '12px',
           }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span style={{ color: '#666', fontSize: '14px' }}>📅</span>
-              <span style={{ color: '#888', fontSize: '14px', fontWeight: '300' }}>
+              <span style={{ color: '#666', fontSize: 'var(--text-base)' }}>📅</span>
+              <span style={{ color: '#888', fontSize: 'var(--text-base)', fontWeight: '300' }}>
                 {t('history.recordsOfDate', { date: selectedDate })}
               </span>
               <span style={{ color: '#444', fontSize: '12px' }}>
@@ -1570,11 +1582,11 @@ export default function HistoryPage({
             <div style={{
               background: 'rgba(255,255,255,0.01)',
               padding: '32px 20px',
-              borderRadius: '12px',
+              borderRadius: 'var(--radius-sm)',
               textAlign: 'center',
               border: '1px dashed rgba(255,255,255,0.04)',
             }}>
-              <span style={{ color: '#444', fontSize: '14px' }}>{t('history.noRecordThisDay')}</span>
+              <span style={{ color: '#444', fontSize: 'var(--text-base)' }}>{t('history.noRecordThisDay')}</span>
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
@@ -1734,15 +1746,13 @@ export default function HistoryPage({
         onClose={() => setViewingDiary(null)}
         onDelete={handleDeleteRecord}
         onShare={(record) => onShareRecord?.(record)}
-        onPublish={(record, customText) => onPublishRecord?.(record, customText)}
-        lang={lang}
         onPublish={(record, customText) => {
-          if (!customText || customText.trim() === '') {
-            setPublishConfirm({ record, text: '' });
-          } else {
-            onPublishRecord?.(record, customText);
-          }
+          // ✅ 打开发布弹窗，而不是直接发布
+          setPublishTarget(record);
+          setPublishCustomText(customText || '');
+          setShowPublishModal(true);
         }}
+        lang={lang}
       />
       {publishConfirm && (
         <div
@@ -1754,7 +1764,7 @@ export default function HistoryPage({
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            padding: '20px',
+            padding: 'var(--space-xl)',
           }}
           onClick={() => setPublishConfirm(null)}
         >
@@ -1762,7 +1772,7 @@ export default function HistoryPage({
             style={{
               background: '#1a1a1a',
               border: '1px solid #333',
-              borderRadius: '16px',
+              borderRadius: 'var(--radius-md)',
               padding: '24px',
               maxWidth: '300px',
               width: '100%',
@@ -1771,7 +1781,7 @@ export default function HistoryPage({
             onClick={(e) => e.stopPropagation()}
           >
             <div style={{ fontSize: '32px', marginBottom: '12px' }}>🖼️</div>
-            <p style={{ color: '#ccc', fontSize: '14px', lineHeight: '1.6', margin: '0 0 8px 0' }}>
+            <p style={{ color: '#ccc', fontSize: 'var(--text-base)', lineHeight: '1.6', margin: '0 0 8px 0' }}>
               {t('diary.publishEmptyTitle')}
             </p>
             <p style={{ color: '#888', fontSize: '12px', lineHeight: '1.5', margin: '0 0 20px 0' }}>
@@ -1785,7 +1795,7 @@ export default function HistoryPage({
                   border: '1px solid #444',
                   color: '#888',
                   padding: '8px 20px',
-                  borderRadius: '20px',
+                  borderRadius: 'var(--radius-lg)',
                   fontSize: '13px',
                   cursor: 'pointer',
                 }}
@@ -1802,7 +1812,7 @@ export default function HistoryPage({
                   border: '1px solid rgba(211,47,47,0.3)',
                   color: '#d32f2f',
                   padding: '8px 20px',
-                  borderRadius: '20px',
+                  borderRadius: 'var(--radius-lg)',
                   fontSize: '13px',
                   cursor: 'pointer',
                   fontWeight: '500',
@@ -1814,6 +1824,27 @@ export default function HistoryPage({
           </div>
         </div>
       )}
+      {/* ===== 发布弹窗 ===== */}
+      <PublishPostModal
+        isOpen={showPublishModal}
+        imgUrl={publishTarget?.img}
+        postText={publishCustomText}
+        setPostText={setPublishCustomText}
+        onClose={() => {
+          setShowPublishModal(false);
+          setPublishTarget(null);
+          setPublishCustomText('');
+        }}
+        onSubmit={(submitData) => {
+          if (publishTarget) {
+            // 传递模糊信息
+            onPublishRecord?.(publishTarget, submitData.text);
+          }
+          setShowPublishModal(false);
+          setPublishTarget(null);
+          setPublishCustomText('');
+        }}
+      />
     </div>
   );
 }

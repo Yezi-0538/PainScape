@@ -171,7 +171,7 @@ export default function PeriodScience() {
             background: 'rgba(239, 83, 80, 0.1)',
             border: '1px solid rgba(239, 83, 80, 0.3)',
             color: '#ff8a80',
-            borderRadius: '12px',
+            borderRadius: 'var(--radius-sm)',
             padding: '4px 10px',
             fontSize: '11.5px',
             cursor: 'pointer',

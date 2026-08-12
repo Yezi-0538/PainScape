@@ -14,16 +14,16 @@ const PRESET_BG_NAMES_EN = [
   "Deep Sea Blue (Cold/Stiff)"
 ];
 
-export default function ProfilePage({ 
-  currentUserId = "user_A", 
-  targetUserId = "user_A", 
+export default function ProfilePage({
+  currentUserId = "user_A",
+  targetUserId = "user_A",
   setTargetUserId,
   onViewProfile, // 🌟 接收主页精准跳转回调
-  history = [], 
-  posts = [], 
-  setPosts, 
+  history = [],
+  posts = [],
+  setPosts,
   lang = 'zh',
-  setTargetLanguage, 
+  setTargetLanguage,
   onBack,
   onLogout,
 }) {
@@ -45,14 +45,14 @@ export default function ProfilePage({
     const cached = localStorage.getItem("painscape_simulated_profiles");
     if (!cached) {
       const defaultProfiles = {
-        "user_A": { 
-          nickname: "PainScape_Companion", 
-          email: "user@painscape.org", 
-          avatar: "🩸", 
-          signature: t('profile.defaultSignature'), 
-          bgIndex: 0, 
-          customAvatar: "", 
-          customBg: "" 
+        "user_A": {
+          nickname: "PainScape_Companion",
+          email: "user@painscape.org",
+          avatar: "🩸",
+          signature: t('profile.defaultSignature'),
+          bgIndex: 0,
+          customAvatar: "",
+          customBg: ""
         }
       };
       localStorage.setItem("painscape_simulated_profiles", JSON.stringify(defaultProfiles));
@@ -63,12 +63,12 @@ export default function ProfilePage({
 
   // 目标外部用户信息
   const [targetUserInfo, setTargetUserInfo] = useState(() => {
-    return isSelf ? userInfo : (globalProfiles[targetUserId] || { 
-      nickname: `同伴_${String(targetUserId).slice(-4)}`, 
-      email: "companion@painscape.org", 
-      avatar: "🩹", 
-      signature: t('profile.defaultSignature'), 
-      bgIndex: 0 
+    return isSelf ? userInfo : (globalProfiles[targetUserId] || {
+      nickname: `同伴_${String(targetUserId).slice(-4)}`,
+      email: "companion@painscape.org",
+      avatar: "🩹",
+      signature: t('profile.defaultSignature'),
+      bgIndex: 0
     });
   });
 
@@ -120,7 +120,7 @@ export default function ProfilePage({
 
       const defaultSigZh = "让说不出的痛，换一种方式抵达。🧘";
       const defaultSigEn = "Let the unspeakable pain find another way to be heard. 🧘";
-      
+
       if (activeProfile.signature === defaultSigZh || !activeProfile.signature) {
         setEditSignature(t('profile.defaultSignature'));
       } else if (activeProfile.signature === defaultSigEn) {
@@ -329,7 +329,7 @@ export default function ProfilePage({
     const file = e.target.files[0];
     if (!file) return;
     try {
-      const maxSize = type === 'avatar' ? 1000 : 2000; 
+      const maxSize = type === 'avatar' ? 1000 : 2000;
       const compressed = await compressImage(file, maxSize, maxSize, 0.9);
       setCropSrc(compressed);
       setCropType(type);
@@ -391,24 +391,24 @@ export default function ProfilePage({
       signature: editSignature,
     };
 
-    if (isSelf) setUserInfo(mapped); 
+    if (isSelf) setUserInfo(mapped);
     setTargetUserInfo(mapped);
-    
+
     const nextProfiles = { ...globalProfiles, [currentUserId]: mapped };
     setGlobalProfiles(nextProfiles);
     localStorage.setItem("painscape_simulated_profiles", JSON.stringify(nextProfiles));
-    
+
     setShowEditModal(false);
   };
 
   // 校验筛选属于该用户的帖子
   const myRealPosts = posts.filter((p) => {
     if (!p || typeof p !== 'object') return false;
-    const matchesUser = 
+    const matchesUser =
       (p.userId && String(p.userId) === String(targetUserId)) ||
       (p.authorId && String(p.authorId) === String(targetUserId)) ||
       (p.user_id && String(p.user_id) === String(targetUserId));
-      
+
     if (!matchesUser) return false;
 
     const hasValidImg = p.img && typeof p.img === 'string' && p.img.trim().length > 10;
@@ -444,8 +444,8 @@ export default function ProfilePage({
     ? `url(${activeProfile.customBg}) center/cover no-repeat`
     : activeBg.gradient;
 
-  const displaySignature = (!activeProfile.signature || 
-    activeProfile.signature === "让说不出的痛，换一种方式抵达。🧘" || 
+  const displaySignature = (!activeProfile.signature ||
+    activeProfile.signature === "让说不出的痛，换一种方式抵达。🧘" ||
     activeProfile.signature === "Let the unspeakable pain find another way to be heard. 🧘")
     ? t('profile.defaultSignature')
     : activeProfile.signature;
@@ -486,9 +486,9 @@ export default function ProfilePage({
         />
       )}
 
-      <div 
-        style={{ 
-          position: 'relative', 
+      <div
+        style={{
+          position: 'relative',
           zIndex: 1,
           maxWidth: '480px',
           margin: '0 auto',
@@ -521,7 +521,7 @@ export default function ProfilePage({
                   background: 'rgba(255,255,255,0.08)',
                   border: '1px solid rgba(255,255,255,0.15)',
                   color: '#fff',
-                  borderRadius: '20px',
+                  borderRadius: 'var(--radius-lg)',
                   fontSize: '12px',
                   cursor: 'pointer',
                   display: 'flex', alignItems: 'center', gap: '4px',
@@ -541,7 +541,7 @@ export default function ProfilePage({
                 background: 'rgba(255,255,255,0.05)',
                 border: '1px solid rgba(255,255,255,0.1)',
                 color: '#fff',
-                borderRadius: '20px',
+                borderRadius: 'var(--radius-lg)',
                 fontSize: '12px',
                 cursor: 'pointer',
               }}
@@ -557,7 +557,7 @@ export default function ProfilePage({
             background: activeBg.cardBg,
             border: '1px solid rgba(255,255,255,0.08)',
             borderRadius: '24px',
-            padding: '20px',
+            padding: 'var(--space-xl)',
             marginBottom: '20px',
             display: 'flex',
             alignItems: 'flex-start',
@@ -660,16 +660,16 @@ export default function ProfilePage({
                 onMouseLeave={() => setIsHoverFollowBtn(false)}
                 style={{
                   padding: '6px 20px',
-                  borderRadius: '20px',
+                  borderRadius: 'var(--radius-lg)',
                   fontSize: '12px',
                   fontWeight: 'bold',
                   cursor: isFollowLoading ? 'wait' : 'pointer',
                   border: isFollowing ? '1px solid rgba(255,255,255,0.2)' : 'none',
-                  background: isFollowing 
-                    ? (isHoverFollowBtn ? 'rgba(211,47,47,0.2)' : 'rgba(255,255,255,0.06)') 
+                  background: isFollowing
+                    ? (isHoverFollowBtn ? 'rgba(211,47,47,0.2)' : 'rgba(255,255,255,0.06)')
                     : '#d32f2f',
-                  color: isFollowing 
-                    ? (isHoverFollowBtn ? '#ef5350' : '#ccc') 
+                  color: isFollowing
+                    ? (isHoverFollowBtn ? '#ef5350' : '#ccc')
                     : '#fff',
                   boxShadow: isFollowing ? 'none' : '0 4px 12px rgba(211, 47, 47, 0.3)',
                   transition: 'all 0.2s ease',
@@ -679,8 +679,8 @@ export default function ProfilePage({
                 {isFollowLoading
                   ? '处理中...'
                   : isFollowing
-                  ? (isHoverFollowBtn ? '💔 取消关注' : '✓ 已关注')
-                  : '+ 关注同伴'}
+                    ? (isHoverFollowBtn ? '💔 取消关注' : '✓ 已关注')
+                    : '+ 关注同伴'}
               </button>
             ) : (
               <span
@@ -730,8 +730,8 @@ export default function ProfilePage({
           style={{
             background: activeBg.cardBg,
             border: '1.5px solid rgba(255,255,255,0.05)',
-            borderRadius: '20px',
-            padding: '20px',
+            borderRadius: 'var(--radius-lg)',
+            padding: 'var(--space-xl)',
             marginBottom: '20px',
           }}
         >
@@ -782,8 +782,8 @@ export default function ProfilePage({
         <div
           style={{
             background: activeBg.cardBg,
-            borderRadius: '20px',
-            padding: '20px',
+            borderRadius: 'var(--radius-lg)',
+            padding: 'var(--space-xl)',
             border: '1px solid rgba(255,255,255,0.05)',
             marginBottom: '24px',
           }}
@@ -802,7 +802,7 @@ export default function ProfilePage({
               style={{
                 color: '#fff',
                 margin: 0,
-                fontSize: '14px',
+                fontSize: 'var(--text-base)',
                 fontWeight: '600',
               }}
             >
@@ -827,10 +827,10 @@ export default function ProfilePage({
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
               {myRealPosts.slice(0, 10).map((record, index) => {
-                const displayText = 
+                const displayText =
                   record.content?.chief_complaint?.replace('主诉：', '') ||
-                  record.text || 
-                  record.painName || 
+                  record.text ||
+                  record.painName ||
                   '具身痛觉图谱分享';
 
                 return (
@@ -844,7 +844,7 @@ export default function ProfilePage({
                       background: 'rgba(255,255,255,0.01)',
                       border: '1px solid rgba(255,255,255,0.03)',
                       borderRadius: '14px',
-                      padding: '12px',
+                      padding: 'var(--space-md)',
                       cursor: 'pointer',
                       transition: 'background 0.2s',
                     }}
@@ -948,7 +948,7 @@ export default function ProfilePage({
               color: '#ef5350',
               border: '1px solid rgba(239,83,80,0.3)',
               borderRadius: '30px',
-              fontSize: '14px',
+              fontSize: 'var(--text-base)',
               fontWeight: 'bold',
               cursor: 'pointer',
             }}
@@ -971,7 +971,7 @@ export default function ProfilePage({
             alignItems: 'center',
             justifyContent: 'center',
             zIndex: 900,
-            padding: '16px',
+            padding: 'var(--space-lg)',
             boxSizing: 'border-box',
           }}
           onClick={() => setShowEditModal(false)}
@@ -983,7 +983,7 @@ export default function ProfilePage({
               borderRadius: '24px',
               padding: '24px',
               width: '100%',
-              maxWidth: '380px',
+              maxWidth: 'var(--container-sm)',
               maxHeight: '90vh',
               overflowY: 'auto',
               boxSizing: 'border-box',
@@ -1013,9 +1013,9 @@ export default function ProfilePage({
                   background: '#0a0a0a',
                   color: '#fff',
                   border: '1px solid #333',
-                  borderRadius: '12px',
-                  padding: '12px',
-                  fontSize: '14px',
+                  borderRadius: 'var(--radius-sm)',
+                  padding: 'var(--space-md)',
+                  fontSize: 'var(--text-base)',
                   boxSizing: 'border-box',
                   outline: 'none',
                 }}
@@ -1038,8 +1038,8 @@ export default function ProfilePage({
                   background: '#0a0a0a',
                   color: '#fff',
                   border: '1px solid #333',
-                  borderRadius: '12px',
-                  padding: '12px',
+                  borderRadius: 'var(--radius-sm)',
+                  padding: 'var(--space-md)',
                   fontSize: '13px',
                   boxSizing: 'border-box',
                   outline: 'none',
@@ -1073,7 +1073,7 @@ export default function ProfilePage({
                     padding: '10px 16px',
                     background: 'rgba(255,255,255,0.05)',
                     border: '1.5px dashed #444',
-                    borderRadius: '12px',
+                    borderRadius: 'var(--radius-sm)',
                     color: '#ccc',
                     fontSize: '12px',
                     cursor: 'pointer',
@@ -1139,7 +1139,7 @@ export default function ProfilePage({
                     padding: '10px 16px',
                     background: 'rgba(255,255,255,0.05)',
                     border: '1.5px dashed #444',
-                    borderRadius: '12px',
+                    borderRadius: 'var(--radius-sm)',
                     color: '#ccc',
                     fontSize: '12px',
                     cursor: 'pointer',
@@ -1174,7 +1174,7 @@ export default function ProfilePage({
                         borderRadius: '14px',
                         padding: '12px 6px',
                         color: '#fff',
-                        fontSize: isEn ? '10px' : '11px', 
+                        fontSize: isEn ? '10px' : '11px',
                         cursor: 'pointer',
                         fontWeight: editBgIndex === idx ? 'bold' : 'normal',
                         boxShadow: 'inset 0 0 10px rgba(0,0,0,0.8)',
@@ -1192,8 +1192,8 @@ export default function ProfilePage({
               <button
                 onClick={() => setShowEditModal(false)}
                 style={{
-                  flex: 1, padding: '12px', background: '#222', color: '#888',
-                  border: 'none', borderRadius: '12px', fontSize: '13px', cursor: 'pointer',
+                  flex: 1, padding: 'var(--space-md)', background: '#222', color: '#888',
+                  border: 'none', borderRadius: 'var(--radius-sm)', fontSize: '13px', cursor: 'pointer',
                 }}
               >
                 {t('profile.cancel')}
@@ -1201,9 +1201,9 @@ export default function ProfilePage({
               <button
                 onClick={handleSaveChanges}
                 style={{
-                  flex: 1, padding: '12px',
+                  flex: 1, padding: 'var(--space-md)',
                   background: 'linear-gradient(135deg, #ff9800, #f44336)',
-                  color: '#fff', border: 'none', borderRadius: '12px',
+                  color: '#fff', border: 'none', borderRadius: 'var(--radius-sm)',
                   fontSize: '13px', fontWeight: 'bold', cursor: 'pointer',
                   boxShadow: '0 4px 12px rgba(244, 67, 54, 0.3)',
                 }}
@@ -1231,22 +1231,22 @@ export default function ProfilePage({
           width: '100vw', height: '100vh',
           background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(10px)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          zIndex: 1200, padding: '16px', boxSizing: 'border-box'
+          zIndex: 1200, padding: 'var(--space-lg)', boxSizing: 'border-box'
         }} onClick={() => setShowFollowingModal(false)}>
           <div style={{
             background: '#141414', border: '1px solid #333', borderRadius: '24px',
-            padding: '24px', width: '100%', maxWidth: '380px', maxHeight: '70vh',
+            padding: '24px', width: '100%', maxWidth: 'var(--container-sm)', maxHeight: '70vh',
             display: 'flex', flexDirection: 'column', boxSizing: 'border-box',
             boxShadow: '0 20px 50px rgba(0,0,0,0.8)'
           }} onClick={e => e.stopPropagation()}>
-            
+
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', borderBottom: '1px solid #2d2d2d', paddingBottom: '10px' }}>
               <h3 style={{ color: '#fff', margin: 0, fontSize: '15px', fontWeight: 'bold' }}>
                 🤝 {isSelf ? t('profile.myFollowings') : `${targetUserInfo.nickname} 的同伴`} ({followingCount})
               </h3>
-              <button 
+              <button
                 onClick={() => setShowFollowingModal(false)}
-                style={{ background: 'transparent', border: 'none', color: '#888', fontSize: '16px', cursor: 'pointer' }}
+                style={{ background: 'transparent', border: 'none', color: '#888', fontSize: 'var(--text-md)', cursor: 'pointer' }}
               >
                 ✕
               </button>
@@ -1259,14 +1259,14 @@ export default function ProfilePage({
                 </div>
               ) : (
                 followings.map(followedUser => (
-                  <div 
+                  <div
                     key={followedUser.id}
                     onClick={() => handleSelectUser(followedUser.id)}
                     style={{
                       display: 'flex', alignItems: 'center', gap: '12px',
                       background: 'rgba(255,255,255,0.02)',
                       border: '1px solid rgba(255,255,255,0.04)',
-                      borderRadius: '12px', padding: '10px 12px',
+                      borderRadius: 'var(--radius-sm)', padding: '10px 12px',
                       cursor: 'pointer', transition: 'all 0.2s ease'
                     }}
                     onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.06)'}
@@ -1293,7 +1293,7 @@ export default function ProfilePage({
                         {followedUser.signature || t('profile.defaultSignature')}
                       </div>
                     </div>
-                    <span style={{ color: '#666', fontSize: '14px' }}>›</span>
+                    <span style={{ color: '#666', fontSize: 'var(--text-base)' }}>›</span>
                   </div>
                 ))
               )}
@@ -1320,22 +1320,22 @@ export default function ProfilePage({
           width: '100vw', height: '100vh',
           background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(10px)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          zIndex: 1200, padding: '16px', boxSizing: 'border-box'
+          zIndex: 1200, padding: 'var(--space-lg)', boxSizing: 'border-box'
         }} onClick={() => setShowFollowersModal(false)}>
           <div style={{
             background: '#141414', border: '1px solid #333', borderRadius: '24px',
-            padding: '24px', width: '100%', maxWidth: '380px', maxHeight: '70vh',
+            padding: '24px', width: '100%', maxWidth: 'var(--container-sm)', maxHeight: '70vh',
             display: 'flex', flexDirection: 'column', boxSizing: 'border-box',
             boxShadow: '0 20px 50px rgba(0,0,0,0.8)'
           }} onClick={e => e.stopPropagation()}>
-            
+
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', borderBottom: '1px solid #2d2d2d', paddingBottom: '10px' }}>
               <h3 style={{ color: '#fff', margin: 0, fontSize: '15px', fontWeight: 'bold' }}>
                 🤝 {isSelf ? t('profile.myFollowers') : `${targetUserInfo.nickname} 的粉丝`} ({followersCount})
               </h3>
-              <button 
+              <button
                 onClick={() => setShowFollowersModal(false)}
-                style={{ background: 'transparent', border: 'none', color: '#888', fontSize: '16px', cursor: 'pointer' }}
+                style={{ background: 'transparent', border: 'none', color: '#888', fontSize: 'var(--text-md)', cursor: 'pointer' }}
               >
                 ✕
               </button>
@@ -1348,14 +1348,14 @@ export default function ProfilePage({
                 </div>
               ) : (
                 followers.map(followerUser => (
-                  <div 
+                  <div
                     key={followerUser.id}
                     onClick={() => handleSelectUser(followerUser.id)}
                     style={{
                       display: 'flex', alignItems: 'center', gap: '12px',
                       background: 'rgba(255,255,255,0.02)',
                       border: '1px solid rgba(255,255,255,0.04)',
-                      borderRadius: '12px', padding: '10px 12px',
+                      borderRadius: 'var(--radius-sm)', padding: '10px 12px',
                       cursor: 'pointer', transition: 'all 0.2s ease'
                     }}
                     onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.06)'}
@@ -1382,7 +1382,7 @@ export default function ProfilePage({
                         {followerUser.signature || t('profile.defaultSignature')}
                       </div>
                     </div>
-                    <span style={{ color: '#666', fontSize: '14px' }}>›</span>
+                    <span style={{ color: '#666', fontSize: 'var(--text-base)' }}>›</span>
                   </div>
                 ))
               )}
@@ -1409,16 +1409,16 @@ export default function ProfilePage({
           width: '100vw', height: '100vh',
           background: 'rgba(5, 5, 5, 0.96)', backdropFilter: 'blur(15px)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          zIndex: 1300, padding: '16px', boxSizing: 'border-box'
+          zIndex: 1300, padding: 'var(--space-lg)', boxSizing: 'border-box'
         }} onClick={() => setSelectedPostDetail(null)}>
           <div style={{
             background: '#141414', border: '1px solid #333', borderRadius: '24px',
-            padding: '24px', width: '100%', maxWidth: '380px', maxHeight: '90vh',
+            padding: '24px', width: '100%', maxWidth: 'var(--container-sm)', maxHeight: '90vh',
             overflowY: 'auto', boxSizing: 'border-box', boxShadow: '0 20px 50px rgba(0,0,0,0.8)'
           }} onClick={e => e.stopPropagation()}>
 
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-              <span style={{ color: '#ef5350', fontSize: '14px', fontWeight: 'bold' }}>
+              <span style={{ color: '#ef5350', fontSize: 'var(--text-base)', fontWeight: 'bold' }}>
                 📖 具身档案细节回顾
               </span>
               <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
@@ -1430,7 +1430,7 @@ export default function ProfilePage({
                       border: '1px solid rgba(239, 83, 80, 0.3)',
                       color: '#ef5350',
                       padding: '4px 10px',
-                      borderRadius: '12px',
+                      borderRadius: 'var(--radius-sm)',
                       fontSize: '11px',
                       cursor: 'pointer',
                       fontWeight: 'bold'
@@ -1440,7 +1440,7 @@ export default function ProfilePage({
                   </button>
                 )}
 
-                <button 
+                <button
                   onClick={() => setSelectedPostDetail(null)}
                   style={{ background: 'transparent', border: 'none', color: '#888', fontSize: '18px', cursor: 'pointer' }}
                 >
@@ -1449,12 +1449,12 @@ export default function ProfilePage({
               </div>
             </div>
 
-            <div style={{ borderRadius: '16px', overflow: 'hidden', border: '1px solid #222', background: '#000', marginBottom: '18px' }}>
-              <img 
-                src={selectedPostDetail.img} 
+            <div style={{ borderRadius: 'var(--radius-md)', overflow: 'hidden', border: '1px solid #222', background: '#000', marginBottom: '18px' }}>
+              <img
+                src={selectedPostDetail.img}
                 onError={(e) => { e.target.style.display = 'none'; }}
-                style={{ width: '100%', display: 'block', objectFit: 'contain' }} 
-                alt="Embodied Paint" 
+                style={{ width: '100%', display: 'block', objectFit: 'contain' }}
+                alt="Embodied Paint"
               />
             </div>
 
@@ -1464,7 +1464,7 @@ export default function ProfilePage({
                 fontSize: '11px',
                 background: 'rgba(239,83,80,0.08)',
                 padding: '3px 10px',
-                borderRadius: '12px',
+                borderRadius: 'var(--radius-sm)',
                 fontWeight: 'bold'
               }}>
                 {selectedPostDetail.painName || "具身痛感"}
@@ -1478,7 +1478,7 @@ export default function ProfilePage({
               background: 'rgba(255,255,255,0.01)',
               border: '1px solid rgba(255,255,255,0.03)',
               borderLeft: '4px solid #d32f2f',
-              padding: '14px', borderRadius: '12px', marginBottom: '14px'
+              padding: '14px', borderRadius: 'var(--radius-sm)', marginBottom: '14px'
             }}>
               <h4 style={{ color: '#ef5350', fontSize: '13px', margin: '0 0 6px 0', fontWeight: 'bold' }}>患者自诉与特征</h4>
               <p style={{ color: '#ccc', fontSize: '12.5px', lineHeight: '1.6', margin: 0 }}>
@@ -1491,7 +1491,7 @@ export default function ProfilePage({
                 background: 'rgba(255,255,255,0.01)',
                 border: '1px solid rgba(255,255,255,0.03)',
                 borderLeft: '4px solid #ab47bc',
-                padding: '14px', borderRadius: '12px', marginBottom: '20px'
+                padding: '14px', borderRadius: 'var(--radius-sm)', marginBottom: '20px'
               }}>
                 <h4 style={{ color: '#ab47bc', fontSize: '13px', margin: '0 0 6px 0', fontWeight: 'bold' }}>现病史与诊疗参考</h4>
                 <p style={{ color: '#ccc', fontSize: '12.5px', lineHeight: '1.6', margin: 0 }}>

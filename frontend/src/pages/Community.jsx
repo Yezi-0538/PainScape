@@ -93,7 +93,7 @@ export default function CommunityPage({
   const handleSaveExperience = async (postId, newExp) => {
     const expStr = String(newExp || '').trim();
     setPosts((prev) => prev.map((p) => (String(p.id) === String(postId) ? { ...p, userExperience: expStr, user_experience: expStr } : p)));
-    
+
     if (viewingPost && String(viewingPost.id) === String(postId)) {
       setViewingPost((prev) => (prev ? { ...prev, userExperience: expStr, user_experience: expStr } : null));
     }
@@ -162,7 +162,7 @@ export default function CommunityPage({
     await likePost(postId, nextLikes);
   };
 
-   // 🌟 4. 删除帖子处理函数
+  // 🌟 4. 删除帖子处理函数
   const handleDeletePost = async (postId) => {
     // 1. 本地立即移除视图
     setPosts((prev) => prev.filter((p) => String(p.id) !== String(postId)));
@@ -215,7 +215,7 @@ export default function CommunityPage({
               background: isLoading ? '#444' : '#555',
               color: '#fff',
               border: 'none',
-              borderRadius: '20px',
+              borderRadius: 'var(--radius-lg)',
               fontSize: '12px',
               cursor: isLoading ? 'not-allowed' : 'pointer',
             }}
@@ -230,7 +230,7 @@ export default function CommunityPage({
             background: '#333',
             color: '#fff',
             border: 'none',
-            borderRadius: '20px',
+            borderRadius: 'var(--radius-lg)',
             fontSize: '12px',
             cursor: 'pointer',
           }}
@@ -245,8 +245,8 @@ export default function CommunityPage({
         style={{
           background: 'rgba(211,47,47,0.06)',
           border: '1px solid rgba(211,47,47,0.15)',
-          borderRadius: '16px',
-          padding: '16px',
+          borderRadius: 'var(--radius-md)',
+          padding: 'var(--space-lg)',
           marginBottom: '20px',
           textAlign: 'center',
         }}
@@ -271,7 +271,7 @@ export default function CommunityPage({
           onClick={() => setPainFilter('all')}
           style={{
             padding: '6px 16px',
-            borderRadius: '20px',
+            borderRadius: 'var(--radius-lg)',
             border: 'none',
             whiteSpace: 'nowrap',
             background: painFilter === 'all' ? '#d32f2f' : '#1e1e1e',
@@ -291,7 +291,7 @@ export default function CommunityPage({
               onClick={() => setPainFilter(key)}
               style={{
                 padding: '6px 16px',
-                borderRadius: '20px',
+                borderRadius: 'var(--radius-lg)',
                 border: 'none',
                 whiteSpace: 'nowrap',
                 background: painFilter === key ? '#d32f2f' : '#1e1e1e',
@@ -309,7 +309,7 @@ export default function CommunityPage({
 
       {/* 🌟 智慧自愈货架 (Top 5 高赞经验) */}
       <div style={{ marginBottom: '30px' }}>
-        <h3 style={{ color: '#4caf50', fontSize: '14px', margin: '0 0 12px 0', fontWeight: '600' }}>
+        <h3 style={{ color: '#4caf50', fontSize: 'var(--text-base)', margin: '0 0 12px 0', fontWeight: '600' }}>
           {t('community.topTipsTitle')}
         </h3>
 
@@ -338,8 +338,8 @@ export default function CommunityPage({
                   width: '260px',
                   background: 'linear-gradient(135deg, #161a16, #121212)',
                   border: '1.5px solid rgba(76, 175, 80, 0.25)',
-                  borderRadius: '16px',
-                  padding: '16px',
+                  borderRadius: 'var(--radius-md)',
+                  padding: 'var(--space-lg)',
                   cursor: 'pointer',
                 }}
               >
@@ -370,7 +370,7 @@ export default function CommunityPage({
                     style={{
                       background: tip.hasUserVotedHelpful ? 'rgba(76,175,80,0.15)' : 'rgba(255,255,255,0.03)',
                       border: '1px solid rgba(76,175,80,0.3)',
-                      borderRadius: '12px',
+                      borderRadius: 'var(--radius-sm)',
                       color: '#4caf50',
                       padding: '3px 8px',
                       fontSize: '10.5px',
@@ -388,7 +388,7 @@ export default function CommunityPage({
       </div>
 
       {/* 具身痛觉图谱展示网格 */}
-      <h3 style={{ color: '#fff', fontSize: '14px', margin: '0 0 12px 0', fontWeight: '600' }}>
+      <h3 style={{ color: '#fff', fontSize: 'var(--text-base)', margin: '0 0 12px 0', fontWeight: '600' }}>
         {t('community.somaticMap')}
       </h3>
 
@@ -407,7 +407,7 @@ export default function CommunityPage({
               onClick={() => setViewingPost(post)}
               style={{
                 background: '#121212',
-                borderRadius: '16px',
+                borderRadius: 'var(--radius-md)',
                 overflow: 'hidden',
                 border: '1px solid #222',
                 display: 'flex',
@@ -467,7 +467,7 @@ export default function CommunityPage({
               />
 
               {/* 底栏 */}
-              <div style={{ padding: '12px', flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+              <div style={{ padding: 'var(--space-md)', flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
                 <p style={{ color: '#eee', fontSize: '12px', margin: '0 0 10px 0', lineHeight: '1.4', height: '34px', overflow: 'hidden' }}>
                   {parseCleanText(post.text)}
                 </p>

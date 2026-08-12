@@ -43,7 +43,7 @@ export default function GeneratedCardModal({
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
-        padding: '20px',
+        padding: 'var(--space-xl)',
         boxSizing: 'border-box',
       }}
       onClick={onClose}
@@ -65,7 +65,7 @@ export default function GeneratedCardModal({
             color: '#fff',
             textAlign: 'center',
             margin: 0,
-            fontSize: '16px',
+            fontSize: 'var(--text-md)',
             fontWeight: 'bold',
           }}
         >
@@ -87,7 +87,7 @@ export default function GeneratedCardModal({
           src={generatedCardUrl}
           style={{
             width: '100%',
-            borderRadius: '16px',
+            borderRadius: 'var(--radius-md)',
             border: '1.5px solid #333',
             boxShadow: '0 8px 30px rgba(0,0,0,0.6)',
             display: 'block',
@@ -100,7 +100,7 @@ export default function GeneratedCardModal({
               onClick={handleSystemShare}
               style={{
                 flex: 1,
-                padding: '12px',
+                padding: 'var(--space-md)',
                 background: '#4caf50',
                 border: 'none',
                 borderRadius: '25px',
@@ -117,7 +117,7 @@ export default function GeneratedCardModal({
             onClick={onClose}
             style={{
               flex: 1,
-              padding: '12px',
+              padding: 'var(--space-md)',
               background: '#333',
               border: 'none',
               borderRadius: '25px',

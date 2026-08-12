@@ -39,12 +39,12 @@ export default function OnboardingTooltip({ step, onClose }) {
     <div
       style={{
         width: '100%',
-        maxWidth: '380px',
+        maxWidth: 'var(--container-sm)',
         margin: '0 auto 12px auto',
         padding: '10px 14px',
         background: 'rgba(76,175,80,0.06)',
         border: '1px solid rgba(76,175,80,0.10)',
-        borderRadius: '12px',
+        borderRadius: 'var(--radius-sm)',
         display: 'flex',
         alignItems: 'center',
         gap: '10px',
@@ -81,7 +81,7 @@ export default function OnboardingTooltip({ step, onClose }) {
           background: 'transparent',
           border: 'none',
           color: 'rgba(255,255,255,0.2)',
-          fontSize: '14px',
+          fontSize: 'var(--text-base)',
           cursor: 'pointer',
           padding: '2px 4px',
           flexShrink: 0,

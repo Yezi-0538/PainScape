@@ -126,7 +126,7 @@ export default function RecordDetailModal({
         alignItems: 'center',
         justifyContent: 'center',
         zIndex: 1000,
-        padding: '16px',
+        padding: 'var(--space-lg)',
         boxSizing: 'border-box',
       }}
       onClick={onClose}
@@ -149,7 +149,7 @@ export default function RecordDetailModal({
       >
         {/* 头部 */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-          <span style={{ color: '#fff', fontSize: '16px', fontWeight: 'bold' }}>
+          <span style={{ color: '#fff', fontSize: 'var(--text-md)', fontWeight: 'bold' }}>
             {mode === 'result'
               ? `📤 ${isEn ? 'Share Pain Map' : '疼痛地图预览与分享'}`
               : `📖 ${isEn ? 'Pain Record Details' : '痛觉记录详情'}`}
@@ -171,7 +171,7 @@ export default function RecordDetailModal({
 
         {/* 图像展示 */}
         {viewingDiary.img && (
-          <div style={{ borderRadius: '16px', overflow: 'hidden', border: '1px solid #222', background: '#000', marginBottom: '16px' }}>
+          <div style={{ borderRadius: 'var(--radius-md)', overflow: 'hidden', border: '1px solid #222', background: '#000', marginBottom: '16px' }}>
             <img src={viewingDiary.img} style={{ width: '100%', display: 'block', objectFit: 'contain', maxHeight: '220px' }} alt="Pain Map" />
           </div>
         )}
@@ -183,7 +183,7 @@ export default function RecordDetailModal({
             fontSize: '12px',
             background: 'rgba(239,83,80,0.12)',
             padding: '4px 12px',
-            borderRadius: '12px',
+            borderRadius: 'var(--radius-sm)',
             fontWeight: 'bold',
             border: '1px solid rgba(239,83,80,0.2)'
           }}>
@@ -195,7 +195,7 @@ export default function RecordDetailModal({
               fontSize: '12px',
               background: 'rgba(255,152,0,0.12)',
               padding: '4px 12px',
-              borderRadius: '12px',
+              borderRadius: 'var(--radius-sm)',
               fontWeight: 'bold',
               border: '1px solid rgba(255,152,0,0.2)'
             }}>
@@ -212,7 +212,7 @@ export default function RecordDetailModal({
         {/* 详细段落展示 */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '20px' }}>
           {rd.chief_complaint && (
-            <div style={{ background: '#1c1c1c', padding: '12px', borderRadius: '12px', borderLeft: '3px solid #ef5350' }}>
+            <div style={{ background: '#1c1c1c', padding: 'var(--space-md)', borderRadius: 'var(--radius-sm)', borderLeft: '3px solid #ef5350' }}>
               <div style={{ color: '#ef5350', fontSize: '12px', fontWeight: 'bold', marginBottom: '4px' }}>
                 {t('pdf.chiefComplaint') || (isEn ? 'Chief Complaint:' : '主诉：')}
               </div>
@@ -223,7 +223,7 @@ export default function RecordDetailModal({
           )}
 
           {rd.present_illness && (
-            <div style={{ background: '#1c1c1c', padding: '12px', borderRadius: '12px', borderLeft: '3px solid #ab47bc' }}>
+            <div style={{ background: '#1c1c1c', padding: 'var(--space-md)', borderRadius: 'var(--radius-sm)', borderLeft: '3px solid #ab47bc' }}>
               <div style={{ color: '#ab47bc', fontSize: '12px', fontWeight: 'bold', marginBottom: '4px' }}>
                 {t('pdf.presentIllness') || (isEn ? 'History of Present Illness:' : '现病史：')}
               </div>
@@ -234,7 +234,7 @@ export default function RecordDetailModal({
           )}
 
           {rd.clinical_diagnosis && (
-            <div style={{ background: '#1c1c1c', padding: '12px', borderRadius: '12px', borderLeft: '3px solid #4caf50' }}>
+            <div style={{ background: '#1c1c1c', padding: 'var(--space-md)', borderRadius: 'var(--radius-sm)', borderLeft: '3px solid #4caf50' }}>
               <div style={{ color: '#4caf50', fontSize: '12px', fontWeight: 'bold', marginBottom: '4px' }}>
                 {t('pdf.clinicalDiagnosis') || (isEn ? 'Clinical Diagnosis:' : '临床诊断：')}
               </div>
@@ -245,7 +245,7 @@ export default function RecordDetailModal({
           )}
 
           {rd.selfCare && (
-            <div style={{ background: '#1c1c1c', padding: '12px', borderRadius: '12px', borderLeft: '3px solid #ff9800' }}>
+            <div style={{ background: '#1c1c1c', padding: 'var(--space-md)', borderRadius: 'var(--radius-sm)', borderLeft: '3px solid #ff9800' }}>
               <div style={{ color: '#ff9800', fontSize: '12px', fontWeight: 'bold', marginBottom: '4px' }}>
                 {t('pdf.selfCare') || (isEn ? 'Self-Care Advice:' : '自愈建议：')}
               </div>
@@ -256,7 +256,7 @@ export default function RecordDetailModal({
           )}
 
           {rd.action && (
-            <div style={{ background: '#1c1c1c', padding: '12px', borderRadius: '12px', borderLeft: '3px solid #2196f3' }}>
+            <div style={{ background: '#1c1c1c', padding: 'var(--space-md)', borderRadius: 'var(--radius-sm)', borderLeft: '3px solid #2196f3' }}>
               <div style={{ color: '#2196f3', fontSize: '12px', fontWeight: 'bold', marginBottom: '4px' }}>
                 {t('pdf.action') || (isEn ? 'Partner/Family Action:' : '伴侣/家人行动：')}
               </div>
@@ -283,7 +283,7 @@ export default function RecordDetailModal({
                 background: '#1c1c1c',
                 color: '#fff',
                 border: '1px solid #333',
-                borderRadius: '12px',
+                borderRadius: 'var(--radius-sm)',
                 padding: '10px 12px',
                 fontSize: '12.5px',
                 boxSizing: 'border-box',
@@ -302,12 +302,12 @@ export default function RecordDetailModal({
               onClick={() => onShare && onShare(viewingDiary)}
               style={{
                 flex: 2,
-                padding: '12px',
+                padding: 'var(--space-md)',
                 background: 'linear-gradient(135deg, #4caf50, #2e7d32)',
                 color: '#fff',
                 border: 'none',
                 borderRadius: '14px',
-                fontSize: '14px',
+                fontSize: 'var(--text-base)',
                 fontWeight: 'bold',
                 cursor: 'pointer',
                 boxShadow: '0 4px 12px rgba(76,175,80,0.3)',
@@ -319,7 +319,7 @@ export default function RecordDetailModal({
               onClick={onClose}
               style={{
                 flex: 1,
-                padding: '12px',
+                padding: 'var(--space-md)',
                 background: '#222',
                 border: '1px solid #444',
                 color: '#ccc',
@@ -342,7 +342,7 @@ export default function RecordDetailModal({
                   background: '#4caf50',
                   color: '#fff',
                   border: 'none',
-                  borderRadius: '12px',
+                  borderRadius: 'var(--radius-sm)',
                   fontSize: '13px',
                   fontWeight: 'bold',
                   cursor: 'pointer',
@@ -359,7 +359,7 @@ export default function RecordDetailModal({
                   background: '#2196f3',
                   color: '#fff',
                   border: 'none',
-                  borderRadius: '12px',
+                  borderRadius: 'var(--radius-sm)',
                   fontSize: '13px',
                   fontWeight: 'bold',
                   cursor: 'pointer',
@@ -380,7 +380,7 @@ export default function RecordDetailModal({
                     background: 'rgba(244,67,54,0.1)',
                     border: '1px solid rgba(244,67,54,0.3)',
                     color: '#ef5350',
-                    borderRadius: '12px',
+                    borderRadius: 'var(--radius-sm)',
                     fontSize: '12.5px',
                     cursor: 'pointer',
                   }}
@@ -396,7 +396,7 @@ export default function RecordDetailModal({
                   background: '#222',
                   border: '1px solid #333',
                   color: '#aaa',
-                  borderRadius: '12px',
+                  borderRadius: 'var(--radius-sm)',
                   fontSize: '12.5px',
                   cursor: 'pointer',
                 }}
@@ -420,7 +420,7 @@ export default function RecordDetailModal({
             alignItems: 'center',
             justifyContent: 'center',
             borderRadius: '24px',
-            padding: '16px',
+            padding: 'var(--space-lg)',
             boxSizing: 'border-box',
             zIndex: 10,
           }}
@@ -430,7 +430,7 @@ export default function RecordDetailModal({
             style={{
               background: '#181818',
               border: '1px solid #333',
-              borderRadius: '20px',
+              borderRadius: 'var(--radius-lg)',
               padding: '22px',
               width: '100%',
               maxWidth: '420px',
@@ -440,7 +440,7 @@ export default function RecordDetailModal({
             }}
             onClick={(e) => e.stopPropagation()}
           >
-            <div style={{ marginBottom: '14px', fontSize: '16px', fontWeight: '700' }}>
+            <div style={{ marginBottom: '14px', fontSize: 'var(--text-md)', fontWeight: '700' }}>
               {t('diary.publishConfirmTitle') || (isEn ? 'Confirm Publish' : '确认发布到社区')}
             </div>
             <div style={{ color: '#ccc', fontSize: '13px', lineHeight: '1.7', marginBottom: '20px' }}>

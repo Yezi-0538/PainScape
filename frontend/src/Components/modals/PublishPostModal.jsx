@@ -1,5 +1,5 @@
 // src/Components/modals/PublishPostModal.jsx
-import React from 'react';
+import React, { useState } from 'react';
 import { useI18n } from '../../i18n/i18nContext';
 
 export default function PublishPostModal({
@@ -9,9 +9,12 @@ export default function PublishPostModal({
   setPostText,
   onClose,
   onSubmit,
+  isAnonymous,      // ✅ 新增
+  setIsAnonymous,   // ✅ 新增
 }) {
   const { t } = useI18n();
-
+  const [blurEnabled, setBlurEnabled] = useState(false);
+  const [blurLevel, setBlurLevel] = useState(8);
   if (!isOpen) return null;
 
   return (
@@ -28,7 +31,7 @@ export default function PublishPostModal({
         display: 'flex',
         justifyContent: 'center',
         alignItems: 'center',
-        padding: '20px',
+        padding: 'var(--space-xl)',
         boxSizing: 'border-box',
       }}
       onClick={onClose}
@@ -37,9 +40,9 @@ export default function PublishPostModal({
         style={{
           background: '#1c1c1c',
           padding: '24px',
-          borderRadius: '20px',
+          borderRadius: 'var(--radius-lg)',
           width: '100%',
-          maxWidth: '380px',
+          maxWidth: 'var(--container-sm)',
           border: '1px solid rgba(255,255,255,0.08)',
           boxShadow: '0 10px 40px rgba(0,0,0,0.5)',
           overflow: 'hidden',
@@ -63,7 +66,7 @@ export default function PublishPostModal({
           style={{
             background: 'rgba(255, 152, 0, 0.06)',
             border: '1px solid rgba(255, 152, 0, 0.15)',
-            borderRadius: '12px',
+            borderRadius: 'var(--radius-sm)',
             padding: '12px 14px',
             marginBottom: '16px',
           }}
@@ -80,24 +83,139 @@ export default function PublishPostModal({
           </p>
         </div>
 
+        {/* 图片预览 + 模糊控制 */}
         {imgUrl && (
           <div
             style={{
-              marginBottom: '15px',
-              borderRadius: '12px',
+              borderRadius: 'var(--radius-sm)',
               overflow: 'hidden',
               border: '1px solid #333',
-              maxHeight: '180px',
-              background: '#000',
+              marginBottom: '12px',
+              position: 'relative',
             }}
           >
             <img
               src={imgUrl}
-              style={{ width: '100%', display: 'block', objectFit: 'contain' }}
+              style={{
+                width: '100%',
+                display: 'block',
+                filter: blurEnabled ? `blur(${blurLevel}px)` : 'none',
+                transition: 'filter 0.3s ease',
+              }}
               alt="preview"
             />
+            {blurEnabled && (
+              <div
+                style={{
+                  position: 'absolute',
+                  top: '8px',
+                  right: '8px',
+                  background: 'rgba(0,0,0,0.7)',
+                  borderRadius: '8px',
+                  padding: '4px 8px',
+                  color: '#ff9800',
+                  fontSize: '10px',
+                }}
+              >
+                🔒 {t('sharePreview.blurred')}
+              </div>
+            )}
           </div>
         )}
+
+        {/* ✅ 模糊控制栏 */}
+        <div
+          style={{
+            padding: '10px 12px',
+            background: 'rgba(255,255,255,0.03)',
+            borderRadius: '10px',
+            border: '1px solid rgba(255,255,255,0.06)',
+            marginBottom: '16px',
+          }}
+        >
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              marginBottom: blurEnabled ? '10px' : '0',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={{ fontSize: 'var(--text-md)' }}>
+                {blurEnabled ? '🔒' : '🔓'}
+              </span>
+              <span style={{ color: '#aaa', fontSize: '12px' }}>
+                {t('sharePreview.blurArtwork')}
+              </span>
+            </div>
+            {/* 模糊控制栏 - 按钮样式优化 */}
+            <button
+              onClick={() => setBlurEnabled(!blurEnabled)}
+              style={{
+                width: '50px',      // ✅ 从 44px 改为 36px
+                minHeight: '20px',        // ✅ 必须同步改
+                maxHeight: '20px',        // ✅ 防止被撑大
+                borderRadius: 'var(--radius-lg)',
+                border: 'none',
+                background: blurEnabled ? '#ff9800' : '#444',
+                cursor: 'pointer',
+                position: 'relative',
+                padding: 0,
+                flexShrink: 0,
+              }}
+            >
+              <div
+                style={{
+                  width: '16px',    // ✅ 从 20px 改为 16px
+                  height: '16px',   // ✅ 从 20px 改为 16px
+                  borderRadius: '50%',
+                  background: '#fff',
+                  position: 'absolute',
+                  top: '2px',
+                  left: blurEnabled ? '18px' : '2px',  // ✅ 调整位置
+                  transition: 'left 0.2s ease',
+                }}
+              />
+            </button>
+          </div>
+          {blurEnabled && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={{ color: '#555', fontSize: '10px' }}>
+                {t('sharePreview.blurLight')}
+              </span>
+              <input
+                type="range"
+                min="2"
+                max="20"
+                value={blurLevel}
+                onChange={(e) => setBlurLevel(Number(e.target.value))}
+                style={{
+                  flex: 1,
+                  height: '3px',
+                  accentColor: '#ff9800',
+                  cursor: 'pointer',
+                }}
+              />
+              <span style={{ color: '#555', fontSize: '10px' }}>
+                {t('sharePreview.blurStrong')}
+              </span>
+            </div>
+          )}
+          {blurEnabled && (
+            <p
+              style={{
+                color: '#666',
+                fontSize: '10px',
+                margin: '8px 0 0 0',
+                textAlign: 'center',
+                lineHeight: '1.4',
+              }}
+            >
+              {t('sharePreview.blurHint')}
+            </p>
+          )}
+        </div>
 
         <textarea
           value={postText}
@@ -109,8 +227,8 @@ export default function PublishPostModal({
             background: '#111',
             color: '#fff',
             border: '1px solid #333',
-            borderRadius: '12px',
-            padding: '12px',
+            borderRadius: 'var(--radius-sm)',
+            padding: 'var(--space-md)',
             boxSizing: 'border-box',
             marginBottom: '20px',
             fontSize: '13px',
@@ -121,17 +239,40 @@ export default function PublishPostModal({
           }}
         />
 
+        {/* 匿名选项 */}
+        {setIsAnonymous && (
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              marginBottom: '16px',
+            }}
+          >
+            <input
+              type="checkbox"
+              checked={isAnonymous}
+              onChange={(e) => setIsAnonymous(e.target.checked)}
+              style={{ cursor: 'pointer' }}
+            />
+            <span style={{ color: '#888', fontSize: '12px' }}>
+              {t('publishModal.anonymous') || '匿名发布'}
+            </span>
+          </div>
+        )}
+
+        {/* 按钮 */}
         <div style={{ display: 'flex', gap: '12px' }}>
           <button
             style={{
               flex: 1,
-              padding: '12px',
+              padding: 'var(--space-md)',
               background: '#2a2a2a',
               color: '#999',
               border: 'none',
-              borderRadius: '12px',
+              borderRadius: 'var(--radius-sm)',
               cursor: 'pointer',
-              fontSize: '14px',
+              fontSize: 'var(--text-base)',
               fontWeight: 'bold',
             }}
             onClick={onClose}
@@ -140,19 +281,25 @@ export default function PublishPostModal({
           </button>
           <button
             style={{
-              flex: 1.5,
-              padding: '12px',
+              flex: 1,
+              padding: 'var(--space-md)',
               background: 'linear-gradient(135deg, #ff9800, #f44336)',
               color: '#fff',
               border: 'none',
-              borderRadius: '12px',
+              borderRadius: 'var(--radius-sm)',
               cursor: 'pointer',
-              fontSize: '14px',
+              fontSize: 'var(--text-base)',
               fontWeight: 'bold',
               boxShadow: '0 4px 15px rgba(244, 67, 54, 0.3)',
             }}
             onClick={() => {
-              if (onSubmit) onSubmit(postText);
+              // ✅ 提交时传递模糊信息
+              const submitData = {
+                text: postText,
+                blurEnabled,
+                blurLevel: blurEnabled ? blurLevel : 0,
+              };
+              onSubmit(submitData);
             }}
           >
             {t('publishModal.submit')}

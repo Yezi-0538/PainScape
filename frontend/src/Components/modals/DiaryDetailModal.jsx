@@ -73,7 +73,7 @@ export default function DiaryDetailModal({
     setShowPublishConfirm(false);
     doPublish();
   };
-  
+
   return (
     <div
       style={{
@@ -88,7 +88,7 @@ export default function DiaryDetailModal({
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
-        padding: '20px',
+        padding: 'var(--space-xl)',
         boxSizing: 'border-box',
         overflow: 'hidden',
       }}
@@ -108,7 +108,7 @@ export default function DiaryDetailModal({
           src={viewingDiary.img}
           style={{
             width: '100%',
-            borderRadius: '12px',
+            borderRadius: 'var(--radius-sm)',
             border: '1px solid #444',
           }}
           alt="diary"
@@ -131,7 +131,7 @@ export default function DiaryDetailModal({
                   alignItems: 'center',
                   gap: '5px',
                   background: 'rgba(255,255,255,0.07)',
-                  borderRadius: '12px',
+                  borderRadius: 'var(--radius-sm)',
                   padding: '3px 10px',
                   fontSize: '11px',
                   color: '#ccc',
@@ -153,7 +153,7 @@ export default function DiaryDetailModal({
               <span
                 style={{
                   background: 'rgba(211,47,47,0.15)',
-                  borderRadius: '12px',
+                  borderRadius: 'var(--radius-sm)',
                   padding: '3px 10px',
                   fontSize: '11px',
                   color: '#ffcdd2',
@@ -166,7 +166,7 @@ export default function DiaryDetailModal({
               <span
                 style={{
                   background: 'rgba(76,175,80,0.12)',
-                  borderRadius: '12px',
+                  borderRadius: 'var(--radius-sm)',
                   padding: '3px 10px',
                   fontSize: '11px',
                   color: '#a5d6a7',
@@ -195,10 +195,10 @@ export default function DiaryDetailModal({
             style={{
               marginLeft: '12px',
               color: '#d32f2f',
-              fontSize: '16px',
+              fontSize: 'var(--text-md)',
               background: 'rgba(211, 47, 47, 0.15)',
               padding: '4px 12px',
-              borderRadius: '12px',
+              borderRadius: 'var(--radius-sm)',
             }}
           >
             {viewingDiary.painName}
@@ -210,7 +210,7 @@ export default function DiaryDetailModal({
           style={{
             background: 'rgba(28,28,28,0.9)',
             padding: '18px',
-            borderRadius: '12px',
+            borderRadius: 'var(--radius-sm)',
             marginTop: '10px',
             border: '1px solid #444',
           }}
@@ -218,7 +218,7 @@ export default function DiaryDetailModal({
           <p
             style={{
               color: '#ccc',
-              fontSize: '14px',
+              fontSize: 'var(--text-base)',
               lineHeight: '1.6',
               margin: '0 0 12px 0',
             }}
@@ -241,8 +241,8 @@ export default function DiaryDetailModal({
         <div
           style={{
             background: 'rgba(255,255,255,0.05)',
-            padding: '20px',
-            borderRadius: '12px',
+            padding: 'var(--space-xl)',
+            borderRadius: 'var(--radius-sm)',
             marginTop: '20px',
             border: '1px solid #333',
             display: 'flex',
@@ -404,7 +404,7 @@ export default function DiaryDetailModal({
                 color: '#fff',
                 border: 'none',
                 fontWeight: 'bold',
-                fontSize: '14px',
+                fontSize: 'var(--text-base)',
                 cursor: 'pointer',
               }}
               onClick={handleShare}
@@ -420,7 +420,7 @@ export default function DiaryDetailModal({
                 color: '#fff',
                 border: 'none',
                 fontWeight: 'bold',
-                fontSize: '14px',
+                fontSize: 'var(--text-base)',
                 cursor: 'pointer',
               }}
               onClick={handlePublish}
@@ -448,7 +448,7 @@ export default function DiaryDetailModal({
               border: '1px solid rgba(211,47,47,0.3)',
               color: '#ef5350',
               fontWeight: 'bold',
-              fontSize: '14px',
+              fontSize: 'var(--text-base)',
               cursor: 'pointer',
               transition: 'all 0.2s',
               display: 'flex',
@@ -469,7 +469,7 @@ export default function DiaryDetailModal({
               border: '1px solid #333',
               color: '#fff',
               fontWeight: 'bold',
-              fontSize: '14px',
+              fontSize: 'var(--text-base)',
               cursor: 'pointer',
               transition: 'all 0.2s',
               display: 'flex',

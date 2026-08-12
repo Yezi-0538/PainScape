@@ -7,7 +7,7 @@ const PAIN_KEY_MAP = {
   'twist': 'twist', '绞痛': 'twist',
   'pierce': 'pierce', '刺痛': 'pierce',
   'heavy': 'heavy', 'sink': 'heavy', '坠胀': 'heavy', '坠胀重压': 'heavy', '坠痛': 'heavy',
-  'wave': 'wave', 'swell': 'wave', '酸胀': 'wave', '酸胀痛': 'wave', '弥漫酸胀痛': 'wave',
+  'wave': 'wave', 'swell': 'wave', '酸胀': 'wave', '酸胀痛': 'wave', '酸胀痛': 'wave',
   'scrape': 'scrape', '刮痛': 'scrape', '撕裂痛': 'scrape', '撕裂刮痛': 'scrape'
 };
 
@@ -75,7 +75,7 @@ export default function CommunityPostDetailModal({
         alignItems: 'center',
         justifyContent: 'center',
         zIndex: 1100,
-        padding: '16px',
+        padding: 'var(--space-lg)',
         boxSizing: 'border-box',
       }}
       onClick={onClose}
@@ -98,7 +98,7 @@ export default function CommunityPostDetailModal({
       >
         {/* 1. 标题（发布时输入的自定义文案） */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
-          <h3 style={{ color: '#fff', fontSize: '16px', fontWeight: 'bold', margin: 0, lineHeight: '1.5', flex: 1, paddingRight: '12px' }}>
+          <h3 style={{ color: '#fff', fontSize: 'var(--text-md)', fontWeight: 'bold', margin: 0, lineHeight: '1.5', flex: 1, paddingRight: '12px' }}>
             {cleanTitleText}
           </h3>
           <button
@@ -128,7 +128,7 @@ export default function CommunityPostDetailModal({
             gap: '12px',
             padding: '10px 14px',
             background: 'rgba(255,255,255,0.03)',
-            borderRadius: '16px',
+            borderRadius: 'var(--radius-md)',
             border: '1px solid rgba(255,255,255,0.08)',
             marginBottom: '18px',
             cursor: 'pointer',
@@ -157,7 +157,7 @@ export default function CommunityPostDetailModal({
             )}
           </div>
           <div style={{ flex: 1 }}>
-            <div style={{ color: '#fff', fontSize: '14px', fontWeight: 'bold' }}>
+            <div style={{ color: '#fff', fontSize: 'var(--text-base)', fontWeight: 'bold' }}>
               {post.nickname || post.authorName || "同伴"}
             </div>
             <div style={{ color: '#666', fontSize: '11px', marginTop: '2px' }}>
@@ -171,7 +171,7 @@ export default function CommunityPostDetailModal({
 
         {/* 3. 绘制图片展示 */}
         {post.img && (
-          <div style={{ borderRadius: '16px', overflow: 'hidden', border: '1px solid #222', background: '#000', marginBottom: '20px' }}>
+          <div style={{ borderRadius: 'var(--radius-md)', overflow: 'hidden', border: '1px solid #222', background: '#000', marginBottom: '20px' }}>
             <img src={post.img} style={{ width: '100%', display: 'block', objectFit: 'contain', maxHeight: '280px' }} alt="Pain Map" />
           </div>
         )}
@@ -180,8 +180,8 @@ export default function CommunityPostDetailModal({
         <div style={{
           background: 'linear-gradient(135deg, #161a16, #121212)',
           border: '1px solid rgba(76, 175, 80, 0.3)',
-          borderRadius: '16px',
-          padding: '16px',
+          borderRadius: 'var(--radius-md)',
+          padding: 'var(--space-lg)',
           marginBottom: '20px',
         }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
@@ -252,7 +252,7 @@ export default function CommunityPostDetailModal({
             onClick={(e) => onHug && onHug(post.id, e)}
             style={{
               flex: 1,
-              padding: '12px',
+              padding: 'var(--space-md)',
               background: post.hasUserHugged ? 'rgba(255,107,107,0.15)' : 'rgba(255,255,255,0.04)',
               border: '1px solid rgba(255,107,107,0.3)',
               color: post.hasUserHugged ? '#ff6b6b' : '#eee',
@@ -272,7 +272,7 @@ export default function CommunityPostDetailModal({
             onClick={(e) => onLike && onLike(post.id, e)}
             style={{
               flex: 1,
-              padding: '12px',
+              padding: 'var(--space-md)',
               background: 'rgba(255,255,255,0.04)',
               border: '1px solid #333',
               color: '#fff',

@@ -165,7 +165,7 @@ export default function ResultPage({
         zIndex: 20,
         background: 'rgba(8,8,8,0.97)',
         backdropFilter: 'blur(12px)',
-        padding: '20px',
+        padding: 'var(--space-xl)',
         overflowY: 'auto',
         display: 'flex',
         flexDirection: 'column',
@@ -180,7 +180,7 @@ export default function ResultPage({
             width: '50%',
             maxWidth: '200px',
             marginTop: '20px',
-            borderRadius: '16px',
+            borderRadius: 'var(--radius-md)',
             border: '1.5px solid #333',
             boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
           }}
@@ -208,7 +208,7 @@ export default function ResultPage({
               background: identity === tab ? '#222' : 'rgba(20,20,20,0.6)',
               color: identity === tab ? '#fff' : '#666',
               border: identity === tab ? '1.5px solid #444' : '1px solid #222',
-              borderRadius: '12px',
+              borderRadius: 'var(--radius-sm)',
               fontSize: '13px',
               fontWeight: identity === tab ? 'bold' : 'normal',
               cursor: 'pointer',
@@ -227,7 +227,7 @@ export default function ResultPage({
         style={{
           background: '#121212',
           padding: '24px',
-          borderRadius: '20px',
+          borderRadius: 'var(--radius-lg)',
           width: '100%',
           maxWidth: identity === 'doctor' ? '580px' : '380px',
           border: '1px solid #222',
@@ -246,7 +246,7 @@ export default function ResultPage({
               style={{
                 background: 'rgba(211,47,47,0.04)',
                 padding: '14px',
-                borderRadius: '12px',
+                borderRadius: 'var(--radius-sm)',
                 borderLeft: '4px solid #d32f2f',
                 borderTop: '1px solid #222',
                 borderRight: '1px solid #222',
@@ -277,7 +277,7 @@ export default function ResultPage({
               <strong
                 style={{
                   color: '#fff',
-                  fontSize: '14px',
+                  fontSize: 'var(--text-base)',
                   display: 'block',
                   marginBottom: '8px',
                 }}
@@ -297,11 +297,11 @@ export default function ResultPage({
               style={{
                 marginTop: '15px',
                 width: '100%',
-                padding: '12px',
+                padding: 'var(--space-md)',
                 background: 'transparent',
                 border: '1px dashed #d32f2f',
                 color: '#ffcdd2',
-                borderRadius: '12px',
+                borderRadius: 'var(--radius-sm)',
                 cursor: 'pointer',
                 fontSize: '13px',
                 fontWeight: '500',
@@ -326,7 +326,7 @@ export default function ResultPage({
                     border: '1px solid #222',
                     color: '#fff',
                     borderRadius: '10px',
-                    padding: '12px',
+                    padding: 'var(--space-md)',
                     fontSize: '12px',
                   }}
                   onKeyDown={(e) => {
@@ -449,8 +449,8 @@ export default function ResultPage({
             <div
               style={{
                 background: 'rgba(255,152,0,0.03)',
-                padding: '16px',
-                borderRadius: '12px',
+                padding: 'var(--space-lg)',
+                borderRadius: 'var(--radius-sm)',
                 border: '1px solid rgba(255,152,0,0.12)',
               }}
             >
@@ -468,11 +468,11 @@ export default function ResultPage({
               style={{
                 marginTop: '16px',
                 width: '100%',
-                padding: '12px',
+                padding: 'var(--space-md)',
                 background: 'transparent',
                 border: '1px dashed #ff9800',
                 color: '#ffcc80',
-                borderRadius: '12px',
+                borderRadius: 'var(--radius-sm)',
                 cursor: 'pointer',
                 fontWeight: '500',
                 fontSize: '13px',
@@ -496,7 +496,7 @@ export default function ResultPage({
                     border: '1px solid #222',
                     color: '#fff',
                     borderRadius: '10px',
-                    padding: '12px',
+                    padding: 'var(--space-md)',
                     fontSize: '12px',
                   }}
                   onKeyDown={(e) => {
@@ -550,8 +550,8 @@ export default function ResultPage({
                   margin: 0,
                   fontWeight: '500',
                   background: 'rgba(255,152,0,0.04)',
-                  padding: '12px',
-                  borderRadius: '12px',
+                  padding: 'var(--space-md)',
+                  borderRadius: 'var(--radius-sm)',
                   border: '1px solid rgba(255,152,0,0.1)',
                 }}
               >
@@ -564,7 +564,7 @@ export default function ResultPage({
               <div
                 style={{
                   background: 'rgba(211,47,47,0.02)',
-                  padding: '16px',
+                  padding: 'var(--space-lg)',
                   borderRadius: '14px',
                   border: '1px solid rgba(211,47,47,0.1)',
                   borderLeft: '4px solid #d32f2f',
@@ -822,7 +822,7 @@ export default function ResultPage({
                     border: '1px solid #222',
                     color: '#fff',
                     borderRadius: '10px',
-                    padding: '12px',
+                    padding: 'var(--space-md)',
                     fontSize: '12px',
                   }}
                   onKeyDown={(e) => {
@@ -910,8 +910,8 @@ export default function ResultPage({
                   }}
                   style={{
                     background: '#161616',
-                    padding: '16px',
-                    borderRadius: '16px',
+                    padding: 'var(--space-lg)',
+                    borderRadius: 'var(--radius-md)',
                     border: '1px solid #222',
                     borderLeft: `4px solid ${tip.color}`,
                     cursor: 'pointer',
@@ -923,7 +923,7 @@ export default function ResultPage({
                   <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
                     <span style={{ fontSize: '26px' }}>{tip.icon}</span>
                     <div style={{ flex: 1 }}>
-                      <div style={{ color: '#fff', fontWeight: 'bold', fontSize: '14px' }}>
+                      <div style={{ color: '#fff', fontWeight: 'bold', fontSize: 'var(--text-base)' }}>
                         {tip.title}
                       </div>
                       <div style={{ color: '#aaa', fontSize: '11.5px', marginTop: '4px' }}>

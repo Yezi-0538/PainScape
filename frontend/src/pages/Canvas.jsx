@@ -164,6 +164,10 @@ export default function CanvasPage({
 
   const setup = (p5, canvasParentRef) => {
     p5Ref.current = p5;
+
+    // ✅ 设置像素密度为 1，防止高 DPI 屏幕缩放问题
+    p5.pixelDensity(1);
+
     const canvas = p5.createCanvas(window.innerWidth, window.innerHeight);
     canvas.parent(canvasParentRef);
 
@@ -205,6 +209,33 @@ export default function CanvasPage({
     pgBackRef.current.clear();
 
     camRef.current = { x: 0, y: 0, zoom: 1.0 };
+
+    // ✅ 添加窗口大小变化响应
+    p5.windowResized = () => {
+      const w = window.innerWidth;
+      const h = window.innerHeight;
+
+      p5.resizeCanvas(w, h);
+
+      // 重建离屏画布以匹配新尺寸，并保留旧内容
+      const oldFront = pgFrontRef.current;
+      const oldBack = pgBackRef.current;
+
+      pgFrontRef.current = p5.createGraphics(w, h);
+      pgBackRef.current = p5.createGraphics(w, h);
+      pgFrontRef.current.clear();
+      pgBackRef.current.clear();
+
+      if (oldFront) {
+        pgFrontRef.current.image(oldFront, 0, 0);
+      }
+      if (oldBack) {
+        pgBackRef.current.image(oldBack, 0, 0);
+      }
+
+      // 重置相机位置，避免偏移
+      camRef.current = { x: 0, y: 0, zoom: 1.0 };
+    };
   };
 
   const mouseReleased = (p5) => {
@@ -459,14 +490,14 @@ export default function CanvasPage({
             top: 0,
             left: 0,
             width: '100%',
-            height: '48px',
+            height: 'var(--btn-min-touch)',
             background: 'rgba(10, 10, 10, 0.85)',
             backdropFilter: 'blur(12px)',
             borderBottom: '1px solid #1a1a1a',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
-            padding: '0 10px',
+            padding: '0 var(--space-md)',
             boxSizing: 'border-box',
             pointerEvents: 'auto',
             zIndex: 100,
@@ -480,12 +511,12 @@ export default function CanvasPage({
                 background: 'rgba(255,255,255,0.05)',
                 border: '1px solid #333',
                 color: '#fff',
-                width: '32px',
-                height: '32px',
-                minWidth: '32px',
-                minHeight: '32px',
+                // width: 'var(--btn-min-touch)',
+                // height: 'var(--btn-min-touch)',
+                minWidth: '24px',
+                minHeight: '24px',
                 borderRadius: '50%',
-                fontSize: '14px',
+                fontSize: 'var(--text-base)',
                 cursor: 'pointer',
                 display: 'flex',
                 alignItems: 'center',
@@ -507,7 +538,7 @@ export default function CanvasPage({
                 height: '32px',
                 minWidth: '32px',
                 minHeight: '32px',
-                fontSize: '14px',
+                fontSize: 'var(--text-base)',
                 cursor: 'pointer',
                 display: 'flex',
                 alignItems: 'center',
@@ -526,9 +557,8 @@ export default function CanvasPage({
                 background: 'rgba(255,255,255,0.08)',
                 border: '1px solid #444',
                 color: '#fff',
-                padding: '2px 10px',
-                borderRadius: '12px',
-                fontSize: '10px',
+                padding: 'var(--space-xs) var(--space-sm)', fontSize: 'var(--text-xs)',
+                borderRadius: 'var(--radius-sm)',
                 fontWeight: 'bold',
                 cursor: 'pointer',
                 flexShrink: 0,
@@ -556,7 +586,7 @@ export default function CanvasPage({
             <button
               style={{
                 padding: '3px 8px',
-                borderRadius: '12px',
+                borderRadius: 'var(--radius-sm)',
                 border: 'none',
                 cursor: 'pointer',
                 fontSize: '9px',
@@ -574,7 +604,7 @@ export default function CanvasPage({
             <button
               style={{
                 padding: '3px 8px',
-                borderRadius: '12px',
+                borderRadius: 'var(--radius-sm)',
                 border: 'none',
                 cursor: 'pointer',
                 fontSize: '9px',
@@ -593,7 +623,7 @@ export default function CanvasPage({
               <button
                 style={{
                   padding: '3px 6px',
-                  borderRadius: '12px',
+                  borderRadius: 'var(--radius-sm)',
                   border: 'none',
                   cursor: 'pointer',
                   fontSize: '9px',
@@ -618,13 +648,13 @@ export default function CanvasPage({
                 background: 'rgba(255,255,255,0.08)',
                 color: '#aaa',
                 border: '1px solid #444',
-                padding: '4px 10px',
-                borderRadius: '12px',
+                padding: '3px 8px',
+                borderRadius: 'var(--radius-sm)',
                 cursor: 'pointer',
                 fontWeight: 'bold',
                 fontSize: '9px',
                 whiteSpace: 'nowrap',
-                minHeight: '26px',
+                minHeight: '24px',
               }}
               onClick={() => { onSaveOnly(); setSaveSuccess(true); }}
             >
@@ -635,14 +665,14 @@ export default function CanvasPage({
                 background: '#d32f2f',
                 color: '#fff',
                 border: 'none',
-                padding: '4px 12px',
-                borderRadius: '12px',
+                padding: '3px 8px',
+                borderRadius: 'var(--radius-sm)',
                 cursor: 'pointer',
                 fontWeight: 'bold',
                 fontSize: '9px',
                 boxShadow: '0 2px 8px rgba(211,47,47,0.3)',
                 whiteSpace: 'nowrap',
-                minHeight: '26px',
+                minHeight: '24px',
               }}
               onClick={onGenerate}
             >
@@ -703,7 +733,7 @@ export default function CanvasPage({
             transform: 'translateX(-50%)',
             background: 'rgba(0, 0, 0, 0.75)',
             padding: '6px 18px',
-            borderRadius: '20px',
+            borderRadius: 'var(--radius-lg)',
             fontSize: '11px',
             color: '#fff',
             pointerEvents: 'none',
@@ -820,9 +850,9 @@ export default function CanvasPage({
             left: '50%',
             transform: 'translateX(-50%)',
             width: '92%',
-            maxWidth: '380px',
             background: 'rgba(20,20,20,0.95)',
-            padding: '12px 16px',
+            maxWidth: 'var(--container-sm)',
+            padding: 'var(--space-md) var(--space-lg)',
             borderRadius: '24px',
             backdropFilter: 'blur(12px)',
             border: '1px solid #2a2a2a',
@@ -894,7 +924,7 @@ export default function CanvasPage({
             <span
               style={{
                 color: '#888',
-                fontSize: '11px',
+                fontSize: 'var(--text-xs)',
                 marginTop: '6px',
                 textAlign: 'center',
                 display: 'block',
@@ -926,7 +956,7 @@ export default function CanvasPage({
             style={{
               background: '#1a1a1a',
               border: '1px solid #333',
-              borderRadius: '16px',
+              borderRadius: 'var(--radius-md)',
               padding: '24px',
               maxWidth: '320px',
               width: '85%',
@@ -944,7 +974,7 @@ export default function CanvasPage({
                   border: '1px solid #444',
                   color: '#888',
                   padding: '8px 24px',
-                  borderRadius: '20px',
+                  borderRadius: 'var(--radius-lg)',
                   cursor: 'pointer',
                   fontSize: '13px',
                 }}
@@ -958,7 +988,7 @@ export default function CanvasPage({
                   border: 'none',
                   color: '#fff',
                   padding: '8px 24px',
-                  borderRadius: '20px',
+                  borderRadius: 'var(--radius-lg)',
                   cursor: 'pointer',
                   fontSize: '13px',
                   fontWeight: 'bold',
@@ -995,7 +1025,7 @@ export default function CanvasPage({
             style={{
               background: '#1a1a1a',
               border: '1px solid #333',
-              borderRadius: '16px',
+              borderRadius: 'var(--radius-md)',
               padding: '24px',
               maxWidth: '300px',
               width: '85%',
@@ -1004,7 +1034,7 @@ export default function CanvasPage({
             onClick={(e) => e.stopPropagation()}
           >
             <div style={{ fontSize: '36px', marginBottom: '12px' }}>✅</div>
-            <p style={{ color: '#fff', fontSize: '16px', fontWeight: 'bold', margin: '0 0 8px 0' }}>
+            <p style={{ color: '#fff', fontSize: 'var(--text-md)', fontWeight: 'bold', margin: '0 0 8px 0' }}>
               {t('canvas.saved')}
             </p>
             <p style={{ color: '#888', fontSize: '13px', margin: '0 0 20px 0', lineHeight: '1.5' }}>
@@ -1018,7 +1048,7 @@ export default function CanvasPage({
                   border: 'none',
                   color: '#fff',
                   padding: '10px',
-                  borderRadius: '20px',
+                  borderRadius: 'var(--radius-lg)',
                   cursor: 'pointer',
                   fontSize: '13px',
                   fontWeight: 'bold',
@@ -1036,7 +1066,7 @@ export default function CanvasPage({
                     border: '1px solid #2196f3',
                     color: '#2196f3',
                     padding: '10px',
-                    borderRadius: '20px',
+                    borderRadius: 'var(--radius-lg)',
                     cursor: 'pointer',
                     fontSize: '13px',
                     fontWeight: 'bold',
@@ -1058,7 +1088,7 @@ export default function CanvasPage({
                     border: '1px solid #4caf50',
                     color: '#4caf50',
                     padding: '10px',
-                    borderRadius: '20px',
+                    borderRadius: 'var(--radius-lg)',
                     cursor: 'pointer',
                     fontSize: '13px',
                     width: '100%',
@@ -1078,7 +1108,7 @@ export default function CanvasPage({
                   border: '1px solid #444',
                   color: '#ccc',
                   padding: '10px',
-                  borderRadius: '20px',
+                  borderRadius: 'var(--radius-lg)',
                   cursor: 'pointer',
                   fontSize: '13px',
                   width: '100%',

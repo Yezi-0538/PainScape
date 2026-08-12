@@ -133,7 +133,7 @@ export default function SharePreviewModal({
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
-        padding: '20px',
+        padding: 'var(--space-xl)',
         boxSizing: 'border-box',
       }}
       onClick={onCancel}
@@ -157,7 +157,7 @@ export default function SharePreviewModal({
           color: '#fff',
           margin: '0 0 8px 0',
           textAlign: 'center',
-          fontSize: '16px',
+          fontSize: 'var(--text-md)',
           fontWeight: 'bold',
         }}>
           {t('sharePreview.title')}
@@ -195,7 +195,7 @@ export default function SharePreviewModal({
                 onClick={() => setSelectedContext(ctx.key)}
                 style={{
                   padding: '10px 8px',
-                  borderRadius: '12px',
+                  borderRadius: 'var(--radius-sm)',
                   border: selectedContext === ctx.key
                     ? `1.5px solid ${ctx.color}`
                     : '1px solid rgba(255,255,255,0.08)',
@@ -278,8 +278,8 @@ export default function SharePreviewModal({
         {/* 图片预览区 + 模糊控制 */}
         <div style={{
           background: '#0a0a0a',
-          borderRadius: '16px',
-          padding: '12px',
+          borderRadius: 'var(--radius-md)',
+          padding: 'var(--space-md)',
           marginBottom: '12px',
           display: 'flex',
           flexDirection: 'column',
@@ -290,7 +290,7 @@ export default function SharePreviewModal({
             position: 'relative',
             width: '100%',
             maxWidth: '320px',
-            borderRadius: '12px',
+            borderRadius: 'var(--radius-sm)',
             overflow: 'hidden',
           }}>
             <img
@@ -299,7 +299,7 @@ export default function SharePreviewModal({
                 width: '100%',
                 maxHeight: '220px',
                 objectFit: 'contain',
-                borderRadius: '12px',
+                borderRadius: 'var(--radius-sm)',
                 filter: blurEnabled ? `blur(${blurLevel}px)` : 'none',
                 transition: 'filter 0.3s ease',
               }}
@@ -338,7 +338,7 @@ export default function SharePreviewModal({
               marginBottom: blurEnabled ? '10px' : '0',
             }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span style={{ fontSize: '16px' }}>{blurEnabled ? '🔒' : '🔓'}</span>
+                <span style={{ fontSize: 'var(--text-md)' }}>{blurEnabled ? '🔒' : '🔓'}</span>
                 <span style={{ color: '#aaa', fontSize: '12px' }}>
                   {t('sharePreview.blurArtwork')}
                 </span>
@@ -348,7 +348,7 @@ export default function SharePreviewModal({
                 style={{
                   width: '44px',
                   height: '24px',
-                  borderRadius: '12px',
+                  borderRadius: 'var(--radius-sm)',
                   border: 'none',
                   background: blurEnabled ? '#ff9800' : '#444',
                   cursor: 'pointer',
@@ -401,13 +401,13 @@ export default function SharePreviewModal({
           background: 'rgba(255,255,255,0.03)',
           border: '1px solid rgba(255,255,255,0.08)',
           borderLeft: `4px solid ${currentContext?.color || '#888'}`,
-          borderRadius: '12px',
+          borderRadius: 'var(--radius-sm)',
           padding: '14px',
           marginBottom: '20px',
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
-            <span style={{ fontSize: '16px' }}>{currentContext?.emoji}</span>
-            <p style={{ color: '#fff', fontSize: '14px', fontWeight: 'bold', margin: 0 }}>
+            <span style={{ fontSize: 'var(--text-md)' }}>{currentContext?.emoji}</span>
+            <p style={{ color: '#fff', fontSize: 'var(--text-base)', fontWeight: 'bold', margin: 0 }}>
               {contextContent.title}
             </p>
           </div>
@@ -422,18 +422,19 @@ export default function SharePreviewModal({
           </p>
         </div>
 
-        {/* 按钮 */}
-        <div style={{ display: 'flex', gap: '12px' }}>
+        {/* 底部按钮 */}
+        <div style={{ display: 'flex', gap: '8px' }}>
           <button
             style={{
               flex: 1,
-              padding: '12px',
-              borderRadius: '14px',
+              padding: '8px 0',      // ✅ 从 12px 改为 8px
+              borderRadius: '14px',  // ✅ 从 20px 改为 14px
               background: '#222',
               border: '1px solid #333',
               color: '#888',
               cursor: 'pointer',
-              fontSize: '13px',
+              fontSize: '11px',      // ✅ 从 13px 改为 11px
+              minHeight: '36px',     // ✅ 添加固定最小高度
             }}
             onClick={onCancel}
           >
@@ -442,7 +443,7 @@ export default function SharePreviewModal({
           <button
             style={{
               flex: 1.5,
-              padding: '12px',
+              padding: '8px 0',
               borderRadius: '14px',
               background: blurEnabled
                 ? 'linear-gradient(135deg, #ff9800, #e65100)'
@@ -451,7 +452,8 @@ export default function SharePreviewModal({
               color: '#fff',
               fontWeight: 'bold',
               cursor: 'pointer',
-              fontSize: '13px',
+              fontSize: '11px',
+              minHeight: '36px',
             }}
             onClick={handleConfirmShare}
           >

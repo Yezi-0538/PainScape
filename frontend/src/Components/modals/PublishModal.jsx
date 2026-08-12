@@ -26,7 +26,7 @@ export default function PublishModal({
         display: 'flex',
         justifyContent: 'center',
         alignItems: 'center',
-        padding: '20px',
+        padding: 'var(--space-xl)',
         boxSizing: 'border-box',
       }}
     >
@@ -34,9 +34,9 @@ export default function PublishModal({
         style={{
           background: '#1c1c1c',
           padding: '24px',
-          borderRadius: '20px',
+          borderRadius: 'var(--radius-lg)',
           width: '100%',
-          maxWidth: '380px',
+          maxWidth: 'var(--container-sm)',
           border: '1px solid rgba(255,255,255,0.08)',
           boxShadow: '0 10px 40px rgba(0,0,0,0.5)',
           overflow: 'hidden',
@@ -59,7 +59,7 @@ export default function PublishModal({
           style={{
             background: 'rgba(255, 152, 0, 0.06)',
             border: '1px solid rgba(255, 152, 0, 0.15)',
-            borderRadius: '12px',
+            borderRadius: 'var(--radius-sm)',
             padding: '12px 14px',
             marginBottom: '16px',
           }}
@@ -80,7 +80,7 @@ export default function PublishModal({
           <div
             style={{
               marginBottom: '15px',
-              borderRadius: '12px',
+              borderRadius: 'var(--radius-sm)',
               overflow: 'hidden',
               border: '1px solid #333',
             }}
@@ -103,11 +103,11 @@ export default function PublishModal({
             background: '#111',
             color: '#fff',
             border: '1px solid #333',
-            borderRadius: '12px',
+            borderRadius: 'var(--radius-sm)',
             padding: '14px',
             boxSizing: 'border-box',
             marginBottom: '20px',
-            fontSize: '14px',
+            fontSize: 'var(--text-base)',
             lineHeight: '1.5',
             resize: 'none',
             outline: 'none',
@@ -119,13 +119,13 @@ export default function PublishModal({
           <button
             style={{
               flex: 1,
-              padding: '12px',
+              padding: 'var(--space-md)',
               background: '#2a2a2a',
               color: '#999',
               border: 'none',
-              borderRadius: '12px',
+              borderRadius: 'var(--radius-sm)',
               cursor: 'pointer',
-              fontSize: '14px',
+              fontSize: 'var(--text-base)',
               fontWeight: 'bold',
             }}
             onClick={onCancel}
@@ -136,15 +136,15 @@ export default function PublishModal({
           <button
             style={{
               flex: 1,
-              padding: '12px',
+              padding: 'var(--space-md)',
               background: isLoading
                 ? '#555'
                 : 'linear-gradient(135deg, #ff9800, #f44336)',
               color: '#fff',
               border: 'none',
-              borderRadius: '12px',
+              borderRadius: 'var(--radius-sm)',
               cursor: isLoading ? 'not-allowed' : 'pointer',
-              fontSize: '14px',
+              fontSize: 'var(--text-base)',
               fontWeight: 'bold',
               boxShadow: isLoading
                 ? 'none'

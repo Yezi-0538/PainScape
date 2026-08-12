@@ -42,7 +42,7 @@ export default function SplashPage({
             border: '1px solid rgba(255,255,255,0.15)',
             color: '#ccc',
             padding: '6px 14px',
-            borderRadius: '20px',
+            borderRadius: 'var(--radius-lg)',
             fontSize: '13px',
             cursor: 'pointer',
             transition: 'all 0.2s',
@@ -66,7 +66,7 @@ export default function SplashPage({
       <p
         style={{
           color: '#aaa',
-          fontSize: '14px',
+          fontSize: 'var(--text-base)',
           lineHeight: '1.8',
           textAlign: 'center',
           fontStyle: 'italic',

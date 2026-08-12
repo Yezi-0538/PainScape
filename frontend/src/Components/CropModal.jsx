@@ -55,12 +55,12 @@ const CropModal = ({
       alignItems: 'center',
       justifyContent: 'center',
       zIndex: 1100,
-      padding: '16px',
+      padding: 'var(--space-lg)',
       boxSizing: 'border-box',
       userSelect: 'none',
       WebkitUserSelect: 'none'
     }}>
-      <h3 style={{ color: '#fff', fontSize: '16px', marginBottom: '4px', fontWeight: 'bold' }}>
+      <h3 style={{ color: '#fff', fontSize: 'var(--text-md)', marginBottom: '4px', fontWeight: 'bold' }}>
         ✂️ {isAvatar ? t('crop.adjustAvatar') : t('crop.adjustBg')}
       </h3>
       <p style={{ color: '#666', fontSize: '11px', marginBottom: '24px' }}>
@@ -80,7 +80,7 @@ const CropModal = ({
           height: '280px',
           background: '#000',
           border: '1px solid #222',
-          borderRadius: '16px',
+          borderRadius: 'var(--radius-md)',
           position: 'relative',
           overflow: 'hidden',
           cursor: 'move',

@@ -55,7 +55,7 @@ export default function PostDetailModal({
           background: '#141414',
           border: '1px solid #2a2a2a',
           borderRadius: '24px',
-          padding: '20px',
+          padding: 'var(--space-xl)',
           boxSizing: 'border-box',
           boxShadow: '0 20px 50px rgba(0,0,0,0.8)',
           marginBottom: '40px',
@@ -75,7 +75,7 @@ export default function PostDetailModal({
             style={{
               color: '#ef5350',
               fontWeight: 'bold',
-              fontSize: '14px',
+              fontSize: 'var(--text-base)',
               letterSpacing: '0.5px',
             }}
           >
@@ -104,7 +104,7 @@ export default function PostDetailModal({
         {/* 图片 */}
         <div
           style={{
-            borderRadius: '16px',
+            borderRadius: 'var(--radius-md)',
             overflow: 'hidden',
             border: '1px solid #222',
             background: '#000',
@@ -127,7 +127,7 @@ export default function PostDetailModal({
           <p
             style={{
               color: '#fff',
-              fontSize: '16px',
+              fontSize: 'var(--text-md)',
               fontWeight: '600',
               lineHeight: '1.5',
               margin: '0 0 10px 0',
@@ -142,7 +142,7 @@ export default function PostDetailModal({
                 fontSize: '11px',
                 background: 'rgba(211,47,47,0.1)',
                 padding: '3px 10px',
-                borderRadius: '12px',
+                borderRadius: 'var(--radius-sm)',
                 fontWeight: 'bold',
               }}
             >
@@ -158,8 +158,8 @@ export default function PostDetailModal({
         <div
           style={{
             background: 'linear-gradient(145deg, #181818, #111111)',
-            padding: '16px',
-            borderRadius: '16px',
+            padding: 'var(--space-lg)',
+            borderRadius: 'var(--radius-md)',
             marginBottom: '14px',
             border: '1px solid rgba(255,255,255,0.03)',
             borderLeft: '4px solid #d32f2f',
@@ -191,8 +191,8 @@ export default function PostDetailModal({
         <div
           style={{
             background: 'linear-gradient(145deg, #181a18, #111311)',
-            padding: '16px',
-            borderRadius: '16px',
+            padding: 'var(--space-lg)',
+            borderRadius: 'var(--radius-md)',
             border: '1px solid rgba(255,255,255,0.03)',
             borderLeft: '4px solid #4caf50',
             marginBottom: '20px',
@@ -262,7 +262,7 @@ export default function PostDetailModal({
                       ? 'rgba(76,175,80,0.15)'
                       : 'rgba(255,255,255,0.02)',
                     border: '1px solid rgba(76,175,80,0.3)',
-                    borderRadius: '20px',
+                    borderRadius: 'var(--radius-lg)',
                     color: '#4caf50',
                     padding: '6px 14px',
                     fontSize: '11px',
@@ -301,7 +301,7 @@ export default function PostDetailModal({
                   background: 'transparent',
                   border: '1px dashed #4caf50',
                   color: '#4caf50',
-                  borderRadius: '12px',
+                  borderRadius: 'var(--radius-sm)',
                   fontSize: '12px',
                   cursor: 'pointer',
                   fontWeight: 'bold',
@@ -319,8 +319,8 @@ export default function PostDetailModal({
           <div
             style={{
               background: '#1c1c1c',
-              padding: '16px',
-              borderRadius: '16px',
+              padding: 'var(--space-lg)',
+              borderRadius: 'var(--radius-md)',
               border: '1px solid #333',
               marginBottom: '20px',
             }}
@@ -409,7 +409,7 @@ export default function PostDetailModal({
               onClick={() => onHug(viewingPost.id)}
               style={{
                 flex: 1.3,
-                padding: '12px',
+                padding: 'var(--space-md)',
                 borderRadius: '24px',
                 border: viewingPost.hasUserHugged
                   ? '1px solid #ef5350'
@@ -427,7 +427,7 @@ export default function PostDetailModal({
                 fontSize: '13px',
               }}
             >
-              <span style={{ fontSize: '16px' }}>
+              <span style={{ fontSize: 'var(--text-md)' }}>
                 {viewingPost.hasUserHugged ? '❤️' : '🤍'}
               </span>
               <span>
@@ -451,7 +451,7 @@ export default function PostDetailModal({
               onClick={onClose}
               style={{
                 flex: 1,
-                padding: '12px',
+                padding: 'var(--space-md)',
                 borderRadius: '24px',
                 border: 'none',
                 background: '#333',
@@ -470,7 +470,7 @@ export default function PostDetailModal({
               onClick={() => onDelete(viewingPost.id)}
               style={{
                 width: '100%',
-                padding: '12px',
+                padding: 'var(--space-md)',
                 borderRadius: '24px',
                 border: '1px solid rgba(244, 67, 54, 0.3)',
                 background: 'rgba(244, 67, 54, 0.05)',
