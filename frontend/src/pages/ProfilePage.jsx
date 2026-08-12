@@ -1,5 +1,5 @@
 // src/pages/ProfilePage.jsx
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useUser, PRESET_BACKGROUNDS, PRESET_AVATARS } from '../contexts/UserContext';
 import { useI18n } from '../i18n/i18nContext';
 import CropModal from '../Components/CropModal';
@@ -15,10 +15,12 @@ const PRESET_BG_NAMES_EN = [
 ];
 
 export default function ProfilePage({
-  currentUserId = "user_A",
-  targetUserId = "user_A",
+  currentUserId = "user_guest",
+  targetUserId = "user_guest",
+  isGuest = false,
+  onOpenAuth,
   setTargetUserId,
-  onViewProfile, // 🌟 接收主页精准跳转回调
+  onViewProfile,
   history = [],
   posts = [],
   setPosts,
@@ -40,39 +42,57 @@ export default function ProfilePage({
   const [cropSrc, setCropSrc] = useState(null);
   const [cropType, setCropType] = useState('avatar');
 
-  // 全局用户资料缓存
-  const [globalProfiles, setGlobalProfiles] = useState(() => {
-    const cached = localStorage.getItem("painscape_simulated_profiles");
-    if (!cached) {
-      const defaultProfiles = {
-        "user_A": {
-          nickname: "PainScape_Companion",
-          email: "user@painscape.org",
-          avatar: "🩸",
-          signature: t('profile.defaultSignature'),
-          bgIndex: 0,
-          customAvatar: "",
-          customBg: ""
-        }
-      };
-      localStorage.setItem("painscape_simulated_profiles", JSON.stringify(defaultProfiles));
-      return defaultProfiles;
+  // 本地名片缓存
+  const globalProfiles = useMemo(() => {
+    try {
+      const cached = localStorage.getItem("painscape_simulated_profiles");
+      return cached ? JSON.parse(cached) : {};
+    } catch (e) {
+      return {};
     }
-    return JSON.parse(cached);
-  });
+  }, []);
 
-  // 目标外部用户信息
-  const [targetUserInfo, setTargetUserInfo] = useState(() => {
-    return isSelf ? userInfo : (globalProfiles[targetUserId] || {
-      nickname: `同伴_${String(targetUserId).slice(-4)}`,
-      email: "companion@painscape.org",
-      avatar: "🩹",
+  const authorPostFromApp = useMemo(() => {
+    return posts.find(p => String(p.userId || p.user_id || p.authorId) === String(targetUserId));
+  }, [posts, targetUserId]);
+
+  // 1. 挂载第 1 毫秒精确计算出初始资料（无伪降级账号）
+  const initialProfile = useMemo(() => {
+    if (isSelf && !isGuest && userInfo?.email) return userInfo;
+    
+    if (isGuest && isSelf) {
+      return {
+        id: targetUserId,
+        nickname: "游客同伴",
+        email: "未登录 (点击登录同步云端档案)",
+        avatar: "🩹",
+        signature: t('profile.defaultSignature'),
+        bgIndex: 0,
+        customAvatar: "",
+        customBg: ""
+      };
+    }
+
+    return {
+      id: targetUserId,
+      nickname: authorPostFromApp?.nickname || authorPostFromApp?.authorName || `云端同伴_${String(targetUserId).slice(-4)}`,
+      email: "已验证云端账户",
+      avatar: authorPostFromApp?.avatar || "🌸",
       signature: t('profile.defaultSignature'),
-      bgIndex: 0
-    });
-  });
+      bgIndex: 0,
+      customAvatar: authorPostFromApp?.customAvatar || authorPostFromApp?.custom_avatar || "",
+      customBg: ""
+    };
+  }, [isSelf, isGuest, userInfo, targetUserId, authorPostFromApp, t]);
 
-  const activeProfile = isSelf ? userInfo : targetUserInfo;
+  const [targetUserInfo, setTargetUserInfo] = useState(initialProfile);
+  const [userCloudPosts, setUserCloudPosts] = useState([]);
+  const [cloudPainRecordsCount, setCloudPainRecordsCount] = useState(0);
+
+  // 控制全屏加载遮罩
+  const [isProfileLoading, setIsProfileLoading] = useState(true);
+
+  const activeProfile = isSelf ? (isGuest ? initialProfile : (userInfo || initialProfile)) : targetUserInfo;
 
   const [isFollowing, setIsFollowing] = useState(false);
   const [isFollowLoading, setIsFollowLoading] = useState(false);
@@ -87,17 +107,15 @@ export default function ProfilePage({
   const followersCount = followers.length;
   const followingCount = followings.length;
 
-  // 编辑状态
-  const [editNickname, setEditNickname] = useState(activeProfile.nickname);
-  const [editAvatar, setEditAvatar] = useState(activeProfile.avatar);
-  const [editBgIndex, setEditBgIndex] = useState(activeProfile.bgIndex);
-  const [editCustomAvatar, setEditCustomAvatar] = useState(activeProfile.customAvatar || '');
-  const [editCustomBg, setEditCustomBg] = useState(activeProfile.customBg || '');
-  const [editSignature, setEditSignature] = useState(activeProfile.signature || '');
+  const [editNickname, setEditNickname] = useState('');
+  const [editAvatar, setEditAvatar] = useState('🩸');
+  const [editBgIndex, setEditBgIndex] = useState(0);
+  const [editCustomAvatar, setEditCustomAvatar] = useState('');
+  const [editCustomBg, setEditCustomBg] = useState('');
+  const [editSignature, setEditSignature] = useState('');
 
-  const activeBg = PRESET_BACKGROUNDS[activeProfile.bgIndex] || PRESET_BACKGROUNDS[0];
+  const activeBg = PRESET_BACKGROUNDS[activeProfile?.bgIndex] || PRESET_BACKGROUNDS[0];
 
-  // 🌟 点击关注/粉丝列表卡片，精准跳转至该同伴主页
   const handleSelectUser = (selectedId) => {
     if (!selectedId) return;
     setShowFollowingModal(false);
@@ -109,173 +127,196 @@ export default function ProfilePage({
     }
   };
 
-  // 弹窗打开时同步初始数据
   useEffect(() => {
-    if (showEditModal) {
+    if (showEditModal && activeProfile) {
       setEditNickname(activeProfile.nickname || "");
       setEditAvatar(activeProfile.avatar || "🩸");
       setEditBgIndex(activeProfile.bgIndex ?? 0);
       setEditCustomAvatar(activeProfile.customAvatar || "");
       setEditCustomBg(activeProfile.customBg || "");
-
-      const defaultSigZh = "让说不出的痛，换一种方式抵达。🧘";
-      const defaultSigEn = "Let the unspeakable pain find another way to be heard. 🧘";
-
-      if (activeProfile.signature === defaultSigZh || !activeProfile.signature) {
-        setEditSignature(t('profile.defaultSignature'));
-      } else if (activeProfile.signature === defaultSigEn) {
-        setEditSignature(t('profile.defaultSignature'));
-      } else {
-        setEditSignature(activeProfile.signature);
-      }
+      setEditSignature(activeProfile.signature || t('profile.defaultSignature'));
     }
-  }, [showEditModal, isEn, t, activeProfile]);
+  }, [showEditModal, activeProfile, t]);
 
-  // 🌟 核心：按 UID 精准加载 Supabase 中的用户头像与昵称
+  // 🌟 核心直连 Supabase 云端拉取：Promise.all 5路并发 + 安全超时兜底
   useEffect(() => {
-    const loadProfileAndSocialData = async () => {
+    let isMounted = true;
+
+    const loadCloudData = async () => {
+      if (!targetUserId || targetUserId.startsWith('guest_') || targetUserId === 'user_guest') {
+        if (isMounted) setIsProfileLoading(false);
+        return;
+      }
+
+      // 🌟 1. 检查是否有社交关系本地缓存（key: painscape_social_cache_UID）
+      const cacheKey = `painscape_social_cache_${targetUserId}`;
+      const cachedSocial = JSON.parse(localStorage.getItem(cacheKey) || "null");
+      const hasSocialCache = cachedSocial && Array.isArray(cachedSocial.followers) && Array.isArray(cachedSocial.followings);
+      // 如果有缓存，直接使用缓存，不让用户等待！
+      if (hasSocialCache && isMounted) {
+        setFollowers(cachedSocial.followers);
+        setFollowings(cachedSocial.followings);
+        setIsFollowing(cachedSocial.followers.some(f => String(f.id) === String(currentUserId)));
+      } else {
+        setIsProfileLoading(true); // 无缓存时才开启加载提示
+      }
+
       try {
-        // 1. 加载目标用户自身资料
-        let { data: profile } = await supabase
-          .from("profiles")
-          .select("*")
-          .eq("id", targetUserId)
-          .maybeSingle();
+        // 🌟 5 路云端请求同时并发发起
+        const [
+          profileRes,
+          userPostsRes,
+          painRecordsRes,
+          followerRes,
+          followingRes,
+          authRes
+        ] = await Promise.all([
+          supabase.from("profiles").select("*").eq("id", targetUserId).maybeSingle(),
+          supabase.from("posts").select("*").eq("user_id", targetUserId).order("created_at", { ascending: false }),
+          supabase.from("pain_records").select("id").eq("user_id", targetUserId),
+          !hasSocialCache ? supabase.from("follows").select("follower_id").eq("following_id", targetUserId) : Promise.resolve({ data: null }),
+          !hasSocialCache ? supabase.from("follows").select("following_id").eq("follower_id", targetUserId) : Promise.resolve({ data: null }),
+          isSelf ? supabase.auth.getUser() : Promise.resolve({ data: { user: null } })
+        ]);
 
-        if (profile) {
-          const mapped = {
-            id: profile.id,
-            nickname: profile.nickname || `同伴_${String(profile.id).slice(-4)}`,
-            email: profile.email || "companion@painscape.org",
-            avatar: profile.avatar || "🌸",
-            signature: profile.signature || t('profile.defaultSignature'),
-            bgIndex: profile.bg_index || 0,
-            customAvatar: profile.custom_avatar || profile.customAvatar || "",
-            customBg: profile.custom_bg || profile.customBg || ""
+        if (!isMounted) return;
+
+        // 1. 解析 Profile
+        const profile = profileRes.data;
+        const realAuthEmail = authRes?.data?.user?.email || "";
+
+        if (isSelf && !isGuest) {
+          const mappedSelf = {
+            id: currentUserId,
+            nickname: profile?.nickname || (realAuthEmail ? realAuthEmail.split('@')[0] : "云端同伴"),
+            email: realAuthEmail || profile?.email || "云端账号",
+            avatar: profile?.avatar || userInfo?.avatar || "🩸",
+            signature: profile?.signature || userInfo?.signature || t('profile.defaultSignature'),
+            bgIndex: profile?.bg_index ?? userInfo?.bgIndex ?? 0,
+            customAvatar: profile?.custom_avatar || profile?.customAvatar || userInfo?.customAvatar || "",
+            customBg: profile?.custom_bg || profile?.customBg || userInfo?.customBg || ""
           };
-          setTargetUserInfo(mapped);
-          if (isSelf) setUserInfo(mapped);
+          setTargetUserInfo(mappedSelf);
+        } else if (!isSelf) {
+          const mappedOther = {
+            id: targetUserId,
+            nickname: profile?.nickname || authorPostFromApp?.nickname || authorPostFromApp?.authorName || `云端同伴_${String(targetUserId).slice(-4)}`,
+            email: profile?.email || "已验证账号",
+            avatar: profile?.avatar || authorPostFromApp?.avatar || "🌸",
+            signature: profile?.signature || t('profile.defaultSignature'),
+            bgIndex: profile?.bg_index ?? 0,
+            customAvatar: profile?.custom_avatar || profile?.customAvatar || authorPostFromApp?.customAvatar || authorPostFromApp?.custom_avatar || "",
+            customBg: profile?.custom_bg || profile?.customBg || ""
+          };
+          setTargetUserInfo(mappedOther);
         }
 
-        // 2. 第一步：查 follows 关注表
-        const { data: dbFollowerRows } = await supabase
-          .from("follows")
-          .select("follower_id")
-          .eq("following_id", targetUserId);
-
-        const { data: dbFollowingRows } = await supabase
-          .from("follows")
-          .select("following_id")
-          .eq("follower_id", targetUserId);
-
-        const followerUids = dbFollowerRows ? dbFollowerRows.map(r => r.follower_id) : [];
-        const followingUids = dbFollowingRows ? dbFollowingRows.map(r => r.following_id) : [];
-
-        // 3. 第二步：根据 UID 列表批量查询 Supabase profiles 表
-        const allRelatedUids = Array.from(new Set([...followerUids, ...followingUids]));
-        let remoteProfilesMap = {};
-
-        if (allRelatedUids.length > 0) {
-          const { data: relatedProfiles, error: profErr } = await supabase
-            .from("profiles")
-            .select("*")
-            .in("id", allRelatedUids);
-
-          if (relatedProfiles) {
-            relatedProfiles.forEach(p => {
-              remoteProfilesMap[p.id] = p;
-            });
-            console.log("🟢 成功通过 UID 读取到云端同伴资料:", remoteProfilesMap);
-          } else if (profErr) {
-            console.warn("⚠️ 读取 profiles 失败，请检查 Supabase RLS 策略:", profErr);
-          }
+        // 2. 解析云端帖子
+        if (userPostsRes.data) {
+          const formattedPosts = userPostsRes.data.map(p => ({
+            ...p,
+            id: String(p.id),
+            userId: p.user_id,
+            authorId: p.user_id,
+            painName: p.pain_tags?.[0] || '痛经',
+            userExperience: p.user_experience || '',
+            createdAt: p.created_at,
+          }));
+          setUserCloudPosts(formattedPosts);
         }
 
-        const localProfiles = JSON.parse(localStorage.getItem("painscape_simulated_profiles") || "{}");
+        // 3. 解析云端记录数
+        if (painRecordsRes.data) {
+          setCloudPainRecordsCount(painRecordsRes.data.length);
+        }
 
-        // 🌟 多级 UID 智能挖掘函数 (优先当前登录/目标用户 -> Supabase 表 -> 社区帖子名片 -> 本地缓存)
-        const resolveProfileByUid = (uid) => {
-          const uidStr = String(uid);
+        // 🌟 3. 如果之前没有缓存，解析 Supabase 的关系表，并立刻写入本地缓存！
+        if (!hasSocialCache && (followerRes.data || followingRes.data)) {
+          let followerUids = followerRes.data ? followerRes.data.map(r => String(r.follower_id)) : [];
+          let followingUids = followingRes.data ? followingRes.data.map(r => String(r.following_id)) : [];
 
-          if (uidStr === String(currentUserId) && userInfo) {
-            return {
-              id: uidStr,
-              nickname: userInfo.nickname || "我的名字",
-              avatar: userInfo.avatar || "🩸",
-              customAvatar: userInfo.customAvatar || "",
-              signature: userInfo.signature || t('profile.defaultSignature')
-            };
+          const allRelatedUids = Array.from(new Set([...followerUids, ...followingUids]));
+          let remoteProfilesMap = {};
+
+          if (allRelatedUids.length > 0) {
+            const { data: relatedProfiles } = await supabase
+              .from("profiles")
+              .select("*")
+              .in("id", allRelatedUids);
+
+            if (relatedProfiles) {
+              relatedProfiles.forEach(p => { remoteProfilesMap[p.id] = p; });
+            }
           }
 
-          if (uidStr === String(targetUserId) && targetUserInfo) {
+          const resolveProfileByUid = (uid) => {
+            const uidStr = String(uid);
+            if (uidStr === String(currentUserId) && userInfo) {
+              return {
+                id: uidStr,
+                nickname: userInfo.nickname || "我的名字",
+                avatar: userInfo.avatar || "🩸",
+                customAvatar: userInfo.customAvatar || "",
+                signature: userInfo.signature || t('profile.defaultSignature')
+              };
+            }
+            const remoteP = remoteProfilesMap[uidStr];
+            const postP = posts.find(p => String(p.userId || p.user_id || p.authorId) === uidStr);
+
             return {
               id: uidStr,
-              nickname: targetUserInfo.nickname || "同伴",
-              avatar: targetUserInfo.avatar || "🌸",
-              customAvatar: targetUserInfo.customAvatar || "",
-              signature: targetUserInfo.signature || t('profile.defaultSignature')
+              nickname: remoteP?.nickname || postP?.nickname || postP?.authorName || `同伴_${uidStr.slice(-4)}`,
+              avatar: remoteP?.avatar || postP?.avatar || "🩹",
+              customAvatar: remoteP?.custom_avatar || remoteP?.customAvatar || postP?.customAvatar || postP?.custom_avatar || "",
+              signature: remoteP?.signature || t('profile.defaultSignature')
             };
-          }
-
-          const remoteP = remoteProfilesMap[uidStr];
-          const postP = posts.find(p => String(p.userId || p.user_id || p.authorId) === uidStr);
-          const localP = localProfiles[uidStr] || globalProfiles[uidStr] || {};
-
-          const nickname =
-            remoteP?.nickname ||
-            postP?.nickname || postP?.authorName || postP?.author_name ||
-            localP?.nickname ||
-            `同伴_${uidStr.slice(-4)}`;
-
-          const avatar =
-            remoteP?.avatar ||
-            postP?.avatar || postP?.authorAvatar ||
-            localP?.avatar ||
-            "🩹";
-
-          const customAvatar =
-            remoteP?.custom_avatar || remoteP?.customAvatar ||
-            postP?.customAvatar || postP?.custom_avatar || postP?.profiles?.custom_avatar ||
-            localP?.customAvatar || "";
-
-          const signature =
-            remoteP?.signature ||
-            localP?.signature ||
-            t('profile.defaultSignature');
-
-          return {
-            id: uidStr,
-            nickname,
-            avatar,
-            customAvatar,
-            signature
           };
-        };
 
-        // 4. 组装格式化列表
-        const formattedFollowers = followerUids.map(uid => resolveProfileByUid(uid));
-        const formattedFollowings = followingUids.map(uid => resolveProfileByUid(uid));
+          const newFollowers = followerUids.map(uid => resolveProfileByUid(uid));
+          const newFollowings = followingUids.map(uid => resolveProfileByUid(uid));
 
-        setFollowers(formattedFollowers);
-        setFollowings(formattedFollowings);
-        setIsFollowing(followerUids.some(uid => String(uid) === String(currentUserId)));
+          setFollowers(newFollowers);
+          setFollowings(newFollowings);
+          setIsFollowing(followerUids.some(uid => String(uid) === String(currentUserId)));
+
+          // 🌟 一键保存入 LocalStorage 缓存
+          localStorage.setItem(cacheKey, JSON.stringify({
+            followers: newFollowers,
+            followings: newFollowings,
+            updatedAt: Date.now()
+          }));
+        }
 
       } catch (err) {
-        console.warn("读取社交数据异常降级:", err);
+        console.warn("读取主页云端数据异常:", err);
+      } finally {
+        if (isMounted) {
+          setIsProfileLoading(false);
+        }
       }
     };
 
-    loadProfileAndSocialData();
-  }, [targetUserId, currentUserId, isSelf, t, posts, userInfo, targetUserInfo]);
+    loadCloudData();
 
-  // 关注与取消关注
+    return () => { isMounted = false; };
+  }, [targetUserId, currentUserId, isSelf, isGuest, t]);
+
+  //  关注与取消关注：云端直连写表并实时更新 state
+  // 本地瞬间写缓存 + 异步推云端
   const handleToggleFollow = async () => {
+    if (isGuest || !currentUserId || currentUserId.startsWith('guest_') || currentUserId === 'user_guest') {
+      if (onOpenAuth) onOpenAuth();
+      else alert('请先登录后再关注同伴！');
+      return;
+    }
     if (isFollowLoading) return;
     setIsFollowLoading(true);
 
     const willFollow = !isFollowing;
     setIsFollowing(willFollow);
 
+    // 1. 实时计算新的粉丝列表
+    let updatedFollowers = [];
     if (willFollow) {
       const myInfo = {
         id: currentUserId,
@@ -284,29 +325,26 @@ export default function ProfilePage({
         signature: userInfo?.signature || "",
         customAvatar: userInfo?.customAvatar || ""
       };
-      setFollowers(prev => [...prev.filter(f => String(f.id) !== String(currentUserId)), myInfo]);
+      updatedFollowers = [...followers.filter(f => String(f.id) !== String(currentUserId)), myInfo];
     } else {
-      setFollowers(prev => prev.filter(f => String(f.id) !== String(currentUserId)));
+      updatedFollowers = followers.filter(f => String(f.id) !== String(currentUserId));
     }
 
-    let cachedFollows = JSON.parse(localStorage.getItem("painscape_simulated_follows") || "[]");
-    if (willFollow) {
-      if (!cachedFollows.some(f => String(f.followerId) === String(currentUserId) && String(f.followingId) === String(targetUserId))) {
-        cachedFollows.push({ followerId: currentUserId, followingId: targetUserId });
-      }
-    } else {
-      cachedFollows = cachedFollows.filter(f => !(String(f.followerId) === String(currentUserId) && String(f.followingId) === String(targetUserId)));
-    }
-    localStorage.setItem("painscape_simulated_follows", JSON.stringify(cachedFollows));
+    setFollowers(updatedFollowers);
 
+    // 🌟 2. 实时更新并写入该同伴的社交缓存！
+    const cacheKey = `painscape_social_cache_${targetUserId}`;
+    localStorage.setItem(cacheKey, JSON.stringify({
+      followers: updatedFollowers,
+      followings: followings,
+      updatedAt: Date.now()
+    }));
+
+    setIsFollowLoading(false);
+
+    // 3. 后台单次异步请求写入 Supabase
     try {
       if (willFollow) {
-        await supabase
-          .from("follows")
-          .delete()
-          .eq("follower_id", currentUserId)
-          .eq("following_id", targetUserId);
-
         await supabase
           .from("follows")
           .insert({ follower_id: currentUserId, following_id: targetUserId });
@@ -318,13 +356,10 @@ export default function ProfilePage({
           .eq("following_id", targetUserId);
       }
     } catch (err) {
-      console.warn("关注操作降级处理:", err);
-    } finally {
-      setIsFollowLoading(false);
+      console.warn("后台关注同步云端提示:", err);
     }
   };
 
-  // 图片选择与压缩
   const handleFileSelected = async (e, type) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -355,7 +390,6 @@ export default function ProfilePage({
     setCropSrc(null);
   };
 
-  // 保存个人资料
   const handleSaveChanges = async () => {
     if (!editNickname.trim()) {
       alert(t('toast.saveExperienceRequired') || '昵称不能为空！');
@@ -363,7 +397,7 @@ export default function ProfilePage({
     }
     const updatedInfo = {
       nickname: editNickname,
-      email: activeProfile.email,
+      email: activeProfile?.email,
       avatar: editAvatar,
       bg_index: editBgIndex,
       custom_avatar: editCustomAvatar,
@@ -377,13 +411,13 @@ export default function ProfilePage({
         .update(updatedInfo)
         .eq("id", currentUserId);
     } catch (err) {
-      console.warn("云端保存失败，保存至本地缓存:", err);
+      console.warn("云端保存失败:", err);
     }
 
     const mapped = {
       id: currentUserId,
       nickname: editNickname,
-      email: activeProfile.email,
+      email: activeProfile?.email,
       avatar: editAvatar,
       bgIndex: editBgIndex,
       customAvatar: editCustomAvatar,
@@ -391,37 +425,38 @@ export default function ProfilePage({
       signature: editSignature,
     };
 
-    if (isSelf) setUserInfo(mapped);
+    if (isSelf && setUserInfo) setUserInfo(mapped); 
     setTargetUserInfo(mapped);
-
-    const nextProfiles = { ...globalProfiles, [currentUserId]: mapped };
-    setGlobalProfiles(nextProfiles);
-    localStorage.setItem("painscape_simulated_profiles", JSON.stringify(nextProfiles));
-
     setShowEditModal(false);
   };
 
-  // 校验筛选属于该用户的帖子
-  const myRealPosts = posts.filter((p) => {
-    if (!p || typeof p !== 'object') return false;
-    const matchesUser =
-      (p.userId && String(p.userId) === String(targetUserId)) ||
-      (p.authorId && String(p.authorId) === String(targetUserId)) ||
-      (p.user_id && String(p.user_id) === String(targetUserId));
+  //  融合云端、内存与本地最新帖子
+  const myRealPosts = useMemo(() => {
+    const localPosts = JSON.parse(localStorage.getItem("painscape_posts") || "[]");
+    const combined = [...userCloudPosts, ...posts, ...localPosts];
+    const uniqueMap = new Map();
 
-    if (!matchesUser) return false;
+    combined.forEach(p => {
+      if (!p || typeof p !== 'object') return;
+      const matchesUser = 
+        (p.userId && String(p.userId) === String(targetUserId)) ||
+        (p.authorId && String(p.authorId) === String(targetUserId)) ||
+        (p.user_id && String(p.user_id) === String(targetUserId));
+        
+      if (!matchesUser) return;
 
-    const hasValidImg = p.img && typeof p.img === 'string' && p.img.trim().length > 10;
-    const hasValidText = Boolean(
-      (p.text && String(p.text).trim()) ||
-      (p.painName && String(p.painName).trim()) ||
-      (p.content && (p.content.chief_complaint || p.content.text))
-    );
+      const pKey = String(p.id || p.img || Math.random());
+      if (!uniqueMap.has(pKey)) {
+        uniqueMap.set(pKey, p);
+      }
+    });
 
-    return hasValidImg && hasValidText;
-  });
+    return Array.from(uniqueMap.values());
+  }, [userCloudPosts, posts, targetUserId]);
 
-  const totalRecords = isSelf ? history.length : myRealPosts.length;
+  const totalRecords = isSelf 
+    ? Math.max(history.length, cloudPainRecordsCount, myRealPosts.length) 
+    : myRealPosts.length;
 
   const getMostFrequentPain = () => {
     if (totalRecords === 0) return t('resultLabels.notProvided') || '暂无';
@@ -440,27 +475,29 @@ export default function ProfilePage({
     return (num % 15) + baseSeed;
   };
 
-  const currentBackground = activeProfile.customBg
+  const currentBackground = activeProfile?.customBg
     ? `url(${activeProfile.customBg}) center/cover no-repeat`
     : activeBg.gradient;
 
-  const displaySignature = (!activeProfile.signature ||
-    activeProfile.signature === "让说不出的痛，换一种方式抵达。🧘" ||
+  const displaySignature = (!activeProfile?.signature || 
+    activeProfile.signature === "让说不出的痛，换一种方式抵达。🧘" || 
     activeProfile.signature === "Let the unspeakable pain find another way to be heard. 🧘")
     ? t('profile.defaultSignature')
     : activeProfile.signature;
 
-  // 删除帖子
   const handleDeletePostInProfile = async (postId) => {
     if (window.confirm('确定要删除这条具身档案吗？删除后不可恢复。')) {
       const targetId = String(postId);
       await deletePost(targetId, currentUserId);
+      setUserCloudPosts(prev => prev.filter(p => String(p.id) !== targetId));
       if (setPosts) {
         setPosts(prev => prev.filter(p => String(p.id) !== targetId));
       }
       setSelectedPostDetail(null);
     }
   };
+
+  if (!activeProfile) return null;
 
   return (
     <div
@@ -475,6 +512,9 @@ export default function ProfilePage({
         transition: 'background 0.3s ease',
       }}
     >
+      {/* 动画样式定义 */}
+      <style>{`@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }`}</style>
+
       {activeProfile.customBg && (
         <div
           style={{
@@ -498,6 +538,40 @@ export default function ProfilePage({
         }}
       >
         {/* ===== 头部导航 ===== */}
+        {isSelf && isGuest && (
+          <div style={{
+            background: 'linear-gradient(135deg, rgba(255,152,0,0.15), rgba(244,67,54,0.15))',
+            border: '1px solid rgba(255,152,0,0.4)',
+            borderRadius: '18px',
+            padding: '14px 16px',
+            marginBottom: '20px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '12px'
+          }}>
+            <div style={{ color: '#ffe0b2', fontSize: '12.5px', lineHeight: '1.4' }}>
+              ⚡️ 当前为<strong>游客临时身份</strong>。登录后可自动同步云端档案与关注关系。
+            </div>
+            <button
+              onClick={onOpenAuth}
+              style={{
+                padding: '8px 16px',
+                background: '#ff9800',
+                color: '#fff',
+                border: 'none',
+                borderRadius: '20px',
+                fontSize: '12px',
+                fontWeight: 'bold',
+                cursor: 'pointer',
+                flexShrink: 0,
+                boxShadow: '0 4px 12px rgba(255,152,0,0.3)'
+              }}
+            >
+              登录/注册
+            </button>
+          </div>
+        )}
         <div
           style={{
             display: 'flex',
@@ -513,6 +587,32 @@ export default function ProfilePage({
           </h2>
 
           <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+            {/* 顶栏微型加载提示：数据更新时显示极简动画，替代原来的全屏遮罩 */}
+            {isProfileLoading && (
+              <span style={{
+                fontSize: '11px',
+                color: '#ffb74d',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '5px',
+                background: 'rgba(255,183,77,0.1)',
+                border: '1px solid rgba(255,183,77,0.2)',
+                padding: '3px 8px',
+                borderRadius: '12px',
+                lineHeight: 1,
+              }}>
+                <span style={{
+                  display: 'inline-block',
+                  width: '9px',
+                  height: '9px',
+                  border: '1.5px solid rgba(255,183,77,0.3)',
+                  borderTop: '1.5px solid #ffb74d',
+                  borderRadius: '50%',
+                  animation: 'spin 0.8s linear infinite'
+                }} />
+                更新中
+              </span>
+            )}
             {setTargetLanguage && (
               <button
                 onClick={() => setTargetLanguage(isEn ? 'zh' : 'en')}
@@ -589,7 +689,7 @@ export default function ProfilePage({
                 alt="avatar"
               />
             ) : (
-              activeProfile.avatar
+              activeProfile.avatar || "🩸"
             )}
           </div>
 
@@ -686,20 +786,20 @@ export default function ProfilePage({
               <span
                 style={{
                   fontSize: '9.5px',
-                  color: '#4caf50',
-                  background: 'rgba(76,175,80,0.1)',
+                  color: isGuest ? '#ff9800' : '#4caf50',
+                  background: isGuest ? 'rgba(255,152,0,0.1)' : 'rgba(76,175,80,0.1)',
                   padding: '2px 8px',
                   borderRadius: '10px',
                   display: 'inline-block',
                 }}
               >
-                {t('profile.memberStatus')}
+                {isGuest ? '游客临时态' : t('profile.memberStatus')}
               </span>
             )}
           </div>
 
           {/* 编辑资料 */}
-          {isSelf && (
+          {isSelf && !isGuest && (
             <button
               onClick={(e) => {
                 e.stopPropagation();
@@ -953,7 +1053,7 @@ export default function ProfilePage({
               cursor: 'pointer',
             }}
           >
-            {t('profile.logout')}
+            {isGuest ? '退出游客身份' : t('profile.logout')}
           </button>
         )}
       </div>
@@ -1224,7 +1324,7 @@ export default function ProfilePage({
         onCancel={handleCropCancel}
       />
 
-      {/* ===== 🌟 关注同伴列表弹窗（展示真实头像/昵称，且支持精准导航点击） ===== */}
+      {/* ===== 关注同伴列表弹窗 ===== */}
       {showFollowingModal && (
         <div style={{
           position: 'fixed', top: 0, left: 0,
@@ -1242,7 +1342,7 @@ export default function ProfilePage({
 
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', borderBottom: '1px solid #2d2d2d', paddingBottom: '10px' }}>
               <h3 style={{ color: '#fff', margin: 0, fontSize: '15px', fontWeight: 'bold' }}>
-                🤝 {isSelf ? t('profile.myFollowings') : `${targetUserInfo.nickname} 的同伴`} ({followingCount})
+                🤝 {isSelf ? t('profile.myFollowings') : `${activeProfile.nickname} 的同伴`} ({followingCount})
               </h3>
               <button
                 onClick={() => setShowFollowingModal(false)}
@@ -1313,7 +1413,7 @@ export default function ProfilePage({
         </div>
       )}
 
-      {/* ===== 🌟 粉丝同伴列表弹窗（展示真实头像/昵称，且支持精准导航点击） ===== */}
+      {/* ===== 粉丝同伴列表弹窗 ===== */}
       {showFollowersModal && (
         <div style={{
           position: 'fixed', top: 0, left: 0,
@@ -1331,7 +1431,7 @@ export default function ProfilePage({
 
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', borderBottom: '1px solid #2d2d2d', paddingBottom: '10px' }}>
               <h3 style={{ color: '#fff', margin: 0, fontSize: '15px', fontWeight: 'bold' }}>
-                🤝 {isSelf ? t('profile.myFollowers') : `${targetUserInfo.nickname} 的粉丝`} ({followersCount})
+                🤝 {isSelf ? t('profile.myFollowers') : `${activeProfile.nickname} 的粉丝`} ({followersCount})
               </h3>
               <button
                 onClick={() => setShowFollowersModal(false)}

@@ -4,7 +4,7 @@ import { supabase } from "../services/supabaseClient";
 
 const PRESET_AVATARS = ["🩸", "🌸", "🔮", "🌿", "🧘", "🩹", "🍀", "🌙"];
 
-export default function AuthModal({ isOpen, onAuthSuccess, onGuestLogin }) {
+export default function AuthModal({ isOpen, onAuthSuccess, onGuestLogin, onClose }) {
   if (!isOpen) return null;
 
   const [activeTab, setActiveTab] = useState('login'); // 'login' | 'register'
@@ -26,7 +26,6 @@ export default function AuthModal({ isOpen, onAuthSuccess, onGuestLogin }) {
     setErrorMsg('');
 
     try {
-      // 调用 Supabase 官方 Auth 进行邮箱密码注册
       const { data, error } = await supabase.auth.signUp({ email, password });
       if (error) throw error;
 
@@ -35,7 +34,6 @@ export default function AuthModal({ isOpen, onAuthSuccess, onGuestLogin }) {
         throw new Error('注册成功但未获取用户信息，请检查邮箱是否已确认。');
       }
 
-      // 注册成功后，同步在 profiles 数据表中插入该用户的自定义昵称和头像
       const { error: profileError } = await supabase
         .from("profiles")
         .upsert({
@@ -83,9 +81,14 @@ export default function AuthModal({ isOpen, onAuthSuccess, onGuestLogin }) {
 
   // 3. 游客访问逻辑
   const handleGuestAccess = () => {
-    // 生成一个不重复的、带有标识性的游客临时 ID
     const guestUid = `guest_${Math.random().toString(36).substr(2, 9)}`;
     onGuestLogin(guestUid);
+  };
+
+  // 🌟 核心修改：点击 ✕ 关闭按钮时，默认进入游客模式并关闭弹窗
+  const handleCloseClick = () => {
+    handleGuestAccess();
+    if (onClose) onClose();
   };
 
   return (
@@ -98,7 +101,7 @@ export default function AuthModal({ isOpen, onAuthSuccess, onGuestLogin }) {
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
-      zIndex: 9999, // 确保处于绝对最上层
+      zIndex: 9999,
       padding: 'var(--space-lg)',
       boxSizing: 'border-box'
     }}>
@@ -113,10 +116,28 @@ export default function AuthModal({ isOpen, onAuthSuccess, onGuestLogin }) {
         boxShadow: '0 20px 50px rgba(0,0,0,0.8)'
       }}>
 
-        <h2 style={{ color: '#fff', margin: '0 0 10px 0', fontSize: '20px', fontWeight: 'bold', textAlign: 'center' }}>
-          PainScape
-        </h2>
-        <p style={{ color: '#666', fontSize: '11px', textAlign: 'center', margin: '0 0 24px 0' }}>
+        {/* 顶部 Header 与 ✕ 游客关闭按钮 */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+          <h2 style={{ color: '#fff', margin: 0, fontSize: '20px', fontWeight: 'bold' }}>
+            PainScape
+          </h2>
+          <button
+            onClick={handleCloseClick}
+            title="暂不登录，以游客身份进入"
+            style={{
+              background: 'transparent',
+              border: 'none',
+              color: '#888',
+              fontSize: '20px',
+              cursor: 'pointer',
+              padding: '0 4px',
+              lineHeight: 1
+            }}
+          >
+            ✕
+          </button>
+        </div>
+        <p style={{ color: '#666', fontSize: '11px', margin: '0 0 20px 0' }}>
           让说不出的痛，换一种方式抵达
         </p>
 
@@ -226,7 +247,7 @@ export default function AuthModal({ isOpen, onAuthSuccess, onGuestLogin }) {
           </button>
         </form>
 
-        {/* 🌟 核心分流：游客快捷访问通道 */}
+        {/* 游客快捷访问通道 */}
         <div style={{ borderTop: '1px solid #222', marginTop: '20px', paddingTop: '16px', textAlign: 'center' }}>
           <button
             onClick={handleGuestAccess}

@@ -6,13 +6,14 @@ import CommunityPostDetailModal from '../Components/modals/CommunityPostDetailMo
 import { likePost, hugPost, updatePostExperience, voteHelpfulPost, deletePost } from '../services/postService';
 
 const PAIN_KEY_MAP = {
-  'twist': 'twist', '绞痛': 'twist',
-  'pierce': 'pierce', '刺痛': 'pierce',
-  'heavy': 'heavy', 'sink': 'heavy', '坠胀': 'heavy', '坠胀重压': 'heavy', '坠痛': 'heavy',
-  'wave': 'wave', 'swell': 'wave', '酸胀': 'wave', '酸胀痛': 'wave', '弥漫酸胀痛': 'wave',
-  'scrape': 'scrape', '刮痛': 'scrape', '撕裂痛': 'scrape', '撕裂刮痛': 'scrape'
+  'twist': 'twist', '绞痛': 'twist', 'Twist': 'twist',
+  'pierce': 'pierce', '刺痛': 'pierce', 'Pierce': 'pierce',
+  'heavy': 'heavy', 'sink': 'heavy', '坠胀': 'heavy', '坠胀重压': 'heavy', '坠痛': 'heavy', 'Dragging Sinking': 'heavy', 'Sinking': 'heavy', 'Heavy': 'heavy',
+  'wave': 'wave', 'swell': 'wave', '酸胀': 'wave', '酸胀痛': 'wave', '弥漫酸胀痛': 'wave', 'Wave': 'wave', 'Swell': 'wave',
+  'scrape': 'scrape', '刮痛': 'scrape', '撕裂痛': 'scrape', '撕裂刮痛': 'scrape', 'Scrape': 'scrape'
 };
 
+// 安全解析 JSON 字符串与兜底
 const parseCleanText = (rawText) => {
   if (!rawText) return '分享具身痛觉图谱';
   if (typeof rawText === 'string' && rawText.trim().startsWith('{')) {
@@ -24,6 +25,39 @@ const parseCleanText = (rawText) => {
     }
   }
   return String(rawText);
+};
+
+// 判断是否包含中文
+const containsChinese = (str) => /[\u4e00-\u9fa5]/.test(String(str || ''));
+
+// 多语言主诉/标题转译
+const getLocalizedPostText = (rawText, painKey, isEn, t) => {
+  const cleanText = parseCleanText(rawText);
+  if (!isEn) return cleanText;
+
+  if (cleanText === '分享具身痛觉图谱') {
+    return 'Sharing somatic pain mapping';
+  }
+
+  if (containsChinese(cleanText)) {
+    const pName = t(`painNames.${painKey}`) || 'dysmenorrhea';
+    return `Recurrent lower abdominal ${pName.toLowerCase()} during menstruation, accompanied by no significant symptoms for 1 day.`;
+  }
+
+  return cleanText;
+};
+
+// 🌟 缓解经验多语言转译辅助
+const getLocalizedExperience = (rawExp, isEn) => {
+  if (!rawExp || !String(rawExp).trim()) return '';
+  const str = String(rawExp).trim();
+  if (isEn && containsChinese(str)) {
+    if (str.includes('热敷') || str.includes('休息') || str.includes('喝水')) {
+      return 'Relieved by warm compress, deep breathing, and rest.';
+    }
+    return 'Relief experience shared by companion.';
+  }
+  return str;
 };
 
 export default function CommunityPage({
@@ -46,8 +80,11 @@ export default function CommunityPage({
   showToast,
   isLoading,
   onRefreshCommunity,
+  targetLanguage,
+  setTargetLanguage,
 }) {
   const { t } = useI18n();
+  const isEn = targetLanguage === 'en';
 
   const getPostPainKey = (post) => {
     if (!post) return 'twist';
@@ -70,7 +107,6 @@ export default function CommunityPage({
     return { total, topPainKey };
   };
 
-  // 🌟 智慧自愈货架：收集有经验的贴子，按赞数与抱抱总数由高到低降序排列 Top 5
   const getTopReliefTips = (currentFilter) => {
     let eligible = posts.filter((p) => (p.userExperience && p.userExperience.trim()) || (p.user_experience && p.user_experience.trim()));
     if (currentFilter !== 'all') {
@@ -89,7 +125,6 @@ export default function CommunityPage({
 
   const filteredPosts = posts.filter((p) => painFilter === 'all' || getPostPainKey(p) === painFilter);
 
-  // 🌟 1. 实时更新贴主的缓解经验并写入数据库
   const handleSaveExperience = async (postId, newExp) => {
     const expStr = String(newExp || '').trim();
     setPosts((prev) => prev.map((p) => (String(p.id) === String(postId) ? { ...p, userExperience: expStr, user_experience: expStr } : p)));
@@ -98,11 +133,10 @@ export default function CommunityPage({
       setViewingPost((prev) => (prev ? { ...prev, userExperience: expStr, user_experience: expStr } : null));
     }
 
-    if (showToast) showToast('publishSuccess', { count: 1, pain: '缓解经验' });
+    if (showToast) showToast('publishSuccess', { count: 1, pain: isEn ? 'Relief Experience' : '缓解经验' });
     await updatePostExperience(postId, expStr, ['自愈缓解']);
   };
 
-  // 🌟 2. 实时抱抱并同步弹窗 (无需重新退出进入)
   const handleHug = async (postId, e) => {
     if (e) e.stopPropagation();
     const post = posts.find((p) => String(p.id) === String(postId));
@@ -121,7 +155,6 @@ export default function CommunityPage({
     await hugPost(postId, nextHugs);
   };
 
-  // 🌟 3. 实时赞同/有用投票并同步弹窗
   const handleHelpfulVote = async (postId, e) => {
     if (e) e.stopPropagation();
     const post = posts.find((p) => String(p.id) === String(postId));
@@ -144,7 +177,6 @@ export default function CommunityPage({
     await voteHelpfulPost(postId, nextVotes, !hasVoted);
   };
 
-  // 🌟 4. 实时比心/点赞并同步弹窗 (无需重新退出进入)
   const handleLike = async (postId, e) => {
     if (e) e.stopPropagation();
     const post = posts.find((p) => String(p.id) === String(postId));
@@ -162,14 +194,11 @@ export default function CommunityPage({
     await likePost(postId, nextLikes);
   };
 
-  // 🌟 4. 删除帖子处理函数
   const handleDeletePost = async (postId) => {
-    // 1. 本地立即移除视图
     setPosts((prev) => prev.filter((p) => String(p.id) !== String(postId)));
     if (viewingPost && String(viewingPost.id) === String(postId)) {
       setViewingPost(null);
     }
-    // 2. 调接口同步删数据库与 localStorage
     await deletePost(postId, currentUserId);
     if (showToast) showToast('postDeleted');
   };
@@ -220,24 +249,42 @@ export default function CommunityPage({
               cursor: isLoading ? 'not-allowed' : 'pointer',
             }}
           >
-            {isLoading ? t('community.refreshing') || '刷新中...' : t('community.refresh') || '刷新'}
+            {isLoading ? t('community.refreshing') || 'Refreshing...' : t('community.refresh') || 'Refresh'}
           </button>
         </div>
-        <button
-          style={{
-            margin: 0,
-            padding: '6px 15px',
-            background: '#333',
-            color: '#fff',
-            border: 'none',
-            borderRadius: 'var(--radius-lg)',
-            fontSize: '12px',
-            cursor: 'pointer',
-          }}
-          onClick={onBack}
-        >
-          {t('community.back')}
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          {setTargetLanguage && (
+            <button
+              onClick={() => setTargetLanguage(isEn ? 'zh' : 'en')}
+              style={{
+                padding: '6px 14px',
+                background: 'rgba(255,255,255,0.06)',
+                color: '#fff',
+                border: '1px solid rgba(255,255,255,0.12)',
+                borderRadius: '20px',
+                fontSize: '12px',
+                cursor: 'pointer',
+              }}
+            >
+              {isEn ? '中文' : 'EN'}
+            </button>
+          )}
+          <button
+            style={{
+              margin: 0,
+              padding: '6px 15px',
+              background: '#333',
+              color: '#fff',
+              border: 'none',
+              borderRadius: 'var(--radius-lg)',
+              fontSize: '12px',
+              cursor: 'pointer',
+            }}
+            onClick={onBack}
+          >
+            {t('community.back')}
+          </button>
+        </div>
       </div>
 
       {/* 周数据统计 */}
@@ -329,60 +376,63 @@ export default function CommunityPage({
           </div>
         ) : (
           <div style={{ display: 'flex', gap: '14px', overflowX: 'auto', paddingBottom: '8px' }}>
-            {topTips.map((tip) => (
-              <div
-                key={tip.id}
-                onClick={() => setViewingPost(tip)}
-                style={{
-                  flexShrink: 0,
-                  width: '260px',
-                  background: 'linear-gradient(135deg, #161a16, #121212)',
-                  border: '1.5px solid rgba(76, 175, 80, 0.25)',
-                  borderRadius: 'var(--radius-md)',
-                  padding: 'var(--space-lg)',
-                  cursor: 'pointer',
-                }}
-              >
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-                  <span style={{ fontSize: '10px', color: '#4caf50', background: 'rgba(76,175,80,0.1)', padding: '2px 8px', borderRadius: '10px', fontWeight: 'bold' }}>
-                    {t(`painNames.${getPostPainKey(tip)}`)}
-                  </span>
-                  <span style={{ fontSize: '11px', color: '#666' }}>❤️ {tip.likes || 0}</span>
+            {topTips.map((tip) => {
+              const tipExp = getLocalizedExperience(tip.userExperience || tip.user_experience, isEn);
+              return (
+                <div
+                  key={tip.id}
+                  onClick={() => setViewingPost(tip)}
+                  style={{
+                    flexShrink: 0,
+                    width: '260px',
+                    background: 'linear-gradient(135deg, #161a16, #121212)',
+                    border: '1.5px solid rgba(76, 175, 80, 0.25)',
+                    borderRadius: 'var(--radius-md)',
+                    padding: 'var(--space-lg)',
+                    cursor: 'pointer',
+                  }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                    <span style={{ fontSize: '10px', color: '#4caf50', background: 'rgba(76,175,80,0.1)', padding: '2px 8px', borderRadius: '10px', fontWeight: 'bold' }}>
+                      {t(`painNames.${getPostPainKey(tip)}`)}
+                    </span>
+                    <span style={{ fontSize: '11px', color: '#666' }}>❤️ {tip.likes || 0}</span>
+                  </div>
+                  <p style={{ color: '#ddd', fontSize: '13px', margin: 0, lineHeight: '1.5', height: '60px', overflow: 'hidden' }}>
+                    “{tipExp || (isEn ? 'Relief experience shared' : '暂无经验描述')}”
+                  </p>
+                  <div style={{ marginTop: '10px', color: '#888', fontSize: '11px', textAlign: 'right' }}>
+                    by {tip.nickname || tip.authorName || tip.displayName || (isEn ? 'Companion' : '同伴')} ›
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '10px', paddingTop: '8px', borderTop: '1px solid #222' }}>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setViewingPost(tip);
+                      }}
+                      style={{ background: 'none', border: 'none', color: '#888', fontSize: '11px', cursor: 'pointer', textDecoration: 'underline' }}
+                    >
+                      {isEn ? 'View Details' : '查看详情'}
+                    </button>
+                    <button
+                      onClick={(e) => handleHelpfulVote(tip.id, e)}
+                      style={{
+                        background: tip.hasUserVotedHelpful ? 'rgba(76,175,80,0.15)' : 'rgba(255,255,255,0.03)',
+                        border: '1px solid rgba(76,175,80,0.3)',
+                        borderRadius: 'var(--radius-sm)',
+                        color: '#4caf50',
+                        padding: '3px 8px',
+                        fontSize: '10.5px',
+                        cursor: 'pointer',
+                        fontWeight: 'bold',
+                      }}
+                    >
+                      {tip.hasUserVotedHelpful ? (t('post.votedHelpful') || '已认可') : ('+ ' + (t('post.markHelpful') || '亲测有用'))}
+                    </button>
+                  </div>
                 </div>
-                <p style={{ color: '#ddd', fontSize: '13px', margin: 0, lineHeight: '1.5', height: '60px', overflow: 'hidden' }}>
-                  “{tip.userExperience || tip.user_experience}”
-                </p>
-                <div style={{ marginTop: '10px', color: '#888', fontSize: '11px', textAlign: 'right' }}>
-                  by {tip.nickname || tip.authorName || tip.displayName || '同伴'} ›
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '10px', paddingTop: '8px', borderTop: '1px solid #222' }}>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setViewingPost(tip);
-                    }}
-                    style={{ background: 'none', border: 'none', color: '#888', fontSize: '11px', cursor: 'pointer', textDecoration: 'underline' }}
-                  >
-                    查看详情
-                  </button>
-                  <button
-                    onClick={(e) => handleHelpfulVote(tip.id, e)}
-                    style={{
-                      background: tip.hasUserVotedHelpful ? 'rgba(76,175,80,0.15)' : 'rgba(255,255,255,0.03)',
-                      border: '1px solid rgba(76,175,80,0.3)',
-                      borderRadius: 'var(--radius-sm)',
-                      color: '#4caf50',
-                      padding: '3px 8px',
-                      fontSize: '10.5px',
-                      cursor: 'pointer',
-                      fontWeight: 'bold',
-                    }}
-                  >
-                    {tip.hasUserVotedHelpful ? t('post.votedHelpful') || '已认可' : '+ ' + (t('post.markHelpful') || '亲测有用')}
-                  </button>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
@@ -397,7 +447,7 @@ export default function CommunityPage({
           const painKey = getPostPainKey(post);
           const postAuthorUid = post.userId || post.user_id || post.authorId || "user_guest";
           const authorProfile = post.profiles || {};
-          const authorNickname = authorProfile.nickname || post.nickname || post.authorName || post.author_name || post.displayName || "同伴";
+          const authorNickname = authorProfile.nickname || post.nickname || post.authorName || post.author_name || post.displayName || (isEn ? "Companion" : "同伴");
           const authorAvatar = authorProfile.avatar || post.avatar || post.authorAvatar || post.author_avatar || "🌸";
           const authorCustomAvatar = authorProfile.custom_avatar || post.customAvatar || post.custom_avatar || "";
 
@@ -415,7 +465,6 @@ export default function CommunityPage({
                 cursor: 'pointer',
               }}
             >
-              {/* 发布者名片头 (点击精准绑定其 UID 跳转对方个人主页) */}
               <div
                 onClick={(e) => {
                   e.stopPropagation();
@@ -442,7 +491,6 @@ export default function CommunityPage({
                   overflow: 'hidden',
                   flexShrink: 0,
                 }}>
-                  {/*  优先渲染自定义头像 */}
                   {authorCustomAvatar ? (
                     <img src={authorCustomAvatar} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="avatar" />
                   ) : (
@@ -454,7 +502,6 @@ export default function CommunityPage({
                 </span>
               </div>
 
-              {/* 痛觉图谱照片 */}
               <img
                 src={post.img}
                 style={{
@@ -466,10 +513,9 @@ export default function CommunityPage({
                 alt="somatic pain mapping"
               />
 
-              {/* 底栏 */}
               <div style={{ padding: 'var(--space-md)', flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
                 <p style={{ color: '#eee', fontSize: '12px', margin: '0 0 10px 0', lineHeight: '1.4', height: '34px', overflow: 'hidden' }}>
-                  {parseCleanText(post.text)}
+                  {getLocalizedPostText(post.text, painKey, isEn, t)}
                 </p>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <span style={{ color: '#d32f2f', fontSize: '10px', background: 'rgba(211,47,47,0.1)', padding: '2px 6px', borderRadius: '6px', fontWeight: 'bold' }}>
@@ -497,7 +543,7 @@ export default function CommunityPage({
         </div>
       )}
 
-      {/* 🌟 社区专属帖子详情弹窗 (即时同步状态) */}
+      {/* 🌟 核心修复：补上 targetLanguage={targetLanguage} 传入弹窗组件 */}
       {viewingPost && (
         <CommunityPostDetailModal
           post={viewingPost}
@@ -508,6 +554,7 @@ export default function CommunityPage({
           onLike={handleLike}
           onSaveExperience={handleSaveExperience}
           onDelete={handleDeletePost}
+          targetLanguage={targetLanguage}
           t={t}
         />
       )}

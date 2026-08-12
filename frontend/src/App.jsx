@@ -2,7 +2,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { I18nProvider, useI18n } from './i18n/i18nContext';
 import { UserProvider, useUser } from './contexts/UserContext';
-// import { getPainNameDisplay } from './utils/painUtils.js';
 
 // ===== 页面导入 =====
 import SplashPage from './pages/SplashPage';
@@ -43,10 +42,11 @@ const CHINESE_TO_KEY_MAP = {
   '酸胀痛': 'wave', '酸胀痛': 'wave', '刮痛': 'scrape',
   '撕裂痛': 'scrape', '撕刮痛': 'scrape',
 };
+
 function AppContent({ targetLanguage, setTargetLanguage }) {
   const isEn = targetLanguage === 'en';
   const { t } = useI18n();
-  const { userInfo } = useUser();
+  const { userInfo, setUserInfo } = useUser();
   const { show, ToastContainer } = useToast();
 
   const showToast = useCallback((key, vars = {}) => {
@@ -58,7 +58,7 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
     Toast.init({ show });
   }, [show]);
 
-  // 🌟 1. 核心补充：兜底静态图片生成器 (彻底消除 getFallbackImgUrl 未定义导致的黑屏崩溃)
+  // 兜底静态图片生成器
   const getFallbackImgUrl = useCallback(() => {
     const canvas = document.createElement('canvas');
     canvas.width = 400;
@@ -73,29 +73,96 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
     return canvas.toDataURL("image/jpeg", 0.6);
   }, []);
 
+  // 🌟 仅同步 Supabase 云端真实的 Auth 用户资料
+  const syncSupabaseUserProfile = useCallback(async (userId, sessionUser = null) => {
+    if (!userId || userId.startsWith('guest_') || userId === 'user_guest') return;
+    try {
+      // 直接使用传入的 sessionUser，避免额外发包导致 403
+      let userEmail = sessionUser?.email || "";
+      if (!userEmail) {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session?.user) return; // 无 session 直接中断，防止 403 报错
+        userEmail = session.user.email || "";
+      }
+
+      let { data: profile } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", userId)
+        .maybeSingle();
+
+      if (!profile) {
+        const defaultNick = userEmail ? userEmail.split('@')[0] : "云端同伴";
+        const newProfile = {
+          id: userId,
+          email: userEmail,
+          nickname: defaultNick,
+          avatar: "🩸",
+          signature: t('profile.defaultSignature') || "让说不出的痛，换一种方式抵达。🧘",
+          bg_index: 0
+        };
+        const { data: created } = await supabase
+          .from("profiles")
+          .upsert(newProfile)
+          .select()
+          .maybeSingle();
+        profile = created || newProfile;
+      }
+
+      const realUserInfo = {
+        id: userId,
+        email: userEmail,
+        nickname: profile?.nickname || userEmail.split('@')[0] || "云端同伴",
+        avatar: profile?.avatar || "🩸",
+        signature: profile?.signature || t('profile.defaultSignature'),
+        bgIndex: profile?.bg_index || 0,
+        customAvatar: profile?.custom_avatar || profile?.customAvatar || "",
+        customBg: profile?.custom_bg || profile?.customBg || ""
+      };
+
+      if (setUserInfo) setUserInfo(realUserInfo);
+      localStorage.setItem("painscape_user_info", JSON.stringify(realUserInfo));
+    } catch (err) {
+      console.warn("同步云端个人资料失败:", err);
+    }
+  }, [setUserInfo, t]);
+
   const [page, setPage] = useState('splash');
   const [splashOpacity, setSplashOpacity] = useState(1);
 
-  const [currentUserId, setCurrentUserId] = useState(null);
-  const [isGuest, setIsGuest] = useState(false);
-  const [targetUserId, setTargetUserId] = useState(null);
+  // 🌟 核心状态初始化（无重复声明）
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState(() => {
+    return localStorage.getItem('painscape_last_uid') || null;
+  });
+  const [isGuest, setIsGuest] = useState(() => {
+    return localStorage.getItem('painscape_is_guest') === 'true';
+  });
+  const [targetUserId, setTargetUserId] = useState(currentUserId);
   const [authReady, setAuthReady] = useState(false);
 
   const handleAuthSuccess = useCallback((userId) => {
     setCurrentUserId(userId);
     setTargetUserId(userId);
     setIsGuest(false);
+    setShowAuthModal(false);
     setAuthReady(true);
+    localStorage.setItem('painscape_last_uid', userId);
+    localStorage.setItem('painscape_is_guest', 'false');
+    syncSupabaseUserProfile(userId);
     if (page === 'splash') {
       setPage('modeSelection');
     }
-  }, [page]);
+  }, [page, syncSupabaseUserProfile]);
 
   const handleGuestLogin = useCallback((guestId) => {
     setCurrentUserId(guestId);
     setTargetUserId(guestId);
     setIsGuest(true);
+    setShowAuthModal(false);
     setAuthReady(true);
+    localStorage.setItem('painscape_last_uid', guestId);
+    localStorage.setItem('painscape_is_guest', 'true');
     if (page === 'splash') {
       setPage('modeSelection');
     }
@@ -103,16 +170,51 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
 
   const handleLogout = useCallback(async () => {
     try {
+      localStorage.removeItem('painscape_last_uid');
+      localStorage.removeItem('painscape_is_guest');
+      localStorage.removeItem('painscape_user_info');
       await supabase.auth.signOut();
     } catch (err) {
       console.warn('Supabase signOut failed:', err);
     }
-    setCurrentUserId(null);
-    setTargetUserId(null);
-    setIsGuest(false);
-    setAuthReady(true);
-    setPage('splash');
   }, []);
+
+  // 🌟 全局统一 Auth 状态监听器（彻底平替冲突，解决闪烁）
+  useEffect(() => {
+  // 监听 Supabase 登录/退出的真实状态变更
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (session?.user) {
+        // ✅ 1. 已登录用户处理
+        const uid = session.user.id;
+        setCurrentUserId(uid);
+        setTargetUserId(prev => prev || uid);
+        setIsGuest(false);
+        setShowAuthModal(false); // 关闭登录框
+        localStorage.setItem('painscape_last_uid', uid);
+        localStorage.setItem('painscape_is_guest', 'false');
+        syncSupabaseUserProfile(uid, session.user);
+      } else {
+        // ❌ 2. 未登录/已退出用户处理
+        let guestUid = localStorage.getItem('painscape_guest_id');
+        if (!guestUid) {
+          guestUid = `guest_${Math.random().toString(36).substr(2, 8)}`;
+          localStorage.setItem('painscape_guest_id', guestUid);
+        }
+        setCurrentUserId(guestUid);
+        setTargetUserId(prev => prev || guestUid);
+        setIsGuest(true);
+        localStorage.setItem('painscape_is_guest', 'true');
+
+        // 如果是明确登出事件或首次打开无 session，唤起弹窗
+        if (event === 'SIGNED_OUT' || event === 'INITIAL_SESSION') {
+          setShowAuthModal(true);
+        }
+      }
+      setAuthReady(true);
+    });
+
+    return () => subscription?.unsubscribe();
+  }, [syncSupabaseUserProfile]);
 
   const [showContent, setShowContent] = useState('basicInfo');
   const [appMode, setAppMode] = useState('medical');
@@ -226,7 +328,6 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
   const [posts, setPosts] = useState([]);
   const [isCommunityLoading, setIsCommunityLoading] = useState(false);
 
-  // 如果本地没有帖子，则注入预设示例帖子，便于本地开发和演示
   useEffect(() => {
     try {
       const existing = JSON.parse(localStorage.getItem('painscape_posts') || '[]');
@@ -271,7 +372,6 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
         localStorage.setItem('painscape_posts', JSON.stringify(seed));
       }
     } catch (e) {
-      // eslint-disable-next-line no-console
       console.warn('Seed posts failed:', e);
     }
   }, []);
@@ -295,17 +395,41 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
     }
   }, [page, refreshCommunity]);
 
+  // 🌟 自动检测登录态：未登录用户赋予游客身份，并必定唤起登录弹窗
   useEffect(() => {
     const checkActiveSession = async () => {
       try {
         const { data: { session } } = await supabase.auth.getSession();
         if (session && session.user) {
+          // 1. 已登录：恢复用户身份，不弹窗
           setCurrentUserId(session.user.id);
-          setTargetUserId(session.user.id);
+          setTargetUserId(prev => prev || session.user.id);
           setIsGuest(false);
+          localStorage.setItem('painscape_last_uid', session.user.id);
+          localStorage.setItem('painscape_is_guest', 'false');
+          syncSupabaseUserProfile(session.user.id);
+        } else {
+          // 2. 未登录：分配/读取游客 UID，默认进入游客模式，并【必然唤起登录弹窗】
+          let guestUid = localStorage.getItem('painscape_guest_id');
+          if (!guestUid) {
+            guestUid = `guest_${Math.random().toString(36).substr(2, 8)}`;
+            localStorage.setItem('painscape_guest_id', guestUid);
+          }
+          setCurrentUserId(guestUid);
+          setTargetUserId(prev => prev || guestUid);
+          setIsGuest(true);
+          localStorage.setItem('painscape_is_guest', 'true');
+        
+          // 🚀 核心修复：未登录用户一进入网站，强制唤起登录弹窗
+          setShowAuthModal(true);
         }
       } catch (err) {
-        console.warn("自动检测云端登录态失败，已自动开启安全降级本地模式:", err);
+        console.warn("云端检测失败，切入游客模式:", err);
+        let guestUid = localStorage.getItem('painscape_guest_id') || `guest_${Math.random().toString(36).substr(2, 8)}`;
+        setCurrentUserId(guestUid);
+        setTargetUserId(prev => prev || guestUid);
+        setIsGuest(true);
+        setShowAuthModal(true);
       } finally {
         setAuthReady(true);
       }
@@ -315,18 +439,24 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session?.user) {
         setCurrentUserId(session.user.id);
-        setTargetUserId(session.user.id);
+        setTargetUserId(prev => prev || session.user.id);
         setIsGuest(false);
+        localStorage.setItem('painscape_last_uid', session.user.id);
+        localStorage.setItem('painscape_is_guest', 'false');
+        setShowAuthModal(false);
+        syncSupabaseUserProfile(session.user.id);
       } else {
-        setCurrentUserId(null);
-        setTargetUserId(null);
-        setIsGuest(false);
+        let guestUid = localStorage.getItem('painscape_guest_id') || `guest_${Math.random().toString(36).substr(2, 8)}`;
+        setCurrentUserId(guestUid);
+        setTargetUserId(prev => prev || guestUid);
+        setIsGuest(true);
+        localStorage.setItem('painscape_is_guest', 'true');
       }
       setAuthReady(true);
     });
 
     return () => subscription?.unsubscribe();
-  }, []);
+  }, [syncSupabaseUserProfile]);
 
   const [userPrefs, setUserPrefs] = useState(['care']);
   const [tonePreference, setTonePreference] = useState('gentle');
@@ -436,13 +566,10 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
       const isEn = targetLanguage === 'en';
       const activeLlm = externalReportData || externalLlm || currentReportData || llmData;
 
-      // 🌟 双向检测工具函数：确保中英文模式切换时，卡片内容双向实时归位！
       const containsChinese = (str) => /[\u4e00-\u9fa5]/.test(String(str || ''));
       const getLocalizedText = (activeText, defaultText) => {
         if (!activeText) return defaultText;
-        // 1. 在英文模式下，如果原文本包含中文，强制归位为英文模板
         if (isEn && containsChinese(activeText)) return defaultText;
-        // 2. 在中文模式下，如果原文本不含中文（即纯英文文本），强制归位为中文模板
         if (!isEn && !containsChinese(activeText)) return defaultText;
         return activeText;
       };
@@ -491,27 +618,21 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
         defaultAction = isEn ? '☑️ Apply warm compress and prepare pain medication.' : '☑️ 帮她热敷小腹并准备好止痛药。';
       }
 
-      // ✅ 根据 leaveRecipient 和 leaveTone 生成 workText
       const getWorkText = () => {
-        // 优先使用 LLM 返回的 work 字段
         if (activeLlm?.work) {
           return getLocalizedText(activeLlm.work, '');
         }
 
-        // 如果 LLM 返回了 work 对象（包含所有场景），根据当前选择提取
         if (activeLlm?.work && typeof activeLlm.work === 'object') {
           const workObj = activeLlm.work;
-          // 根据当前 leaveRecipient 和 leaveTone 提取
           const recipient = leaveRecipient || 'manager';
           const tone = leaveTone || 'neutral';
           if (workObj[recipient] && workObj[recipient][tone]) {
             return workObj[recipient][tone];
           }
-          // 如果 tone 不存在，尝试 formal
           if (workObj[recipient] && workObj[recipient]['formal']) {
             return workObj[recipient]['formal'];
           }
-          // 回退到第一个场景
           const firstRecipient = Object.keys(workObj)[0];
           if (firstRecipient && workObj[firstRecipient]) {
             const firstTone = Object.keys(workObj[firstRecipient])[0];
@@ -519,7 +640,6 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
           }
         }
 
-        // ✅ 降级：使用本地 WORK_SCENARIOS 配置
         const workScenarios = {
           zh: {
             manager: {
@@ -585,11 +705,9 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
         if (scenarios && scenarios[recipient] && scenarios[recipient][tone]) {
           return scenarios[recipient][tone];
         }
-        // 如果 tone 不存在，回退到 neutral
         if (scenarios && scenarios[recipient] && scenarios[recipient]['neutral']) {
           return scenarios[recipient]['neutral'];
         }
-        // 最终回退
         return isEn
           ? `Requesting sick leave today due to a health condition.`
           : `因身体不适，申请今天休假一天。`;
@@ -597,7 +715,6 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
 
       const defaultWorkText = getWorkText();
 
-      // 🌟 双向切换处理：无论是“中切英”还是“英切中”，内容均可无缝实时匹配当前语言
       if (activeLlm) {
         return {
           pain: painName,
@@ -646,6 +763,7 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
       };
     }
   }, [currentReportData, llmData, getDominantPain, t, medicalBackground, cycleDay, userPrefs, targetLanguage, leaveRecipient, leaveTone]);
+
   const getEditedOrDefault = useCallback((key, defaultVal) => {
     return editedContents[key] !== undefined ? editedContents[key] : defaultVal;
   }, [editedContents]);
@@ -703,6 +821,7 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
     camRef.current = { x: 0, y: 0, zoom: 1.0 };
     setBgScale(1.0);
   }, [setBgScale]);
+
   const handleGenerateFromData = async (data) => {
     setIsLoading(true);
     try {
@@ -785,7 +904,6 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
   };
 
   const exportHistoryPDF = (recordsToExport) => {
-    // 如果没有传入 recordsToExport，使用全部 history
     const records = recordsToExport || history;
 
     if (!records || records.length === 0) {
@@ -805,10 +923,8 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
       const totalRecordsLabel = t('pdf.totalCount', { count: records.length }) || `${records.length} records`;
       const timeLocale = isEn ? 'en-US' : 'zh-CN';
 
-      // ✅ CHINESE_TO_KEY_MAP 已从 painUtils.js 导入，直接使用
       const containsChinese = (str) => /[\u4e00-\u9fa5]/.test(String(str || ''));
 
-      // ✅ 生成每条记录的 HTML，包含图片
       const recordsHtml = records.map((record, idx) => {
         const dominantKey = record.dominantPain || CHINESE_TO_KEY_MAP[record.painName] || 'twist';
         const painNameDisplay = t(`painNames.${dominantKey}`) || record.painName || '';
@@ -841,7 +957,6 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
           return String(val);
         };
 
-        // ✅ 嵌入图片（如果存在）
         let imgHtml = '';
         if (record.img) {
           imgHtml = `
@@ -951,7 +1066,6 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
 
       printWindow.document.close();
 
-      // 等待图片加载完成后自动打开打印对话框
       const images = printWindow.document.querySelectorAll('img');
       let imagesLoaded = 0;
       const totalImages = images.length;
@@ -980,7 +1094,6 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
             };
           }
         });
-        // 超时保护
         setTimeout(() => {
           printWindow.print();
         }, 5000);
@@ -995,7 +1108,6 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
   const handleShareSavedPainting = async () => {
     const canvasImg = generateCompositeCanvas() || getFallbackImgUrl();
 
-    // 优先使用原生分享 API（支持微信、系统分享等）
     if (navigator.share) {
       try {
         const blob = await (await fetch(canvasImg)).blob();
@@ -1011,13 +1123,13 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
         console.log('Share cancelled');
       }
     } else {
-      // 降级：下载图片
       const link = document.createElement('a');
       link.download = `painscape_${new Date().toISOString().slice(0, 10)}.png`;
       link.href = canvasImg;
       link.click();
     }
   };
+
   const handleSaveOnly = () => {
     saveSnapshot();
 
@@ -1043,8 +1155,8 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
     };
 
     setHistory(prev => [paintingData, ...prev]);
-    // 不再跳转，由 CanvasPage 显示成功弹窗
   };
+
   const handleClear = useCallback(() => {
     saveSnapshot();
     brushCounts.current = { twist: 0, pierce: 0, heavy: 0, wave: 0, scrape: 0 };
@@ -1112,7 +1224,6 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
     brushCounts.current = { ...nextState.counts };
   }, []);
 
-  // ===== 🌟 100% 完整捕捉：人体底图 + 静态笔触 + 动态粒子 离屏渲染引擎 =====
   const captureFullCanvas = useCallback((side) => {
     try {
       const p5 = p5Ref.current;
@@ -1121,23 +1232,20 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
       const pg = side === 'front' ? pgFrontRef.current : pgBackRef.current;
       if (!pg || !pg.width || !pg.height) return document.createElement('canvas');
 
-      // 1. 创建 p5.Graphics 离屏缓冲区（确保 dp.show 能使用 p5 原生 API 绘制粒子）
       const captureGraphics = p5.createGraphics(pg.width, pg.height);
-      captureGraphics.background(10); // 深色底色
+      captureGraphics.background(10);
 
       const { x, y, zoom } = camRef.current;
       const activeImg = side === 'front' ? bgFrontRef.current : bgBackRef.current;
 
       captureGraphics.push();
-      // 🌟 核心：应用与主画板完全一致的相机平移与缩放，保证笔触与人体图完美对齐！
       captureGraphics.translate(x, y);
       captureGraphics.scale(zoom);
 
-      // A. 绘制矢量人体底图
       if (activeImg && side !== 'none' && activeImg.height && activeImg.height > 0) {
         try {
           captureGraphics.imageMode(p5.CENTER);
-          captureGraphics.tint(255, 40); // 40% 优雅透明度
+          captureGraphics.tint(255, 40);
           const currentBgScale = bgScale || 1.0;
           const imgScale = ((pg.height * 0.8) / activeImg.height) * currentBgScale;
           captureGraphics.image(
@@ -1152,7 +1260,6 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
         }
       }
 
-      // B. 绘制静态离屏笔触 (刺痛、刮痛等)
       if (pg) {
         try {
           captureGraphics.noTint();
@@ -1163,12 +1270,11 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
         }
       }
 
-      // C. 绘制动态动画粒子 (绞痛、酸胀、坠胀等)
       if (dynamicParticles.current && dynamicParticles.current.length > 0) {
         dynamicParticles.current.forEach((dp) => {
           if (dp && dp.bodyMode === side && typeof dp.show === 'function') {
             try {
-              dp.show(captureGraphics); // 🌟 传入 captureGraphics，粒子完整渲染！
+              dp.show(captureGraphics);
             } catch (err) {
               console.warn('绘制动态粒子失败:', err);
             }
@@ -1177,8 +1283,6 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
       }
 
       captureGraphics.pop();
-
-      // 返回渲染完成的 Canvas DOM 节点
       return captureGraphics.elt;
     } catch (e) {
       console.warn('captureFullCanvas 防崩溃捕获:', e);
@@ -1186,7 +1290,6 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
     }
   }, [bgScale]);
 
-  // ===== 🌟 1:1 双面左右水平无损拼接引擎 =====
   const generateCompositeCanvas = useCallback(() => {
     try {
       const p5 = p5Ref.current;
@@ -1195,14 +1298,12 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
       const hasFront = !isSideEmpty('front');
       const hasBack = !isSideEmpty('back');
 
-      // 1. 如果只画了单面或者盲画：导出单面图
       if (!hasFront || !hasBack) {
         const side = hasBack && !hasFront ? 'back' : (bodyMode === 'none' ? 'front' : bodyMode);
         const singleCanvas = captureFullCanvas(side);
         return singleCanvas ? singleCanvas.toDataURL("image/jpeg", 0.85) : getFallbackImgUrl();
       }
 
-      // 2. 正反面都有绘制：1:1 双倍宽度左右水平无损拼接 (左正面，右背面)
       const canvasFront = captureFullCanvas('front');
       const canvasBack = captureFullCanvas('back');
 
@@ -1216,7 +1317,6 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
       ctx.fillStyle = '#0a0a0a';
       ctx.fillRect(0, 0, composite.width, composite.height);
 
-      // 拼接：左正面，右背面
       ctx.drawImage(canvasFront, 0, 0);
       ctx.drawImage(canvasBack, canvasFront.width, 0);
 
@@ -1227,7 +1327,6 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
     }
   }, [bodyMode, captureFullCanvas, isSideEmpty, getFallbackImgUrl]);
 
-  // ===== 微信级海报渲染器 =====
   const confirmShare = useCallback(async (customShareData) => {
     const targetContent = customShareData || shareContent;
     if (!targetContent) return;
@@ -1430,17 +1529,12 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
               setPage('canvas');
             }}
             onBack={() => setPage('modeSelection')}
-            onCommunity={() => {
-              if (isGuest) {
-                alert('游客仅能使用基础功能，登录后可进入社区和个人主页。');
-                return;
-              }
-              setPage('community');
-            }}
+            onCommunity={() => setPage('community')}
             onHistory={() => setPage('history')}
             onProfile={() => {
-              if (isGuest) {
-                alert('游客仅能使用基础功能，登录后可进入社区和个人主页。');
+              // 🌟 游客点击个人主页直接唤起登录/注册弹窗
+              if (isGuest || !currentUserId) {
+                setShowAuthModal(true);
                 return;
               }
               setTargetUserId(currentUserId);
@@ -1493,32 +1587,20 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
             onGenerate={async () => {
               setIsLoading(true);
               try {
-                // 1. 原生 1ms 无损导出 Base64
                 const canvasImg = generateCompositeCanvas() || getFallbackImgUrl();
                 setImgUrl(canvasImg);
 
-                // ============================================================
-                // 🌟 身体区域映射配置
-                // ============================================================
                 const BODY_ZONES = {
                   front: {
-                    // 头部：图的上部 8%
                     head: { x: [0.35, 0.65], y: [0.00, 0.08] },
-                    // 胸部：8% - 28%
                     chest: { x: [0.20, 0.80], y: [0.08, 0.28] },
-                    // 上腹：28% - 46%
                     upperAbdomen: { x: [0.22, 0.78], y: [0.28, 0.46] },
-                    // 下腹：46% - 66%
                     lowerAbdomen: { x: [0.25, 0.75], y: [0.46, 0.66] },
-                    // 腿部：66% - 100%
                     legs: { x: [0.20, 0.80], y: [0.66, 1.00] },
                   },
                   back: {
-                    // 上背：8% - 38%
                     upperBack: { x: [0.20, 0.80], y: [0.08, 0.38] },
-                    // 腰部：38% - 58%
                     waist: { x: [0.22, 0.78], y: [0.38, 0.58] },
-                    // 骶部：58% - 82%
                     sacrum: { x: [0.25, 0.75], y: [0.58, 0.82] },
                   },
                 };
@@ -1535,7 +1617,6 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
                   return { head: 0.0, chest: 0.1, upperAbdomen: 0.4, lowerAbdomen: 0.5, legs: 0.0 };
                 };
 
-                // ✅ 计算空间分布
                 const calculateSpatialMap = (positions, mode, p5) => {
                   if (!p5 || !p5.width || !p5.height) {
                     return getDefaultSpatialMap(mode);
@@ -1590,9 +1671,6 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
                   return result;
                 };
 
-                // ============================================================
-                // 提取数据
-                // ============================================================
                 const dominant = getDominantPain() || 'twist';
                 const bc = brushCounts.current || {};
                 const brushNameMap = { heavy: 'sink', wave: 'swell' };
@@ -1616,7 +1694,6 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
                 const positions = particlePositions.current || [];
                 const p5 = p5Ref.current;
 
-                // ✅ 使用新的 calculateSpatialMap
                 const spatialMap = calculateSpatialMap(positions, bodyMode, p5);
 
                 const timeRhythm = {
@@ -1626,9 +1703,6 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
                   dominantPeriod: 'morning',
                 };
 
-                // ============================================================
-                // 构建请求体
-                // ============================================================
                 const requestBody = {
                   appMode: appMode || 'medical',
                   dominantPain: mappedDominant,
@@ -1649,9 +1723,6 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
                   workTone: mappedWorkTone,
                 };
 
-                // ============================================================
-                // 调用后端 API
-                // ============================================================
                 let apiResult = null;
                 try {
                   const resp = await fetch(`${API_BASE}/api/generate`, {
@@ -1674,9 +1745,6 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
                   setCurrentReportData(content);
                 }
 
-                // ============================================================
-                // 保存历史记录
-                // ============================================================
                 const now = new Date();
                 const dateStr = `${now.getFullYear()}/${String(now.getMonth() + 1).padStart(2, '0')}/${String(now.getDate()).padStart(2, '0')}`;
                 const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
@@ -1696,17 +1764,12 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
                   userPrefs,
                   tonePreference,
                   cycleDay,
-                  // ✅ 存储 spatialMap 供历史查看使用
                   spatialMap,
                   colorPalette: activeColor || 'crimson',
                   accompanyingSymptoms: medicalBackground.accompanyingSymptomsArr || [],
                 };
 
                 setHistory(prev => [historyEntry, ...prev]);
-
-                // ============================================================
-                // 进入结果页
-                // ============================================================
                 setPage('result');
               } catch (e) {
                 console.error('❌ 生成失败处理:', e);
@@ -1903,6 +1966,8 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
             handleAddExperience={() => { }}
             updatePostInCloud={async () => { }}
             showToast={showToast}
+            targetLanguage={targetLanguage}
+            setTargetLanguage={setTargetLanguage}
           />
         );
 
@@ -1944,8 +2009,16 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
       case 'profile':
         return (
           <ProfilePage
+            key={targetUserId}
             currentUserId={currentUserId}
             targetUserId={targetUserId}
+            isGuest={isGuest}
+            onOpenAuth={() => setShowAuthModal(true)}
+            setTargetUserId={setTargetUserId}
+            onViewProfile={(userId) => {
+              setTargetUserId(userId);
+              setPage('profile');
+            }}
             medicalBackground={medicalBackground}
             history={history}
             posts={posts}
@@ -2018,9 +2091,10 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
 
       {/* 登录/游客拦截弹窗 */}
       <AuthModal
-        isOpen={!authReady ? false : currentUserId === null && !isGuest}
+        isOpen={showAuthModal || (!authReady ? false : currentUserId === null && !isGuest)}
         onAuthSuccess={handleAuthSuccess}
         onGuestLogin={handleGuestLogin}
+        onClose={() => setShowAuthModal(false)}
       />
 
       <ToastContainer />

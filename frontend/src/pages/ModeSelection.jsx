@@ -19,13 +19,15 @@ export default function ModeSelectionPage({
       style={{
         pointerEvents: 'auto',
         width: '100vw',
-        height: '100vh',
+        minHeight: '100vh', // ✅ 修改为 minHeight，支持超出时滚动
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
         background: '#050505',
-        padding: '24px',
+        padding: '24px 16px', // ✅ 优化小屏内边距
         boxSizing: 'border-box',
+        overflowY: 'auto',   // ✅ 开启垂直滑动
+        WebkitOverflowScrolling: 'touch',
       }}
     >
       <div
@@ -35,12 +37,13 @@ export default function ModeSelectionPage({
           background: '#121212',
           border: '1px solid #222',
           borderRadius: '28px',
-          padding: '36px 32px',
+          padding: '28px 20px', // ✅ 适当紧凑移动端内边距
           boxSizing: 'border-box',
           boxShadow: '0 12px 45px rgba(0,0,0,0.65)',
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
+          margin: 'auto 0', // ✅ 内容较少时垂直居中，较多时允许滑动
           transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
         }}
       >
@@ -66,8 +69,8 @@ export default function ModeSelectionPage({
         <h2
           style={{
             color: '#fff',
-            marginBottom: '28px',
-            fontSize: '22px',
+            marginBottom: '20px',
+            fontSize: '20px',
             fontWeight: '600',
             letterSpacing: '1px',
             textAlign: 'center',
@@ -86,7 +89,7 @@ export default function ModeSelectionPage({
             width: '100%',
             maxWidth: '320px',
             border: '1px solid #2d2d2d',
-            marginBottom: '20px', // ✅ 添加与下方卡片的间距
+            marginBottom: '20px',
           }}
         >
           <button
@@ -96,12 +99,12 @@ export default function ModeSelectionPage({
               padding: '10px 8px',
               borderRadius: 'var(--radius-md)',
               border: 'none',
-              fontSize: 'var(--text-sm, 12px)',
+              fontSize: '12px',
               fontWeight: 'bold',
               cursor: 'pointer',
-              background: selectedTempMode === 'medical' ? '#d32f2f' : 'transparent', // ✅ 使用 selectedTempMode
+              background: selectedTempMode === 'medical' ? '#d32f2f' : 'transparent',
               color: selectedTempMode === 'medical' ? '#fff' : '#666',
-              minHeight: 'var(--btn-min-touch, 44px)',
+              minHeight: '44px',
               whiteSpace: 'nowrap',
               transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
             }}
@@ -115,12 +118,12 @@ export default function ModeSelectionPage({
               padding: '10px 8px',
               borderRadius: 'var(--radius-md)',
               border: 'none',
-              fontSize: 'var(--text-sm, 12px)',
+              fontSize: '12px',
               fontWeight: 'bold',
               cursor: 'pointer',
-              background: selectedTempMode === 'general' ? '#4caf50' : 'transparent', // ✅ 使用 selectedTempMode
+              background: selectedTempMode === 'general' ? '#4caf50' : 'transparent',
               color: selectedTempMode === 'general' ? '#fff' : '#666',
-              minHeight: 'var(--btn-min-touch, 44px)',
+              minHeight: '44px',
               whiteSpace: 'nowrap',
               transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
             }}
@@ -136,30 +139,29 @@ export default function ModeSelectionPage({
             background: '#161616',
             border: `1.5px solid ${selectedTempMode === 'medical' ? 'rgb(211, 47, 47)' : 'rgb(76, 175, 80)'}`,
             borderRadius: 'var(--radius-lg)',
-            padding: '28px 24px',
+            padding: '20px 18px',
             boxSizing: 'border-box',
             boxShadow: `0 0 25px ${selectedTempMode === 'medical' ? 'rgba(211, 47, 47, 0.25)' : 'rgba(76, 175, 80, 0.25)'}`,
             transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
             display: 'flex',
             flexDirection: 'column',
-            gap: '16px',
-            marginBottom: '24px',
-            minHeight: '148px',
+            gap: '14px',
+            marginBottom: '20px',
           }}
         >
           {(selectedTempMode === 'medical'
             ? t('modeSelection.medicalFeatures', { returnObjects: true })
             : t('modeSelection.generalFeatures', { returnObjects: true })
           ).map((featureText, idx) => (
-            <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+            <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
               <span style={{
                 color: selectedTempMode === 'medical' ? 'rgb(211, 47, 47)' : 'rgb(76, 175, 80)',
-                fontSize: '18px',
+                fontSize: '16px',
                 fontWeight: 'bold'
               }}>
                 ✓
               </span>
-              <span style={{ color: '#eee', fontSize: '15px', lineHeight: '1.5' }}>{featureText}</span>
+              <span style={{ color: '#eee', fontSize: '14px', lineHeight: '1.4' }}>{featureText}</span>
             </div>
           ))}
         </div>
@@ -170,10 +172,10 @@ export default function ModeSelectionPage({
             width: '100%',
             display: 'flex',
             flexWrap: 'wrap',
-            gap: '10px',
+            gap: '8px',
             justifyContent: 'center',
-            marginBottom: '36px',
-            padding: '0 8px',
+            marginBottom: '28px',
+            padding: '0 4px',
           }}
         >
           {t('modeSelection.commonFeatures', { returnObjects: true }).map((commonText, idx) => (
@@ -183,8 +185,8 @@ export default function ModeSelectionPage({
                 background: 'rgba(255, 255, 255, 0.03)',
                 border: '1px solid rgba(255, 255, 255, 0.08)',
                 borderRadius: 'var(--radius-lg)',
-                padding: '6px 14px',
-                fontSize: 'var(--text-xs, 11px)',
+                padding: '6px 12px',
+                fontSize: '11px',
                 color: '#888',
                 whiteSpace: 'nowrap',
                 letterSpacing: '0.5px',
@@ -195,7 +197,7 @@ export default function ModeSelectionPage({
           ))}
         </div>
 
-        {/* ✅ Confirm button - 修复：调用 onSelectMode */}
+        {/* Confirm button */}
         <button
           onClick={() => onSelectMode(selectedTempMode)}
           style={{
@@ -211,12 +213,6 @@ export default function ModeSelectionPage({
             transition: 'all 0.25s',
             boxShadow: `0 4px 20px ${activeShadow}`,
             letterSpacing: '1px',
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.transform = 'scale(1.02)';
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.transform = 'scale(1)';
           }}
         >
           {t('modeSelection.confirmBtn')}
