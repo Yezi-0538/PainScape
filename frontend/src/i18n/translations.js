@@ -1124,7 +1124,7 @@ const translations = {
       selectedCount: "已选择",
       items: "项",
       unknown: "未知",
-      notProvided: "暂无",  // ✅ 新增
+      notProvided: "暂无",
       copyFailed: "复制失败",
       requestFailed: "请求失败",
       optimizeFailed: "优化失败",
@@ -1209,7 +1209,7 @@ const translations = {
     profile: {
       title: "Profile",
       sanctuary: "My Sanctuary",
-      companionSpace: "Companion Space",
+      companionSpace: "Companion Sanctuary",
       editProfile: "Edit Profile",
       editInfo: "Edit Profile",
       editInfoTitle: "📝 Edit Profile Info",
@@ -1224,15 +1224,15 @@ const translations = {
       myFollowers: "My Followers",
       noFollowers: "No followers yet",
       closeList: "Close List",
-      memberStatus: "Member",
-      summaryTitle: "📊 Somatic Digital Summary",
+      memberStatus: "Cloud Member",
+      summaryTitle: "📊 Digital Pain Reconstruction Summary",
       totalRecords: "Total Logs",
       avgIntensity: "Avg Intensity",
       latestPattern: "Latest Pattern",
-      publishedSomatic: "📮 Published Somatos",
+      publishedSomatic: "📮 Published Embodied Drawings",
       publicArchive: "Public Feed",
       noPublicPost: "🍀 No public somatos yet. Create one and share it.",
-      noPublicPostCompanion: "This companion hasn't published any public somatos yet.",
+      noPublicPostCompanion: "This companion hasn't published any public embodied posts yet.",
       logout: "🔒 Secure Logout",
       uploadAvatar: "Upload Avatar",
       uploadBg: "Custom Background",
@@ -1274,16 +1274,16 @@ const translations = {
       extremelyIntense: "extremely intense",
     },
     painNames: {
-      twist: "Twist",
+      twist: "Cramp",
       pierce: "Pierce",
-      heavy: "Dragging Sinking",
-      wave: "Bloating Swell",
-      scrape: "Scraping Tearing"
+      heavy: "Heavy Dragging",
+      wave: "Diffuse Ache",
+      scrape: "Tearing Scrape"
     },
     canvas: {
       bodyFront: "Front",
       bodyBack: "Back",
-      bodyNone: "Blind Mode",
+      bodyNone: "Blind Drawing Mode",
       saveOnly: "Save Only",
       saved: "Painting Saved",
       download: "Download",
@@ -1296,7 +1296,7 @@ const translations = {
       resetView: "Reset View",
       frontView: "🔄 Front View",
       backView: "🔄 Back View",
-      blindView: "🎨 Blind Mode",
+      blindView: "🎨 Blind Drawing Mode",
       share: "Share",
     },
     // ============ Splash ============
@@ -1345,7 +1345,7 @@ const translations = {
         ["🎨 Choose Brush", "Each brush represents a pain texture; mix and match"],
         ["🧨 Choose Color", "Different colors represent the emotion and temperature of pain"],
         ["✏️ Start Drawing", "Tap or swipe on the body map to draw your pain area"],
-        ["📐 Adjust View", "Long press 0.3s to drag; pinch to zoom"],
+        ["📐 Adjust View", "Long press 0.3s to drag; pinch to zoom in on details"],
         ["↩️ Undo/Redo", "Use right-side buttons to modify or clear"],
         ["⚡ Generate Report", "Tap [Generate] at top-right; AI will translate your pain map"],
       ],
@@ -1525,9 +1525,9 @@ const translations = {
       clinicalHiddenDesc: "You have selected the general/community sharing mode. No need to collect menstrual history or other complex background information. You can directly set your companionship and self-care preferences in the final step.",
       skipAndDraw: "Skip configuration, start drawing directly",
       selfCareReady: "Somatic Self-Care Space",
-      brushTextures: "Somatic Brushes: ",
+      brushTextures: "Upcoming Somatic Brush Textures: ",
       basicPhysiologicalDesc: "These baseline indicators will be saved locally to avoid re-entry",
-      medicalHintDesc: "The following information helps accurately fit the medical history needed for specialist consultation",
+      medicalHintDesc: "The following items help accurately generate the history of present illness and chief complaints needed for specialist consultation",
       cycleRegularPlaceholder: "Please select",
       cycleRegularRegular: "Regular (fluctuation ≤ 5 days)",
       cycleRegularIrregular: "Irregular (extremely disordered cycle)",
@@ -1588,7 +1588,7 @@ const translations = {
       feelingStrong: "Strong",
       feelingSevere: "Severe",
       readyToGenerate: "Recorded, tap below to generate",
-      generateNow: "Generate ✦",
+      generateNow: "Generate Record ✦",
       reset: "Press again ↺",
     },
     guide: {
@@ -1603,11 +1603,11 @@ const translations = {
       privacyDesc: "All painting data is stored locally by default. What you share and with whom is entirely up to you."
     },
     brushes: {
-      twist: { label: "Twist", icon: "🔄" },
+      twist: { label: "Cramp", icon: "🔄" },
       pierce: { label: "Pierce", icon: "⚡" },
-      heavy: { label: "Sink", icon: "🪨" },
-      wave: { label: "Swell", icon: "〰️" },
-      scrape: { label: "Scrape", icon: "🔪" },
+      heavy: { label: "Heavy Dragging", icon: "🪨" },
+      wave: { label: "Diffuse Ache", icon: "〰️" },
+      scrape: { label: "Tearing Scrape", icon: "🔪" },
       eraser: { label: "Eraser", icon: "🧽" },
     },
     colors: {
@@ -1625,13 +1625,13 @@ const translations = {
     result: {
       tabs: {
         partner: "Partner",
-        work: "Leave",
+        work: "Leave Request",
         doctor: "Doctor",
         self: "Self-care",
       },
       partner: {
         title: "Synesthesia Guide",
-        experiencing: "She is experiencing intense",
+        experiencing: "She is experiencing severe",
         actionPrompt: "💡 Please do the following actions:",
         copyAction: "📋 Copy Action List",
       },
@@ -1651,8 +1651,8 @@ const translations = {
         },
         templates: {
           manager: {
-            polite: "Dear Manager/HR,\nI hope you are well. I am writing to request a sick leave for today due to an acute dysmenorrhea episode (severe {{pain}}), which has caused severe spasmodic twist and physical exhaustion. I will ensure all pending urgent tasks are caught up as soon as I return. Thank you very much for your understanding.\n\nSincerely,\n[Your Name]",
-            objective: "Dear Manager/HR,\nPlease accept this request for sick leave today. I am experiencing severe menstrual twist ({{pain}}) and am physically unfit to maintain normal focus. Urgent matters have been delegated. Thank you for your support.\n\nSincerely,\n[Your Name]"
+            polite: "Dear Manager/HR,\nI hope you are well. I am writing to request a sick leave for today due to an acute dysmenorrhea episode (severe {{pain}}), which has caused severe spasmodic cramps and physical exhaustion. I will ensure all pending urgent tasks are caught up as soon as I return. Thank you very much for your understanding.\n\nSincerely,\n[Your Name]",
+            objective: "Dear Manager/HR,\nPlease accept this request for sick leave today. I am experiencing severe menstrual cramps ({{pain}}) and am physically unfit to maintain normal focus. Urgent matters have been delegated. Thank you for your support.\n\nSincerely,\n[Your Name]"
           },
           teacher: {
             polite: "Dear Professor/Teacher [Name],\nI am writing to inform you that I am unable to attend class today due to an acute and severe dysmenorrhea episode ({{pain}}). I will review the class materials and catch up on any assignments as soon as I recover. Thank you for your understanding and approval.\n\nRespectfully,\n[Your Name]",
@@ -1663,8 +1663,8 @@ const translations = {
             objective: "Hi,\nPlease be informed that I need to take a personal sick leave today due to sudden menstrual pain ({{pain}}). I will follow up on our pending items as soon as I return tomorrow. Thank you for your patience.\n\nSincerely,\n[Your Name]"
           },
           friend: {
-            polite: "Hey! I'm so incredibly sorry, but I won't be able to make it to our hangout today. My period twist hit me really hard ({{pain}}), and I'm currently stuck in bed with a heat pad. 🥺 I was so looking forward to seeing everyone! Please have a blast without me, and I'll definitely check in once I'm feeling human again to reschedule a raincheck. So sorry for the last-minute change! \n\nBest, [Your Name]",
-            objective: "Hey, I have to bail on today's plan. Dealing with some pretty severe period pain ({{pain}}) and need to stay home and rest. Hope you guys have a great time, and let's catch up another day! \n\n[Your Name]"
+            polite: "Hey! I'm so incredibly sorry, but I won't be able to make it to our hangout today. My period cramps hit me really hard ({{pain}}), and I'm currently stuck in bed with a heat pad. 🥺 I was so looking forward to seeing everyone! Please have a blast without me, and I'll definitely catch up with you all next time. So sorry for the last-minute change!\n\nBest, [Your Name]",
+            objective: "Hey, I have to bail on today's plan. Dealing with some pretty severe period cramps ({{pain}}) and need to stay home and rest. Hope you guys have a great time, and let's catch up another day!\n\n[Your Name]"
           }
         }
       },
@@ -1687,13 +1687,13 @@ const translations = {
       science: {
         selfCare: [
           { title: "🌿 Misconception: Can I use tampons without sexual experience?", desc: "Absolutely. The hymen is a flexible, ring-like muscular tissue, not a sealed barrier. Standard tampons are much narrower (approx. 1cm) and will not cause damage if used gently with proper instructions." },
-          { title: "🍚 Misconception: Does brown sugar cure twist?", desc: "Brown sugar is 99% sucrose. High sugar intake can actually promote inflammatory responses and exacerbate twist. Warm hydration and physical heat are the true keys to relaxing pelvic smooth muscles." },
+          { title: "🍚 Misconception: Does brown sugar cure cramps?", desc: "Brown sugar is 99% sucrose. High sugar intake can actually promote inflammatory responses and exacerbate cramps. Warm hydration and physical heat are the true keys to relaxing pelvic smooth muscles." },
           { title: "📊 Menstrual Phase Living Guide", desc: "The follicular phase (week after period) is your high-energy gold mine, perfect for strenuous workouts and major presentations. The luteal phase (premenstrual week) requires low-intensity exercises, warmth, and mindfulness." },
           { title: "🔬 Secondary Dysmenorrhea Self-Assessment", desc: "If menstrual flow exceeds 80ml (soaking through a pad every 2 hours), includes massive blood clots, or regular pain relievers (ibuprofen) fail entirely, please schedule a pelvic ultrasound to rule out conditions like endometriosis." }
         ],
         partner: [
           { title: "A period cannot be 'held'", desc: "Menstrual flow is an involuntary shedding of the uterine lining. Unlike urination, it cannot be controlled by sphincters. Please give her unconditional support and compassion." },
-          { title: "Avoid Cold Foods", desc: "During twist episodes, ensure she avoids extremely cold beverages or cooling foods (like watermelon or crab). Cold stimuli cause sudden vascular contraction in the pelvis, worsening ischemic pain." },
+          { title: "Avoid Cold Foods", desc: "During cramp episodes, ensure she avoids extremely cold beverages or cooling foods (like watermelon or crab). Cold stimuli cause sudden vascular contraction in the pelvis, worsening ischemic pain." },
           { title: "🔴 Red Flag Emergency Signs", desc: "If she exhibits cold sweats, paleness, fainting, vomiting, or acute persistent pain, do not wait. These are potential indicators of acute gynecological emergencies like cyst torsion, and require immediate transport to an ER." }
         ]
       },
@@ -1739,6 +1739,8 @@ const translations = {
       sentResonance: "Resonance sent",
       topTipsTitle: "💡 Wisdom Shelf · Top 5 Relief Tips",
       topTipsEmpty: "No tips left under this category yet. Be the first to share your comfort recipe 🌼",
+      somaticMap: "🖼️ Embodied Pain Map",
+      viewDetails: "View Details",
     },
 
     history: {
@@ -1765,7 +1767,7 @@ const translations = {
       recordsCount: "{{count}} records",
       deleteConfirm: "⚠️ Warning: Are you sure you want to permanently delete this pain record? This action cannot be undone.",
       delete: "Delete",
-      days: "d",
+      days: "days",
       sun: "Sun",
       mon: "Mon",
       tue: "Tue",
@@ -1878,7 +1880,7 @@ const translations = {
       noExperience: "No relief experience yet, waiting for someone to share...",
       addExperience: "+ Share my relief tips (help those who come after)",
       experiencePlaceholder: "Share your relief experience (they're waiting for your answer)",
-      tagsPlaceholder: "Target symptoms (e.g.: twist, heavy pain, comma-separated)",
+      tagsPlaceholder: "Target symptoms (e.g.: cramp, heavy pain, comma-separated)",
       cancel: "Cancel",
       publishExperience: "Share Experience",
       hugged: "Hugged",
@@ -1909,12 +1911,12 @@ const translations = {
       defaultTitle: "Status Statement",
       defaultDoctorContent: "Embodied pain map recorded",
       defaultContent: "Currently experiencing {{pain}}",
-      title: "Share Preview",
+      title: "Share Review",
       subtitle: "Choose a context for your shared card",
       selectContext: "SHARE CONTEXT",
       cancel: "Cancel",
       confirm: "✨ Share Now",
-      confirmBlurred: "🔒 Share Blurred",
+      confirmBlurred: "🔒 Share with Blur",
       blurred: "Blurred",
       blurArtwork: "Blur artwork",
       blurLight: "Light",
@@ -1922,21 +1924,21 @@ const translations = {
       blurHint: "Your artwork will be blurred to protect privacy. Community members will see the general shape but not details.",
       noContextText: "No text available for this context",
       contextLabel: {
-        partner: "Partner Guide",
+        partner: "Partner Companion Guide",
         work: "Leave / Excuse Note",
-        medical: "Medical Report",
+        medical: "Medical Consultation Report",
         selfcare: "Self-Care Guide",
       },
       contextDesc: {
-        partner: "Gentle metaphors for intimate support",
+        partner: "Gentle metaphors to express feelings and help partners understand",
         work: "For manager, client, or teacher",
         medical: "Structured clinical intake record",
-        selfcare: "Evidence-based techniques & soundscapes",
+        selfcare: "Relief techniques & soothing soundscapes",
       },
       contextPartnerTitle: "Partner Companion Guide",
       contextPartnerPrefix: "She is experiencing: ",
       contextWorkTitle: "Leave / Excuse Note",
-      contextMedicalTitle: "Medical Intake Report",
+      contextMedicalTitle: "Medical Consultation Report",
       contextMedicalChief: "Chief Complaint: ",
       contextMedicalRef: "Clinical Reference: ",
       contextSelfcareTitle: "Self-Care Guide",
@@ -1969,23 +1971,23 @@ const translations = {
       },
       workSub: {
         manager: {
-          label: "Manager",
+          label: "Manager/Supervisor",
           emoji: "👔",
         },
         teacher: {
-          label: "Teacher",
+          label: "Teacher/Professor",
           emoji: "📚",
         },
         friend: {
-          label: "Friend",
+          label: "Friend (Cancel/Reschedule)",
           emoji: "👋",
         },
         client: {
-          label: "Client",
+          label: "Client/Partner",
           emoji: "🤝",
         },
         partner: {
-          label: "Partner",
+          label: "Partner/Family",
           emoji: "💕",
         },
       },
@@ -2064,14 +2066,14 @@ const translations = {
       refineFailed: '❌ AI optimization failed, API may not be deployed or network error',
       apiGenerateFallback: "Cloud generation unavailable, switched to local template mode",
       noExportSelected: "Please select records to export",
-      noPermission: "You don't have permission to modify this record",
+      noPermission: "You don't have permission to perform this action on this record",
     },
 
     painTemplates: {
       twist: {
         analogy: "Imagine wringing out a thick, soaking wet towel—twisting tighter and tighter from your navel all the way to your lower back. That suffocating, deep squeeze in your lower abdomen.",
-        med: "Patient reports persistent twist pain in the lower abdomen, episodic exacerbation with lumbosacral radiation, most severe on days 1-2 of menstruation. Recommend evaluation for uterine smooth muscle spasms and pelvic congestion.",
-        selfCare: "✨ Try fetal position: lie on your side, knees to chest, to relax pelvic floor muscle tension.\n✨ Apply a heating pad on lower belly and back (40-45°C) for 20 minutes.\n✨ Slow abdominal breathing: inhale for 4s - hold for 4s - exhale slowly for 6s.\n✨ Eat magnesium-rich foods (nuts, dark greens) to naturally ease muscle contractions.\n✨ You are allowed to curl up in bed. Pain is not your fault.\n✨ Acupressure: Firmly press the Sanyinjiao (SP6) acupoint (located on the inner side of your lower leg, 4 finger-widths above the tip of the inner ankle bone, in the depression behind the tibia bone) for 1-2 minutes. Clinically shown to relieve spasmodic uterine tension and promote pelvic blood flow.\n✨ Warm Foot Bath: Soak feet in warm water (40-42°C) for 15-20 minutes. Warming the lower limbs reflexively dilates lower abdominal vessels, relieving ischemic pelvic twist."
+        med: "Patient reports persistent cramping pain in the lower abdomen, episodic exacerbation with lumbosacral radiation, most severe on days 1-2 of menstruation. Recommend evaluation for uterine smooth muscle spasms and pelvic congestion.",
+        selfCare: "✨ Try fetal position: lie on your side, knees to chest, to relax pelvic floor muscle tension.\n✨ Apply a heating pad on lower belly and back (40-45°C) for 20 minutes.\n✨ Slow abdominal breathing: inhale for 4s - hold for 4s - exhale slowly for 6s.\n✨ Eat magnesium-rich foods (nuts, dark greens) to naturally ease muscle contractions.\n✨ You are allowed to curl up in bed. Pain is not your fault.\n✨ Acupressure: Firmly press the Sanyinjiao (SP6) acupoint (located on the inner side of your lower leg, 4 finger-widths above the tip of the inner ankle bone, in the depression behind the tibia bone) for 1-2 minutes. Clinically shown to relieve spasmodic uterine tension and promote pelvic blood flow.\n✨ Warm Foot Bath: Soak feet in warm water (40-42°C) for 15-20 minutes. Warming the lower limbs reflexively dilates lower abdominal vessels, relieving ischemic pelvic cramps."
       },
       pierce: {
         analogy: "Imagine having a root canal without anesthesia—that electric, drilling sharp pain suddenly pierce into your lower abdomen, numbing and stinging, as if someone is stirring a needle in your pelvis.",
@@ -2086,7 +2088,7 @@ const translations = {
       wave: {
         analogy: "Like having a balloon inside your belly that keeps inflating and deflating—waves of swell spreading through your entire abdomen, making even breathing feel suffocating.",
         med: "Patient reports diffuse bloating pain in the abdomen, episodic exacerbation with gas sensation, pain location not fixed. Recommend evaluation for pelvic edema, intestinal gas, and pelvic inflammation.",
-        selfCare: "✨ Wear the loosest clothes possible, completely loosen your belt.\n✨ Gentle clockwise abdominal massage (with feather-light, extremely gentle pressure on the skin).\n✨ Avoid gas-producing foods: beans, dairy, carbonated drinks, cold foods.\n✨ Place a heat pack over the entire abdomen, wrap yourself in a warm blanket.\n✨ Slow everything down—when you slow down, the sensory volume of pain decreases.\n✨ Wind-Relieving Pose (Pavanamuktasana): lie flat, hug both knees tightly to your chest, gently rock side to side. This gently massages the colon to release trapped gas, reducing intra-abdominal pressure.\n✨ Acupressure: Press and massage the ST36 (Zusanli) acupoint (located 4 finger-widths below the kneecap, 1 finger-width lateral to the shin bone). This regulates gastrointestinal motility to relieve bloating and twist."
+        selfCare: "✨ Wear the loosest clothes possible, completely loosen your belt.\n✨ Gentle clockwise abdominal massage (with feather-light, extremely gentle pressure on the skin).\n✨ Avoid gas-producing foods: beans, dairy, carbonated drinks, cold foods.\n✨ Place a heat pack over the entire abdomen, wrap yourself in a warm blanket.\n✨ Slow everything down—when you slow down, the sensory volume of pain decreases.\n✨ Wind-Relieving Pose (Pavanamuktasana): lie flat, hug both knees tightly to your chest, gently rock side to side. This gently massages the colon to release trapped gas, reducing intra-abdominal pressure.\n✨ Acupressure: Press and massage the ST36 (Zusanli) acupoint (located 4 finger-widths below the kneecap, 1 finger-width lateral to the shin bone). This regulates gastrointestinal motility to relieve bloating and cramps."
       },
       scrape: {
         analogy: "Like an unripe fruit being forcibly peeled—that scraping, tearing sensation from the inside of your uterus outward. Every movement feels like sandpaper rubbing against raw flesh.",
@@ -2137,14 +2139,14 @@ const translations = {
       start: "Start Somatic Audio Guide",
       stop: "Pause Session",
       close: "Exit Quiet Space",
-      somaticTipsTitle: "💡 Custom Somatic Recipes",
+      somaticTipsTitle: "💡 Customized Healing Plan for This Episode",
       evalTitle: "🌸 Somatic Evaluation",
       evalQuestion: "Did this therapy session help reduce your pain?",
       evalHelped: "👍 Helped a lot",
       evalNoChange: "😐 No obvious change",
       sharePrompt: "Wonderful! Your somatic experience is precious. Would you like to share this relief recipe with other sisters in the Resonance Square to help them find relief?",
       shareBtn: "✨ Share Recipe to Resonance Square",
-      shareSuccess: "🌸 Shared! Your light has joined the sanctuary.",
+      shareSuccess: "🌸 Shared! Your light has joined the community square.",
       stepPrev: "Prev",
       stepNext: "Next",
       holdingTip: "Maintain this pose, breathe naturally and slowly",
@@ -2155,7 +2157,7 @@ const translations = {
       breathModes: {
         slow: "🌊 4-4-6 Slow Flow (Pelvic Release)",
         deep: "🍃 4-7-8 Deep Breath (Pain Relief)",
-        box: "📦 4-4-4-4 Box Breath (Heart Rate Steady)"
+        box: "📦 4-4-4-4 Box Breath (Heart Rate Stabilization)"
       },
       stepDatabase: {
         posture: [
@@ -2196,7 +2198,7 @@ const translations = {
     },
 
     // ============ ✅ Generic work leave template (fallback when no LLM) ============
-    workTemplate: "Dear Manager, I am experiencing severe acute pain ({{pain}}) today and am unable to work. I kindly request a day off. Urgent matters have been handed over. Thank you for your understanding.",
+    workTemplate: "Dear Manager, I am experiencing severe acute cramps ({{pain}}) today and am unable to work. I kindly request a day off. Urgent matters have been handed over. Thank you for your understanding.",
 
     examDatabase: {
       "pelvic ultrasound": {
@@ -2423,10 +2425,10 @@ const translations = {
       chiefComplaint: "Chief Complaint",
       presentIllness: "History of Present Illness & Pain Mechanism Analysis",
       pastHistory: "Past History & Personal Habit Risks",
-      menstrualObstetricHistory: "Menstrual & Obstetric History",
+      menstrualObstetricHistory: "Menstrual & Reproductive History",
       clinicalDiagnosis: "Clinical Diagnosis & Screening Suggestions",
       clinicalAdvice: "Clinical Intervention & Exam Guidance",
-      discussionPoints: "Discussion Points & Ultrasound Guidance",
+      discussionPoints: "Discussion Points for Your Doctor Visit:",
       discussionReference: "For discussion with your doctor",
       examPreparation: "Exam Preparation:",
       referenceKnowledge: "Reference Knowledge Base",
