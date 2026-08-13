@@ -1,5 +1,5 @@
 // src/contexts/UserContext.jsx
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { supabase, ensureSession, getOrCreateProfile, updateProfile } from '../services/supabaseClient';
 
 const UserContext = createContext(null);
@@ -39,46 +39,65 @@ const DEFAULT_USER_INFO = {
 export const UserProvider = ({ children }) => {
     const [userId, setUserId] = useState(null);
     const [profile, setProfile] = useState(null);
-    const [userInfo, setUserInfo] = useState(() => {
-        const cached = localStorage.getItem('painscape_user_custom_info');
-        return cached ? JSON.parse(cached) : DEFAULT_USER_INFO;
+    
+    // 🌟 安全防护 1：统一全站缓存 Key 为 'painscape_user_info'
+    const [userInfo, setUserInfoState] = useState(() => {
+        try {
+            const cached = localStorage.getItem('painscape_user_info') || localStorage.getItem('painscape_user_custom_info');
+            return cached ? { ...DEFAULT_USER_INFO, ...JSON.parse(cached) } : DEFAULT_USER_INFO;
+        } catch (e) {
+            return DEFAULT_USER_INFO;
+        }
     });
+
     const [isReady, setIsReady] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
+    
+    // 防暴锁，防止保存时后台事件冲突
+    const isUpdatingRef = useRef(false);
 
     const resetUserInfo = useCallback(() => {
-        setUserInfo(DEFAULT_USER_INFO);
+        setUserInfoState(DEFAULT_USER_INFO);
+        localStorage.removeItem('painscape_user_info');
         localStorage.removeItem('painscape_user_custom_info');
     }, []);
 
-
+    // 校验并同步 Supabase Profile
     const syncProfileFromSupabase = useCallback(async (sessionUser, cancelled = false) => {
-        if (!sessionUser || cancelled) return;
+        if (!sessionUser || cancelled || isUpdatingRef.current) return;
         setUserId(sessionUser.id);
-        const profileData = await getOrCreateProfile(sessionUser.id);
-        if (profileData && !cancelled) {
-            setProfile(profileData);
-            if (profileData.nickname || profileData.avatar || profileData.signature) {
-                setUserInfo(prev => ({
-                    ...prev,
-                    nickname: profileData.nickname || prev.nickname,
-                    avatar: profileData.avatar || prev.avatar,
-                    signature: profileData.signature || prev.signature,
-                    bgIndex: profileData.bg_index !== undefined ? profileData.bg_index : prev.bgIndex,
-                    customAvatar: profileData.custom_avatar || prev.customAvatar,
-                    customBg: profileData.custom_bg || prev.customBg,
-                    // ✅ 新增：同步引导状态
-                    hasSeenGuide: profileData.has_seen_guide || false,
-                }));
+        try {
+            const profileData = await getOrCreateProfile(sessionUser.id);
+            if (profileData && !cancelled && !isUpdatingRef.current) {
+                setProfile(profileData);
+                setUserInfoState(prev => {
+                    const updated = {
+                        ...prev,
+                        nickname: profileData.nickname || prev.nickname,
+                        avatar: profileData.avatar || prev.avatar,
+                        signature: profileData.signature || prev.signature,
+                        bgIndex: profileData.bg_index !== undefined ? Number(profileData.bg_index) : prev.bgIndex,
+                        customAvatar: profileData.custom_avatar || prev.customAvatar,
+                        customBg: profileData.custom_bg || prev.customBg,
+                        hasSeenGuide: profileData.has_seen_guide || false,
+                    };
+                    localStorage.setItem('painscape_user_info', JSON.stringify(updated));
+                    return updated;
+                });
             }
+        } catch (err) {
+            console.warn('Sync profile from Supabase warning:', err);
         }
     }, []);
+
     // 1. 同步 userInfo 到 localStorage
     useEffect(() => {
-        localStorage.setItem('painscape_user_custom_info', JSON.stringify(userInfo));
+        if (userInfo) {
+            localStorage.setItem('painscape_user_info', JSON.stringify(userInfo));
+        }
     }, [userInfo]);
 
-    // 2. 初始化 Supabase 会话并监听登录/登出变化
+    // 2. 初始化 Supabase 会话与监听
     useEffect(() => {
         let cancelled = false;
 
@@ -99,15 +118,19 @@ export const UserProvider = ({ children }) => {
 
         initSession();
 
-        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
-            if (!session?.user) {
-                setUserId(null);
-                setProfile(null);
-                resetUserInfo();
-                setIsReady(true);
-                return;
+        // 🌟 安全防护 2：只在明确的登录/登出事件触发同步，避免 Token 自动刷新引发频繁死循环
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+            if (cancelled) return;
+
+            if (event === 'SIGNED_IN' || event === 'SIGNED_OUT') {
+                if (!session?.user) {
+                    setUserId(null);
+                    setProfile(null);
+                    resetUserInfo();
+                } else {
+                    syncProfileFromSupabase(session.user);
+                }
             }
-            await syncProfileFromSupabase(session.user);
             setIsReady(true);
         });
 
@@ -117,30 +140,41 @@ export const UserProvider = ({ children }) => {
         };
     }, [resetUserInfo, syncProfileFromSupabase]);
 
-    // 3. 更新用户信息（本地 + Supabase）
+    // 🌟 安全防护 3：核心修复！依赖项中剔除 userInfo，函数引用永久稳定，彻底杜绝无响应卡死！
     const updateUserInfo = useCallback(async (updates) => {
-        const newInfo = { ...userInfo, ...updates };
-        setUserInfo(newInfo);
+        isUpdatingRef.current = true;
 
-        // 同步到 Supabase
-        if (userId) {
+        // 1. 本地函数式更新状态
+        setUserInfoState(prev => {
+            const newInfo = { ...prev, ...updates };
+            localStorage.setItem('painscape_user_info', JSON.stringify(newInfo));
+            return newInfo;
+        });
+
+        // 2. 静默提交 Supabase
+        if (userId && updates) {
             try {
-                // 支持 has_seen_guide 字段
-                const profileUpdates = {
-                    nickname: newInfo.nickname,
-                    avatar: newInfo.avatar,
-                    signature: newInfo.signature,
-                    bg_index: newInfo.bgIndex,
-                    custom_avatar: newInfo.customAvatar,
-                    custom_bg: newInfo.customBg,
-                    has_seen_guide: newInfo.hasSeenGuide, // 新增
-                };
-                await updateProfile(userId, profileUpdates);
+                const profileUpdates = {};
+                if (updates.nickname !== undefined) profileUpdates.nickname = updates.nickname;
+                if (updates.avatar !== undefined) profileUpdates.avatar = updates.avatar;
+                if (updates.signature !== undefined) profileUpdates.signature = updates.signature;
+                if (updates.bgIndex !== undefined) profileUpdates.bg_index = Number(updates.bgIndex);
+                if (updates.customAvatar !== undefined) profileUpdates.custom_avatar = updates.customAvatar;
+                if (updates.customBg !== undefined) profileUpdates.custom_bg = updates.customBg;
+                if (updates.hasSeenGuide !== undefined) profileUpdates.has_seen_guide = updates.hasSeenGuide;
+
+                if (Object.keys(profileUpdates).length > 0) {
+                    await updateProfile(userId, profileUpdates);
+                }
             } catch (e) {
                 console.warn('Failed to sync profile to Supabase:', e);
             }
         }
-    }, [userInfo, userId]);
+
+        setTimeout(() => {
+            isUpdatingRef.current = false;
+        }, 500);
+    }, [userId]); // 👈 依赖项仅保留 userId，函数引用稳定，绝不引发无响应！
 
     // 4. 登出
     const logout = useCallback(async () => {

@@ -77,18 +77,24 @@ export async function getOrCreateProfile(userId) {
 export async function updateProfile(userId, updates) {
   if (!supabase) return null
 
-  const { data, error } = await supabase
-    .from('profiles')
-    .update({ ...updates, updated_at: new Date().toISOString() })
-    .eq('id', userId)
-    .select()
-    .maybeSingle()
+  try {
+    const { data, error } = await supabase
+      .from('profiles')
+      .update({ ...updates, updated_at: new Date().toISOString() })
+      .eq('id', userId)
+      .select()
+      .maybeSingle();
 
-  if (error) {
-    console.error('Profile update error:', error)
-    return null
+    if (error) {
+      console.warn('Profile update error:', error);
+      return null;
+    }
+    return data;
+  } catch (err) {
+    // 🌟【关键拦截】：捕获 ERR_CERT_DATABASE_CHANGED / Failed to fetch 网络错误，防止崩溃
+    console.warn('⚠️ 网络连接异常或代理拦截 (updateProfile):', err.message);
+    return null;
   }
-  return data
 }
 
 /**
