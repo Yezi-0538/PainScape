@@ -73,57 +73,33 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
     return canvas.toDataURL("image/jpeg", 0.6);
   }, []);
 
-  // 🌟 仅同步 Supabase 云端真实的 Auth 用户资料
+  // 🌟 仅在 Auth 初始化时校验 basic session，绝不主动强行冲掉当前用户修改
   const syncSupabaseUserProfile = useCallback(async (userId, sessionUser = null) => {
     if (!userId || userId.startsWith('guest_') || userId === 'user_guest') return;
     try {
-      // 直接使用传入的 sessionUser，避免额外发包导致 403
-      let userEmail = sessionUser?.email || "";
-      if (!userEmail) {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!session?.user) return; // 无 session 直接中断，防止 403 报错
-        userEmail = session.user.email || "";
+      let localCached = JSON.parse(localStorage.getItem("painscape_user_info") || "null");
+      if (localCached && localCached.id === userId) {
+        if (setUserInfo) setUserInfo(localCached);
+        return;
       }
 
-      let { data: profile } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("id", userId)
-        .maybeSingle();
-
-      if (!profile) {
-        const defaultNick = userEmail ? userEmail.split('@')[0] : "云端同伴";
-        const newProfile = {
+      const { data: profile } = await supabase.from("profiles").select("*").eq("id", userId).maybeSingle();
+      if (profile) {
+        const mapped = {
           id: userId,
-          email: userEmail,
-          nickname: defaultNick,
-          avatar: "🩸",
-          signature: t('profile.defaultSignature') || "让说不出的痛，换一种方式抵达。🧘",
-          bg_index: 0
+          email: sessionUser?.email || profile.email || "",
+          nickname: profile.nickname || "云端同伴",
+          avatar: profile.avatar || "🩸",
+          signature: profile.signature || t('profile.defaultSignature'),
+          bgIndex: Number(profile.bg_index ?? 0),
+          customAvatar: profile.custom_avatar || profile.customAvatar || "",
+          customBg: profile.custom_bg || profile.customBg || ""
         };
-        const { data: created } = await supabase
-          .from("profiles")
-          .upsert(newProfile)
-          .select()
-          .maybeSingle();
-        profile = created || newProfile;
+        if (setUserInfo) setUserInfo(mapped);
+        localStorage.setItem("painscape_user_info", JSON.stringify(mapped));
       }
-
-      const realUserInfo = {
-        id: userId,
-        email: userEmail,
-        nickname: profile?.nickname || userEmail.split('@')[0] || "云端同伴",
-        avatar: profile?.avatar || "🩸",
-        signature: profile?.signature || t('profile.defaultSignature'),
-        bgIndex: profile?.bg_index || 0,
-        customAvatar: profile?.custom_avatar || profile?.customAvatar || "",
-        customBg: profile?.custom_bg || profile?.customBg || ""
-      };
-
-      if (setUserInfo) setUserInfo(realUserInfo);
-      localStorage.setItem("painscape_user_info", JSON.stringify(realUserInfo));
     } catch (err) {
-      console.warn("同步云端个人资料失败:", err);
+      console.warn("App 基础同步提示:", err);
     }
   }, [setUserInfo, t]);
 
@@ -179,33 +155,70 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
     }
   }, []);
 
-  // 🌟 全局统一 Auth 状态监听器（彻底平替冲突，解决闪烁）
+  // 🌟 全局统一 Auth 状态与 Active Session 监听器（合并去重）
   useEffect(() => {
-  // 监听 Supabase 登录/退出的真实状态变更
+    let isMounted = true;
+
+    // 1. 页面加载时，主动检查一次 session 状态
+    const checkActiveSession = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!isMounted) return;
+
+        if (session?.user) {
+          const uid = session.user.id;
+          setCurrentUserId(uid);
+          setTargetUserId(prev => prev || uid);
+          setIsGuest(false);
+          localStorage.setItem('painscape_last_uid', uid);
+          localStorage.setItem('painscape_is_guest', 'false');
+          syncSupabaseUserProfile(uid, session.user);
+        } else {
+          let guestUid = localStorage.getItem('painscape_guest_id');
+          if (!guestUid) {
+            guestUid = `guest_${Math.random().toString(36).substr(2, 8)}`;
+            localStorage.setItem('painscape_guest_id', guestUid);
+          }
+          setCurrentUserId(guestUid);
+          setTargetUserId(prev => prev || guestUid);
+          setIsGuest(true);
+          localStorage.setItem('painscape_is_guest', 'true');
+          setShowAuthModal(true);
+        }
+      } catch (err) {
+        console.warn("云端检测失败，切入游客模式:", err);
+        let guestUid = localStorage.getItem('painscape_guest_id') || `guest_${Math.random().toString(36).substr(2, 8)}`;
+        setCurrentUserId(guestUid);
+        setTargetUserId(prev => prev || guestUid);
+        setIsGuest(true);
+        setShowAuthModal(true);
+      } finally {
+        if (isMounted) setAuthReady(true);
+      }
+    };
+
+    checkActiveSession();
+
+    // 2. 实时监听 Auth 状态变更（仅保持这唯一的监听器）
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (!isMounted) return;
+
       if (session?.user) {
-        // ✅ 1. 已登录用户处理
         const uid = session.user.id;
         setCurrentUserId(uid);
         setTargetUserId(prev => prev || uid);
         setIsGuest(false);
-        setShowAuthModal(false); // 关闭登录框
+        setShowAuthModal(false);
         localStorage.setItem('painscape_last_uid', uid);
         localStorage.setItem('painscape_is_guest', 'false');
         syncSupabaseUserProfile(uid, session.user);
       } else {
-        // ❌ 2. 未登录/已退出用户处理
-        let guestUid = localStorage.getItem('painscape_guest_id');
-        if (!guestUid) {
-          guestUid = `guest_${Math.random().toString(36).substr(2, 8)}`;
-          localStorage.setItem('painscape_guest_id', guestUid);
-        }
+        let guestUid = localStorage.getItem('painscape_guest_id') || `guest_${Math.random().toString(36).substr(2, 8)}`;
         setCurrentUserId(guestUid);
         setTargetUserId(prev => prev || guestUid);
         setIsGuest(true);
         localStorage.setItem('painscape_is_guest', 'true');
 
-        // 如果是明确登出事件或首次打开无 session，唤起弹窗
         if (event === 'SIGNED_OUT' || event === 'INITIAL_SESSION') {
           setShowAuthModal(true);
         }
@@ -213,7 +226,10 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
       setAuthReady(true);
     });
 
-    return () => subscription?.unsubscribe();
+    return () => {
+      isMounted = false;
+      subscription?.unsubscribe();
+    };
   }, [syncSupabaseUserProfile]);
 
   const [showContent, setShowContent] = useState('basicInfo');
@@ -394,69 +410,6 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
       refreshCommunity();
     }
   }, [page, refreshCommunity]);
-
-  // 🌟 自动检测登录态：未登录用户赋予游客身份，并必定唤起登录弹窗
-  useEffect(() => {
-    const checkActiveSession = async () => {
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (session && session.user) {
-          // 1. 已登录：恢复用户身份，不弹窗
-          setCurrentUserId(session.user.id);
-          setTargetUserId(prev => prev || session.user.id);
-          setIsGuest(false);
-          localStorage.setItem('painscape_last_uid', session.user.id);
-          localStorage.setItem('painscape_is_guest', 'false');
-          syncSupabaseUserProfile(session.user.id);
-        } else {
-          // 2. 未登录：分配/读取游客 UID，默认进入游客模式，并【必然唤起登录弹窗】
-          let guestUid = localStorage.getItem('painscape_guest_id');
-          if (!guestUid) {
-            guestUid = `guest_${Math.random().toString(36).substr(2, 8)}`;
-            localStorage.setItem('painscape_guest_id', guestUid);
-          }
-          setCurrentUserId(guestUid);
-          setTargetUserId(prev => prev || guestUid);
-          setIsGuest(true);
-          localStorage.setItem('painscape_is_guest', 'true');
-        
-          // 🚀 核心修复：未登录用户一进入网站，强制唤起登录弹窗
-          setShowAuthModal(true);
-        }
-      } catch (err) {
-        console.warn("云端检测失败，切入游客模式:", err);
-        let guestUid = localStorage.getItem('painscape_guest_id') || `guest_${Math.random().toString(36).substr(2, 8)}`;
-        setCurrentUserId(guestUid);
-        setTargetUserId(prev => prev || guestUid);
-        setIsGuest(true);
-        setShowAuthModal(true);
-      } finally {
-        setAuthReady(true);
-      }
-    };
-    checkActiveSession();
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (session?.user) {
-        setCurrentUserId(session.user.id);
-        setTargetUserId(prev => prev || session.user.id);
-        setIsGuest(false);
-        localStorage.setItem('painscape_last_uid', session.user.id);
-        localStorage.setItem('painscape_is_guest', 'false');
-        setShowAuthModal(false);
-        syncSupabaseUserProfile(session.user.id);
-      } else {
-        let guestUid = localStorage.getItem('painscape_guest_id') || `guest_${Math.random().toString(36).substr(2, 8)}`;
-        setCurrentUserId(guestUid);
-        setTargetUserId(prev => prev || guestUid);
-        setIsGuest(true);
-        localStorage.setItem('painscape_is_guest', 'true');
-      }
-      setAuthReady(true);
-    });
-
-    return () => subscription?.unsubscribe();
-  }, [syncSupabaseUserProfile]);
 
   const [userPrefs, setUserPrefs] = useState(['care']);
   const [tonePreference, setTonePreference] = useState('gentle');

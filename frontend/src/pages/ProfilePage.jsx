@@ -37,28 +37,23 @@ export default function ProfilePage({
   const avatarInputRef = useRef(null);
   const bgInputRef = useRef(null);
 
+  // 🌟【核心拦截锁】：标记在网络请求期间用户是否进行过保存操作
+  const hasSavedDuringLoadRef = useRef(false);
+
   const [showEditModal, setShowEditModal] = useState(false);
   const [showCropModal, setShowCropModal] = useState(false);
   const [cropSrc, setCropSrc] = useState(null);
   const [cropType, setCropType] = useState('avatar');
 
-  // 本地名片缓存
-  const globalProfiles = useMemo(() => {
-    try {
-      const cached = localStorage.getItem("painscape_simulated_profiles");
-      return cached ? JSON.parse(cached) : {};
-    } catch (e) {
-      return {};
-    }
-  }, []);
-
   const authorPostFromApp = useMemo(() => {
     return posts.find(p => String(p.userId || p.user_id || p.authorId) === String(targetUserId));
   }, [posts, targetUserId]);
 
-  // 1. 挂载第 1 毫秒精确计算出初始资料（无伪降级账号）
   const initialProfile = useMemo(() => {
-    if (isSelf && !isGuest && userInfo?.email) return userInfo;
+    const localCached = JSON.parse(localStorage.getItem("painscape_user_info") || "null");
+    if (isSelf && !isGuest && (userInfo?.email || localCached?.email)) {
+      return { ...localCached, ...userInfo };
+    }
     
     if (isGuest && isSelf) {
       return {
@@ -88,21 +83,28 @@ export default function ProfilePage({
   const [targetUserInfo, setTargetUserInfo] = useState(initialProfile);
   const [userCloudPosts, setUserCloudPosts] = useState([]);
   const [cloudPainRecordsCount, setCloudPainRecordsCount] = useState(0);
-
-  // 控制全屏加载遮罩
-  const [isProfileLoading, setIsProfileLoading] = useState(true);
+  const [isProfileLoading, setIsProfileLoading] = useState(false);
 
   const activeProfile = isSelf ? (isGuest ? initialProfile : (userInfo || initialProfile)) : targetUserInfo;
 
   const [isFollowing, setIsFollowing] = useState(false);
   const [isFollowLoading, setIsFollowLoading] = useState(false);
-  const [isHoverFollowBtn, setIsHoverFollowBtn] = useState(false);
   const [showFollowingModal, setShowFollowingModal] = useState(false);
   const [showFollowersModal, setShowFollowersModal] = useState(false);
   const [selectedPostDetail, setSelectedPostDetail] = useState(null);
 
-  const [followers, setFollowers] = useState([]);
-  const [followings, setFollowings] = useState([]);
+  const socialCacheKey = `painscape_social_cache_${targetUserId}`;
+  const initialSocial = useMemo(() => {
+    try {
+      const cached = localStorage.getItem(socialCacheKey);
+      return cached ? JSON.parse(cached) : { followers: [], followings: [] };
+    } catch (e) {
+      return { followers: [], followings: [] };
+    }
+  }, [socialCacheKey]);
+
+  const [followers, setFollowers] = useState(initialSocial.followers || []);
+  const [followings, setFollowings] = useState(initialSocial.followings || []);
 
   const followersCount = followers.length;
   const followingCount = followings.length;
@@ -114,7 +116,8 @@ export default function ProfilePage({
   const [editCustomBg, setEditCustomBg] = useState('');
   const [editSignature, setEditSignature] = useState('');
 
-  const activeBg = PRESET_BACKGROUNDS[activeProfile?.bgIndex] || PRESET_BACKGROUNDS[0];
+  const safeBgIndex = Number(activeProfile?.bgIndex ?? 0);
+  const activeBg = PRESET_BACKGROUNDS[safeBgIndex] || PRESET_BACKGROUNDS[0];
 
   const handleSelectUser = (selectedId) => {
     if (!selectedId) return;
@@ -127,93 +130,69 @@ export default function ProfilePage({
     }
   };
 
-  useEffect(() => {
-    if (showEditModal && activeProfile) {
-      setEditNickname(activeProfile.nickname || "");
-      setEditAvatar(activeProfile.avatar || "🩸");
-      setEditBgIndex(activeProfile.bgIndex ?? 0);
-      setEditCustomAvatar(activeProfile.customAvatar || "");
-      setEditCustomBg(activeProfile.customBg || "");
-      setEditSignature(activeProfile.signature || t('profile.defaultSignature'));
-    }
-  }, [showEditModal, activeProfile, t]);
-
-  // 🌟 核心直连 Supabase 云端拉取：Promise.all 5路并发 + 安全超时兜底
+  // 🌟【核心修复】：带过期拦截的主页单次更新逻辑
   useEffect(() => {
     let isMounted = true;
+    hasSavedDuringLoadRef.current = false; // 进入主页时重置保存标记
 
-    const loadCloudData = async () => {
+    const loadCloudDataOnEnter = async () => {
       if (!targetUserId || targetUserId.startsWith('guest_') || targetUserId === 'user_guest') {
         if (isMounted) setIsProfileLoading(false);
         return;
       }
 
-      // 🌟 1. 检查是否有社交关系本地缓存（key: painscape_social_cache_UID）
-      const cacheKey = `painscape_social_cache_${targetUserId}`;
-      const cachedSocial = JSON.parse(localStorage.getItem(cacheKey) || "null");
-      const hasSocialCache = cachedSocial && Array.isArray(cachedSocial.followers) && Array.isArray(cachedSocial.followings);
-      // 如果有缓存，直接使用缓存，不让用户等待！
-      if (hasSocialCache && isMounted) {
-        setFollowers(cachedSocial.followers);
-        setFollowings(cachedSocial.followings);
-        setIsFollowing(cachedSocial.followers.some(f => String(f.id) === String(currentUserId)));
-      } else {
-        setIsProfileLoading(true); // 无缓存时才开启加载提示
-      }
+      setIsProfileLoading(true);
+      // 1. 记录发起请求的绝对时刻
+      const fetchStartTime = Date.now();
 
       try {
-        // 🌟 5 路云端请求同时并发发起
-        const [
-          profileRes,
-          userPostsRes,
-          painRecordsRes,
-          followerRes,
-          followingRes,
-          authRes
-        ] = await Promise.all([
+        const [profileRes, userPostsRes, painRecordsRes, followerRes, followingRes, authRes] = await Promise.all([
           supabase.from("profiles").select("*").eq("id", targetUserId).maybeSingle(),
           supabase.from("posts").select("*").eq("user_id", targetUserId).order("created_at", { ascending: false }),
           supabase.from("pain_records").select("id").eq("user_id", targetUserId),
-          !hasSocialCache ? supabase.from("follows").select("follower_id").eq("following_id", targetUserId) : Promise.resolve({ data: null }),
-          !hasSocialCache ? supabase.from("follows").select("following_id").eq("follower_id", targetUserId) : Promise.resolve({ data: null }),
+          supabase.from("follows").select("follower_id").eq("following_id", targetUserId),
+          supabase.from("follows").select("following_id").eq("follower_id", targetUserId),
           isSelf ? supabase.auth.getUser() : Promise.resolve({ data: { user: null } })
         ]);
 
         if (!isMounted) return;
 
-        // 1. 解析 Profile
-        const profile = profileRes.data;
-        const realAuthEmail = authRes?.data?.user?.email || "";
+        // 🌟【双重拦截门禁】：
+        // 如果在请求飞行的这段时间里，用户点击过保存修改，或者本地修改时间戳晚于请求发起时刻，
+        // 彻底废弃该过期旧请求返回的数据，绝对不允许旧数据覆盖新修改！
+        const localCached = JSON.parse(localStorage.getItem("painscape_user_info") || "null");
+        const localSavedTime = localCached?.updated_at ? new Date(localCached.updated_at).getTime() : 0;
 
-        if (isSelf && !isGuest) {
-          const mappedSelf = {
-            id: currentUserId,
-            nickname: profile?.nickname || (realAuthEmail ? realAuthEmail.split('@')[0] : "云端同伴"),
-            email: realAuthEmail || profile?.email || "云端账号",
-            avatar: profile?.avatar || userInfo?.avatar || "🩸",
-            signature: profile?.signature || userInfo?.signature || t('profile.defaultSignature'),
-            bgIndex: profile?.bg_index ?? userInfo?.bgIndex ?? 0,
-            customAvatar: profile?.custom_avatar || profile?.customAvatar || userInfo?.customAvatar || "",
-            customBg: profile?.custom_bg || profile?.customBg || userInfo?.customBg || ""
-          };
-          setTargetUserInfo(mappedSelf);
-        } else if (!isSelf) {
-          const mappedOther = {
-            id: targetUserId,
-            nickname: profile?.nickname || authorPostFromApp?.nickname || authorPostFromApp?.authorName || `云端同伴_${String(targetUserId).slice(-4)}`,
-            email: profile?.email || "已验证账号",
-            avatar: profile?.avatar || authorPostFromApp?.avatar || "🌸",
-            signature: profile?.signature || t('profile.defaultSignature'),
-            bgIndex: profile?.bg_index ?? 0,
-            customAvatar: profile?.custom_avatar || profile?.customAvatar || authorPostFromApp?.customAvatar || authorPostFromApp?.custom_avatar || "",
-            customBg: profile?.custom_bg || profile?.customBg || ""
-          };
-          setTargetUserInfo(mappedOther);
+        if (hasSavedDuringLoadRef.current || localSavedTime > fetchStartTime) {
+          console.log("🛡️ 检测到请求飞行期间产生了最新修改，已安全屏蔽旧云端数据覆写！");
+          return;
         }
 
-        // 2. 解析云端帖子
+        const profile = profileRes.data;
+        const realAuthEmail = authRes?.data?.user?.email || "";
+        const emailPrefix = realAuthEmail ? realAuthEmail.split('@')[0] : "云端同伴";
+
+        if (profile) {
+          const mapped = {
+            id: targetUserId,
+            nickname: profile.nickname || emailPrefix,
+            email: realAuthEmail || profile.email || "已验证账号",
+            avatar: profile.avatar || "🩸",
+            signature: profile.signature || t('profile.defaultSignature'),
+            bgIndex: Number(profile.bg_index ?? 0),
+            customAvatar: profile.custom_avatar || profile.customAvatar || "",
+            customBg: profile.custom_bg || profile.customBg || "",
+          };
+
+          setTargetUserInfo(mapped);
+          if (isSelf && setUserInfo) {
+            setUserInfo(mapped);
+            localStorage.setItem("painscape_user_info", JSON.stringify(mapped));
+          }
+        }
+
         if (userPostsRes.data) {
-          const formattedPosts = userPostsRes.data.map(p => ({
+          setUserCloudPosts(userPostsRes.data.map(p => ({
             ...p,
             id: String(p.id),
             userId: p.user_id,
@@ -221,88 +200,85 @@ export default function ProfilePage({
             painName: p.pain_tags?.[0] || '痛经',
             userExperience: p.user_experience || '',
             createdAt: p.created_at,
-          }));
-          setUserCloudPosts(formattedPosts);
+          })));
         }
 
-        // 3. 解析云端记录数
         if (painRecordsRes.data) {
           setCloudPainRecordsCount(painRecordsRes.data.length);
         }
 
-        // 🌟 3. 如果之前没有缓存，解析 Supabase 的关系表，并立刻写入本地缓存！
-        if (!hasSocialCache && (followerRes.data || followingRes.data)) {
-          let followerUids = followerRes.data ? followerRes.data.map(r => String(r.follower_id)) : [];
-          let followingUids = followingRes.data ? followingRes.data.map(r => String(r.following_id)) : [];
+        // 社交关系解析
+        let followerUids = followerRes.data ? followerRes.data.map(r => String(r.follower_id)) : [];
+        let followingUids = followingRes.data ? followingRes.data.map(r => String(r.following_id)) : [];
 
-          const allRelatedUids = Array.from(new Set([...followerUids, ...followingUids]));
-          let remoteProfilesMap = {};
+        const allUids = Array.from(new Set([...followerUids, ...followingUids]));
+        let profilesMap = {};
 
-          if (allRelatedUids.length > 0) {
-            const { data: relatedProfiles } = await supabase
-              .from("profiles")
-              .select("*")
-              .in("id", allRelatedUids);
-
-            if (relatedProfiles) {
-              relatedProfiles.forEach(p => { remoteProfilesMap[p.id] = p; });
-            }
+        if (allUids.length > 0) {
+          const { data: relatedProfiles } = await supabase
+            .from("profiles")
+            .select("id, nickname, avatar, custom_avatar, signature")
+            .in("id", allUids);
+          if (relatedProfiles) {
+            relatedProfiles.forEach(p => { profilesMap[p.id] = p; });
           }
+        }
 
-          const resolveProfileByUid = (uid) => {
-            const uidStr = String(uid);
-            if (uidStr === String(currentUserId) && userInfo) {
-              return {
-                id: uidStr,
-                nickname: userInfo.nickname || "我的名字",
-                avatar: userInfo.avatar || "🩸",
-                customAvatar: userInfo.customAvatar || "",
-                signature: userInfo.signature || t('profile.defaultSignature')
-              };
-            }
-            const remoteP = remoteProfilesMap[uidStr];
-            const postP = posts.find(p => String(p.userId || p.user_id || p.authorId) === uidStr);
-
+        const resolveUser = (uid) => {
+          const uidStr = String(uid);
+          if (uidStr === String(currentUserId) && userInfo) {
             return {
               id: uidStr,
-              nickname: remoteP?.nickname || postP?.nickname || postP?.authorName || `同伴_${uidStr.slice(-4)}`,
-              avatar: remoteP?.avatar || postP?.avatar || "🩹",
-              customAvatar: remoteP?.custom_avatar || remoteP?.customAvatar || postP?.customAvatar || postP?.custom_avatar || "",
-              signature: remoteP?.signature || t('profile.defaultSignature')
+              nickname: userInfo.nickname || "我的名字",
+              avatar: userInfo.avatar || "🩸",
+              customAvatar: userInfo.customAvatar || "",
+              signature: userInfo.signature || t('profile.defaultSignature')
             };
+          }
+          const p = profilesMap[uidStr];
+          return {
+            id: uidStr,
+            nickname: p?.nickname || `同伴_${uidStr.slice(-4)}`,
+            avatar: p?.avatar || "🩹",
+            customAvatar: p?.custom_avatar || "",
+            signature: p?.signature || t('profile.defaultSignature')
           };
+        };
 
-          const newFollowers = followerUids.map(uid => resolveProfileByUid(uid));
-          const newFollowings = followingUids.map(uid => resolveProfileByUid(uid));
+        const newFollowers = followerUids.map(uid => resolveUser(uid));
+        const newFollowings = followingUids.map(uid => resolveUser(uid));
 
-          setFollowers(newFollowers);
-          setFollowings(newFollowings);
-          setIsFollowing(followerUids.some(uid => String(uid) === String(currentUserId)));
+        setFollowers(newFollowers);
+        setFollowings(newFollowings);
+        setIsFollowing(followerUids.some(uid => String(uid) === String(currentUserId)));
 
-          // 🌟 一键保存入 LocalStorage 缓存
-          localStorage.setItem(cacheKey, JSON.stringify({
-            followers: newFollowers,
-            followings: newFollowings,
-            updatedAt: Date.now()
-          }));
-        }
+        localStorage.setItem(socialCacheKey, JSON.stringify({
+          followers: newFollowers,
+          followings: newFollowings
+        }));
 
       } catch (err) {
-        console.warn("读取主页云端数据异常:", err);
+        console.warn("进入主页同步云端提示:", err);
       } finally {
-        if (isMounted) {
-          setIsProfileLoading(false);
-        }
+        if (isMounted) setIsProfileLoading(false);
       }
     };
 
-    loadCloudData();
+    loadCloudDataOnEnter();
 
     return () => { isMounted = false; };
-  }, [targetUserId, currentUserId, isSelf, isGuest, t]);
+  }, [targetUserId]);
 
-  //  关注与取消关注：云端直连写表并实时更新 state
-  // 本地瞬间写缓存 + 异步推云端
+  const handleOpenEditModal = () => {
+    setEditNickname(activeProfile?.nickname || "");
+    setEditAvatar(activeProfile?.avatar || "🩸");
+    setEditBgIndex(Number(activeProfile?.bgIndex ?? 0));
+    setEditCustomAvatar(activeProfile?.customAvatar || "");
+    setEditCustomBg(activeProfile?.customBg || "");
+    setEditSignature(activeProfile?.signature || t('profile.defaultSignature'));
+    setShowEditModal(true);
+  };
+
   const handleToggleFollow = async () => {
     if (isGuest || !currentUserId || currentUserId.startsWith('guest_') || currentUserId === 'user_guest') {
       if (onOpenAuth) onOpenAuth();
@@ -315,7 +291,6 @@ export default function ProfilePage({
     const willFollow = !isFollowing;
     setIsFollowing(willFollow);
 
-    // 1. 实时计算新的粉丝列表
     let updatedFollowers = [];
     if (willFollow) {
       const myInfo = {
@@ -331,32 +306,23 @@ export default function ProfilePage({
     }
 
     setFollowers(updatedFollowers);
-
-    // 🌟 2. 实时更新并写入该同伴的社交缓存！
-    const cacheKey = `painscape_social_cache_${targetUserId}`;
-    localStorage.setItem(cacheKey, JSON.stringify({
-      followers: updatedFollowers,
-      followings: followings,
-      updatedAt: Date.now()
-    }));
-
     setIsFollowLoading(false);
 
-    // 3. 后台单次异步请求写入 Supabase
+    try {
+      localStorage.setItem(socialCacheKey, JSON.stringify({
+        followers: updatedFollowers,
+        followings: followings
+      }));
+    } catch (e) {}
+
     try {
       if (willFollow) {
-        await supabase
-          .from("follows")
-          .insert({ follower_id: currentUserId, following_id: targetUserId });
+        await supabase.from("follows").insert({ follower_id: currentUserId, following_id: targetUserId });
       } else {
-        await supabase
-          .from("follows")
-          .delete()
-          .eq("follower_id", currentUserId)
-          .eq("following_id", targetUserId);
+        await supabase.from("follows").delete().eq("follower_id", currentUserId).eq("following_id", targetUserId);
       }
     } catch (err) {
-      console.warn("后台关注同步云端提示:", err);
+      console.warn("后台关注同步提示:", err);
     }
   };
 
@@ -364,13 +330,14 @@ export default function ProfilePage({
     const file = e.target.files[0];
     if (!file) return;
     try {
-      const maxSize = type === 'avatar' ? 1000 : 2000;
-      const compressed = await compressImage(file, maxSize, maxSize, 0.9);
+      const maxDim = type === 'avatar' ? 350 : 800;
+      const quality = type === 'avatar' ? 0.85 : 0.80;
+      const compressed = await compressImage(file, maxDim, maxDim, quality);
       setCropSrc(compressed);
       setCropType(type);
       setShowCropModal(true);
     } catch (err) {
-      console.error('Image compression failed:', err);
+      console.error('图片压缩失败:', err);
     }
     e.target.value = '';
   };
@@ -390,47 +357,75 @@ export default function ProfilePage({
     setCropSrc(null);
   };
 
+  // 🌟【保存修改】：立刻立标记并带上最新的时间戳
   const handleSaveChanges = async () => {
     if (!editNickname.trim()) {
       alert(t('toast.saveExperienceRequired') || '昵称不能为空！');
       return;
     }
+
+    // 立刻激活保存拦截锁！告诉后台正飞在途中的网络请求摒弃旧数据
+    hasSavedDuringLoadRef.current = true;
+
+    const nowIso = new Date().toISOString();
+
     const updatedInfo = {
-      nickname: editNickname,
-      email: activeProfile?.email,
-      avatar: editAvatar,
-      bg_index: editBgIndex,
-      custom_avatar: editCustomAvatar,
-      custom_bg: editCustomBg,
-      signature: editSignature,
-    };
-
-    try {
-      await supabase
-        .from("profiles")
-        .update(updatedInfo)
-        .eq("id", currentUserId);
-    } catch (err) {
-      console.warn("云端保存失败:", err);
-    }
-
-    const mapped = {
       id: currentUserId,
-      nickname: editNickname,
-      email: activeProfile?.email,
+      nickname: editNickname.trim(),
+      email: activeProfile?.email || "",
       avatar: editAvatar,
-      bgIndex: editBgIndex,
+      bgIndex: Number(editBgIndex),
       customAvatar: editCustomAvatar,
       customBg: editCustomBg,
       signature: editSignature,
+      updated_at: nowIso
     };
 
-    if (isSelf && setUserInfo) setUserInfo(mapped); 
-    setTargetUserInfo(mapped);
+    if (isSelf && setUserInfo) setUserInfo(updatedInfo);
+    setTargetUserInfo(updatedInfo);
+
+    localStorage.setItem("painscape_user_info", JSON.stringify(updatedInfo));
+    localStorage.setItem(`painscape_profile_cache_${currentUserId}`, JSON.stringify(updatedInfo));
+
+    try {
+      const simulated = JSON.parse(localStorage.getItem("painscape_simulated_profiles") || "{}");
+      simulated[currentUserId] = {
+        nickname: editNickname.trim(),
+        avatar: editAvatar,
+        customAvatar: editCustomAvatar,
+      };
+      localStorage.setItem("painscape_simulated_profiles", JSON.stringify(simulated));
+    } catch (e) {}
+
     setShowEditModal(false);
+
+    try {
+      const cloudPayload = {
+        id: currentUserId,
+        nickname: editNickname.trim(),
+        email: activeProfile?.email || "",
+        avatar: editAvatar,
+        bg_index: Number(editBgIndex),
+        custom_avatar: editCustomAvatar,
+        custom_bg: editCustomBg,
+        signature: editSignature,
+        updated_at: nowIso
+      };
+
+      const { error } = await supabase
+        .from("profiles")
+        .upsert(cloudPayload, { onConflict: 'id' });
+
+      if (error) {
+        console.warn("⚠️ 云端保存提示:", error.message);
+      } else {
+        console.log("🟢 资料修改已成功保存至云端！");
+      }
+    } catch (err) {
+      console.warn("⚠️ 静默保存异常:", err);
+    }
   };
 
-  //  融合云端、内存与本地最新帖子
   const myRealPosts = useMemo(() => {
     const localPosts = JSON.parse(localStorage.getItem("painscape_posts") || "[]");
     const combined = [...userCloudPosts, ...posts, ...localPosts];
@@ -467,12 +462,6 @@ export default function ProfilePage({
     });
     const topKey = Object.keys(freqs).reduce((a, b) => freqs[a] > freqs[b] ? a : b, 'twist');
     return t(`painNames.${topKey}`) || topKey;
-  };
-
-  const getDeterministicCount = (id, baseSeed) => {
-    if (!id) return baseSeed;
-    const num = parseInt(String(id).slice(-4)) || 0;
-    return (num % 15) + baseSeed;
   };
 
   const currentBackground = activeProfile?.customBg
@@ -512,9 +501,6 @@ export default function ProfilePage({
         transition: 'background 0.3s ease',
       }}
     >
-      {/* 动画样式定义 */}
-      <style>{`@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }`}</style>
-
       {activeProfile.customBg && (
         <div
           style={{
@@ -551,7 +537,7 @@ export default function ProfilePage({
             gap: '12px'
           }}>
             <div style={{ color: '#ffe0b2', fontSize: '12.5px', lineHeight: '1.4' }}>
-              ⚡️ 当前为<strong>游客临时身份</strong>。登录后可自动同步云端档案与关注关系。
+              ⚡️ 当前为<strong>游客临时身份</strong>。登录后可自动同步云端档案。
             </div>
             <button
               onClick={onOpenAuth}
@@ -565,13 +551,13 @@ export default function ProfilePage({
                 fontWeight: 'bold',
                 cursor: 'pointer',
                 flexShrink: 0,
-                boxShadow: '0 4px 12px rgba(255,152,0,0.3)'
               }}
             >
               登录/注册
             </button>
           </div>
         )}
+
         <div
           style={{
             display: 'flex',
@@ -587,30 +573,9 @@ export default function ProfilePage({
           </h2>
 
           <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-            {/* 顶栏微型加载提示：数据更新时显示极简动画，替代原来的全屏遮罩 */}
             {isProfileLoading && (
-              <span style={{
-                fontSize: '11px',
-                color: '#ffb74d',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '5px',
-                background: 'rgba(255,183,77,0.1)',
-                border: '1px solid rgba(255,183,77,0.2)',
-                padding: '3px 8px',
-                borderRadius: '12px',
-                lineHeight: 1,
-              }}>
-                <span style={{
-                  display: 'inline-block',
-                  width: '9px',
-                  height: '9px',
-                  border: '1.5px solid rgba(255,183,77,0.3)',
-                  borderTop: '1.5px solid #ffb74d',
-                  borderRadius: '50%',
-                  animation: 'spin 0.8s linear infinite'
-                }} />
-                更新中
+              <span style={{ fontSize: '11px', color: '#ffb74d', background: 'rgba(255,183,77,0.1)', padding: '3px 8px', borderRadius: '12px' }}>
+                同步中...
               </span>
             )}
             {setTargetLanguage && (
@@ -624,11 +589,7 @@ export default function ProfilePage({
                   borderRadius: 'var(--radius-lg)',
                   fontSize: '12px',
                   cursor: 'pointer',
-                  display: 'flex', alignItems: 'center', gap: '4px',
-                  transition: 'background 0.2s',
                 }}
-                onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(255,255,255,0.15)')}
-                onMouseLeave={(e) => (e.currentTarget.style.background = 'rgba(255,255,255,0.08)')}
               >
                 🌐 {isEn ? '简体中文' : 'English'}
               </button>
@@ -700,9 +661,6 @@ export default function ProfilePage({
                 margin: '0 0 4px 0',
                 fontSize: '18px',
                 fontWeight: 'bold',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
               }}
             >
               {activeProfile.nickname}
@@ -723,11 +681,11 @@ export default function ProfilePage({
                 cursor: 'pointer'
               }}
             >
-              <span onClick={() => setShowFollowingModal(true)} style={{ transition: 'color 0.2s' }} onMouseEnter={e => e.currentTarget.style.color = '#fff'} onMouseLeave={e => e.currentTarget.style.color = '#ccc'}>
+              <span onClick={() => setShowFollowingModal(true)}>
                 <strong style={{ color: '#fff' }}>{followingCount}</strong>{' '}
                 {t('profile.following')}
               </span>
-              <span onClick={() => setShowFollowersModal(true)} style={{ transition: 'color 0.2s' }} onMouseEnter={e => e.currentTarget.style.color = '#fff'} onMouseLeave={e => e.currentTarget.style.color = '#ccc'}>
+              <span onClick={() => setShowFollowersModal(true)}>
                 <strong style={{ color: '#fff' }}>{followersCount}</strong>{' '}
                 {t('profile.followers')}
               </span>
@@ -751,36 +709,23 @@ export default function ProfilePage({
               “ {displaySignature} ”
             </p>
 
-            {/* 社交关注按钮 */}
+            {/* 关注按钮 */}
             {!isSelf ? (
               <button
                 onClick={handleToggleFollow}
                 disabled={isFollowLoading}
-                onMouseEnter={() => setIsHoverFollowBtn(true)}
-                onMouseLeave={() => setIsHoverFollowBtn(false)}
                 style={{
                   padding: '6px 20px',
                   borderRadius: 'var(--radius-lg)',
                   fontSize: '12px',
                   fontWeight: 'bold',
-                  cursor: isFollowLoading ? 'wait' : 'pointer',
+                  cursor: 'pointer',
                   border: isFollowing ? '1px solid rgba(255,255,255,0.2)' : 'none',
-                  background: isFollowing
-                    ? (isHoverFollowBtn ? 'rgba(211,47,47,0.2)' : 'rgba(255,255,255,0.06)')
-                    : '#d32f2f',
-                  color: isFollowing
-                    ? (isHoverFollowBtn ? '#ef5350' : '#ccc')
-                    : '#fff',
-                  boxShadow: isFollowing ? 'none' : '0 4px 12px rgba(211, 47, 47, 0.3)',
-                  transition: 'all 0.2s ease',
-                  opacity: isFollowLoading ? 0.7 : 1,
+                  background: isFollowing ? 'rgba(255,255,255,0.06)' : '#d32f2f',
+                  color: isFollowing ? '#ccc' : '#fff',
                 }}
               >
-                {isFollowLoading
-                  ? '处理中...'
-                  : isFollowing
-                    ? (isHoverFollowBtn ? '💔 取消关注' : '✓ 已关注')
-                    : '+ 关注同伴'}
+                {isFollowing ? '✓ 已关注' : '+ 关注同伴'}
               </button>
             ) : (
               <span
@@ -798,12 +743,12 @@ export default function ProfilePage({
             )}
           </div>
 
-          {/* 编辑资料 */}
+          {/* 编辑资料按钮 */}
           {isSelf && !isGuest && (
             <button
               onClick={(e) => {
                 e.stopPropagation();
-                setShowEditModal(true);
+                handleOpenEditModal();
               }}
               style={{
                 position: 'absolute',
@@ -817,7 +762,6 @@ export default function ProfilePage({
                 fontSize: '11px',
                 cursor: 'pointer',
                 fontWeight: '500',
-                transition: 'all 0.2s',
               }}
             >
               ✏️ {t('profile.editProfile')}
@@ -835,45 +779,17 @@ export default function ProfilePage({
             marginBottom: '20px',
           }}
         >
-          <h4
-            style={{
-              color: '#d32f2f',
-              margin: '0 0 16px 0',
-              fontSize: '13px',
-              fontWeight: '600',
-            }}
-          >
+          <h4 style={{ color: '#d32f2f', margin: '0 0 16px 0', fontSize: '13px', fontWeight: '600' }}>
             {t('profile.summaryTitle')}
           </h4>
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: '1fr 1fr',
-              gap: '16px',
-              textAlign: 'center',
-            }}
-          >
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', textAlign: 'center' }}>
             <div>
-              <div style={{ color: '#fff', fontSize: '20px', fontWeight: 'bold' }}>
-                {totalRecords}
-              </div>
-              <div style={{ color: '#666', fontSize: '10px', marginTop: '4px' }}>
-                {t('profile.totalRecords')}
-              </div>
+              <div style={{ color: '#fff', fontSize: '20px', fontWeight: 'bold' }}>{totalRecords}</div>
+              <div style={{ color: '#666', fontSize: '10px', marginTop: '4px' }}>{t('profile.totalRecords')}</div>
             </div>
             <div>
-              <div
-                style={{
-                  color: '#a5d6a7',
-                  fontSize: '15px',
-                  fontWeight: 'bold',
-                }}
-              >
-                {getMostFrequentPain()}
-              </div>
-              <div style={{ color: '#666', fontSize: '10px', marginTop: '4px' }}>
-                {t('profile.latestPattern')}
-              </div>
+              <div style={{ color: '#a5d6a7', fontSize: '15px', fontWeight: 'bold' }}>{getMostFrequentPain()}</div>
+              <div style={{ color: '#666', fontSize: '10px', marginTop: '4px' }}>{t('profile.latestPattern')}</div>
             </div>
           </div>
         </div>
@@ -888,148 +804,40 @@ export default function ProfilePage({
             marginBottom: '24px',
           }}
         >
-          <div
-            style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              marginBottom: '16px',
-              borderBottom: '1px solid rgba(255,255,255,0.05)',
-              paddingBottom: '10px',
-            }}
-          >
-            <h4
-              style={{
-                color: '#fff',
-                margin: 0,
-                fontSize: 'var(--text-base)',
-                fontWeight: '600',
-              }}
-            >
-              {t('profile.publishedSomatic')}
-            </h4>
-            <span style={{ fontSize: '11px', color: '#888' }}>
-              {t('profile.publicArchive')}
-            </span>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', borderBottom: '1px solid rgba(255,255,255,0.05)', paddingBottom: '10px' }}>
+            <h4 style={{ color: '#fff', margin: 0, fontSize: '14px', fontWeight: '600' }}>{t('profile.publishedSomatic')}</h4>
+            <span style={{ fontSize: '11px', color: '#888' }}>{t('profile.publicArchive')}</span>
           </div>
 
           {myRealPosts.length === 0 ? (
-            <div
-              style={{
-                textAlign: 'center',
-                padding: '32px 10px',
-                color: '#555',
-                fontSize: '12.5px',
-              }}
-            >
+            <div style={{ textAlign: 'center', padding: '32px 10px', color: '#555', fontSize: '12.5px' }}>
               {isSelf ? t('profile.noPublicPost') : t('profile.noPublicPostCompanion')}
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              {myRealPosts.slice(0, 10).map((record, index) => {
-                const displayText =
-                  record.content?.chief_complaint?.replace('主诉：', '') ||
-                  record.text ||
-                  record.painName ||
-                  '具身痛觉图谱分享';
-
-                return (
-                  <div
-                    key={record.id || index}
-                    onClick={() => setSelectedPostDetail(record)}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '12px',
-                      background: 'rgba(255,255,255,0.01)',
-                      border: '1px solid rgba(255,255,255,0.03)',
-                      borderRadius: '14px',
-                      padding: 'var(--space-md)',
-                      cursor: 'pointer',
-                      transition: 'background 0.2s',
-                    }}
-                    onMouseEnter={(e) =>
-                      (e.currentTarget.style.background = 'rgba(255,255,255,0.03)')
-                    }
-                    onMouseLeave={(e) =>
-                      (e.currentTarget.style.background = 'rgba(255,255,255,0.01)')
-                    }
-                  >
-                    <div
-                      style={{
-                        width: '56px',
-                        height: '56px',
-                        borderRadius: '8px',
-                        overflow: 'hidden',
-                        background: '#121212',
-                        flexShrink: 0,
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        border: '1px solid rgba(255,255,255,0.05)',
-                      }}
-                    >
-                      <img
-                        src={record.img}
-                        onError={(e) => { e.target.style.display = 'none'; }}
-                        style={{
-                          width: '100%',
-                          height: '100%',
-                          objectFit: 'cover',
-                        }}
-                        alt="somatic thumbnail"
-                      />
-                    </div>
-
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <p
-                        style={{
-                          color: '#eee',
-                          fontSize: '12.5px',
-                          margin: '0 0 6px 0',
-                          lineHeight: '1.4',
-                          whiteSpace: 'nowrap',
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                        }}
-                      >
-                        {displayText}
-                      </p>
-                      <div
-                        style={{
-                          display: 'flex',
-                          justifyContent: 'space-between',
-                          alignItems: 'center',
-                        }}
-                      >
-                        <span
-                          style={{
-                            color: '#ef5350',
-                            fontSize: '9.5px',
-                            background: 'rgba(239,83,80,0.08)',
-                            padding: '2px 6px',
-                            borderRadius: '6px',
-                            fontWeight: 'bold',
-                          }}
-                        >
-                          {record.painName || (record.painTags ? record.painTags[0] : "痛经")}
-                        </span>
-                        <span
-                          style={{
-                            color: '#555',
-                            fontSize: '10.5px',
-                            display: 'flex',
-                            gap: '8px',
-                          }}
-                        >
-                          <span>❤️ {record.likes ?? getDeterministicCount(record.id, 8)}</span>
-                          <span>🫂 {record.hugs ?? getDeterministicCount(record.id, 3)}</span>
-                        </span>
-                      </div>
-                    </div>
+              {myRealPosts.slice(0, 10).map((record, index) => (
+                <div
+                  key={record.id || index}
+                  onClick={() => setSelectedPostDetail(record)}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: '12px',
+                    background: 'rgba(255,255,255,0.01)', border: '1px solid rgba(255,255,255,0.03)',
+                    borderRadius: '14px', padding: '10px', cursor: 'pointer',
+                  }}
+                >
+                  <div style={{ width: '56px', height: '56px', borderRadius: '8px', overflow: 'hidden', background: '#121212', flexShrink: 0 }}>
+                    <img src={record.img} onError={(e) => { e.target.style.display = 'none'; }} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" />
                   </div>
-                );
-              })}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <p style={{ color: '#eee', fontSize: '12.5px', margin: '0 0 6px 0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      {record.content?.chief_complaint?.replace('主诉：', '') || record.text || record.painName || '具身痛觉图谱分享'}
+                    </p>
+                    <span style={{ color: '#ef5350', fontSize: '9.5px', background: 'rgba(239,83,80,0.08)', padding: '2px 6px', borderRadius: '6px' }}>
+                      {record.painName || "痛经"}
+                    </span>
+                  </div>
+                </div>
+              ))}
             </div>
           )}
         </div>
@@ -1042,15 +850,9 @@ export default function ProfilePage({
               onLogout?.();
             }}
             style={{
-              width: '100%',
-              padding: '14px 0',
-              background: 'transparent',
-              color: '#ef5350',
-              border: '1px solid rgba(239,83,80,0.3)',
-              borderRadius: '30px',
-              fontSize: 'var(--text-base)',
-              fontWeight: 'bold',
-              cursor: 'pointer',
+              width: '100%', padding: '14px 0', background: 'transparent',
+              color: '#ef5350', border: '1px solid rgba(239,83,80,0.3)',
+              borderRadius: '30px', fontSize: '14px', fontWeight: 'bold', cursor: 'pointer',
             }}
           >
             {isGuest ? '退出游客身份' : t('profile.logout')}
@@ -1062,32 +864,16 @@ export default function ProfilePage({
       {showEditModal && (
         <div
           style={{
-            position: 'fixed',
-            top: 0, left: 0,
-            width: '100vw', height: '100vh',
-            background: 'rgba(0,0,0,0.85)',
-            backdropFilter: 'blur(8px)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 900,
-            padding: 'var(--space-lg)',
-            boxSizing: 'border-box',
+            position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh',
+            background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 900, padding: '16px', boxSizing: 'border-box'
           }}
           onClick={() => setShowEditModal(false)}
         >
           <div
             style={{
-              background: '#141414',
-              border: '1px solid #333',
-              borderRadius: '24px',
-              padding: '24px',
-              width: '100%',
-              maxWidth: 'var(--container-sm)',
-              maxHeight: '90vh',
-              overflowY: 'auto',
-              boxSizing: 'border-box',
-              boxShadow: '0 20px 50px rgba(0,0,0,0.8)',
+              background: '#141414', border: '1px solid #333', borderRadius: '24px',
+              padding: '24px', width: '100%', maxWidth: '420px', maxHeight: '90vh', overflowY: 'auto'
             }}
             onClick={(e) => e.stopPropagation()}
           >
@@ -1108,17 +894,7 @@ export default function ProfilePage({
                 maxLength={18}
                 value={editNickname}
                 onChange={(e) => setEditNickname(e.target.value)}
-                style={{
-                  width: '100%',
-                  background: '#0a0a0a',
-                  color: '#fff',
-                  border: '1px solid #333',
-                  borderRadius: 'var(--radius-sm)',
-                  padding: 'var(--space-md)',
-                  fontSize: 'var(--text-base)',
-                  boxSizing: 'border-box',
-                  outline: 'none',
-                }}
+                style={{ width: '100%', background: '#0a0a0a', color: '#fff', border: '1px solid #333', borderRadius: '8px', padding: '10px', fontSize: '14px', outline: 'none' }}
               />
             </div>
 
@@ -1133,64 +909,27 @@ export default function ProfilePage({
                 value={editSignature}
                 onChange={(e) => setEditSignature(e.target.value)}
                 placeholder={t('profile.signaturePlaceholder')}
-                style={{
-                  width: '100%',
-                  background: '#0a0a0a',
-                  color: '#fff',
-                  border: '1px solid #333',
-                  borderRadius: 'var(--radius-sm)',
-                  padding: 'var(--space-md)',
-                  fontSize: '13px',
-                  boxSizing: 'border-box',
-                  outline: 'none',
-                  resize: 'none',
-                  fontFamily: 'inherit',
-                  lineHeight: '1.4',
-                }}
+                style={{ width: '100%', background: '#0a0a0a', color: '#fff', border: '1px solid #333', borderRadius: '8px', padding: '10px', fontSize: '13px', outline: 'none', resize: 'none' }}
               />
             </div>
 
-            {/* 头像上传 */}
+            {/* 头像 */}
             <div style={{ marginBottom: '18px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                <label style={{ color: '#888', fontSize: '12px', margin: 0 }}>
-                  {t('profile.uploadAvatar')}
-                </label>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                <label style={{ color: '#888', fontSize: '12px' }}>{t('profile.uploadAvatar')}</label>
                 {editCustomAvatar && (
-                  <button
-                    onClick={() => setEditCustomAvatar('')}
-                    style={{ background: 'none', border: 'none', color: '#d32f2f', fontSize: '11px', cursor: 'pointer', textDecoration: 'underline' }}
-                  >
+                  <button onClick={() => setEditCustomAvatar('')} style={{ background: 'none', border: 'none', color: '#d32f2f', fontSize: '11px', cursor: 'pointer' }}>
                     {t('profile.restoreDefault')}
                   </button>
                 )}
               </div>
 
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
-                <button
-                  onClick={() => avatarInputRef.current.click()}
-                  style={{
-                    padding: '10px 16px',
-                    background: 'rgba(255,255,255,0.05)',
-                    border: '1.5px dashed #444',
-                    borderRadius: 'var(--radius-sm)',
-                    color: '#ccc',
-                    fontSize: '12px',
-                    cursor: 'pointer',
-                  }}
-                >
+                <button onClick={() => avatarInputRef.current.click()} style={{ padding: '8px 14px', background: 'rgba(255,255,255,0.05)', border: '1px dashed #444', borderRadius: '8px', color: '#ccc', fontSize: '12px', cursor: 'pointer' }}>
                   {t('profile.albumCrop')}
                 </button>
                 {editCustomAvatar && (
-                  <img
-                    src={editCustomAvatar}
-                    style={{
-                      width: '40px', height: '40px',
-                      borderRadius: '50%', objectFit: 'cover',
-                      border: '1px solid #d32f2f',
-                    }}
-                    alt="avatar preview"
-                  />
+                  <img src={editCustomAvatar} style={{ width: '40px', height: '40px', borderRadius: '50%', objectFit: 'cover', border: '1px solid #d32f2f' }} alt="" />
                 )}
               </div>
 
@@ -1204,9 +943,7 @@ export default function ProfilePage({
                         fontSize: '20px',
                         background: editAvatar === emoji ? 'rgba(211,47,47,0.15)' : 'rgba(255,255,255,0.02)',
                         border: editAvatar === emoji ? '1.5px solid #d32f2f' : '1px solid #2a2a2a',
-                        borderRadius: '10px',
-                        padding: '6px 0',
-                        cursor: 'pointer',
+                        borderRadius: '10px', padding: '6px 0', cursor: 'pointer',
                       }}
                     >
                       {emoji}
@@ -1216,46 +953,23 @@ export default function ProfilePage({
               )}
             </div>
 
-            {/* 背景选择 */}
+            {/* 主题背景色彩 */}
             <div style={{ marginBottom: '24px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                <label style={{ color: '#888', fontSize: '12px', margin: 0 }}>
-                  {t('profile.uploadBg')}
-                </label>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                <label style={{ color: '#888', fontSize: '12px' }}>{t('profile.uploadBg')}</label>
                 {editCustomBg && (
-                  <button
-                    onClick={() => setEditCustomBg('')}
-                    style={{ background: 'none', border: 'none', color: '#d32f2f', fontSize: '11px', cursor: 'pointer', textDecoration: 'underline' }}
-                  >
+                  <button onClick={() => setEditCustomBg('')} style={{ background: 'none', border: 'none', color: '#d32f2f', fontSize: '11px', cursor: 'pointer' }}>
                     {t('profile.restoreGradient')}
                   </button>
                 )}
               </div>
 
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
-                <button
-                  onClick={() => bgInputRef.current.click()}
-                  style={{
-                    padding: '10px 16px',
-                    background: 'rgba(255,255,255,0.05)',
-                    border: '1.5px dashed #444',
-                    borderRadius: 'var(--radius-sm)',
-                    color: '#ccc',
-                    fontSize: '12px',
-                    cursor: 'pointer',
-                  }}
-                >
+                <button onClick={() => bgInputRef.current.click()} style={{ padding: '8px 14px', background: 'rgba(255,255,255,0.05)', border: '1px dashed #444', borderRadius: '8px', color: '#ccc', fontSize: '12px', cursor: 'pointer' }}>
                   {t('profile.albumCrop')}
                 </button>
                 {editCustomBg && (
-                  <div
-                    style={{
-                      width: '50px', height: '35px',
-                      borderRadius: '6px',
-                      background: `url(${editCustomBg}) center/cover no-repeat`,
-                      border: '1px solid #d32f2f',
-                    }}
-                  />
+                  <div style={{ width: '50px', height: '35px', borderRadius: '6px', background: `url(${editCustomBg}) center/cover no-repeat`, border: '1px solid #d32f2f' }} />
                 )}
               </div>
 
@@ -1271,13 +985,8 @@ export default function ProfilePage({
                       style={{
                         background: bg.gradient,
                         border: editBgIndex === idx ? '2px solid #fff' : '1.5px solid #333',
-                        borderRadius: '14px',
-                        padding: '12px 6px',
-                        color: '#fff',
-                        fontSize: isEn ? '10px' : '11px',
-                        cursor: 'pointer',
-                        fontWeight: editBgIndex === idx ? 'bold' : 'normal',
-                        boxShadow: 'inset 0 0 10px rgba(0,0,0,0.8)',
+                        borderRadius: '14px', padding: '12px 6px', color: '#fff', fontSize: '11px',
+                        cursor: 'pointer', fontWeight: editBgIndex === idx ? 'bold' : 'normal',
                       }}
                     >
                       {isEn ? PRESET_BG_NAMES_EN[idx] : bg.name}
@@ -1289,25 +998,10 @@ export default function ProfilePage({
 
             {/* 弹窗底部操作 */}
             <div style={{ display: 'flex', gap: '12px' }}>
-              <button
-                onClick={() => setShowEditModal(false)}
-                style={{
-                  flex: 1, padding: 'var(--space-md)', background: '#222', color: '#888',
-                  border: 'none', borderRadius: 'var(--radius-sm)', fontSize: '13px', cursor: 'pointer',
-                }}
-              >
+              <button onClick={() => setShowEditModal(false)} style={{ flex: 1, padding: '12px', background: '#222', color: '#888', border: 'none', borderRadius: '8px', fontSize: '13px', cursor: 'pointer' }}>
                 {t('profile.cancel')}
               </button>
-              <button
-                onClick={handleSaveChanges}
-                style={{
-                  flex: 1, padding: 'var(--space-md)',
-                  background: 'linear-gradient(135deg, #ff9800, #f44336)',
-                  color: '#fff', border: 'none', borderRadius: 'var(--radius-sm)',
-                  fontSize: '13px', fontWeight: 'bold', cursor: 'pointer',
-                  boxShadow: '0 4px 12px rgba(244, 67, 54, 0.3)',
-                }}
-              >
+              <button onClick={handleSaveChanges} style={{ flex: 1, padding: '12px', background: 'linear-gradient(135deg, #ff9800, #f44336)', color: '#fff', border: 'none', borderRadius: '8px', fontSize: '13px', fontWeight: 'bold', cursor: 'pointer' }}>
                 {t('profile.saveProfile')}
               </button>
             </div>
@@ -1315,27 +1009,18 @@ export default function ProfilePage({
         </div>
       )}
 
-      {/* 裁剪弹窗 */}
-      <CropModal
-        isOpen={showCropModal}
-        imageSrc={cropSrc}
-        cropType={cropType}
-        onConfirm={handleCropConfirm}
-        onCancel={handleCropCancel}
-      />
-
-      {/* ===== 关注同伴列表弹窗 ===== */}
+      {/* 🌟 补全关注同伴列表弹窗 */}
       {showFollowingModal && (
         <div style={{
           position: 'fixed', top: 0, left: 0,
           width: '100vw', height: '100vh',
           background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(10px)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          zIndex: 1200, padding: 'var(--space-lg)', boxSizing: 'border-box'
+          zIndex: 1200, padding: '16px', boxSizing: 'border-box'
         }} onClick={() => setShowFollowingModal(false)}>
           <div style={{
             background: '#141414', border: '1px solid #333', borderRadius: '24px',
-            padding: '24px', width: '100%', maxWidth: 'var(--container-sm)', maxHeight: '70vh',
+            padding: '24px', width: '100%', maxWidth: '420px', maxHeight: '70vh',
             display: 'flex', flexDirection: 'column', boxSizing: 'border-box',
             boxShadow: '0 20px 50px rgba(0,0,0,0.8)'
           }} onClick={e => e.stopPropagation()}>
@@ -1346,7 +1031,7 @@ export default function ProfilePage({
               </h3>
               <button
                 onClick={() => setShowFollowingModal(false)}
-                style={{ background: 'transparent', border: 'none', color: '#888', fontSize: 'var(--text-md)', cursor: 'pointer' }}
+                style={{ background: 'transparent', border: 'none', color: '#888', fontSize: '16px', cursor: 'pointer' }}
               >
                 ✕
               </button>
@@ -1366,11 +1051,9 @@ export default function ProfilePage({
                       display: 'flex', alignItems: 'center', gap: '12px',
                       background: 'rgba(255,255,255,0.02)',
                       border: '1px solid rgba(255,255,255,0.04)',
-                      borderRadius: 'var(--radius-sm)', padding: '10px 12px',
+                      borderRadius: '8px', padding: '10px 12px',
                       cursor: 'pointer', transition: 'all 0.2s ease'
                     }}
-                    onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.06)'}
-                    onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.02)'}
                   >
                     <div style={{
                       width: '40px', height: '40px', borderRadius: '50%',
@@ -1393,7 +1076,7 @@ export default function ProfilePage({
                         {followedUser.signature || t('profile.defaultSignature')}
                       </div>
                     </div>
-                    <span style={{ color: '#666', fontSize: 'var(--text-base)' }}>›</span>
+                    <span style={{ color: '#666', fontSize: '14px' }}>›</span>
                   </div>
                 ))
               )}
@@ -1413,18 +1096,18 @@ export default function ProfilePage({
         </div>
       )}
 
-      {/* ===== 粉丝同伴列表弹窗 ===== */}
+      {/* 🌟 补全粉丝同伴列表弹窗 */}
       {showFollowersModal && (
         <div style={{
           position: 'fixed', top: 0, left: 0,
           width: '100vw', height: '100vh',
           background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(10px)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          zIndex: 1200, padding: 'var(--space-lg)', boxSizing: 'border-box'
+          zIndex: 1200, padding: '16px', boxSizing: 'border-box'
         }} onClick={() => setShowFollowersModal(false)}>
           <div style={{
             background: '#141414', border: '1px solid #333', borderRadius: '24px',
-            padding: '24px', width: '100%', maxWidth: 'var(--container-sm)', maxHeight: '70vh',
+            padding: '24px', width: '100%', maxWidth: '420px', maxHeight: '70vh',
             display: 'flex', flexDirection: 'column', boxSizing: 'border-box',
             boxShadow: '0 20px 50px rgba(0,0,0,0.8)'
           }} onClick={e => e.stopPropagation()}>
@@ -1435,7 +1118,7 @@ export default function ProfilePage({
               </h3>
               <button
                 onClick={() => setShowFollowersModal(false)}
-                style={{ background: 'transparent', border: 'none', color: '#888', fontSize: 'var(--text-md)', cursor: 'pointer' }}
+                style={{ background: 'transparent', border: 'none', color: '#888', fontSize: '16px', cursor: 'pointer' }}
               >
                 ✕
               </button>
@@ -1455,11 +1138,9 @@ export default function ProfilePage({
                       display: 'flex', alignItems: 'center', gap: '12px',
                       background: 'rgba(255,255,255,0.02)',
                       border: '1px solid rgba(255,255,255,0.04)',
-                      borderRadius: 'var(--radius-sm)', padding: '10px 12px',
+                      borderRadius: '8px', padding: '10px 12px',
                       cursor: 'pointer', transition: 'all 0.2s ease'
                     }}
-                    onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.06)'}
-                    onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.02)'}
                   >
                     <div style={{
                       width: '40px', height: '40px', borderRadius: '50%',
@@ -1482,7 +1163,7 @@ export default function ProfilePage({
                         {followerUser.signature || t('profile.defaultSignature')}
                       </div>
                     </div>
-                    <span style={{ color: '#666', fontSize: 'var(--text-base)' }}>›</span>
+                    <span style={{ color: '#666', fontSize: '14px' }}>›</span>
                   </div>
                 ))
               )}
@@ -1502,23 +1183,23 @@ export default function ProfilePage({
         </div>
       )}
 
-      {/* ===== 帖子详情弹窗 ===== */}
+      {/* 🌟 补全帖子详情弹窗 */}
       {selectedPostDetail && (
         <div style={{
           position: 'fixed', top: 0, left: 0,
           width: '100vw', height: '100vh',
           background: 'rgba(5, 5, 5, 0.96)', backdropFilter: 'blur(15px)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          zIndex: 1300, padding: 'var(--space-lg)', boxSizing: 'border-box'
+          zIndex: 1300, padding: '16px', boxSizing: 'border-box'
         }} onClick={() => setSelectedPostDetail(null)}>
           <div style={{
             background: '#141414', border: '1px solid #333', borderRadius: '24px',
-            padding: '24px', width: '100%', maxWidth: 'var(--container-sm)', maxHeight: '90vh',
+            padding: '24px', width: '100%', maxWidth: '420px', maxHeight: '90vh',
             overflowY: 'auto', boxSizing: 'border-box', boxShadow: '0 20px 50px rgba(0,0,0,0.8)'
           }} onClick={e => e.stopPropagation()}>
 
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-              <span style={{ color: '#ef5350', fontSize: 'var(--text-base)', fontWeight: 'bold' }}>
+              <span style={{ color: '#ef5350', fontSize: '14px', fontWeight: 'bold' }}>
                 📖 具身档案细节回顾
               </span>
               <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
@@ -1530,7 +1211,7 @@ export default function ProfilePage({
                       border: '1px solid rgba(239, 83, 80, 0.3)',
                       color: '#ef5350',
                       padding: '4px 10px',
-                      borderRadius: 'var(--radius-sm)',
+                      borderRadius: '8px',
                       fontSize: '11px',
                       cursor: 'pointer',
                       fontWeight: 'bold'
@@ -1549,7 +1230,7 @@ export default function ProfilePage({
               </div>
             </div>
 
-            <div style={{ borderRadius: 'var(--radius-md)', overflow: 'hidden', border: '1px solid #222', background: '#000', marginBottom: '18px' }}>
+            <div style={{ borderRadius: '12px', overflow: 'hidden', border: '1px solid #222', background: '#000', marginBottom: '18px' }}>
               <img
                 src={selectedPostDetail.img}
                 onError={(e) => { e.target.style.display = 'none'; }}
@@ -1564,7 +1245,7 @@ export default function ProfilePage({
                 fontSize: '11px',
                 background: 'rgba(239,83,80,0.08)',
                 padding: '3px 10px',
-                borderRadius: 'var(--radius-sm)',
+                borderRadius: '8px',
                 fontWeight: 'bold'
               }}>
                 {selectedPostDetail.painName || "具身痛感"}
@@ -1578,7 +1259,7 @@ export default function ProfilePage({
               background: 'rgba(255,255,255,0.01)',
               border: '1px solid rgba(255,255,255,0.03)',
               borderLeft: '4px solid #d32f2f',
-              padding: '14px', borderRadius: 'var(--radius-sm)', marginBottom: '14px'
+              padding: '14px', borderRadius: '8px', marginBottom: '14px'
             }}>
               <h4 style={{ color: '#ef5350', fontSize: '13px', margin: '0 0 6px 0', fontWeight: 'bold' }}>患者自诉与特征</h4>
               <p style={{ color: '#ccc', fontSize: '12.5px', lineHeight: '1.6', margin: 0 }}>
@@ -1591,7 +1272,7 @@ export default function ProfilePage({
                 background: 'rgba(255,255,255,0.01)',
                 border: '1px solid rgba(255,255,255,0.03)',
                 borderLeft: '4px solid #ab47bc',
-                padding: '14px', borderRadius: 'var(--radius-sm)', marginBottom: '20px'
+                padding: '14px', borderRadius: '8px', marginBottom: '20px'
               }}>
                 <h4 style={{ color: '#ab47bc', fontSize: '13px', margin: '0 0 6px 0', fontWeight: 'bold' }}>现病史与诊疗参考</h4>
                 <p style={{ color: '#ccc', fontSize: '12.5px', lineHeight: '1.6', margin: 0 }}>
@@ -1614,6 +1295,9 @@ export default function ProfilePage({
           </div>
         </div>
       )}
+
+      {/* 裁剪弹窗 */}
+      <CropModal isOpen={showCropModal} imageSrc={cropSrc} cropType={cropType} onConfirm={handleCropConfirm} onCancel={handleCropCancel} />
     </div>
   );
 }
