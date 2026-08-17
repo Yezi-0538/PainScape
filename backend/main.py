@@ -1252,7 +1252,17 @@ def generate_pain_report(data: PainData):
 
         # 空间定位 & 伴随症状
         pain_location_desc = build_pain_location_desc(data.spatialMap, lang)
+        # 获取预设的伴随症状
         accompanying_symptoms = data.accompanyingSymptoms or []
+
+        # ✅ 获取用户自定义的伴随症状（从 medicalBackground 中读取）
+        custom_symptoms = []
+        if mb and hasattr(mb, 'accompanyingOther') and mb.accompanyingOther:
+            # 按逗号、顿号或空格分割
+            custom = [s.strip() for s in re.split(r'[，,、\s]+', mb.accompanyingOther) if s.strip()]
+            custom_symptoms.extend(custom)
+        # 合并所有伴随症状
+        all_symptoms = accompanying_symptoms + custom_symptoms
         accompanying_desc = (
             "、".join(accompanying_symptoms)
             if accompanying_symptoms

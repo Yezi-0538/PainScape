@@ -256,7 +256,7 @@ const translations = {
       spontaneousAbortion: "自然流产史",
       inducedAbortion: "人工流产史",
       multiple: "多胎生育",
-      menstrualHistoryTitle: "🌸 月经史",
+      menstrualHistoryTitle: "月经史",
       psychosocialLabel: "心理社会因素（可选）",
       psychosocialOptions: {
         "": "请选择...",
@@ -282,6 +282,8 @@ const translations = {
         diarrhoea: "经期腹泻",
         fatigue: "疲劳乏力"
       },
+      accompanyingOther: "其他症状（请填写）",
+      accompanyingOtherPlaceholder: "例如：头晕、心慌、背痛...",
       toneDescription: "生成内容将使用此语气",
       toneGentle: "🌿 温和版",
       toneDirect: "💬 直接版",
@@ -485,19 +487,6 @@ const translations = {
         comfort: "亲爱的，你已经画下了你的风暴。疼痛不是你的错。今天好好休息休息本身就是一种积极的自我疗愈。⚠️ 注意：任何自愈方法或身体调整若引起额外不适或疼痛加剧，请立即停止！回归最舒适的休息姿势并保持静卧。",
         copyAdvice: "📋 复制自愈建议",
       },
-      science: {
-        selfCare: [
-          { title: "🌿 误区：没有性经验可以用卫生棉条吗？", desc: "完全可以。处女膜是富有弹性的环状肌肉组织，并非封闭的屏障。标准棉条直径约1cm，按照说明轻柔使用不会造成损伤。" },
-          { title: "🍚 误区：红糖水能治痛经吗？", desc: "红糖99%是蔗糖。高糖摄入反而会促进炎症反应，加重痉挛。温热的水和物理热敷才是放松盆腔平滑肌的关键。" },
-          { title: "📊 经期生活指南", desc: "卵泡期（经后一周）是你的高能量黄金期，适合高强度运动和重要汇报。黄体期（经前一周）需要低强度运动、保暖和正念。" },
-          { title: "🔬 继发性痛经自评", desc: "如果经量超过80ml（每2小时湿透一片卫生巾）、含大量血块、或常规止痛药（布洛芬）完全无效，请安排盆腔超声排查内异症等病变。" }
-        ],
-        partner: [
-          { title: "经血是憋不住的", desc: "经血是子宫内膜的不自主脱落。与排尿不同，它不受括约肌控制。请给予她无条件的支持和关怀。" },
-          { title: "避免生冷食物", desc: "痛经发作期间，确保她避免极冷饮品或凉性食物（如西瓜、螃蟹）。冷刺激会引起盆腔血管突然收缩，加重缺血性疼痛。" },
-          { title: "🔴 红色警报征象", desc: "如果她出现冷汗、面色苍白、晕厥、呕吐或持续剧烈疼痛，不要等待。这些是囊肿扭转等急性妇科急症的潜在指标，需立即送急诊。" }
-        ]
-      },
       refine: {
         prompt: "🧠 不满意？让 AI 调整语气：",
         placeholder: "例如：太正式了 / 再温柔一点 / 加上热敷建议",
@@ -516,7 +505,184 @@ const translations = {
       reportError: "报告生成遇到问题",
       backToHome: "首页",
     },
+    periodScience: {
+      // 标签
+      tagCycleCare: "周期护理",
+      tagDailyLife: "生活常识",
+      tagPhysiology: "生理常识",
+      tagHealthMonitor: "健康监测",
+      tagWarning: "异常辨别",
+      tagLifeHacks: "生活技巧",
+      tagHygiene: "卫生护理",
+      tagNutrition: "营养饮食",
+      tagMentalHealth: "心理健康",
+      tagExercise: "运动健康",
+      tagSelfCare: "自我关怀",
+      tagPartner: "陪伴指南",
+      userTag: "用户分享",
 
+      // UI 按钮
+      addTip: "添加科普",
+      add: "添加",
+      cancel: "取消",
+      youAdded: "你添加",
+
+      // 标题
+      title: "经期知识科普",
+
+      // ✅ 所有科普卡片数据统一放在 cards 数组中
+      cards: [
+        // ===== 生理常识 =====
+        {
+          title: "经期可以洗澡洗头",
+          desc: "经期完全可以洗澡洗头，使用温水即可。洗热水澡有助于缓解痛经，促进盆腔血液循环。洗完及时擦干吹干，避免着凉。",
+          tag: "生活常识"
+        },
+        {
+          title: "经期同房不会怀孕是误区",
+          desc: "经期同房仍有怀孕可能，尤其周期较短或经期较长的女性。精子可在体内存活5天，若排卵较早可能刚好遇上。经期同房增加感染风险，建议使用安全套。",
+          tag: "生活常识"
+        },
+        {
+          title: "经血颜色反映健康状况",
+          desc: "鲜红色：新鲜血液，通常正常。\n暗红色/棕色：氧化后的陈血，常见于经期开始或结束。\n橙色/灰色/绿色：可能提示感染，建议就医。\n大量血块（超过硬币大小）：可能提示激素失衡或子宫病变，建议就医。",
+          tag: "健康监测"
+        },
+
+        // ===== 周期护理 =====
+        {
+          title: "卵泡期（经后第1-7天）：修复与焕新",
+          desc: "雌激素逐渐上升，身体进入修复和生长状态。\n精力较充沛，适合处理需要专注力和体力的任务。\n饮食：多吃富含铁和蛋白质的食物（红肉、菠菜、鸡蛋）。",
+          tag: "周期护理"
+        },
+        {
+          title: "排卵期（经后第8-14天）：能量与敏感度高峰",
+          desc: "雌激素达到峰值，身体能量和感官敏感度处于周期高点。\n注意：部分人会有排卵痛（一侧下腹轻微刺痛），属于正常生理现象。",
+          tag: "周期护理"
+        },
+        {
+          title: "黄体期（经前第15-28天）：代谢与情绪波动期",
+          desc: "孕激素上升，基础代谢率提高，身体进入储备模式。\n可能出现PMS症状（烦躁、疲劳、食欲增加、乳房胀痛）。\n饮食：增加复合碳水、镁、维生素B6可缓解不适。\n运动：建议低强度运动（瑜伽、散步）。",
+          tag: "周期护理"
+        },
+        {
+          title: "月经期（经期第1-7天）：休息与恢复",
+          desc: "子宫内膜脱落，失血导致能量较低，免疫力相对下降。\n适合：保证睡眠、热敷缓解痉挛、温和拉伸。\n饮食：温热饮食（姜茶、红枣汤），避免生冷，注意补铁。",
+          tag: "周期护理"
+        },
+
+        // ===== 异常辨别 =====
+        {
+          title: "不规则出血：如何辨别是否病理化？",
+          desc: "✅ 正常情况：排卵期少量出血（1-2天）、紧急避孕药后撤退性出血。\n❌ 需要就医：非经期出血量多（每小时换卫生巾）；出血超过7天；伴剧烈腹痛、发热、头晕；绝经后出血；性生活后出血。",
+          tag: "异常辨别"
+        },
+        {
+          title: "痛经严重到什么程度需要就医？",
+          desc: "✅正常：经前1-2天轻度到中度绞痛，热敷或止痛药可缓解。\n❌需要就医：止痛药完全无效；疼痛影响日常工作；伴恶心呕吐、晕厥、面色苍白、冷汗；非经期也疼痛；疼痛进行性加重。",
+          tag: "异常辨别"
+        },
+        {
+          title: "月经量多少算正常？",
+          desc: "正常量（约20-80ml）：\n前2天量最多，普通卫生巾每2-4小时换一次，经期3-7天。\n\n量少（少于20ml）：\n整个经期用护垫就够，或者只有1-2天就结束，颜色偏深。\n\n量多（超过80ml）：\n卫生巾1小时就湿透；\n经期超过7天；\n排出大量硬币大小的血块；\n夜间也要频繁起夜更换（正常可以睡整夜）。\n\n如有以上情况，建议就医排查。",
+          tag: "健康监测"
+        },
+
+        // ===== 生活技巧 =====
+        {
+          title: "经期内裤血渍清洗指南",
+          desc: "用冷水冲洗（热水让蛋白质凝固，更难洗掉）。\n用内衣专用皂搓洗血渍处。\n双氧水或者氨基酸洗面奶滴在血渍上，等待1-2分钟再冲洗。\n如血渍已干，先用冷水浸泡1小时再清洗。\n尽量不要用热水！",
+          tag: "生活技巧"
+        },
+        {
+          title: "床单血渍紧急处理",
+          desc: "推荐用冷水冲洗/浸泡血渍区域。\n用纸巾吸干多余水分。\n撒上食盐或小苏打，静置10-15分钟。\n用冷水＋双氧水（1:1）轻拍血渍。\n正常机洗前再用冷水冲洗一遍。",
+          tag: "生活技巧"
+        },
+        {
+          title: "经期睡眠姿势建议",
+          desc: "🟢推荐：侧卧胎儿式（膝盖微屈，膝间夹枕头）减轻骨盆牵拉；仰卧膝盖下方垫枕头放松腰部。\n🔴避免：俯卧（增加腹部压力）；高枕仰卧（影响颈部循环）。\n💡睡前热敷下腹部或后腰，可缓解夜间痛经。",
+          tag: "生活技巧"
+        },
+
+        // ===== 卫生护理 =====
+        {
+          title: "卫生棉条使用安全须知",
+          desc: "首次使用者可从小号（Light）开始。\n每4-8小时更换一次（建议不超过6小时）。\n夜间使用卫生巾代替棉条。\n如出现发烧、皮疹、呕吐、腹泻，立即取出棉条并就医（可能为TSS早期信号）。\n不要使用超过自己吸收量的棉条。",
+          tag: "卫生护理"
+        },
+
+        // ===== 营养饮食 =====
+        {
+          title: "经期食物红黑榜",
+          desc: "✅ 推荐：富含铁（红肉、肝脏、菠菜）、镁（坚果、香蕉）、维生素B6（鸡肉、三文鱼）、Omega-3（深海鱼）。\n❌ 减少：高盐（加重水肿）、高糖（加重炎症）、咖啡因（加重焦虑）、酒精、生冷食物。",
+          tag: "营养饮食"
+        },
+        {
+          title: "经期暖身饮品推荐",
+          desc: "①姜枣红糖水：生姜3片+红枣5颗+红糖1勺，热水冲泡。\n②桂圆枸杞茶：桂圆5颗+枸杞10粒，热水冲泡。\n③温柠檬蜂蜜水：温水+柠檬片+蜂蜜。\n⚠️ 避免绿茶、浓茶、咖啡因饮品，影响铁吸收。",
+          tag: "营养饮食"
+        },
+
+        // ===== 心理健康 =====
+        {
+          title: "经前焦虑与情绪波动管理",
+          desc: "经前情绪波动（PMS）是真实的生理现象。\n💡 应对策略：①记录情绪变化；②保证充足睡眠（7-9小时）；③适度运动（散步、瑜伽）；④与人沟通；⑤减少咖啡因和糖分；⑥正念冥想（每天5-10分钟）。\n情绪严重时建议咨询心理医生或妇科医生。",
+          tag: "心理健康"
+        },
+
+        // ===== 运动健康 =====
+        {
+          title: "经期运动完全指南",
+          desc: "✅ 适合：瑜伽（婴儿式、猫牛式、蝴蝶式）、温和拉伸、散步、游泳（用棉条）、低强度力量训练。\n❌ 避免：高强度有氧、剧烈跳跃、腹部核心高强度训练、倒立。\n💡 听你身体的声音，累了就休息。",
+          tag: "运动健康"
+        },
+        {
+          title: "经期瑜伽序列推荐",
+          desc: "🟢 推荐体式：\n①婴儿式 → 放松骨盆和背部。\n②猫牛式 → 温和按摩腹部器官。\n③蝴蝶式 → 打开髋部，促进盆腔循环。\n④仰卧束角式 → 深度放松盆底肌。\n⑤倒箭式 → 缓解盆腔充血和腿部疲劳。\n⏱️ 每个体式停留30秒-1分钟。",
+          tag: "运动健康"
+        },
+
+        // ===== 自我关怀 =====
+        {
+          title: "没有性经验可以用卫生棉条吗？",
+          desc: "完全可以。处女膜是富有弹性的环状肌肉组织，并非封闭的屏障。标准棉条直径约1cm，按照说明轻柔使用不会造成损伤。",
+          tag: "自我关怀"
+        },
+        {
+          title: "红糖水能治痛经吗？",
+          desc: "红糖99%是蔗糖。高糖摄入反而会促进炎症反应，加重痉挛。温热的水和物理热敷才是放松盆腔平滑肌的关键。",
+          tag: "自我关怀"
+        },
+        {
+          title: "经期生活指南",
+          desc: "卵泡期（经后一周）是高能量黄金期，适合高强度运动和重要汇报。\n黄体期（经前一周）需要低强度运动、保暖和正念。",
+          tag: "自我关怀"
+        },
+        {
+          title: "继发性痛经自评",
+          desc: "如果经量超过80ml（每2小时湿透一片卫生巾）、含大量血块、或常规止痛药（布洛芬）完全无效，请安排盆腔超声排查内异症等病变。",
+          tag: "自我关怀"
+        },
+
+        // ===== 陪伴指南 =====
+        {
+          title: "经血是憋不住的",
+          desc: "经血是子宫内膜的不自主脱落。与排尿不同，它不受括约肌控制。请给予她无条件的支持和关怀。",
+          tag: "陪伴指南"
+        },
+        {
+          title: "避免生冷食物",
+          desc: "痛经发作期间，确保她避免极冷饮品或凉性食物（如西瓜、螃蟹）。冷刺激会引起盆腔血管突然收缩，加重缺血性疼痛。",
+          tag: "陪伴指南"
+        },
+        {
+          title: "红色警报征象",
+          desc: "如果出现冷汗、面色苍白、晕厥、呕吐或持续剧烈疼痛，不要等待。这些是囊肿扭转等急性妇科急症的潜在指标，需立即送急诊。",
+          tag: "陪伴指南"
+        }
+      ]
+    },
     community: {
       title: "🌍 社区",
       back: "返回",
@@ -1143,14 +1309,44 @@ const translations = {
     },
     // ============ ✅ 新增：默认模板（用于 generateContent 后备） ============
     defaultTemplates: {
-      chief_complaint: '月经期出现下腹部周期性{{pain}}，伴{{symptoms}}1天。',
-      present_illness: '患者自述既往月经规律。自述于今日（行经第{{cycleDay}}天）突发{{pain}}。图像特征向量重构显示：痛感评分较高，伴有典型的{{analogy}}，活动受限。',
-      past_history: '平素健康状况良好。无明确高血压、糖尿病等慢性病史，无外科手术及食物药物过敏记录。',
-      menstrual_history: '月经史：13岁初潮，经期5天，周期28-30天。',
-      clinical_diagnosis: '结合痛觉成像，建议排查子宫内膜异位症、子宫平滑肌痉挛或盆腔器质性充血。建议行妇科超声筛查。',
-      clinical_suggestions: '温敷小腹与腰骶，静卧休养。若症状持续加剧建议常规门诊行超声探查。',
+      // 默认值
       medication: '布洛芬',
       defaultActions: '☑️ 帮她热敷小腹并准备好止痛药。\n☑️ 给她倒杯温水，陪伴在她身边。\n☑️ 调暗灯光，让她安静休息。',
+      workTemplate: '领导您好：本人今日突发严重{{pain}}，身体状态无法维持正常工作，申请休假一天，望批准。紧急事务已做交接安排。感谢您的理解。',
+
+      // ✅ 新增：占位符默认值
+      notProvided: "未提供",
+      noSymptoms: "无明显伴随症状",
+      noDiagnosis: "无明确妇科疾病确诊史",
+      noSurgery: "无手术史",
+      noAllergy: "无已知药物过敏",
+      noLifestyle: "无特殊不良作息",
+      noFamilyHistory: "无家族史",
+      noReproductive: "未提供",
+      noPsychosocial: "未提供",
+
+      // ✅ 修改：支持变量替换的模板
+      chief_complaint: '月经期出现腹部{{pain}}，伴{{symptoms}}。',
+      present_illness: '患者{{age}}，{{heightWeight}}。自述月经{{cycleRegular}}。自述于{{cycleDay}}突发{{pain}}，伴{{symptoms}}。日常活动负荷：{{activityLevel}}。',
+      pastHistoryDiagnosis: '患者既往{{diagnosed}}病史。',
+      pastHistorySurgery: '曾行{{surgery}}。',
+      pastHistoryAllergy: '对{{allergy}}过敏。',
+      pastHistoryLifestyle: '生活作息方面，{{lifestyle}}。',
+      pastHistoryFamily: '家族史：{{familyHistory}}。',
+      pastHistoryReproductive: '生育史：{{reproductiveHistory}}。',
+      pastHistoryPsychosocial: '心理社会评估提示{{psychosocial}}。',
+      pastHistoryNone: '未诉特殊既往病史。',
+      presentIllnessAge: '患者{{age}}，{{heightWeight}}。',
+      presentIllnessCycle: '自述月经{{cycleRegular}}。',
+      presentIllnessOnset: '于{{cycleDay}}突发{{pain}}。',
+      presentIllnessSymptoms: '伴{{symptoms}}。',
+      presentIllnessActivity: '日常活动负荷：{{activityLevel}}。',
+      menstrual_history: '月经史：{{menarche}}岁初潮，经期{{periodDuration}}天，周期{{cycleRegular}}。末次月经：{{lmp}}。',
+      clinical_diagnosis: '结合痛觉成像，建议排查子宫内膜异位症、子宫平滑肌痉挛或盆腔器质性充血。建议行妇科超声筛查。',
+      clinical_suggestions: '温敷小腹与腰骶，静卧休养。若症状持续加重建议常规门诊行超声探查。',
+      medication: '布洛芬',
+      defaultActions: '☑️ 帮她热敷小腹并准备好止痛药。\n☑️ 给她倒杯温水，陪伴在她身边。\n☑️ 调暗灯光，让她安静休息。',
+      workTemplate: '领导您好：本人今日突发严重{{pain}}，身体状态无法维持正常工作，申请休假一天，望批准。紧急事务已做交接安排。感谢您的理解。',
     },
 
     // ============ 医生视图标签 ============
@@ -1486,7 +1682,7 @@ const translations = {
       spontaneousAbortion: "History of spontaneous abortion/miscarriage",
       inducedAbortion: "History of induced abortion/termination",
       multiple: "Multiple births",
-      menstrualHistoryTitle: "🌸 Menstrual History",
+      menstrualHistoryTitle: "Menstrual History",
       psychosocialLabel: "Psychosocial Factors (Optional)",
       psychosocialOptions: {
         "": "Select...",
@@ -1512,6 +1708,8 @@ const translations = {
         diarrhoea: "Menstrual diarrhoea",
         fatigue: "Fatigue"
       },
+      accompanyingOther: "Other symptoms (please specify)",
+      accompanyingOtherPlaceholder: "e.g., dizziness, palpitations, back pain...",
       toneDescription: "Generated content will use this tone",
       toneGentle: "🌿 Gentle",
       toneDirect: "💬 Direct",
@@ -1694,19 +1892,6 @@ const translations = {
         comfort: "Dear one, you've drawn your storm. Pain is not your fault. Rest well today—resting is an active form of self-healing. ⚠️ NOTICE: Please stop any self-care method or physical adjustment immediately if it causes you additional discomfort or pain! Return to your most comfortable resting position and remain still.",
         copyAdvice: "📋 Copy Self-care Tips",
       },
-      science: {
-        selfCare: [
-          { title: "🌿 Misconception: Can I use tampons without sexual experience?", desc: "Absolutely. The hymen is a flexible, ring-like muscular tissue, not a sealed barrier. Standard tampons are much narrower (approx. 1cm) and will not cause damage if used gently with proper instructions." },
-          { title: "🍚 Misconception: Does brown sugar cure cramps?", desc: "Brown sugar is 99% sucrose. High sugar intake can actually promote inflammatory responses and exacerbate cramps. Warm hydration and physical heat are the true keys to relaxing pelvic smooth muscles." },
-          { title: "📊 Menstrual Phase Living Guide", desc: "The follicular phase (week after period) is your high-energy gold mine, perfect for strenuous workouts and major presentations. The luteal phase (premenstrual week) requires low-intensity exercises, warmth, and mindfulness." },
-          { title: "🔬 Secondary Dysmenorrhea Self-Assessment", desc: "If menstrual flow exceeds 80ml (soaking through a pad every 2 hours), includes massive blood clots, or regular pain relievers (ibuprofen) fail entirely, please schedule a pelvic ultrasound to rule out conditions like endometriosis." }
-        ],
-        partner: [
-          { title: "A period cannot be 'held'", desc: "Menstrual flow is an involuntary shedding of the uterine lining. Unlike urination, it cannot be controlled by sphincters. Please give her unconditional support and compassion." },
-          { title: "Avoid Cold Foods", desc: "During cramp episodes, ensure she avoids extremely cold beverages or cooling foods (like watermelon or crab). Cold stimuli cause sudden vascular contraction in the pelvis, worsening ischemic pain." },
-          { title: "🔴 Red Flag Emergency Signs", desc: "If she exhibits cold sweats, paleness, fainting, vomiting, or acute persistent pain, do not wait. These are potential indicators of acute gynecological emergencies like cyst torsion, and require immediate transport to an ER." }
-        ]
-      },
       refine: {
         prompt: "🧠 Not satisfied? Let AI adjust the tone:",
         placeholder: "e.g.: too formal / make it gentler / add heat pad advice",
@@ -1725,7 +1910,180 @@ const translations = {
       reportError: "Report generation encountered an issue",
       backToHome: "Home",
     },
+    periodScience: {
+      tagCycleCare: "Cycle Care",
+      tagDailyLife: "Daily Life",
+      tagPhysiology: "Physiology",
+      tagHealthMonitor: "Health Monitor",
+      tagWarning: "Warning Signs",
+      tagLifeHacks: "Life Hacks",
+      tagHygiene: "Hygiene",
+      tagNutrition: "Nutrition",
+      tagMentalHealth: "Mental Health",
+      tagExercise: "Exercise",
+      tagSelfCare: "Self-Care",
+      tagPartner: "Partner Guide",
+      userTag: "User Share",
 
+      addTip: "Add Tip",
+      add: "Add",
+      cancel: "Cancel",
+      youAdded: "You",
+
+      title: "Period Science & Tips",
+
+      cards: [
+        // ===== 生理常识 =====
+        {
+          title: "You can shower and wash hair during your period",
+          desc: "You can absolutely shower and wash your hair during your period — just use warm water. A warm shower helps relieve cramps and promotes pelvic circulation. Dry off and blow-dry promptly to avoid catching a chill.",
+          tag: "Daily Life"
+        },
+        {
+          title: "You CAN get pregnant during your period",
+          desc: "You CAN get pregnant during your period, especially if you have shorter cycles or longer periods. Sperm can survive in the body for up to 5 days, and if you ovulate early, it could coincide. Period sex also increases infection risk — condoms are recommended.",
+          tag: "Daily Life"
+        },
+        {
+          title: "Period blood color reflects health",
+          desc: "Bright red: fresh blood, usually normal.\nDark red/brown: oxidized old blood, common at start or end of period.\nOrange/gray/green: may indicate infection — see a doctor.\nLarge clots (bigger than a coin): may suggest hormonal imbalance or uterine issues — seek medical advice.",
+          tag: "Health Monitor"
+        },
+
+        // ===== 周期护理 =====
+        {
+          title: "Follicular Phase (Day 1-7): Repair & Renewal",
+          desc: "Estrogen gradually rises, the body enters repair and growth mode.\nEnergy levels are higher — good for tasks requiring focus and physical effort.\nDiet: eat iron and protein-rich foods (red meat, spinach, eggs).",
+          tag: "Cycle Care"
+        },
+        {
+          title: "Ovulation Phase (Day 8-14): Peak Energy & Sensitivity",
+          desc: "Estrogen peaks, body energy and sensory sensitivity are at a cycle high.\nNote: some may experience ovulation pain (mild twinge on one side of lower abdomen) — this is normal.",
+          tag: "Cycle Care"
+        },
+        {
+          title: "Luteal Phase (Day 15-28): Metabolism & Mood Fluctuations",
+          desc: "Progesterone rises, metabolic rate increases, the body enters reserve mode.\nPMS symptoms may appear (irritability, fatigue, increased appetite, breast tenderness).\nDiet: increase complex carbs, magnesium, vitamin B6 to ease symptoms.\nExercise: low-intensity activities (yoga, walking) recommended.",
+          tag: "Cycle Care"
+        },
+        {
+          title: "Menstrual Phase (Day 1-7): Rest & Recovery",
+          desc: "Uterine lining sheds, blood loss leads to lower energy and reduced immunity.\nFocus on: quality sleep, heat therapy for cramps, gentle stretching.\nDiet: warm foods (ginger tea, red date soup), avoid cold drinks, replenish iron.",
+          tag: "Cycle Care"
+        },
+
+        // ===== 异常辨别 =====
+        {
+          title: "Irregular Bleeding: When to see a doctor?",
+          desc: "✅ Normal: ovulation spotting (1-2 days), withdrawal bleeding after emergency contraception.\n❌ See a doctor: heavy non-period bleeding (changing pad every hour); bleeding lasts more than 7 days; with severe pain, fever, dizziness; postmenopausal bleeding; bleeding after intercourse.",
+          tag: "Warning Signs"
+        },
+        {
+          title: "When is period pain serious enough to see a doctor?",
+          desc: "✅ Normal: mild to moderate cramping 1-2 days before period, relieved by heat or painkillers.\n❌ See a doctor: painkillers don't work; pain interferes with daily activities; with nausea, vomiting, fainting, paleness, cold sweats; pain also occurs outside period; pain progressively worsens.",
+          tag: "Warning Signs"
+        },
+        {
+          title: "What is normal menstrual flow?",
+          desc: "Normal (about 20-80ml):\nHeaviest in first 2 days, changing pad every 2-4 hours, period lasts 3-7 days.\n\nLight (less than 20ml):\nPantyliner is enough for the whole period, or only lasts 1-2 days, darker in color.\n\nHeavy (more than 80ml):\nPad soaks through in 1 hour;\nPeriod lasts more than 7 days;\nPassing large clots (bigger than a coin);\nNeed to get up multiple times at night to change (normally you can sleep through the night).\n\nIf you experience any of these, consider seeing a doctor.",
+          tag: "Health Monitor"
+        },
+
+        // ===== 生活技巧 =====
+        {
+          title: "How to wash period blood stains from underwear",
+          desc: "Rinse with cold water (hot water sets protein stains).\nGently rub with lingerie soap or bar soap.\nApply hydrogen peroxide or amino acid cleanser to the stain, wait 1-2 minutes, then rinse.\nIf stain is already dry, soak in cold water for 1 hour before washing.\nAvoid using hot water!",
+          tag: "Life Hacks"
+        },
+        {
+          title: "How to remove period blood from sheets (emergency)",
+          desc: "Rinse/soak the stained area with cold water.\nBlot excess moisture with paper towel.\nSprinkle salt or baking soda, let sit for 10-15 minutes.\nGently dab with cold water + hydrogen peroxide (1:1).\nRinse with cold water again before regular wash.",
+          tag: "Life Hacks"
+        },
+        {
+          title: "Best sleeping positions during your period",
+          desc: "🟢 Recommended: fetal side position (knees bent, pillow between knees) reduces pelvic strain; supine with pillow under knees relaxes lower back.\n🔴 Avoid: lying on stomach (increases abdominal pressure); sleeping with high pillow (affects neck circulation).\nApplying heat to lower abdomen or lower back before bed can relieve nighttime cramps.",
+          tag: "Life Hacks"
+        },
+
+        // ===== 卫生护理 =====
+        {
+          title: "Tampon safety guide",
+          desc: "First-time users: start with the smallest size (Light).\nChange every 4-8 hours (recommended no more than 6 hours).\nUse pads at night instead of tampons.\nIf you experience fever, rash, vomiting, diarrhea, remove tampon immediately and see a doctor (may be early sign of TSS).\nDon't use higher absorbency than your flow requires.",
+          tag: "Hygiene"
+        },
+
+        // ===== 营养饮食 =====
+        {
+          title: "Foods to eat and avoid during your period",
+          desc: "✅ Eat more: iron-rich (red meat, liver, spinach), magnesium-rich (nuts, bananas), vitamin B6 (chicken, salmon), Omega-3 (fatty fish).\n❌ Cut back on: high-salt (worsens bloating), high-sugar (increases inflammation), caffeine (worsens anxiety), alcohol, cold/raw foods.",
+          tag: "Nutrition"
+        },
+        {
+          title: "Warming drinks for period relief",
+          desc: "① Ginger & Red Date Tea: 3 slices ginger + 5 red dates + 1 spoon brown sugar, steep in hot water.\n② Longan & Goji Berry Tea: 5 longans + 10 goji berries, steep in hot water.\n③ Warm Lemon Honey Water: warm water + lemon slice + honey.\nAvoid green tea, strong tea, and caffeinated drinks — they inhibit iron absorption.",
+          tag: "Nutrition"
+        },
+
+        // ===== 心理健康 =====
+        {
+          title: "Managing premenstrual anxiety and mood swings",
+          desc: "Premenstrual mood swings (PMS) are a real physiological phenomenon.\nCoping strategies: ① Track mood changes; ② Get enough sleep (7-9 hours); ③ Moderate exercise (walking, yoga); ④ Talk to someone; ⑤ Reduce caffeine and sugar; ⑥ Mindfulness meditation (5-10 min daily).\nIf mood significantly interferes with your life, consider consulting a mental health professional or gynecologist.",
+          tag: "Mental Health"
+        },
+
+        // ===== 运动健康 =====
+        {
+          title: "Exercise guide during your period",
+          desc: "✅ Suitable: yoga (Child's Pose, Cat-Cow, Butterfly Pose), gentle stretching, walking, swimming (with tampon), low-intensity strength training.\n❌ Avoid: high-intensity cardio, intense jumping, high-intensity core exercises, inversions.\nListen to your body — rest if you're tired.",
+          tag: "Exercise"
+        },
+        {
+          title: "Recommended yoga sequence for period relief",
+          desc: "Recommended poses:\n① Child's Pose → relaxes pelvis and back.\n② Cat-Cow → gently massages abdominal organs.\n③ Butterfly Pose → opens hips, promotes pelvic circulation.\n④ Reclining Bound Angle Pose → deep pelvic floor relaxation.\n⑤ Legs-Up-The-Wall Pose → relieves pelvic congestion and leg fatigue.\nHold each pose for 30 seconds to 1 minute.",
+          tag: "Exercise"
+        },
+
+        // ===== 自我关怀 =====
+        {
+          title: "Can I use tampons without sexual experience?",
+          desc: "Absolutely. The hymen is a flexible, ring-like muscular tissue, not a sealed barrier. Standard tampons are about 1cm in diameter — when used gently according to instructions, they won't cause damage.",
+          tag: "Self-Care"
+        },
+        {
+          title: "Does brown sugar water help with cramps?",
+          desc: "Brown sugar is 99% sucrose. High sugar intake can promote inflammation and worsen cramps. Warm hydration and physical heat are the real keys to relaxing pelvic smooth muscles.",
+          tag: "Self-Care"
+        },
+        {
+          title: "Period living guide",
+          desc: "Follicular phase (week after period): high-energy phase — good for strenuous exercise and important tasks.\nLuteal phase (week before period): need low-intensity exercise, warmth, and mindfulness.",
+          tag: "Self-Care"
+        },
+        {
+          title: "Secondary dysmenorrhea self-assessment",
+          desc: "If your flow exceeds 80ml (soaking through a pad every 2 hours), contains large clots, or regular painkillers (ibuprofen) don't work at all, consider scheduling a pelvic ultrasound to rule out conditions like endometriosis.",
+          tag: "Self-Care"
+        },
+
+        // ===== 陪伴指南 =====
+        {
+          title: "Period blood cannot be 'held'",
+          desc: "Menstrual flow is an involuntary shedding of the uterine lining. Unlike urination, it cannot be controlled by sphincters. Please give her unconditional support and care.",
+          tag: "Partner Guide"
+        },
+        {
+          title: "Avoid cold foods",
+          desc: "During cramps, help her avoid cold drinks or cooling foods (like watermelon, crab). Cold stimuli can cause sudden pelvic vasoconstriction, worsening ischemic pain.",
+          tag: "Partner Guide"
+        },
+        {
+          title: "Red flag emergency signs",
+          desc: "If she experiences cold sweats, paleness, fainting, vomiting, or persistent severe pain — do not wait. These could be signs of acute gynecological emergencies like cyst torsion. Seek emergency care immediately.",
+          tag: "Partner Guide"
+        }
+      ]
+    },
     community: {
       title: "🌍 Community",
       back: "Back",
@@ -2359,6 +2717,45 @@ const translations = {
       optimizeFailed: "Optimization failed",
       clickToEdit: "Click to edit...",
       clickToEditTitle: "Click to edit",
+    },
+    defaultTemplates: {
+      // Default Values
+      medication: 'Ibuprofen',
+      defaultActions: '☑️ Apply a warm compress to her lower abdomen and prepare painkillers.\n☑️ Pour her a glass of warm water and stay by her side.\n☑️ Dim the lights and let her rest quietly.',
+
+      // ✅ New: Placeholder default values
+      notProvided: "Not provided",
+      noSymptoms: "No significant accompanying symptoms",
+      noDiagnosis: "No confirmed gynecological disease history",
+      noSurgery: "No surgical history",
+      noAllergy: "No known drug allergies",
+      noLifestyle: "No unusual lifestyle habits",
+      noFamilyHistory: "No family history",
+      noReproductive: "Not provided",
+      noPsychosocial: "Not provided",
+
+      // ✅ Modified: Templates supporting variable substitution
+      chief_complaint: 'Experiencing abdominal {{pain}} during menstruation, accompanied by {{symptoms}}.',
+      present_illness: 'Patient is {{age}}, {{heightWeight}}. Reports menstrual cycle is {{cycleRegular}}. Reports sudden onset of {{pain}} on cycle day {{cycleDay}}, accompanied by {{symptoms}}. Daily activity load: {{activityLevel}}.',
+      pastHistoryDiagnosis: 'Patient has a history of {{diagnosed}}.',
+      pastHistorySurgery: 'Previously underwent {{surgery}}.',
+      pastHistoryAllergy: 'Allergic to {{allergy}}.',
+      pastHistoryLifestyle: 'Regarding lifestyle, {{lifestyle}}.',
+      pastHistoryFamily: 'Family history: {{familyHistory}}.',
+      pastHistoryReproductive: 'Reproductive history: {{reproductiveHistory}}.',
+      pastHistoryPsychosocial: 'Psychosocial assessment indicates {{psychosocial}}.',
+      pastHistoryNone: 'No significant past medical history reported.',
+      presentIllnessAge: 'Patient is {{age}}, {{heightWeight}}.',
+      presentIllnessCycle: 'Reports menstrual cycle is {{cycleRegular}}.',
+      presentIllnessOnset: 'Sudden onset of {{pain}} on cycle day {{cycleDay}}.',
+      presentIllnessSymptoms: 'Accompanied by {{symptoms}}.',
+      presentIllnessActivity: 'Daily activity load: {{activityLevel}}.',
+      menstrual_history: 'Menstrual history: Menarche at {{menarche}} years, period duration {{periodDuration}} days, cycle {{cycleRegular}}. Last menstrual period (LMP): {{lmp}}.',
+      clinical_diagnosis: 'Based on pain imaging, it is recommended to rule out endometriosis, uterine smooth muscle spasm, or pelvic organic congestion. Gynecological ultrasound screening is advised.',
+      clinical_suggestions: 'Apply warm compresses to the lower abdomen and lumbosacral region, and rest in a supine position. If symptoms persist or worsen, routine outpatient ultrasound examination is recommended.',
+      medication: 'Ibuprofen',
+      defaultActions: '☑️ Apply a warm compress to her lower abdomen and prepare painkillers.\n☑️ Pour her a glass of warm water and stay by her side.\n☑️ Dim the lights and let her rest quietly.',
+      workTemplate: 'Dear Leader: I am experiencing sudden severe {{pain}} today and am unable to perform my normal work duties. I am requesting one day of sick leave, and I kindly ask for your approval. Urgent matters have been properly handed over. Thank you for your understanding.',
     },
     // ============ Onboarding labels ============
     onboardingLabels: {

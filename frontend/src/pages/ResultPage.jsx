@@ -394,6 +394,7 @@ export default function ResultPage({
   identity = 'partner',
   setIdentity,
   editedContents = {},
+  medicalBackground = {},
   setEditedContents,
   editingField,
   setEditingField,

@@ -863,6 +863,36 @@ export default function OnboardingPage({
                     );
                   })}
                 </div>
+
+                {/* ✅ 新增：自定义伴随症状输入 */}
+                <div style={{ marginTop: '10px' }}>
+                  <label
+                    style={{ color: '#888', fontSize: '11px', display: 'block', marginBottom: '4px' }}
+                  >
+                    {t('onboarding.accompanyingOther')}
+                  </label>
+                  <input
+                    type="text"
+                    placeholder={t('onboarding.accompanyingOtherPlaceholder')}
+                    value={medicalBackground.accompanyingOther || ''}
+                    onChange={(e) =>
+                      setMedicalBackground({
+                        ...medicalBackground,
+                        accompanyingOther: e.target.value,
+                      })
+                    }
+                    style={{
+                      width: '100%',
+                      padding: 'var(--space-md)',
+                      background: '#111',
+                      color: '#fff',
+                      border: '1.5px solid #333',
+                      borderRadius: 'var(--radius-sm)',
+                      fontSize: '13px',
+                      boxSizing: 'border-box',
+                    }}
+                  />
+                </div>
               </div>
 
               <div>

@@ -1,153 +1,123 @@
 // src/Components/PeriodScience.jsx
-import React, { useState, useEffect, useCallback } from 'react';
-import { useI18n } from '../i18n/i18nContext'; // 🌟 引入双语 Hook
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { useI18n } from '../i18n/i18nContext';
 
-// ===== 经期生活类避坑与反常识科普内容库（中英双语） =====
-const SCIENCE_KNOWLEDGE_BASE = [
-  {
-    id: 1,
-    tag_zh: '破除误区',
-    tag_en: 'Myth Busted',
-    title_zh: '冰饮并非痛经直接元凶',
-    title_en: 'Cold drinks are not the direct cause of dysmenorrhea',
-    desc_zh: '痛经的主因是前列腺素（PGF2α）导致子宫平滑肌剧烈收缩。冷饮本身不直接引发痛经，仅血管对冷刺激较敏感、易收缩的人群需忌冷。',
-    desc_en: 'Dysmenorrhea is mainly caused by prostaglandins (PGF2α) triggering uterine muscle contractions. Cold drinks do not directly cause pain, unless you are sensitive to cold stimulation.',
-  },
-  {
-    id: 2,
-    tag_zh: '用药常识',
-    tag_en: 'Medication',
-    title_zh: '布洛芬要在刚开始痛时服用',
-    title_en: 'Take Ibuprofen at the onset of pain',
-    desc_zh: '常规止痛药（如布洛芬）无成瘾性，其原理是阻断前列腺素合成，在疼痛刚出现或发作前服用效果最好，剧痛难忍时效果大打折扣。',
-    desc_en: 'Painkillers like Ibuprofen are non-addictive. They work by blocking prostaglandin synthesis and work best when taken right at the start of pain.',
-  },
-  {
-    id: 3,
-    tag_zh: '生理真相',
-    tag_en: 'Physiological Fact',
-    title_zh: '经期腹泻属于正常生理反应',
-    title_en: 'Diarrhea during period is a normal reaction',
-    desc_zh: '经期子宫分泌的前列腺素会顺着血液扩散至肠道，刺激肠道平滑肌蠕动加速，导致经期前两天容易出现腹泻现象。',
-    desc_en: 'Prostaglandins released by the uterus diffuse into nearby intestinal tract, stimulating smooth muscle contraction and causing loose stools.',
-  },
-  {
-    id: 4,
-    tag_zh: '卫生误区',
-    tag_en: 'Hygiene Mistake',
-    title_zh: '卫生巾不宜长期存放在卫生间',
-    title_en: 'Do not store pads in humid bathrooms',
-    desc_zh: '浴室潮湿不通风，卫生巾即使有外包装也容易吸潮滋生霉菌，建议存放在干燥通风的抽屉或衣柜中。',
-    desc_en: 'Bathrooms are humid and poorly ventilated. Pads can absorb moisture and grow mold. Store them in dry, ventilated places like drawers.',
-  },
-  {
-    id: 5,
-    tag_zh: '破除误区',
-    tag_en: 'Myth Busted',
-    title_zh: '经期吃甜食狂吃不胖属于误区',
-    title_en: 'Eating sweets without weight gain is a myth',
-    desc_zh: '经期基础代谢率仅有微弱增加，大量摄入高糖高脂依然会转化为脂肪，且会导致血糖剧烈波动而加重烦躁情绪。',
-    desc_en: 'Basal metabolic rate increases only slightly during menstruation. Excess calories still turn into fat, and sugar spikes can worsen mood swings.',
-  },
-  {
-    id: 6,
-    tag_zh: '生活要点',
-    tag_en: 'Lifestyle Tip',
-    title_zh: '经期可适量运动但需避开倒立',
-    title_en: 'Moderate exercise is beneficial, avoid inversions',
-    desc_zh: '低强度散步或伸展瑜伽能促进内啡呔分泌，缓解痛经与焦虑。但应避免剧烈无氧运动、腹压过高的动作及倒立。',
-    desc_en: 'Low-intensity walking or stretching yoga promotes endorphins and reduces pain. Avoid intense workouts, heavy abdominal pressure, and inversions.',
-  },
-  {
-    id: 7,
-    tag_zh: '清洁误区',
-    tag_en: 'Cleaning Tip',
-    title_zh: '切勿冲洗阴道内部',
-    title_en: 'Never douch or wash inside the vagina',
-    desc_zh: '日常与经期只需用温水清洗外阴即可，使用妇科洗液或强行冲洗阴道内部会破坏阴道自净的弱酸性菌群平衡。',
-    desc_en: 'Rinse only the vulva with warm water. Douching or using harsh feminine washes disrupts the vaginal self-cleaning micro-environment.',
-  },
-  {
-    id: 8,
-    tag_zh: '常识盲区',
-    tag_en: 'Common Blindspot',
-    title_zh: '经期体重增加 1 至 2 公斤多为水肿',
-    title_en: 'Period weight gain of 1-2 kg is water retention',
-    desc_zh: '受孕激素与雌激素影响，体液易在体内滞留（水钠潴留），经期体重微涨属于正常水肿，经期结束后会自然恢复。',
-    desc_en: 'Hormonal changes cause fluid retention. Mild weight gain is normal water weight and will naturally fade after your period.',
-  },
-  {
-    id: 9,
-    tag_zh: '卫生要点',
-    tag_en: 'Hygiene Essential',
-    title_zh: '血量再少也需 2 至 3 小时更换卫生巾',
-    title_en: 'Change pads every 2-3 hours even with light flow',
-    desc_zh: '经血富含营养物质，在潮湿闷热环境下极易滋生细菌，即使经期末期血量极少也应保持定期更换。',
-    desc_en: 'Menstrual blood easily breeds bacteria in warm and humid environments. Change pads every 2-3 hours regardless of flow volume.',
-  },
-  {
-    id: 10,
-    tag_zh: '生理真相',
-    tag_en: 'Physiological Fact',
-    title_zh: '经期偏头痛并非心理作用',
-    title_en: 'Menstrual migraines are a real physiological symptom',
-    desc_zh: '月经来潮前雌激素水平骤降会引发脑部血管舒缩异常，从而导致经期偏头痛，这属于明确的生理因素。',
-    desc_en: 'A sharp drop in estrogen levels before menstruation causes cranial blood vessel fluctuations, triggering real physiological migraines.',
-  },
-  {
-    id: 11,
-    tag_zh: '常识盲区',
-    tag_en: 'Common Blindspot',
-    title_zh: '经血出现血块不代表体寒',
-    title_en: 'Blood clots do not mean "body coldness"',
-    desc_zh: '当月经量较大或长时间保持坐姿时，抗凝血酶来不及分解所有经血，就会形成凝固血块排出，属于正常生理现象。',
-    desc_en: 'During heavy flow or prolonged sitting, anticoagulants cannot process blood quickly enough, forming small clots naturally.',
-  },
-  {
-    id: 12,
-    tag_zh: '健康警示',
-    tag_en: 'Health Warning',
-    title_zh: '剧烈痛经切勿盲目硬忍',
-    title_en: 'Do not endure severe dysmenorrhea endlessly',
-    desc_zh: '结婚生子能治愈痛经属于误区，若痛经持续加重或出现继发性痛经，可能是子宫内膜异位症等疾病，应及时就医诊治。',
-    desc_en: 'Enduring progressive or severe pain is unsafe. It may indicate conditions like endometriosis and warrants medical evaluation.',
-  },
-];
-
-export default function PeriodScience() {
-  const { lang } = useI18n(); // 🌟 获取当前语言环境
+const PeriodScience = ({ userTips = [], onAddUserTip }) => {
+  const { t, lang } = useI18n();
   const isEn = lang === 'en';
 
-  const [selectedCards, setSelectedCards] = useState([]);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [selectedCards, setSelectedCards] = useState([]);
+  const [showInput, setShowInput] = useState(false);
+  const [inputTitle, setInputTitle] = useState('');
+  const [inputDesc, setInputDesc] = useState('');
+  const [inputTag, setInputTag] = useState('');
+  const [localUserTips, setLocalUserTips] = useState(userTips || []);
 
-  // 随机抽取 3 条
-  const getRandomThree = useCallback(() => {
-    const shuffled = [...SCIENCE_KNOWLEDGE_BASE].sort(() => 0.5 - Math.random());
-    return shuffled.slice(0, 3);
+  // ============================================================
+  // ✅ 从 translations.js 读取科普数据
+  // ============================================================
+  const scienceCards = useMemo(() => {
+    let cards = [];
+
+    try {
+      const rawCards = t('periodScience.cards', { returnObjects: true });
+      if (Array.isArray(rawCards)) {
+        cards = rawCards;
+      } else if (rawCards && typeof rawCards === 'object') {
+        cards = Object.values(rawCards);
+      }
+    } catch (e) {
+      console.warn('⚠️ 无法读取 periodScience.cards', e);
+    }
+
+    return cards.map((item, index) => ({
+      id: `card-${index}`,
+      title_zh: item.title || '',
+      title_en: item.title || '',
+      desc_zh: item.desc || '',
+      desc_en: item.desc || '',
+      tag_zh: item.tag || '科普',
+      tag_en: item.tag || 'Science',
+      isFromScience: true,
+    }));
+  }, [t]);
+
+  // ============================================================
+  // ✅ 合并预设 + 用户自定义
+  // ============================================================
+  const allTips = useMemo(() => {
+    return [...scienceCards, ...localUserTips];
+  }, [scienceCards, localUserTips]);
+
+  const shuffleArray = useCallback((array) => {
+    const shuffled = [...array];
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+    return shuffled;
   }, []);
 
+  const refreshCards = useCallback(() => {
+    setIsRefreshing(true);
+    const shuffled = shuffleArray(allTips);
+    setSelectedCards(shuffled.slice(0, 3));
+    setTimeout(() => setIsRefreshing(false), 300);
+  }, [allTips, shuffleArray]);
+
   useEffect(() => {
-    setSelectedCards(getRandomThree());
-  }, [getRandomThree]);
+    refreshCards();
+  }, [refreshCards]);
 
   const handleRefresh = () => {
-    setIsRefreshing(true);
-    setTimeout(() => {
-      setSelectedCards(getRandomThree());
-      setIsRefreshing(false);
-    }, 200);
+    refreshCards();
+  };
+
+  const handleAddTip = () => {
+    if (!inputTitle.trim() || !inputDesc.trim()) return;
+
+    const newTip = {
+      id: Date.now(),
+      title_zh: isEn ? '' : inputTitle.trim(),
+      title_en: isEn ? inputTitle.trim() : '',
+      desc_zh: isEn ? '' : inputDesc.trim(),
+      desc_en: isEn ? inputDesc.trim() : '',
+      tag_zh: isEn ? '' : (inputTag.trim() || t('periodScience.userTag')),
+      tag_en: isEn ? (inputTag.trim() || t('periodScience.userTag')) : '',
+      isUser: true,
+      createdLang: lang,
+    };
+
+    setLocalUserTips(prev => [newTip, ...prev]);
+    if (onAddUserTip) {
+      onAddUserTip(newTip);
+    }
+
+    setInputTitle('');
+    setInputDesc('');
+    setInputTag('');
+    setShowInput(false);
+  };
+
+  const handleDeleteTip = (tipId) => {
+    setLocalUserTips(prev => prev.filter(tip => tip.id !== tipId));
+    if (onAddUserTip) {
+      onAddUserTip(localUserTips.filter(tip => tip.id !== tipId));
+    }
   };
 
   return (
     <div style={{ marginTop: '24px', paddingTop: '16px', borderTop: '1px solid #222' }}>
-      {/* 头部标题与换一换按钮（双语） */}
+      {/* 头部 */}
       <div
         style={{
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
           marginBottom: '16px',
+          flexWrap: 'wrap',
+          gap: '8px',
         }}
       >
         <h4
@@ -162,40 +132,203 @@ export default function PeriodScience() {
           }}
         >
           <span>💡</span>
-          <span>{isEn ? 'Period Science & Tips' : '经期知识科普'}</span>
+          <span>{t('periodScience.title')}</span>
         </h4>
 
-        <button
-          onClick={handleRefresh}
-          style={{
-            background: 'rgba(239, 83, 80, 0.1)',
-            border: '1px solid rgba(239, 83, 80, 0.3)',
-            color: '#ff8a80',
-            borderRadius: 'var(--radius-sm)',
-            padding: '4px 10px',
-            fontSize: '11.5px',
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '4px',
-            transition: 'all 0.2s ease',
-            opacity: isRefreshing ? 0.5 : 1,
-          }}
-        >
-          <span
+        <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+          <button
+            onClick={() => setShowInput(!showInput)}
             style={{
-              display: 'inline-block',
-              transform: isRefreshing ? 'rotate(180deg)' : 'rotate(0deg)',
-              transition: 'transform 0.3s ease',
+              background: 'rgba(76, 175, 80, 0.1)',
+              border: '1px solid rgba(76, 175, 80, 0.3)',
+              color: '#81c784',
+              borderRadius: 'var(--radius-sm)',
+              padding: '4px 10px',
+              fontSize: '11.5px',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px',
+              transition: 'all 0.2s ease',
             }}
           >
-            ↻
-          </span>
-          <span>{isEn ? 'Refresh' : '换一换'}</span>
-        </button>
+            <span>✏️</span>
+            <span>{t('periodScience.addTip')}</span>
+          </button>
+
+          <button
+            onClick={handleRefresh}
+            style={{
+              background: 'rgba(239, 83, 80, 0.1)',
+              border: '1px solid rgba(239, 83, 80, 0.3)',
+              color: '#ff8a80',
+              borderRadius: 'var(--radius-sm)',
+              padding: '4px 10px',
+              fontSize: '11.5px',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px',
+              transition: 'all 0.2s ease',
+              opacity: isRefreshing ? 0.5 : 1,
+            }}
+          >
+            <span
+              style={{
+                display: 'inline-block',
+                transform: isRefreshing ? 'rotate(180deg)' : 'rotate(0deg)',
+                transition: 'transform 0.3s ease',
+              }}
+            >
+              ↻
+            </span>
+            <span>{isEn ? 'Refresh' : '换一换'}</span>
+          </button>
+        </div>
       </div>
 
-      {/* 随机 3 条科普卡片列表 */}
+      {/* ✅ 用户添加输入区域 */}
+      {showInput && (
+        <div
+          style={{
+            background: '#1a1a1a',
+            borderRadius: '14px',
+            padding: '16px',
+            marginBottom: '16px',
+            border: '1px solid #333',
+          }}
+        >
+          <div style={{ marginBottom: '10px' }}>
+            <label
+              style={{
+                color: '#888',
+                fontSize: '11px',
+                display: 'block',
+                marginBottom: '4px',
+              }}
+            >
+              {isEn ? 'Title' : '标题'}
+            </label>
+            <input
+              type="text"
+              placeholder={isEn ? 'e.g. Magnesium helps cramps' : '例如：补镁有助于缓解痉挛'}
+              value={inputTitle}
+              onChange={(e) => setInputTitle(e.target.value)}
+              style={{
+                width: '100%',
+                padding: '8px 12px',
+                background: '#111',
+                color: '#fff',
+                border: '1px solid #333',
+                borderRadius: '8px',
+                fontSize: '13px',
+                boxSizing: 'border-box',
+              }}
+            />
+          </div>
+
+          <div style={{ marginBottom: '10px' }}>
+            <label
+              style={{
+                color: '#888',
+                fontSize: '11px',
+                display: 'block',
+                marginBottom: '4px',
+              }}
+            >
+              {isEn ? 'Description' : '内容描述'}
+            </label>
+            <textarea
+              placeholder={isEn ? 'Share your knowledge...' : '分享你的科普知识...'}
+              value={inputDesc}
+              onChange={(e) => setInputDesc(e.target.value)}
+              style={{
+                width: '100%',
+                padding: '8px 12px',
+                background: '#111',
+                color: '#fff',
+                border: '1px solid #333',
+                borderRadius: '8px',
+                fontSize: '13px',
+                resize: 'vertical',
+                minHeight: '60px',
+                boxSizing: 'border-box',
+                fontFamily: 'inherit',
+              }}
+            />
+          </div>
+
+          <div style={{ marginBottom: '12px' }}>
+            <label
+              style={{
+                color: '#888',
+                fontSize: '11px',
+                display: 'block',
+                marginBottom: '4px',
+              }}
+            >
+              {isEn ? 'Tag (optional)' : '标签（可选）'}
+            </label>
+            <input
+              type="text"
+              placeholder={isEn ? 'e.g. Nutrition, Exercise' : '例如：营养、运动'}
+              value={inputTag}
+              onChange={(e) => setInputTag(e.target.value)}
+              style={{
+                width: '100%',
+                padding: '8px 12px',
+                background: '#111',
+                color: '#fff',
+                border: '1px solid #333',
+                borderRadius: '8px',
+                fontSize: '13px',
+                boxSizing: 'border-box',
+              }}
+            />
+          </div>
+
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <button
+              onClick={handleAddTip}
+              style={{
+                padding: '6px 20px',
+                background: '#4caf50',
+                color: '#fff',
+                border: 'none',
+                borderRadius: '8px',
+                cursor: 'pointer',
+                fontSize: '13px',
+                fontWeight: '500',
+                minHeight: '36px',
+              }}
+            >
+              {t('periodScience.add')}
+            </button>
+            <button
+              onClick={() => {
+                setShowInput(false);
+                setInputTitle('');
+                setInputDesc('');
+                setInputTag('');
+              }}
+              style={{
+                padding: '6px 20px',
+                background: 'transparent',
+                color: '#888',
+                border: '1px solid #333',
+                borderRadius: '8px',
+                cursor: 'pointer',
+                fontSize: '13px',
+                minHeight: '36px',
+              }}
+            >
+              {t('periodScience.cancel')}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ✅ 科普卡片列表 */}
       <div
         style={{
           display: 'flex',
@@ -209,61 +342,118 @@ export default function PeriodScience() {
           <div
             key={item.id}
             style={{
-              background: '#161616',
+              background: item.isUser ? '#1a2a1a' : '#161616',
               borderRadius: '14px',
               padding: '14px 16px',
-              border: '1px solid #262626',
-              borderLeft: '4px solid rgba(239, 83, 80, 0.8)',
+              border: `1px solid ${item.isUser ? '#2a4a2a' : '#262626'}`,
+              borderLeft: `4px solid ${item.isUser ? 'rgba(76, 175, 80, 0.8)' : 'rgba(239, 83, 80, 0.8)'}`,
+              position: 'relative',
             }}
           >
             <div
               style={{
                 display: 'flex',
-                alignItems: 'center',
+                alignItems: 'flex-start',
                 justifyContent: 'space-between',
                 marginBottom: '6px',
+                flexWrap: 'wrap',
+                gap: '4px',
               }}
             >
+              {/* ✅ 标题 - 优先当前语言 */}
               <span
                 style={{
                   color: '#fff',
-                  fontSize: '13.5px',
+                  fontSize: '11px',
                   fontWeight: '600',
                   letterSpacing: '0.2px',
+                  wordBreak: 'break-word',
+                  overflowWrap: 'break-word',
+                  flex: 1,
+                  minWidth: 0,
                 }}
               >
-                {isEn ? item.title_en : item.title_zh}
+                {isEn ? (item.title_en || item.title_zh) : (item.title_zh || item.title_en)}
+                {item.isUser && (
+                  <span
+                    style={{
+                      marginLeft: '8px',
+                      fontSize: '9px',
+                      color: '#4caf50',
+                      background: 'rgba(76, 175, 80, 0.15)',
+                      padding: '1px 6px',
+                      borderRadius: '4px',
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    {t('periodScience.youAdded')}
+                  </span>
+                )}
               </span>
 
-              <span
-                style={{
-                  fontSize: '10px',
-                  color: '#ef5350',
-                  background: 'rgba(239, 83, 80, 0.12)',
-                  border: '1px solid rgba(239, 83, 80, 0.25)',
-                  padding: '2px 7px',
-                  borderRadius: '8px',
-                  whiteSpace: 'nowrap',
-                }}
-              >
-                {isEn ? item.tag_en : item.tag_zh}
-              </span>
+              {/* ✅ 标签 - 优先当前语言 */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
+                <span
+                  style={{
+                    fontSize: '10px',
+                    color: item.isUser ? '#4caf50' : '#ef5350',
+                    background: item.isUser ? 'rgba(76, 175, 80, 0.12)' : 'rgba(239, 83, 80, 0.12)',
+                    border: `1px solid ${item.isUser ? 'rgba(76, 175, 80, 0.25)' : 'rgba(239, 83, 80, 0.25)'}`,
+                    padding: '2px 7px',
+                    borderRadius: '8px',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  {isEn ? (item.tag_en || item.tag_zh) : (item.tag_zh || item.tag_en)}
+                </span>
+
+                {item.isUser && (
+                  <button
+                    onClick={() => handleDeleteTip(item.id)}
+                    style={{
+                      background: 'transparent',
+                      border: 'none',
+                      color: '#555',
+                      cursor: 'pointer',
+                      fontSize: '12px',
+                      padding: '2px 6px',
+                      borderRadius: '4px',
+                      transition: 'color 0.2s',
+                      flexShrink: 0,
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.color = '#ef5350';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.color = '#555';
+                    }}
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
             </div>
 
+            {/* ✅ 描述 - 优先当前语言 */}
             <p
               style={{
                 color: '#aaa',
-                fontSize: '12.5px',
-                lineHeight: '1.6',
+                fontSize: '11px',
+                lineHeight: '1.7',
                 margin: 0,
                 textAlign: 'justify',
+                whiteSpace: 'pre-wrap',
+                wordBreak: 'break-word',
+                overflowWrap: 'break-word',
               }}
             >
-              {isEn ? item.desc_en : item.desc_zh}
+              {isEn ? (item.desc_en || item.desc_zh) : (item.desc_zh || item.desc_en)}
             </p>
           </div>
         ))}
       </div>
     </div>
   );
-}
+};
+
+export default PeriodScience;

@@ -514,280 +514,338 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
     return '';
   };
 
- const generateContent = useCallback((overrideType, externalLlm = null, externalReportData = null) => {
-  try {
-    const isEn = targetLanguage === 'en';
-    const activeLlm = externalReportData || externalLlm || currentReportData || llmData;
 
-    const containsChinese = (str) => /[\u4e00-\u9fa5]/.test(String(str || ''));
-    const getLocalizedText = (activeText, defaultText) => {
-      if (!activeText) return defaultText;
-      if (isEn && containsChinese(activeText)) return defaultText;
-      if (!isEn && !containsChinese(activeText)) return defaultText;
-      return activeText;
-    };
+  const generateContent = useCallback((overrideType, externalLlm = null, externalReportData = null) => {
+    try {
+      const isEn = targetLanguage === 'en';
+      const activeLlm = externalReportData || externalLlm || currentReportData || llmData;
 
-    const dominant = overrideType || getDominantPain() || 'twist';
-    const painName = t(`painNames.${dominant}`) || (isEn ? 'Dysmenorrhea' : '痛经');
-
-    const defaultAnalogy = t(`painTemplates.${dominant}.analogy`) || t('painTemplates.heavy.analogy') || (isEn ? 'Severe pelvic pain.' : '强烈的痛觉。');
-    const defaultSelfCare = t(`painTemplates.${dominant}.selfCare`) || t('painTemplates.heavy.selfCare') || (isEn ? 'Rest well and keep warm.' : '好好休息，注意保暖。');
-
-    const symptomsArr = medicalBackground?.accompanyingSymptomsArr || [];
-    const symptomsText = Array.isArray(symptomsArr) && symptomsArr.length > 0
-      ? symptomsArr.map(s => t(`onboarding.accompanyingOptions.${s}`) || s).join(isEn ? ', ' : '、')
-      : (isEn ? 'No significant accompanying symptoms' : '无明显伴随症状');
-
-    // === 生成各字段默认文本 ===
-    const chiefComplaintText = isEn
-      ? `Recurrent lower abdominal ${painName} during menstruation, accompanied by ${symptomsText} for 1 day.`
-      : `月经期出现下腹部周期性${painName}，伴${symptomsText}1天。`;
-
-    const presentIllnessText = isEn
-      ? `Patient reports regular menstrual cycles. Sudden onset of ${painName} today (day ${cycleDay || 'X'} of menstruation). Pain image reconstruction shows high pain scores with typical ${defaultAnalogy}, limited activity.`
-      : `患者自述既往月经规律。自述于今日（行经第${cycleDay || 'X'}天）突发${painName}。图像特征向量重构显示：痛感评分较高，伴有典型的${defaultAnalogy}，活动受限。`;
-
-    // 从 medicalBackground 提取用户填写的既往史
-    let pastHistoryText = isEn ? 'Generally in good health. No history of hypertension or diabetes.' : '平素健康状况良好。无明确高血压、糖尿病等慢性病史。';
-    if (medicalBackground?.diagnosed && medicalBackground.diagnosed !== 'none' && medicalBackground.diagnosed !== 'unknown') {
-      const diagnosedLabel = t(`onboarding.diagnosisOptions.${medicalBackground.diagnosed}`) || medicalBackground.diagnosed;
-      pastHistoryText = isEn
-        ? `History: ${diagnosedLabel}. No other chronic diseases.`
-        : `既往史：${diagnosedLabel}。无其他慢性病史。`;
-    }
-    if (medicalBackground?.surgicalHistory && medicalBackground.surgicalHistory !== 'none' && medicalBackground.surgicalHistory !== 'unknown') {
-      const surgeryLabel = t(`onboarding.surgicalHistoryOptions.${medicalBackground.surgicalHistory}`) || medicalBackground.surgicalHistory;
-      pastHistoryText = isEn
-        ? `${pastHistoryText} Surgical history: ${surgeryLabel}.`
-        : `${pastHistoryText} 手术史：${surgeryLabel}。`;
-    }
-    if (medicalBackground?.allergies && medicalBackground.allergies !== 'none' && medicalBackground.allergies !== 'unknown') {
-      const allergyLabel = t(`onboarding.allergyOptions.${medicalBackground.allergies}`) || medicalBackground.allergies;
-      pastHistoryText = isEn
-        ? `${pastHistoryText} Allergies: ${allergyLabel}.`
-        : `${pastHistoryText} 过敏史：${allergyLabel}。`;
-    }
-
-    // 月经史 - 从 medicalBackground 提取
-    let menstrualText = isEn
-      ? `Menstrual History: Regular cycles.`
-      : `月经史：周期规律。`;
-    if (medicalBackground?.menarcheAge) {
-      menstrualText = isEn
-        ? `Menstrual History: Menarche at age ${medicalBackground.menarcheAge}, `
-        : `月经史：${medicalBackground.menarcheAge}岁初潮，`;
-    }
-    if (medicalBackground?.periodDuration) {
-      const durationLabel = t(`onboarding.periodDurationOptions.${medicalBackground.periodDuration}`) || medicalBackground.periodDuration;
-      menstrualText = isEn
-        ? `${menstrualText}period ${durationLabel}, `
-        : `${menstrualText}经期${durationLabel}，`;
-    }
-    if (medicalBackground?.cycleRegular) {
-      const regularLabel = t(`onboarding.cycleRegular${medicalBackground.cycleRegular.charAt(0).toUpperCase() + medicalBackground.cycleRegular.slice(1)}`) || medicalBackground.cycleRegular;
-      menstrualText = isEn
-        ? `${menstrualText}cycle ${regularLabel}.`
-        : `${menstrualText}周期${regularLabel}。`;
-    }
-    if (medicalBackground?.lastPeriod) {
-      menstrualText = isEn
-        ? `${menstrualText} LMP: ${medicalBackground.lastPeriod}.`
-        : `${menstrualText} 末次月经：${medicalBackground.lastPeriod}。`;
-    }
-
-    const diagnosisText = isEn
-      ? `Based on pain imaging, recommend evaluation for endometriosis, uterine smooth muscle spasms, or pelvic organic congestion. Pelvic ultrasound is recommended.`
-      : `结合痛觉成像，建议排查子宫内膜异位症、子宫平滑肌痉挛或盆腔器质性充血。建议行妇科超声筛查。`;
-
-    const suggestionsText = isEn
-      ? `Apply warm compress to lower abdomen and lumbar area; rest quietly. If symptoms worsen, seek outpatient pelvic ultrasound examination.`
-      : `温敷小腹与腰骶，静卧休养。若症状持续加重建议常规门诊行超声探查。`;
-
-    const prefKey = (Array.isArray(userPrefs) && userPrefs[0]) ? userPrefs[0] : 'care';
-    const actionsTemplates = t(`partnerActions.${prefKey}`, { returnObjects: true });
-    let defaultAction = '';
-    if (Array.isArray(actionsTemplates) && actionsTemplates.length > 0) {
-      defaultAction = actionsTemplates.map(act => String(act).replace('{{med}}', isEn ? 'Ibuprofen' : '布洛芬')).join('\n');
-    } else {
-      defaultAction = isEn ? '☑️ Apply warm compress and prepare pain medication.' : '☑️ 帮她热敷小腹并准备好止痛药。';
-    }
-
-    const getWorkText = () => {
-      if (activeLlm?.work) {
-        return getLocalizedText(activeLlm.work, '');
-      }
-
-      if (activeLlm?.work && typeof activeLlm.work === 'object') {
-        const workObj = activeLlm.work;
-        const recipient = leaveRecipient || 'manager';
-        const tone = leaveTone || 'neutral';
-        if (workObj[recipient] && workObj[recipient][tone]) {
-          return workObj[recipient][tone];
-        }
-        if (workObj[recipient] && workObj[recipient]['formal']) {
-          return workObj[recipient]['formal'];
-        }
-        const firstRecipient = Object.keys(workObj)[0];
-        if (firstRecipient && workObj[firstRecipient]) {
-          const firstTone = Object.keys(workObj[firstRecipient])[0];
-          return workObj[firstRecipient][firstTone];
-        }
-      }
-
-      const workScenarios = {
-        zh: {
-          manager: {
-            formal: '领导您好：因身体不适，申请今天休假一天。紧急事务已交接，明天恢复正常工作。',
-            neutral: '今天身体不适，请假一天。工作已安排妥当。',
-            casual: '身体不太舒服，今天请假休息一天，不好意思。',
-          },
-          teacher: {
-            formal: '老师您好！因身体不适，今日无法到课。已安排同学代为记录课堂内容。',
-            neutral: '今天身体不适，请假缺席课程。会及时补上学习内容。',
-            casual: '老师好，今天身体不舒服，请一天假。后续会补上笔记。',
-          },
-          friend: {
-            formal: '今天身体不适，需取消本次见面。改日再约，抱歉。',
-            neutral: '今天不太舒服，咱们改天再约吧。',
-            casual: '身体有点扛不住了，今天先鸽了，回头约！',
-          },
-          client: {
-            formal: '因突发身体不适，需将今日会议改期。已协调同事代为对接，给您带来不便深表歉意。',
-            neutral: '今天身体不适，需要将会议改期。已安排同事协助对接。',
-            casual: '今天临时身体不适，会议改天再约。相关问题已同步给同事。',
-          },
-          partner: {
-            formal: '今天身体不适，需要安静休息。晚间事宜需请你代为处理。',
-            neutral: '今天不太舒服，想好好休息一下。家里的事麻烦你多担待。',
-            casual: '今天疼得厉害，想躺平一天。辛苦你照顾啦。',
-          },
-        },
-        en: {
-          manager: {
-            formal: 'Requesting sick leave today. Urgent matters have been delegated. Expected return tomorrow.',
-            neutral: 'Taking a sick day today. Work is covered.',
-            casual: 'Not feeling well today — taking the day off. Will catch up tomorrow.',
-          },
-          teacher: {
-            formal: 'Unable to attend class today due to a health condition. Arranged for notes to be shared.',
-            neutral: 'Can\'t make it to class today — health flare-up. Will catch up on materials.',
-            casual: 'Professor — not feeling well today. Will get notes from a classmate.',
-          },
-          friend: {
-            formal: 'Need to cancel today\'s plans due to a health issue. Let\'s reschedule soon.',
-            neutral: 'Not feeling great today — let\'s reschedule.',
-            casual: 'Feeling rough today — gonna have to rain check. Let\'s catch up soon!',
-          },
-          client: {
-            formal: 'Due to a sudden health matter, I need to reschedule today\'s meeting. A colleague will handle urgent matters. Apologies for the inconvenience.',
-            neutral: 'Need to reschedule today\'s meeting due to a health issue. A colleague is briefed and available.',
-            casual: 'Not feeling well today — need to push our meeting. Colleague is up to speed if anything urgent.',
-          },
-          partner: {
-            formal: 'Need to rest today due to a health condition. Would appreciate your support with household matters.',
-            neutral: 'Not feeling great today. Need some quiet rest — could use your help around the house.',
-            casual: 'Feeling awful today — going to be horizontal. Thanks for taking care of things.',
-          },
-        },
+      const containsChinese = (str) => /[\u4e00-\u9fa5]/.test(String(str || ''));
+      const getLocalizedText = (activeText, defaultText) => {
+        if (!activeText) return defaultText;
+        if (isEn && containsChinese(activeText)) return defaultText;
+        if (!isEn && !containsChinese(activeText)) return defaultText;
+        return activeText;
       };
 
-      const langKey = isEn ? 'en' : 'zh';
-      const recipient = leaveRecipient || 'manager';
-      const tone = leaveTone || 'neutral';
+      const dominant = overrideType || getDominantPain() || 'twist';
+      const painName = t(`painNames.${dominant}`) || (isEn ? 'Dysmenorrhea' : '痛经');
 
-      const scenarios = workScenarios[langKey];
-      if (scenarios && scenarios[recipient] && scenarios[recipient][tone]) {
-        return scenarios[recipient][tone];
+      // ============================================================
+      // ✅ 从用户填写的数据中提取信息
+      // ============================================================
+      const mb = medicalBackground || {};
+
+      // ---- 伴随症状 ----
+      const symptomsArr = mb.accompanyingSymptomsArr || [];
+      const symptomsText = Array.isArray(symptomsArr) && symptomsArr.length > 0
+        ? symptomsArr.map(s => t(`onboarding.accompanyingOptions.${s}`) || s).join(isEn ? ', ' : '、')
+        : t('defaultTemplates.noSymptoms');
+
+      const customSymptoms = mb.accompanyingOther || '';
+      const allSymptomsText = customSymptoms
+        ? (isEn ? `${symptomsText}, ${customSymptoms}` : `${symptomsText}、${customSymptoms}`)
+        : symptomsText;
+
+      // ---- 年龄 ----
+      const ageLabel = mb.age ? t(`onboarding.ageOptions.${mb.age}`) || mb.age : t('defaultTemplates.notProvided');
+
+      // ---- 身高体重 ----
+      const height = mb.height || t('defaultTemplates.notProvided');
+      const weight = mb.weight || t('defaultTemplates.notProvided');
+      const heightWeightText = (mb.height && mb.weight)
+        ? `${height}cm / ${weight}kg`
+        : t('defaultTemplates.notProvided');
+
+      // ---- 活动水平 ----
+      const activityLabel = mb.activityLevel ? t(`onboarding.activityOptions.${mb.activityLevel}`) || mb.activityLevel : t('defaultTemplates.notProvided');
+
+      // ---- 周期 ----
+      const cycleDisplay = cycleDay || t('defaultTemplates.notProvided');
+
+      // ---- 周期规律 ----
+      let cycleRegDisplay = t('defaultTemplates.notProvided');
+      if (mb.cycleRegular && mb.cycleRegular !== '') {
+        cycleRegDisplay = t(`onboarding.cycleRegularOptions.${mb.cycleRegular}`) || mb.cycleRegular;
       }
-      if (scenarios && scenarios[recipient] && scenarios[recipient]['neutral']) {
-        return scenarios[recipient]['neutral'];
+
+      // ---- 既往诊断 ----
+      let diagnosedText = t('defaultTemplates.noDiagnosis');
+      if (mb.diagnosed && mb.diagnosed !== 'none' && mb.diagnosed !== 'unknown' && mb.diagnosed !== '') {
+        const diagnosedLabel = t(`onboarding.diagnosisOptions.${mb.diagnosed}`) || mb.diagnosed;
+        diagnosedText = diagnosedLabel;
+        if (mb.otherDiagnosis) {
+          diagnosedText = isEn ? `${diagnosedText}, ${mb.otherDiagnosis}` : `${diagnosedText}、${mb.otherDiagnosis}`;
+        }
       }
-      return isEn
-        ? `Requesting sick leave today due to a health condition.`
-        : `因身体不适，申请今天休假一天。`;
-    };
 
-    const defaultWorkText = getWorkText();
+      // ---- 手术史 ----
+      let surgText = t('defaultTemplates.noSurgery');
+      if (mb.surgicalHistory && mb.surgicalHistory !== 'none' && mb.surgicalHistory !== '') {
+        surgText = t(`onboarding.surgicalHistoryOptions.${mb.surgicalHistory}`) || mb.surgicalHistory;
+      }
 
-    // === 如果有 LLM 数据，优先使用 ===
-    if (activeLlm) {
+      // ---- 过敏史 ----
+      let allergyText = t('defaultTemplates.noAllergy');
+      if (mb.allergies && mb.allergies !== 'none' && mb.allergies !== 'unknown' && mb.allergies !== '') {
+        const allergyLabel = t(`onboarding.allergyOptions.${mb.allergies}`) || mb.allergies;
+        allergyText = allergyLabel;
+        if (mb.otherAllergies) {
+          allergyText = isEn ? `${allergyText}, ${mb.otherAllergies}` : `${allergyText}、${mb.otherAllergies}`;
+        }
+      }
+
+      // ---- 生活方式 ----
+      const lifestyleArr = mb.lifestyleArr || [];
+      const lifestyleText = lifestyleArr.length > 0
+        ? lifestyleArr.map(s => t(`onboarding.lifestyleOptions.${s}`) || s).join(isEn ? ', ' : '、')
+        : t('defaultTemplates.noLifestyle');
+
+      // ---- 月经史 ----
+      const menarche = mb.menarcheAge || t('defaultTemplates.notProvided');
+      const periodDuration = mb.periodDuration || t('defaultTemplates.notProvided');
+      const lmp = mb.lastPeriod || t('defaultTemplates.notProvided');
+
+      // ---- 生育史 ----
+      const repArr = mb.reproductiveHistoryArr || [];
+      const repText = repArr.length > 0
+        ? repArr.map(s => t(`onboarding.reproductiveHistoryOptions.${s}`) || s).join(isEn ? ', ' : '、')
+        : t('defaultTemplates.noReproductive');
+
+      // ---- 家族史 ----
+      const famArr = mb.familyHistoryArr || [];
+      const famText = famArr.length > 0
+        ? famArr.map(s => t(`onboarding.familyHistoryOptions.${s}`) || s).join(isEn ? ', ' : '、')
+        : t('defaultTemplates.noFamilyHistory');
+
+      // ---- 心理社会因素 ----
+      const psychText = mb.psychosocial
+        ? (t(`onboarding.psychosocialOptions.${mb.psychosocial}`) || mb.psychosocial)
+        : t('defaultTemplates.noPsychosocial');
+
+      // ============================================================
+      // ✅ 构建各字段文本
+      // ============================================================
+
+      // ---- 主诉 ----
+      const chiefComplaintText = t('defaultTemplates.chief_complaint')
+        .replace(/{{pain}}/g, painName)
+        .replace(/{{symptoms}}/g, allSymptomsText);
+
+      // ---- 现病史（组合多个小模板） ----
+      let presentIllnessParts = [];
+
+      // 年龄身高体重
+      const agePart = t('defaultTemplates.presentIllnessAge')
+        .replace(/{{age}}/g, ageLabel)
+        .replace(/{{heightWeight}}/g, heightWeightText);
+      presentIllnessParts.push(agePart);
+
+      // 月经周期
+      const cyclePart = t('defaultTemplates.presentIllnessCycle')
+        .replace(/{{cycleRegular}}/g, cycleRegDisplay);
+      presentIllnessParts.push(cyclePart);
+
+      // 发作情况
+      const onsetPart = t('defaultTemplates.presentIllnessOnset')
+        .replace(/{{cycleDay}}/g, cycleDisplay)
+        .replace(/{{pain}}/g, painName);
+      presentIllnessParts.push(onsetPart);
+
+      // 伴随症状（只在有症状时添加）
+      if (allSymptomsText && allSymptomsText !== t('defaultTemplates.noSymptoms')) {
+        const symptomsPart = t('defaultTemplates.presentIllnessSymptoms')
+          .replace(/{{symptoms}}/g, allSymptomsText);
+        presentIllnessParts.push(symptomsPart);
+      }
+
+      // 活动水平（只在有数据时添加）
+      if (activityLabel && activityLabel !== t('defaultTemplates.notProvided')) {
+        const activityPart = t('defaultTemplates.presentIllnessActivity')
+          .replace(/{{activityLevel}}/g, activityLabel);
+        presentIllnessParts.push(activityPart);
+      }
+
+      const presentIllnessText = presentIllnessParts.join(' ');
+
+      // ---- 既往史（组合多个小模板） ----
+      let pastHistoryParts = [];
+
+      // 诊断
+      if (diagnosedText && diagnosedText !== t('defaultTemplates.noDiagnosis')) {
+        const part = t('defaultTemplates.pastHistoryDiagnosis')
+          .replace(/{{diagnosed}}/g, diagnosedText);
+        pastHistoryParts.push(part);
+      }
+
+      // 手术史
+      if (surgText && surgText !== t('defaultTemplates.noSurgery')) {
+        const part = t('defaultTemplates.pastHistorySurgery')
+          .replace(/{{surgery}}/g, surgText);
+        pastHistoryParts.push(part);
+      }
+
+      // 过敏史
+      if (allergyText && allergyText !== t('defaultTemplates.noAllergy')) {
+        const part = t('defaultTemplates.pastHistoryAllergy')
+          .replace(/{{allergy}}/g, allergyText);
+        pastHistoryParts.push(part);
+      }
+
+      // 生活方式
+      if (lifestyleText && lifestyleText !== t('defaultTemplates.noLifestyle')) {
+        const part = t('defaultTemplates.pastHistoryLifestyle')
+          .replace(/{{lifestyle}}/g, lifestyleText);
+        pastHistoryParts.push(part);
+      }
+
+      // 家族史
+      if (famText && famText !== t('defaultTemplates.noFamilyHistory')) {
+        const part = t('defaultTemplates.pastHistoryFamily')
+          .replace(/{{familyHistory}}/g, famText);
+        pastHistoryParts.push(part);
+      }
+
+      // 生育史
+      if (repText && repText !== t('defaultTemplates.noReproductive')) {
+        const part = t('defaultTemplates.pastHistoryReproductive')
+          .replace(/{{reproductiveHistory}}/g, repText);
+        pastHistoryParts.push(part);
+      }
+
+      // 心理社会因素
+      if (psychText && psychText !== t('defaultTemplates.noPsychosocial')) {
+        const part = t('defaultTemplates.pastHistoryPsychosocial')
+          .replace(/{{psychosocial}}/g, psychText);
+        pastHistoryParts.push(part);
+      }
+
+      const pastHistoryText = pastHistoryParts.length > 0
+        ? pastHistoryParts.join(' ')
+        : t('defaultTemplates.pastHistoryNone');
+
+      // ---- 月经史 ----
+      const menstrualHistoryText = t('defaultTemplates.menstrual_history')
+        .replace(/{{menarche}}/g, menarche)
+        .replace(/{{periodDuration}}/g, periodDuration)
+        .replace(/{{cycleRegular}}/g, cycleRegDisplay)
+        .replace(/{{lmp}}/g, lmp);
+
+      // ---- 临床诊断 ----
+      const diagnosisText = t('defaultTemplates.clinical_diagnosis');
+
+      // ---- 临床建议 ----
+      const suggestionsText = t('defaultTemplates.clinical_suggestions');
+
+      // ---- 默认值 ----
+      const defaultAnalogy = t(`painTemplates.${dominant}.analogy`) || '';
+      const defaultSelfCare = t(`painTemplates.${dominant}.selfCare`) || '';
+      const prefKey = (Array.isArray(userPrefs) && userPrefs[0]) ? userPrefs[0] : 'care';
+      const actionsTemplates = t(`partnerActions.${prefKey}`, { returnObjects: true });
+      let defaultAction = '';
+      if (Array.isArray(actionsTemplates) && actionsTemplates.length > 0) {
+        defaultAction = actionsTemplates.map(act => String(act).replace(/{{med}}/g, t('defaultTemplates.medication') || '布洛芬')).join('\n');
+      } else {
+        defaultAction = t('defaultTemplates.defaultActions') || '';
+      }
+      const defaultWorkText = t('defaultTemplates.workTemplate').replace(/{{pain}}/g, painName);
+
+      // ============================================================
+      // 如果 activeLlm 存在，使用 LLM 数据
+      // ============================================================
+      if (activeLlm) {
+        return {
+          pain: painName,
+          analogy: getLocalizedText(activeLlm.analogy, defaultAnalogy),
+          workText: getLocalizedText(activeLlm.workText || activeLlm.work, defaultWorkText),
+          action: getLocalizedText(activeLlm.action, defaultAction),
+          selfCare: getLocalizedText(activeLlm.selfCare, defaultSelfCare),
+          chief_complaint: getLocalizedText(activeLlm.chief_complaint || activeLlm.med_complaint, chiefComplaintText),
+          present_illness: getLocalizedText(activeLlm.present_illness || activeLlm.med_reference, presentIllnessText),
+          past_history: getLocalizedText(activeLlm.past_history, pastHistoryText),
+          menstrual_history: getLocalizedText(activeLlm.menstrual_history, menstrualHistoryText),
+          clinical_diagnosis: getLocalizedText(activeLlm.clinical_diagnosis, diagnosisText),
+          clinical_suggestions: getLocalizedText(activeLlm.clinical_suggestions, suggestionsText),
+          exam_advice: activeLlm.exam_advice || null,
+          _fieldSources: {
+            chief_complaint: 'ai',
+            present_illness: 'ai',
+            past_history: 'user',
+            menstrual_history: 'user',
+            clinical_diagnosis: 'ai',
+            clinical_suggestions: 'ai'
+          }
+        };
+      }
+
+      // ============================================================
+      // ✅ 降级返回 - 使用用户填写的真实数据
+      // ============================================================
       return {
         pain: painName,
-        analogy: getLocalizedText(activeLlm.analogy, defaultAnalogy),
-        workText: getLocalizedText(activeLlm.workText || activeLlm.work, defaultWorkText),
-        action: getLocalizedText(activeLlm.action, defaultAction),
-        selfCare: getLocalizedText(activeLlm.selfCare, defaultSelfCare),
-        chief_complaint: getLocalizedText(activeLlm.chief_complaint || activeLlm.med_complaint, chiefComplaintText),
-        present_illness: getLocalizedText(activeLlm.present_illness || activeLlm.med_reference, presentIllnessText),
-        past_history: getLocalizedText(activeLlm.past_history, pastHistoryText),
-        menstrual_history: getLocalizedText(activeLlm.menstrual_history, menstrualText),
-        clinical_diagnosis: getLocalizedText(activeLlm.clinical_diagnosis, diagnosisText),
-        clinical_suggestions: getLocalizedText(activeLlm.clinical_suggestions, suggestionsText),
-        exam_advice: activeLlm.exam_advice || null,
-        // LLM 返回的数据也需要添加来源标记（LLM 返回的字段全部视为 AI 推断）
+        analogy: defaultAnalogy,
+        workText: defaultWorkText,
+        action: defaultAction,
+        selfCare: defaultSelfCare,
+        chief_complaint: chiefComplaintText,
+        present_illness: presentIllnessText,
+        past_history: pastHistoryText,
+        menstrual_history: menstrualHistoryText,
+        clinical_diagnosis: diagnosisText,
+        clinical_suggestions: suggestionsText,
+        exam_advice: null,
         _fieldSources: {
           chief_complaint: 'ai',
           present_illness: 'ai',
-          past_history: 'user',  // 即使 LLM 返回，既往史和月经史本质来源于用户填写
+          past_history: 'user',
+          menstrual_history: 'user',
+          clinical_diagnosis: 'ai',
+          clinical_suggestions: 'ai'
+        }
+      };
+    } catch (err) {
+      console.warn('⚠️ generateContent 降级兜底:', err);
+      // 最终兜底
+      const fallbackPain = t('painNames.twist') || '痛经';
+      return {
+        pain: fallbackPain,
+        analogy: t(`painTemplates.twist.analogy`) || '',
+        workText: t('defaultTemplates.workTemplate').replace(/{{pain}}/g, fallbackPain),
+        action: t('defaultTemplates.defaultActions') || '',
+        selfCare: t(`painTemplates.twist.selfCare`) || '',
+        chief_complaint: t('defaultTemplates.chief_complaint')
+          .replace(/{{pain}}/g, fallbackPain)
+          .replace(/{{symptoms}}/g, t('defaultTemplates.noSymptoms')),
+        present_illness: t('defaultTemplates.presentIllnessAge')
+          .replace(/{{age}}/g, t('defaultTemplates.notProvided'))
+          .replace(/{{heightWeight}}/g, t('defaultTemplates.notProvided'))
+          + ' ' + t('defaultTemplates.presentIllnessCycle')
+            .replace(/{{cycleRegular}}/g, t('defaultTemplates.notProvided'))
+          + ' ' + t('defaultTemplates.presentIllnessOnset')
+            .replace(/{{cycleDay}}/g, t('defaultTemplates.notProvided'))
+            .replace(/{{pain}}/g, fallbackPain)
+          + ' ' + t('defaultTemplates.presentIllnessSymptoms')
+            .replace(/{{symptoms}}/g, t('defaultTemplates.noSymptoms')),
+        past_history: t('defaultTemplates.pastHistoryNone'),
+        menstrual_history: t('defaultTemplates.menstrual_history')
+          .replace(/{{menarche}}/g, t('defaultTemplates.notProvided'))
+          .replace(/{{periodDuration}}/g, t('defaultTemplates.notProvided'))
+          .replace(/{{cycleRegular}}/g, t('defaultTemplates.notProvided'))
+          .replace(/{{lmp}}/g, t('defaultTemplates.notProvided')),
+        clinical_diagnosis: t('defaultTemplates.clinical_diagnosis') || '',
+        clinical_suggestions: t('defaultTemplates.clinical_suggestions') || '',
+        exam_advice: null,
+        _fieldSources: {
+          chief_complaint: 'ai',
+          present_illness: 'ai',
+          past_history: 'user',
           menstrual_history: 'user',
           clinical_diagnosis: 'ai',
           clinical_suggestions: 'ai'
         }
       };
     }
-
-    // === 默认降级内容（无 LLM 数据时） ===
-    return {
-      pain: painName,
-      analogy: defaultAnalogy,
-      workText: defaultWorkText,
-      action: defaultAction,
-      selfCare: defaultSelfCare,
-      // AI 推断字段
-      chief_complaint: chiefComplaintText,
-      present_illness: presentIllnessText,
-      clinical_diagnosis: diagnosisText,
-      clinical_suggestions: suggestionsText,
-      // 用户填写字段
-      past_history: pastHistoryText,
-      menstrual_history: menstrualText,
-      exam_advice: null,
-      // 字段来源标记
-      _fieldSources: {
-        chief_complaint: 'ai',
-        present_illness: 'ai',
-        past_history: 'user',
-        menstrual_history: 'user',
-        clinical_diagnosis: 'ai',
-        clinical_suggestions: 'ai'
-      }
-    };
-  } catch (err) {
-    console.warn('⚠️ generateContent 降级兜底:', err);
-    return {
-      pain: targetLanguage === 'en' ? 'Dysmenorrhea' : '痛经',
-      analogy: targetLanguage === 'en' ? 'Severe pelvic discomfort.' : '强烈的痛觉。',
-      workText: targetLanguage === 'en' ? 'Taking sick leave today.' : '申请病假一天。',
-      action: targetLanguage === 'en' ? '• Keep warm and rest.' : '• 热敷并休息。',
-      selfCare: targetLanguage === 'en' ? 'Rest well.' : '好好休息。',
-      chief_complaint: targetLanguage === 'en' ? 'Recurrent pelvic pain.' : '周期性下腹痛经。',
-      present_illness: targetLanguage === 'en' ? 'Sudden onset of dysmenorrhea.' : '突发痛经。',
-      past_history: targetLanguage === 'en' ? 'No chronic medical history.' : '无慢性病史。',
-      menstrual_history: targetLanguage === 'en' ? 'Regular menstrual cycle.' : '月经规律。',
-      clinical_diagnosis: targetLanguage === 'en' ? 'Pelvic pain evaluation needed.' : '建议妇科超声筛查。',
-      clinical_suggestions: targetLanguage === 'en' ? 'Warm compress and rest.' : '温敷小腹与腰骶。',
-      exam_advice: null,
-      _fieldSources: {
-        chief_complaint: 'ai',
-        present_illness: 'ai',
-        past_history: 'user',
-        menstrual_history: 'user',
-        clinical_diagnosis: 'ai',
-        clinical_suggestions: 'ai'
-      }
-    };
-  }
-}, [currentReportData, llmData, getDominantPain, t, medicalBackground, cycleDay, userPrefs, targetLanguage, leaveRecipient, leaveTone]);
+  }, [currentReportData, llmData, getDominantPain, t, medicalBackground, cycleDay, userPrefs, targetLanguage, leaveRecipient, leaveTone]);
 
   const getEditedOrDefault = useCallback((key, defaultVal) => {
     return editedContents[key] !== undefined ? editedContents[key] : defaultVal;
@@ -847,6 +905,14 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
     setBgScale(1.0);
   }, [setBgScale]);
 
+  const allSymptoms = [
+    ...(medicalBackground.accompanyingSymptomsArr || []),
+  ];
+  if (medicalBackground.accompanyingOther) {
+    // 按逗号、顿号、空格分割
+    const custom = medicalBackground.accompanyingOther.split(/[，,、\s]+/).filter(s => s.trim());
+    allSymptoms.push(...custom);
+  }
   const handleGenerateFromData = async (data) => {
     setIsLoading(true);
     try {
@@ -867,7 +933,7 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
         tonePreference: tonePreference || 'gentle',
         cycleDay: cycleDay || (isEn ? 'Not provided' : '未提供'),
         targetLanguage: targetLanguage || 'zh',
-        accompanyingSymptoms: medicalBackground.accompanyingSymptomsArr || [],
+        accompanyingSymptoms: allSymptoms,
         workScenario: leaveRecipient || 'manager',
         workTone: 'neutral',
       };
@@ -1743,7 +1809,7 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
                   tonePreference: tonePreference || 'gentle',
                   cycleDay: cycleDay || (isEn ? 'Not provided' : '未提供'),
                   targetLanguage: targetLanguage || 'zh',
-                  accompanyingSymptoms: medicalBackground.accompanyingSymptomsArr || [],
+                  accompanyingSymptoms: allSymptoms,
                   workScenario: leaveRecipient || 'manager',
                   workTone: mappedWorkTone,
                 };
@@ -1791,7 +1857,7 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
                   cycleDay,
                   spatialMap,
                   colorPalette: activeColor || 'crimson',
-                  accompanyingSymptoms: medicalBackground.accompanyingSymptomsArr || [],
+                  accompanyingSymptoms: allSymptoms,
                 };
 
                 setHistory(prev => [historyEntry, ...prev]);
@@ -1896,7 +1962,7 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
                   tonePreference: tonePreference || 'gentle',
                   cycleDay: cycleDay || (isEn ? 'Not provided' : '未提供'),
                   targetLanguage: targetLanguage || 'zh',
-                  accompanyingSymptoms: medicalBackground.accompanyingSymptomsArr || [],
+                  accompanyingSymptoms: allSymptoms,
                   workScenario: leaveRecipient || 'manager',
                   workTone: mappedWorkTone,
                 };
