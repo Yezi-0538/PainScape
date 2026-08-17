@@ -74,6 +74,7 @@ export default function CanvasPage({
   handleClear,
   resetView,
 }) {
+  
   const { t, lang, toggleLang } = useI18n();
   const { playBrushSound } = useAudio(isMuted);
   const [tipVisible, setTipVisible] = useState(true);
@@ -91,7 +92,7 @@ export default function CanvasPage({
   // });
   const [showGuide, setShowGuide] = useState(false);
   const [guideLoading, setGuideLoading] = useState(true);
-
+  
   useEffect(() => {
     const checkUserGuideStatus = async () => {
       // 如果用户已登录，从 userInfo 读取
@@ -161,7 +162,7 @@ export default function CanvasPage({
       bgBackRef.current = createPlaceholder();
     }
   };
-
+  const bgScaleRef = useRef(null);
   const setup = (p5, canvasParentRef) => {
     p5Ref.current = p5;
 

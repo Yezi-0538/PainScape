@@ -39,7 +39,7 @@ const API_BASE = window.location.hostname === 'localhost' || window.location.hos
 const CHINESE_TO_KEY_MAP = {
   '绞痛': 'twist', '刺痛': 'pierce', '坠胀': 'heavy',
   '坠胀重压': 'heavy', '坠痛': 'heavy', '酸胀': 'wave',
-  '酸胀痛': 'wave', '酸胀痛': 'wave', '刮痛': 'scrape',
+  '酸胀痛': 'wave', '酸痛': 'wave', '刮痛': 'scrape',
   '撕裂痛': 'scrape', '撕刮痛': 'scrape',
 };
 
@@ -514,208 +514,280 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
     return '';
   };
 
-  const generateContent = useCallback((overrideType, externalLlm = null, externalReportData = null) => {
-    try {
-      const isEn = targetLanguage === 'en';
-      const activeLlm = externalReportData || externalLlm || currentReportData || llmData;
+ const generateContent = useCallback((overrideType, externalLlm = null, externalReportData = null) => {
+  try {
+    const isEn = targetLanguage === 'en';
+    const activeLlm = externalReportData || externalLlm || currentReportData || llmData;
 
-      const containsChinese = (str) => /[\u4e00-\u9fa5]/.test(String(str || ''));
-      const getLocalizedText = (activeText, defaultText) => {
-        if (!activeText) return defaultText;
-        if (isEn && containsChinese(activeText)) return defaultText;
-        if (!isEn && !containsChinese(activeText)) return defaultText;
-        return activeText;
-      };
+    const containsChinese = (str) => /[\u4e00-\u9fa5]/.test(String(str || ''));
+    const getLocalizedText = (activeText, defaultText) => {
+      if (!activeText) return defaultText;
+      if (isEn && containsChinese(activeText)) return defaultText;
+      if (!isEn && !containsChinese(activeText)) return defaultText;
+      return activeText;
+    };
 
-      const dominant = overrideType || getDominantPain() || 'twist';
-      const painName = t(`painNames.${dominant}`) || (isEn ? 'Dysmenorrhea' : '痛经');
+    const dominant = overrideType || getDominantPain() || 'twist';
+    const painName = t(`painNames.${dominant}`) || (isEn ? 'Dysmenorrhea' : '痛经');
 
-      const defaultAnalogy = t(`painTemplates.${dominant}.analogy`) || t('painTemplates.heavy.analogy') || (isEn ? 'Severe pelvic pain.' : '强烈的痛觉。');
-      const defaultSelfCare = t(`painTemplates.${dominant}.selfCare`) || t('painTemplates.heavy.selfCare') || (isEn ? 'Rest well and keep warm.' : '好好休息，注意保暖。');
+    const defaultAnalogy = t(`painTemplates.${dominant}.analogy`) || t('painTemplates.heavy.analogy') || (isEn ? 'Severe pelvic pain.' : '强烈的痛觉。');
+    const defaultSelfCare = t(`painTemplates.${dominant}.selfCare`) || t('painTemplates.heavy.selfCare') || (isEn ? 'Rest well and keep warm.' : '好好休息，注意保暖。');
 
-      const symptomsArr = medicalBackground?.accompanyingSymptomsArr || [];
-      const symptomsText = Array.isArray(symptomsArr) && symptomsArr.length > 0
-        ? symptomsArr.map(s => t(`onboarding.accompanyingOptions.${s}`) || s).join(isEn ? ', ' : '、')
-        : (isEn ? 'No significant accompanying symptoms' : '无明显伴随症状');
+    const symptomsArr = medicalBackground?.accompanyingSymptomsArr || [];
+    const symptomsText = Array.isArray(symptomsArr) && symptomsArr.length > 0
+      ? symptomsArr.map(s => t(`onboarding.accompanyingOptions.${s}`) || s).join(isEn ? ', ' : '、')
+      : (isEn ? 'No significant accompanying symptoms' : '无明显伴随症状');
 
-      const defaultComplaint = isEn
-        ? `Recurrent lower abdominal ${painName} during menstruation, accompanied by ${symptomsText} for 1 day.`
-        : `月经期出现下腹部周期性${painName}，伴${symptomsText}1天。`;
+    // === 生成各字段默认文本 ===
+    const chiefComplaintText = isEn
+      ? `Recurrent lower abdominal ${painName} during menstruation, accompanied by ${symptomsText} for 1 day.`
+      : `月经期出现下腹部周期性${painName}，伴${symptomsText}1天。`;
 
-      const defaultPresentIllness = isEn
-        ? `Patient reports regular menstrual cycles. Sudden onset of ${painName} today (day ${cycleDay || 'X'} of menstruation). Pain image reconstruction shows high pain scores with typical ${defaultAnalogy}, limited activity.`
-        : `患者自述既往月经规律。自述于今日（行经第${cycleDay || 'X'}天）突发${painName}。图像特征向量重构显示：痛感评分较高，伴有典型的${defaultAnalogy}，活动受限。`;
+    const presentIllnessText = isEn
+      ? `Patient reports regular menstrual cycles. Sudden onset of ${painName} today (day ${cycleDay || 'X'} of menstruation). Pain image reconstruction shows high pain scores with typical ${defaultAnalogy}, limited activity.`
+      : `患者自述既往月经规律。自述于今日（行经第${cycleDay || 'X'}天）突发${painName}。图像特征向量重构显示：痛感评分较高，伴有典型的${defaultAnalogy}，活动受限。`;
 
-      const defaultPastHistory = isEn
-        ? `Generally in good health. No history of hypertension or diabetes. No surgical history or known drug/food allergies.`
-        : `平素健康状况良好。无明确高血压、糖尿病等慢性病史，无外科手术及食物药物过敏记录。`;
+    // 从 medicalBackground 提取用户填写的既往史
+    let pastHistoryText = isEn ? 'Generally in good health. No history of hypertension or diabetes.' : '平素健康状况良好。无明确高血压、糖尿病等慢性病史。';
+    if (medicalBackground?.diagnosed && medicalBackground.diagnosed !== 'none' && medicalBackground.diagnosed !== 'unknown') {
+      const diagnosedLabel = t(`onboarding.diagnosisOptions.${medicalBackground.diagnosed}`) || medicalBackground.diagnosed;
+      pastHistoryText = isEn
+        ? `History: ${diagnosedLabel}. No other chronic diseases.`
+        : `既往史：${diagnosedLabel}。无其他慢性病史。`;
+    }
+    if (medicalBackground?.surgicalHistory && medicalBackground.surgicalHistory !== 'none' && medicalBackground.surgicalHistory !== 'unknown') {
+      const surgeryLabel = t(`onboarding.surgicalHistoryOptions.${medicalBackground.surgicalHistory}`) || medicalBackground.surgicalHistory;
+      pastHistoryText = isEn
+        ? `${pastHistoryText} Surgical history: ${surgeryLabel}.`
+        : `${pastHistoryText} 手术史：${surgeryLabel}。`;
+    }
+    if (medicalBackground?.allergies && medicalBackground.allergies !== 'none' && medicalBackground.allergies !== 'unknown') {
+      const allergyLabel = t(`onboarding.allergyOptions.${medicalBackground.allergies}`) || medicalBackground.allergies;
+      pastHistoryText = isEn
+        ? `${pastHistoryText} Allergies: ${allergyLabel}.`
+        : `${pastHistoryText} 过敏史：${allergyLabel}。`;
+    }
 
-      const defaultMenstrualHistory = isEn
-        ? `Menstrual History: Menarche age 13, period 5 days, cycle 28-30 days.`
-        : `月经史：13岁初潮，经期5天，周期28-30天（5/28-30天）。`;
+    // 月经史 - 从 medicalBackground 提取
+    let menstrualText = isEn
+      ? `Menstrual History: Regular cycles.`
+      : `月经史：周期规律。`;
+    if (medicalBackground?.menarcheAge) {
+      menstrualText = isEn
+        ? `Menstrual History: Menarche at age ${medicalBackground.menarcheAge}, `
+        : `月经史：${medicalBackground.menarcheAge}岁初潮，`;
+    }
+    if (medicalBackground?.periodDuration) {
+      const durationLabel = t(`onboarding.periodDurationOptions.${medicalBackground.periodDuration}`) || medicalBackground.periodDuration;
+      menstrualText = isEn
+        ? `${menstrualText}period ${durationLabel}, `
+        : `${menstrualText}经期${durationLabel}，`;
+    }
+    if (medicalBackground?.cycleRegular) {
+      const regularLabel = t(`onboarding.cycleRegular${medicalBackground.cycleRegular.charAt(0).toUpperCase() + medicalBackground.cycleRegular.slice(1)}`) || medicalBackground.cycleRegular;
+      menstrualText = isEn
+        ? `${menstrualText}cycle ${regularLabel}.`
+        : `${menstrualText}周期${regularLabel}。`;
+    }
+    if (medicalBackground?.lastPeriod) {
+      menstrualText = isEn
+        ? `${menstrualText} LMP: ${medicalBackground.lastPeriod}.`
+        : `${menstrualText} 末次月经：${medicalBackground.lastPeriod}。`;
+    }
 
-      const defaultClinicalDiagnosis = isEn
-        ? `Based on pain imaging, recommend evaluation for endometriosis, uterine smooth muscle spasms, or pelvic organic congestion. Pelvic ultrasound is recommended.`
-        : `结合痛觉成像，建议排查子宫内膜异位症、子宫平滑肌痉挛或盆腔器质性充血。建议行妇科超声筛查。`;
+    const diagnosisText = isEn
+      ? `Based on pain imaging, recommend evaluation for endometriosis, uterine smooth muscle spasms, or pelvic organic congestion. Pelvic ultrasound is recommended.`
+      : `结合痛觉成像，建议排查子宫内膜异位症、子宫平滑肌痉挛或盆腔器质性充血。建议行妇科超声筛查。`;
 
-      const defaultClinicalSuggestions = isEn
-        ? `Apply warm compress to lower abdomen and lumbar area; rest quietly. If symptoms worsen, seek outpatient pelvic ultrasound examination.`
-        : `温敷小腹与腰骶，静卧休养。若症状持续加重建议常规门诊行超声探查。`;
+    const suggestionsText = isEn
+      ? `Apply warm compress to lower abdomen and lumbar area; rest quietly. If symptoms worsen, seek outpatient pelvic ultrasound examination.`
+      : `温敷小腹与腰骶，静卧休养。若症状持续加重建议常规门诊行超声探查。`;
 
-      const prefKey = (Array.isArray(userPrefs) && userPrefs[0]) ? userPrefs[0] : 'care';
-      const actionsTemplates = t(`partnerActions.${prefKey}`, { returnObjects: true });
-      let defaultAction = '';
-      if (Array.isArray(actionsTemplates) && actionsTemplates.length > 0) {
-        defaultAction = actionsTemplates.map(act => String(act).replace('{{med}}', isEn ? 'Ibuprofen' : '布洛芬')).join('\n');
-      } else {
-        defaultAction = isEn ? '☑️ Apply warm compress and prepare pain medication.' : '☑️ 帮她热敷小腹并准备好止痛药。';
+    const prefKey = (Array.isArray(userPrefs) && userPrefs[0]) ? userPrefs[0] : 'care';
+    const actionsTemplates = t(`partnerActions.${prefKey}`, { returnObjects: true });
+    let defaultAction = '';
+    if (Array.isArray(actionsTemplates) && actionsTemplates.length > 0) {
+      defaultAction = actionsTemplates.map(act => String(act).replace('{{med}}', isEn ? 'Ibuprofen' : '布洛芬')).join('\n');
+    } else {
+      defaultAction = isEn ? '☑️ Apply warm compress and prepare pain medication.' : '☑️ 帮她热敷小腹并准备好止痛药。';
+    }
+
+    const getWorkText = () => {
+      if (activeLlm?.work) {
+        return getLocalizedText(activeLlm.work, '');
       }
 
-      const getWorkText = () => {
-        if (activeLlm?.work) {
-          return getLocalizedText(activeLlm.work, '');
-        }
-
-        if (activeLlm?.work && typeof activeLlm.work === 'object') {
-          const workObj = activeLlm.work;
-          const recipient = leaveRecipient || 'manager';
-          const tone = leaveTone || 'neutral';
-          if (workObj[recipient] && workObj[recipient][tone]) {
-            return workObj[recipient][tone];
-          }
-          if (workObj[recipient] && workObj[recipient]['formal']) {
-            return workObj[recipient]['formal'];
-          }
-          const firstRecipient = Object.keys(workObj)[0];
-          if (firstRecipient && workObj[firstRecipient]) {
-            const firstTone = Object.keys(workObj[firstRecipient])[0];
-            return workObj[firstRecipient][firstTone];
-          }
-        }
-
-        const workScenarios = {
-          zh: {
-            manager: {
-              formal: '领导您好：因身体不适，申请今天休假一天。紧急事务已交接，明天恢复正常工作。',
-              neutral: '今天身体不适，请假一天。工作已安排妥当。',
-              casual: '身体不太舒服，今天请假休息一天，不好意思。',
-            },
-            teacher: {
-              formal: '老师您好！因身体不适，今日无法到课。已安排同学代为记录课堂内容。',
-              neutral: '今天身体不适，请假缺席课程。会及时补上学习内容。',
-              casual: '老师好，今天身体不舒服，请一天假。后续会补上笔记。',
-            },
-            friend: {
-              formal: '今天身体不适，需取消本次见面。改日再约，抱歉。',
-              neutral: '今天不太舒服，咱们改天再约吧。',
-              casual: '身体有点扛不住了，今天先鸽了，回头约！',
-            },
-            client: {
-              formal: '因突发身体不适，需将今日会议改期。已协调同事代为对接，给您带来不便深表歉意。',
-              neutral: '今天身体不适，需要将会议改期。已安排同事协助对接。',
-              casual: '今天临时身体不适，会议改天再约。相关问题已同步给同事。',
-            },
-            partner: {
-              formal: '今天身体不适，需要安静休息。晚间事宜需请你代为处理。',
-              neutral: '今天不太舒服，想好好休息一下。家里的事麻烦你多担待。',
-              casual: '今天疼得厉害，想躺平一天。辛苦你照顾啦。',
-            },
-          },
-          en: {
-            manager: {
-              formal: 'Requesting sick leave today. Urgent matters have been delegated. Expected return tomorrow.',
-              neutral: 'Taking a sick day today. Work is covered.',
-              casual: 'Not feeling well today — taking the day off. Will catch up tomorrow.',
-            },
-            teacher: {
-              formal: 'Unable to attend class today due to a health condition. Arranged for notes to be shared.',
-              neutral: 'Can\'t make it to class today — health flare-up. Will catch up on materials.',
-              casual: 'Professor — not feeling well today. Will get notes from a classmate.',
-            },
-            friend: {
-              formal: 'Need to cancel today\'s plans due to a health issue. Let\'s reschedule soon.',
-              neutral: 'Not feeling great today — let\'s reschedule.',
-              casual: 'Feeling rough today — gonna have to rain check. Let\'s catch up soon!',
-            },
-            client: {
-              formal: 'Due to a sudden health matter, I need to reschedule today\'s meeting. A colleague will handle urgent matters. Apologies for the inconvenience.',
-              neutral: 'Need to reschedule today\'s meeting due to a health issue. A colleague is briefed and available.',
-              casual: 'Not feeling well today — need to push our meeting. Colleague is up to speed if anything urgent.',
-            },
-            partner: {
-              formal: 'Need to rest today due to a health condition. Would appreciate your support with household matters.',
-              neutral: 'Not feeling great today. Need some quiet rest — could use your help around the house.',
-              casual: 'Feeling awful today — going to be horizontal. Thanks for taking care of things.',
-            },
-          },
-        };
-
-        const langKey = isEn ? 'en' : 'zh';
+      if (activeLlm?.work && typeof activeLlm.work === 'object') {
+        const workObj = activeLlm.work;
         const recipient = leaveRecipient || 'manager';
         const tone = leaveTone || 'neutral';
-
-        const scenarios = workScenarios[langKey];
-        if (scenarios && scenarios[recipient] && scenarios[recipient][tone]) {
-          return scenarios[recipient][tone];
+        if (workObj[recipient] && workObj[recipient][tone]) {
+          return workObj[recipient][tone];
         }
-        if (scenarios && scenarios[recipient] && scenarios[recipient]['neutral']) {
-          return scenarios[recipient]['neutral'];
+        if (workObj[recipient] && workObj[recipient]['formal']) {
+          return workObj[recipient]['formal'];
         }
-        return isEn
-          ? `Requesting sick leave today due to a health condition.`
-          : `因身体不适，申请今天休假一天。`;
-      };
-
-      const defaultWorkText = getWorkText();
-
-      if (activeLlm) {
-        return {
-          pain: painName,
-          analogy: getLocalizedText(activeLlm.analogy, defaultAnalogy),
-          workText: getLocalizedText(activeLlm.workText || activeLlm.work, defaultWorkText),
-          action: getLocalizedText(activeLlm.action, defaultAction),
-          selfCare: getLocalizedText(activeLlm.selfCare, defaultSelfCare),
-          chief_complaint: getLocalizedText(activeLlm.chief_complaint || activeLlm.med_complaint, defaultComplaint),
-          present_illness: getLocalizedText(activeLlm.present_illness || activeLlm.med_reference, defaultPresentIllness),
-          past_history: getLocalizedText(activeLlm.past_history, defaultPastHistory),
-          menstrual_history: getLocalizedText(activeLlm.menstrual_history, defaultMenstrualHistory),
-          clinical_diagnosis: getLocalizedText(activeLlm.clinical_diagnosis, defaultClinicalDiagnosis),
-          clinical_suggestions: getLocalizedText(activeLlm.clinical_suggestions, defaultClinicalSuggestions),
-          exam_advice: activeLlm.exam_advice || null,
-        };
+        const firstRecipient = Object.keys(workObj)[0];
+        if (firstRecipient && workObj[firstRecipient]) {
+          const firstTone = Object.keys(workObj[firstRecipient])[0];
+          return workObj[firstRecipient][firstTone];
+        }
       }
 
+      const workScenarios = {
+        zh: {
+          manager: {
+            formal: '领导您好：因身体不适，申请今天休假一天。紧急事务已交接，明天恢复正常工作。',
+            neutral: '今天身体不适，请假一天。工作已安排妥当。',
+            casual: '身体不太舒服，今天请假休息一天，不好意思。',
+          },
+          teacher: {
+            formal: '老师您好！因身体不适，今日无法到课。已安排同学代为记录课堂内容。',
+            neutral: '今天身体不适，请假缺席课程。会及时补上学习内容。',
+            casual: '老师好，今天身体不舒服，请一天假。后续会补上笔记。',
+          },
+          friend: {
+            formal: '今天身体不适，需取消本次见面。改日再约，抱歉。',
+            neutral: '今天不太舒服，咱们改天再约吧。',
+            casual: '身体有点扛不住了，今天先鸽了，回头约！',
+          },
+          client: {
+            formal: '因突发身体不适，需将今日会议改期。已协调同事代为对接，给您带来不便深表歉意。',
+            neutral: '今天身体不适，需要将会议改期。已安排同事协助对接。',
+            casual: '今天临时身体不适，会议改天再约。相关问题已同步给同事。',
+          },
+          partner: {
+            formal: '今天身体不适，需要安静休息。晚间事宜需请你代为处理。',
+            neutral: '今天不太舒服，想好好休息一下。家里的事麻烦你多担待。',
+            casual: '今天疼得厉害，想躺平一天。辛苦你照顾啦。',
+          },
+        },
+        en: {
+          manager: {
+            formal: 'Requesting sick leave today. Urgent matters have been delegated. Expected return tomorrow.',
+            neutral: 'Taking a sick day today. Work is covered.',
+            casual: 'Not feeling well today — taking the day off. Will catch up tomorrow.',
+          },
+          teacher: {
+            formal: 'Unable to attend class today due to a health condition. Arranged for notes to be shared.',
+            neutral: 'Can\'t make it to class today — health flare-up. Will catch up on materials.',
+            casual: 'Professor — not feeling well today. Will get notes from a classmate.',
+          },
+          friend: {
+            formal: 'Need to cancel today\'s plans due to a health issue. Let\'s reschedule soon.',
+            neutral: 'Not feeling great today — let\'s reschedule.',
+            casual: 'Feeling rough today — gonna have to rain check. Let\'s catch up soon!',
+          },
+          client: {
+            formal: 'Due to a sudden health matter, I need to reschedule today\'s meeting. A colleague will handle urgent matters. Apologies for the inconvenience.',
+            neutral: 'Need to reschedule today\'s meeting due to a health issue. A colleague is briefed and available.',
+            casual: 'Not feeling well today — need to push our meeting. Colleague is up to speed if anything urgent.',
+          },
+          partner: {
+            formal: 'Need to rest today due to a health condition. Would appreciate your support with household matters.',
+            neutral: 'Not feeling great today. Need some quiet rest — could use your help around the house.',
+            casual: 'Feeling awful today — going to be horizontal. Thanks for taking care of things.',
+          },
+        },
+      };
+
+      const langKey = isEn ? 'en' : 'zh';
+      const recipient = leaveRecipient || 'manager';
+      const tone = leaveTone || 'neutral';
+
+      const scenarios = workScenarios[langKey];
+      if (scenarios && scenarios[recipient] && scenarios[recipient][tone]) {
+        return scenarios[recipient][tone];
+      }
+      if (scenarios && scenarios[recipient] && scenarios[recipient]['neutral']) {
+        return scenarios[recipient]['neutral'];
+      }
+      return isEn
+        ? `Requesting sick leave today due to a health condition.`
+        : `因身体不适，申请今天休假一天。`;
+    };
+
+    const defaultWorkText = getWorkText();
+
+    // === 如果有 LLM 数据，优先使用 ===
+    if (activeLlm) {
       return {
         pain: painName,
-        analogy: defaultAnalogy,
-        workText: defaultWorkText,
-        action: defaultAction,
-        selfCare: defaultSelfCare,
-        chief_complaint: defaultComplaint,
-        present_illness: defaultPresentIllness,
-        past_history: defaultPastHistory,
-        menstrual_history: defaultMenstrualHistory,
-        clinical_diagnosis: defaultClinicalDiagnosis,
-        clinical_suggestions: defaultClinicalSuggestions,
-        exam_advice: null,
-      };
-    } catch (err) {
-      console.warn('⚠️ generateContent 降级兜底:', err);
-      return {
-        pain: targetLanguage === 'en' ? 'Dysmenorrhea' : '痛经',
-        analogy: targetLanguage === 'en' ? 'Severe pelvic discomfort.' : '强烈的痛觉。',
-        workText: targetLanguage === 'en' ? 'Taking sick leave today.' : '申请病假一天。',
-        action: targetLanguage === 'en' ? '• Keep warm and rest.' : '• 热敷并休息。',
-        selfCare: targetLanguage === 'en' ? 'Rest well.' : '好好休息。',
-        chief_complaint: targetLanguage === 'en' ? 'Recurrent pelvic pain.' : '周期性下腹痛经。',
-        present_illness: targetLanguage === 'en' ? 'Sudden onset of dysmenorrhea.' : '突发痛经。',
-        past_history: targetLanguage === 'en' ? 'No chronic medical history.' : '无慢性病史。',
-        menstrual_history: targetLanguage === 'en' ? 'Regular menstrual cycle.' : '月经规律。',
-        clinical_diagnosis: targetLanguage === 'en' ? 'Pelvic pain evaluation needed.' : '建议妇科超声筛查。',
-        clinical_suggestions: targetLanguage === 'en' ? 'Warm compress and rest.' : '温敷小腹与腰骶。'
+        analogy: getLocalizedText(activeLlm.analogy, defaultAnalogy),
+        workText: getLocalizedText(activeLlm.workText || activeLlm.work, defaultWorkText),
+        action: getLocalizedText(activeLlm.action, defaultAction),
+        selfCare: getLocalizedText(activeLlm.selfCare, defaultSelfCare),
+        chief_complaint: getLocalizedText(activeLlm.chief_complaint || activeLlm.med_complaint, chiefComplaintText),
+        present_illness: getLocalizedText(activeLlm.present_illness || activeLlm.med_reference, presentIllnessText),
+        past_history: getLocalizedText(activeLlm.past_history, pastHistoryText),
+        menstrual_history: getLocalizedText(activeLlm.menstrual_history, menstrualText),
+        clinical_diagnosis: getLocalizedText(activeLlm.clinical_diagnosis, diagnosisText),
+        clinical_suggestions: getLocalizedText(activeLlm.clinical_suggestions, suggestionsText),
+        exam_advice: activeLlm.exam_advice || null,
+        // LLM 返回的数据也需要添加来源标记（LLM 返回的字段全部视为 AI 推断）
+        _fieldSources: {
+          chief_complaint: 'ai',
+          present_illness: 'ai',
+          past_history: 'user',  // 即使 LLM 返回，既往史和月经史本质来源于用户填写
+          menstrual_history: 'user',
+          clinical_diagnosis: 'ai',
+          clinical_suggestions: 'ai'
+        }
       };
     }
-  }, [currentReportData, llmData, getDominantPain, t, medicalBackground, cycleDay, userPrefs, targetLanguage, leaveRecipient, leaveTone]);
+
+    // === 默认降级内容（无 LLM 数据时） ===
+    return {
+      pain: painName,
+      analogy: defaultAnalogy,
+      workText: defaultWorkText,
+      action: defaultAction,
+      selfCare: defaultSelfCare,
+      // AI 推断字段
+      chief_complaint: chiefComplaintText,
+      present_illness: presentIllnessText,
+      clinical_diagnosis: diagnosisText,
+      clinical_suggestions: suggestionsText,
+      // 用户填写字段
+      past_history: pastHistoryText,
+      menstrual_history: menstrualText,
+      exam_advice: null,
+      // 字段来源标记
+      _fieldSources: {
+        chief_complaint: 'ai',
+        present_illness: 'ai',
+        past_history: 'user',
+        menstrual_history: 'user',
+        clinical_diagnosis: 'ai',
+        clinical_suggestions: 'ai'
+      }
+    };
+  } catch (err) {
+    console.warn('⚠️ generateContent 降级兜底:', err);
+    return {
+      pain: targetLanguage === 'en' ? 'Dysmenorrhea' : '痛经',
+      analogy: targetLanguage === 'en' ? 'Severe pelvic discomfort.' : '强烈的痛觉。',
+      workText: targetLanguage === 'en' ? 'Taking sick leave today.' : '申请病假一天。',
+      action: targetLanguage === 'en' ? '• Keep warm and rest.' : '• 热敷并休息。',
+      selfCare: targetLanguage === 'en' ? 'Rest well.' : '好好休息。',
+      chief_complaint: targetLanguage === 'en' ? 'Recurrent pelvic pain.' : '周期性下腹痛经。',
+      present_illness: targetLanguage === 'en' ? 'Sudden onset of dysmenorrhea.' : '突发痛经。',
+      past_history: targetLanguage === 'en' ? 'No chronic medical history.' : '无慢性病史。',
+      menstrual_history: targetLanguage === 'en' ? 'Regular menstrual cycle.' : '月经规律。',
+      clinical_diagnosis: targetLanguage === 'en' ? 'Pelvic pain evaluation needed.' : '建议妇科超声筛查。',
+      clinical_suggestions: targetLanguage === 'en' ? 'Warm compress and rest.' : '温敷小腹与腰骶。',
+      exam_advice: null,
+      _fieldSources: {
+        chief_complaint: 'ai',
+        present_illness: 'ai',
+        past_history: 'user',
+        menstrual_history: 'user',
+        clinical_diagnosis: 'ai',
+        clinical_suggestions: 'ai'
+      }
+    };
+  }
+}, [currentReportData, llmData, getDominantPain, t, medicalBackground, cycleDay, userPrefs, targetLanguage, leaveRecipient, leaveTone]);
 
   const getEditedOrDefault = useCallback((key, defaultVal) => {
     return editedContents[key] !== undefined ? editedContents[key] : defaultVal;

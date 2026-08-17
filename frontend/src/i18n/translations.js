@@ -187,7 +187,8 @@ const translations = {
       cycleRegularOptions: {
         "": "请选择",
         regular: "高度规律 (波动 ≤ 5天)",
-        irregular: "不规律 (周期极度紊乱)",
+        irregular: "不规律",
+        xirregular: "周期紊乱",
         unsure: "不确定",
       },
       cyclePeriodLabel: "当前处于什么时期",
@@ -1071,6 +1072,12 @@ const translations = {
       clinicalAdvice: "临床建议",
       warning: "警告",
       viewDetails: "查看详情",
+      copy: "📋 复制",        // 新增
+      copied: "✅ 已复制",    // 新增
+      edit: "✏️ 编辑",        // 新增
+      save: "保存",           // 新增
+      cancel: "取消",         // 新增
+      clickToEdit: "点击编辑内容...", // 新增
       collapse: "收起",
       expand: "展开",
       records: "条记录",
@@ -1130,6 +1137,9 @@ const translations = {
       optimizeFailed: "优化失败",
       clickToEdit: "点击编辑...",
       clickToEditTitle: "点击编辑",
+      sourceUser: "📋 用户填写",
+      sourceAi: "🤖 AI 分析",
+
     },
     // ============ ✅ 新增：默认模板（用于 generateContent 后备） ============
     defaultTemplates: {
@@ -1146,8 +1156,8 @@ const translations = {
     // ============ 医生视图标签 ============
     doctorTab: {
       chiefComplaint: "主诉",
-      presentIllness: "现病史与痛觉机制分析",
-      pastHistory: "既往史与个人习惯风险",
+      presentIllness: "现病史与痛觉描述",
+      pastHistory: "既往史与个人习惯",
       menstrualObstetricHistory: "月经与婚育史",
       clinicalDiagnosis: "临床诊断与筛查建议",
       clinicalAdvice: "临床干预与检查引导",
@@ -2282,6 +2292,14 @@ const translations = {
       clinicalAdvice: "Clinical Advice",
       warning: "Warning",
       viewDetails: "View Details",
+      sourceUser: "📋 User Input",
+      sourceAi: "🤖 AI Analysis",
+      copy: "📋 Copy",
+      copied: "✅ Copied",
+      edit: "✏️ Edit",
+      save: "Save",
+      cancel: "Cancel",
+      clickToEdit: "Click to edit...",
       collapse: "Collapse",
       expand: "Expand",
       records: "records",

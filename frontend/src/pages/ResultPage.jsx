@@ -1,33 +1,403 @@
 // src/pages/ResultPage.jsx
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { useI18n } from '../i18n/i18nContext';
-import EditableBlock from '../Components/EditableBlock';
-import PublishPostModal from '../Components/modals/PublishPostModal'; // 🌟 引入发布弹窗组件
+import PublishPostModal from '../Components/modals/PublishPostModal';
 import PeriodScience from '../Components/PeriodScience';
 
+// ============================================================
+// 🏷️ 标记文本解析工具函数
+// ============================================================
+
+const parseMarkedText = (text) => {
+  if (!text) return [{ text: '', type: 'plain' }];
+
+  const parts = [];
+  let lastIndex = 0;
+  const regex = /<user>(.*?)<\/user>/gs;
+  let match;
+
+  while ((match = regex.exec(text)) !== null) {
+    if (match.index > lastIndex) {
+      parts.push({
+        text: text.substring(lastIndex, match.index),
+        type: 'plain'
+      });
+    }
+    parts.push({
+      text: match[1],
+      type: 'user'
+    });
+    lastIndex = regex.lastIndex;
+  }
+
+  if (lastIndex < text.length) {
+    parts.push({
+      text: text.substring(lastIndex),
+      type: 'plain'
+    });
+  }
+
+  return parts;
+};
+
+const stripUserMarkers = (text) => {
+  if (!text) return '';
+  return text.replace(/<user>(.*?)<\/user>/gs, '$1');
+};
+
+const MarkedTextDisplay = ({ text, style = {} }) => {
+  if (!text) return null;
+
+  const parts = parseMarkedText(text);
+
+  return (
+    <span style={{ ...style }}>
+      {parts.map((part, index) => (
+        <span
+          key={index}
+          style={{
+            color: part.type === 'user' ? '#ffb74d' : 'inherit',
+            fontWeight: part.type === 'user' ? '600' : 'normal',
+            background: part.type === 'user' ? 'rgba(255, 152, 0, 0.2)' : 'transparent',
+            padding: part.type === 'user' ? '0 4px' : '0',
+            borderRadius: part.type === 'user' ? '4px' : '0',
+            borderBottom: part.type === 'user' ? '2px solid rgba(255, 152, 0, 0.3)' : 'none',
+          }}
+        >
+          {part.text}
+        </span>
+      ))}
+    </span>
+  );
+};
+
+// ============================================================
+// 🔧 可编辑的可复制模块组件
+// ============================================================
+
+const EditableCard = ({
+  fieldKey,
+  value,
+  onSave,
+  title,
+  icon,
+  textColor = '#e0e0e0',
+  fontSize = 'var(--text-sm)',
+  lineHeight = '1.8',
+  placeholder = '',
+  rows = 3,
+  showCopy = true,
+  showEdit = true,
+  sourceLabel = null,
+  sourceColor = null,
+  borderColor = '#333',
+}) => {
+  const { t } = useI18n();
+  const [isEditing, setIsEditing] = useState(false);
+  const [editValue, setEditValue] = useState(stripUserMarkers(value || ''));
+  const [showCopied, setShowCopied] = useState(false);
+
+  const userFields = ['past_history', 'menstrual_history'];
+  const isUserField = userFields.includes(fieldKey);
+
+  const getDisplayValue = () => {
+    if (!value) return '';
+    if (value.includes('<user>')) return value;
+    if (isUserField) {
+      return `<user>${value}</user>`;
+    }
+    return value;
+  };
+
+  const displayValue = getDisplayValue();
+
+  const getPlainText = () => {
+    return stripUserMarkers(value || '');
+  };
+
+  const handleCopy = async () => {
+    const plainText = getPlainText();
+    if (!plainText) return;
+
+    try {
+      await navigator.clipboard.writeText(plainText);
+      setShowCopied(true);
+      setTimeout(() => setShowCopied(false), 2000);
+    } catch (err) {
+      const textarea = document.createElement('textarea');
+      textarea.value = plainText;
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textarea);
+      setShowCopied(true);
+      setTimeout(() => setShowCopied(false), 2000);
+    }
+  };
+
+  const handleSave = () => {
+    let savedValue = editValue;
+    if (isUserField && savedValue && !savedValue.includes('<user>')) {
+      savedValue = `<user>${savedValue}</user>`;
+    }
+    onSave(fieldKey, savedValue);
+    setIsEditing(false);
+  };
+
+  const handleCancel = () => {
+    setEditValue(stripUserMarkers(value || ''));
+    setIsEditing(false);
+  };
+
+  const handleStartEdit = () => {
+    setEditValue(stripUserMarkers(value || ''));
+    setIsEditing(true);
+  };
+
+  const getBorderColor = () => {
+    if (borderColor) return borderColor;
+    return '#333';
+  };
+
+  const cardBorderColor = getBorderColor();
+
+  const copyLabel = showCopied ? t('resultLabels.copied') : t('resultLabels.copy');
+  const editLabel = t('resultLabels.edit');
+  const saveLabel = t('resultLabels.save');
+  const cancelLabel = t('resultLabels.cancel');
+  const defaultPlaceholder = t('resultLabels.clickToEdit');
+
+  return (
+    <div
+      style={{
+        background: 'rgba(255,255,255,0.02)',
+        padding: 'var(--space-lg)',
+        borderRadius: 'var(--radius-md)',
+        border: `1px solid ${cardBorderColor}`,
+        transition: 'all 0.2s ease',
+        position: 'relative',
+      }}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.borderColor = '#555';
+        e.currentTarget.style.background = 'rgba(255,255,255,0.04)';
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.borderColor = cardBorderColor;
+        e.currentTarget.style.background = 'rgba(255,255,255,0.02)';
+      }}
+    >
+      {/* 标题栏 */}
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: '6px',
+        marginBottom: '8px',
+        flexWrap: 'wrap',
+      }}>
+        <span style={{ fontSize: 'var(--text-md)' }}>{icon || '📄'}</span>
+        <h4 style={{
+          color: '#aaa',
+          fontSize: 'var(--text-sm)',
+          margin: 0,
+          fontWeight: '500',
+          letterSpacing: '0.3px',
+        }}>
+          {title || fieldKey}
+        </h4>
+        {sourceLabel && (
+          <span
+            style={{
+              fontSize: 'var(--text-xs)',
+              padding: '1px 8px',
+              borderRadius: '10px',
+              background: sourceColor ? `${sourceColor}20` : 'rgba(255,255,255,0.06)',
+              color: sourceColor || '#666',
+              fontWeight: '400',
+              letterSpacing: '0.3px',
+              opacity: 0.7,
+            }}
+          >
+            {sourceLabel}
+          </span>
+        )}
+      </div>
+
+      {/* 内容区域 */}
+      {isEditing ? (
+        <div style={{ width: '100%' }}>
+          <textarea
+            value={editValue}
+            onChange={(e) => setEditValue(e.target.value)}
+            style={{
+              width: '100%',
+              background: '#111',
+              color: '#fff',
+              border: '1px solid #444',
+              borderRadius: '8px',
+              padding: 'var(--space-md)',
+              fontSize: fontSize,
+              lineHeight: lineHeight,
+              fontFamily: 'inherit',
+              resize: 'vertical',
+              minHeight: `${rows * 32}px`,
+              boxSizing: 'border-box',
+            }}
+            placeholder={placeholder || defaultPlaceholder}
+            autoFocus
+          />
+          <div style={{
+            display: 'flex',
+            gap: '8px',
+            marginTop: '10px',
+            flexWrap: 'wrap',
+          }}>
+            <button
+              onClick={handleSave}
+              style={{
+                padding: '4px 14px',
+                background: '#4caf50',
+                color: '#fff',
+                border: 'none',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                fontSize: 'var(--text-xs)',
+                fontWeight: '500',
+                minHeight: '28px',
+                height: '28px',
+              }}
+            >
+              {saveLabel}
+            </button>
+            <button
+              onClick={handleCancel}
+              style={{
+                padding: '4px 14px',
+                background: 'transparent',
+                color: '#888',
+                border: '1px solid #333',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                fontSize: 'var(--text-xs)',
+                minHeight: '28px',
+                height: '28px',
+              }}
+            >
+              {cancelLabel}
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div
+          onClick={handleStartEdit}
+          style={{
+            cursor: 'pointer',
+            padding: '2px 0',
+            minHeight: '20px',
+          }}
+        >
+          {displayValue ? (
+            <MarkedTextDisplay
+              text={displayValue}
+              style={{
+                color: textColor,
+                fontSize: fontSize,
+                lineHeight: lineHeight,
+              }}
+            />
+          ) : (
+            <span style={{
+              color: '#444',
+              fontSize: fontSize,
+              fontStyle: 'italic',
+            }}>
+              {placeholder || defaultPlaceholder}
+            </span>
+          )}
+        </div>
+      )}
+
+      {/* 底部操作栏 */}
+      {!isEditing && (
+        <div style={{
+          display: 'flex',
+          justifyContent: 'flex-end',
+          gap: '4px',
+          marginTop: '10px',
+          paddingTop: '8px',
+          borderTop: '1px solid rgba(255,255,255,0.04)',
+          flexWrap: 'wrap',
+        }}>
+          {showCopy && (
+            <button
+              onClick={handleCopy}
+              style={{
+                background: 'transparent',
+                border: 'none',
+                color: showCopied ? '#4caf50' : '#555',
+                cursor: 'pointer',
+                padding: '4px 10px',
+                borderRadius: '4px',
+                fontSize: 'var(--text-xs)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px',
+                transition: 'all 0.2s',
+                minHeight: 'auto',
+              }}
+              onMouseEnter={(e) => { e.currentTarget.style.color = '#aaa'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.color = showCopied ? '#4caf50' : '#555'; }}
+            >
+              {copyLabel}
+            </button>
+          )}
+
+          {showEdit && (
+            <button
+              onClick={handleStartEdit}
+              style={{
+                background: 'transparent',
+                border: 'none',
+                color: '#555',
+                cursor: 'pointer',
+                padding: '4px 10px',
+                borderRadius: '4px',
+                fontSize: 'var(--text-xs)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px',
+                transition: 'all 0.2s',
+                minHeight: 'auto',
+              }}
+              onMouseEnter={(e) => { e.currentTarget.style.color = '#4caf50'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.color = '#555'; }}
+            >
+              {editLabel}
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
+
+// ============================================================
+// 主组件
+// ============================================================
+
 export default function ResultPage({
-  // 导航
   onBack,
   onPublish,
   onShare,
-
-  // 数据
   imgUrl,
   content = {},
   appMode,
-
-  // Tab
   identity = 'partner',
   setIdentity,
-
-  // 编辑
   editedContents = {},
   setEditedContents,
   editingField,
   setEditingField,
   getEditedOrDefault = (k, v) => v,
-
-  // 优化
   refineInput = '',
   setRefineInput,
   refiningField,
@@ -35,34 +405,39 @@ export default function ResultPage({
   refineTargetField = 'chief_complaint',
   setRefineTargetField,
   handleRefine,
-
-  // 请假
   leaveRecipient = 'manager',
   setLeaveRecipient,
   leaveTone = 'polite',
   setLeaveTone,
-
-  // 分享
   prepareSharePreview,
   setHealingState,
   randomPartnerTips = [],
-  handleCopy = () => { },
+  handleCopy = () => {},
 }) {
   const { t, lang, toggleLang } = useI18n();
 
-  // 🌟 1. 新增：控制发布弹窗与输入标题文本的状态
   const [showPublishModal, setShowPublishModal] = useState(false);
   const [publishTitleText, setPublishTitleText] = useState('');
-  // ResultPage.jsx - 在组件内部添加
 
-  // ✅ 根据身份和语气生成 workText（不依赖 content）
+  const getFieldValue = (fieldKey) => {
+    if (editedContents && editedContents[fieldKey] !== undefined) {
+      return editedContents[fieldKey];
+    }
+    return content[fieldKey] || '';
+  };
+
+  const handleFieldSave = (fieldKey, value) => {
+    setEditedContents && setEditedContents({
+      ...editedContents,
+      [fieldKey]: value,
+    });
+  };
+
   const getWorkText = useCallback(() => {
-    // 如果有编辑过的内容，优先使用
     if (editedContents?.workText !== undefined) return editedContents.workText;
     const toneMap = {
       polite: 'formal',
       objective: 'neutral',
-      // 如果还有其他语气
       formal: 'formal',
       neutral: 'neutral',
       casual: 'casual',
@@ -153,6 +528,26 @@ export default function ResultPage({
 
   const tabs = ['partner', 'work', appMode === 'medical' && 'doctor', 'self'].filter(Boolean);
 
+  const fieldSources = content._fieldSources || {};
+
+  const getSourceInfo = (fieldKey) => {
+    let source = fieldSources[fieldKey];
+    if (!source) {
+      const userFields = ['past_history', 'menstrual_history'];
+      source = userFields.includes(fieldKey) ? 'user' : 'ai';
+    }
+    if (source === 'user') {
+      return {
+        label: t('resultLabels.sourceUser'),
+        color: '#ff9800',
+      };
+    }
+    return {
+      label: t('resultLabels.sourceAi'),
+      color: '#64b5f6',
+    };
+  };
+
   return (
     <div
       style={{
@@ -172,7 +567,6 @@ export default function ResultPage({
         alignItems: 'center',
       }}
     >
-      {/* 痛觉图谱预览 */}
       {imgUrl && (
         <img
           src={imgUrl}
@@ -192,10 +586,10 @@ export default function ResultPage({
       <div
         style={{
           display: 'flex',
-          gap: '8px',
-          margin: '24px 0 16px 0',
+          gap: '6px',
+          margin: '20px 0 14px 0',
           width: '100%',
-          maxWidth: identity === 'doctor' ? '580px' : '380px',
+          maxWidth: identity === 'doctor' ? '580px' : 'var(--container-max)',
           transition: 'max-width 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
         }}
       >
@@ -204,15 +598,16 @@ export default function ResultPage({
             key={tab}
             style={{
               flex: 1,
-              padding: '12px 0',
-              background: identity === tab ? '#222' : 'rgba(20,20,20,0.6)',
+              padding: '10px 0',
+              background: identity === tab ? 'rgba(255,255,255,0.08)' : 'rgba(20,20,20,0.6)',
               color: identity === tab ? '#fff' : '#666',
-              border: identity === tab ? '1.5px solid #444' : '1px solid #222',
+              border: identity === tab ? '1.5px solid #555' : '1px solid #2a2a2a',
               borderRadius: 'var(--radius-sm)',
-              fontSize: '13px',
+              fontSize: 'var(--text-sm)',
               fontWeight: identity === tab ? 'bold' : 'normal',
               cursor: 'pointer',
               transition: 'all 0.2s',
+              minHeight: 'var(--btn-min-touch)',
             }}
             onClick={() => setIdentity && setIdentity(tab)}
           >
@@ -226,11 +621,11 @@ export default function ResultPage({
         className="info-card"
         style={{
           background: '#121212',
-          padding: '24px',
+          padding: 'var(--space-lg)',
           borderRadius: 'var(--radius-lg)',
           width: '100%',
-          maxWidth: identity === 'doctor' ? '580px' : '380px',
-          border: '1px solid #222',
+          maxWidth: identity === 'doctor' ? '580px' : 'var(--container-max)',
+          border: '1px solid #2a2a2a',
           boxShadow: '0 12px 40px rgba(0,0,0,0.6)',
           transition: 'max-width 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
           boxSizing: 'border-box',
@@ -239,95 +634,89 @@ export default function ResultPage({
         {/* ===== 伴侣视图 ===== */}
         {identity === 'partner' && (
           <>
-            <h3 style={{ color: '#fff', margin: '0 0 15px 0' }}>
+            <h3 style={{
+              color: '#fff',
+              margin: '0 0 12px 0',
+              fontSize: 'var(--text-md)',
+              fontWeight: '500',
+            }}>
               {t('result.partner.title')}
             </h3>
+
             <div
               style={{
                 background: 'rgba(211,47,47,0.04)',
-                padding: '14px',
+                padding: 'var(--space-md)',
                 borderRadius: 'var(--radius-sm)',
                 borderLeft: '4px solid #d32f2f',
-                borderTop: '1px solid #222',
-                borderRight: '1px solid #222',
-                borderBottom: '1px solid #222',
+                borderTop: '1px solid #2a2a2a',
+                borderRight: '1px solid #2a2a2a',
+                borderBottom: '1px solid #2a2a2a',
+                marginBottom: '14px',
               }}
             >
               <p
                 style={{
                   color: '#ffcdd2',
-                  fontSize: '13.5px',
-                  margin: '0 0 8px 0',
+                  fontSize: 'var(--text-sm)',
+                  margin: '0 0 6px 0',
                   whiteSpace: 'pre-wrap',
                   lineHeight: '1.6',
                 }}
               >
                 {t('result.partner.experiencing')}
-                <strong>{content.pain || '痛经'}</strong>。
+                <strong>{content.pain || t('painNames.twist')}</strong>。
               </p>
-              <EditableBlock
+              <EditableCard
                 fieldKey="analogy"
-                defaultValue={content.analogy || ''}
-                color="#ffcdd2"
-                style={{ fontSize: '13px', lineHeight: '1.7', whiteSpace: 'pre-wrap' }}
-                onSave={(key, val) => setEditedContents && setEditedContents({ ...editedContents, [key]: val })}
+                value={getFieldValue('analogy') || content.analogy || ''}
+                onSave={handleFieldSave}
+                title={t('resultLabels.companionGuide')}
+                icon="💬"
+                textColor="#ffcdd2"
+                fontSize="var(--text-sm)"
+                lineHeight="1.7"
+                placeholder={t('resultLabels.clickToEdit')}
+                rows={2}
+                borderColor="#3a2a2a"
+                sourceLabel={t('resultLabels.sourceAi')}
+                sourceColor="#64b5f6"
               />
             </div>
-            <div style={{ marginTop: '20px' }}>
-              <strong
-                style={{
-                  color: '#fff',
-                  fontSize: 'var(--text-base)',
-                  display: 'block',
-                  marginBottom: '8px',
-                }}
-              >
-                {t('result.partner.actionPrompt')}
-              </strong>
-              <EditableBlock
-                fieldKey="action"
-                defaultValue={content.action || ''}
-                color="#ccc"
-                style={{ fontSize: '13px', lineHeight: '1.7', whiteSpace: 'pre-wrap' }}
-                onSave={(key, val) => setEditedContents && setEditedContents({ ...editedContents, [key]: val })}
-              />
-            </div>
-            <button
-              onClick={() => handleCopy(getEditedOrDefault('action', content.action || ''))}
-              style={{
-                marginTop: '15px',
-                width: '100%',
-                padding: 'var(--space-md)',
-                background: 'transparent',
-                border: '1px dashed #d32f2f',
-                color: '#ffcdd2',
-                borderRadius: 'var(--radius-sm)',
-                cursor: 'pointer',
-                fontSize: '13px',
-                fontWeight: '500',
-              }}
-            >
-              {t('result.partner.copyAction')}
-            </button>
 
-            {/* 优化区域 */}
-            <div style={{ marginTop: '25px', paddingTop: '15px', borderTop: '1px solid #222' }}>
-              <p style={{ color: '#888', fontSize: '12px', margin: '0 0 10px 0' }}>
+            <EditableCard
+              fieldKey="action"
+              value={getFieldValue('action') || content.action || ''}
+              onSave={handleFieldSave}
+              title={t('resultLabels.companionGuide')}
+              icon="🤝"
+              textColor="#ccc"
+              fontSize="var(--text-sm)"
+              lineHeight="1.7"
+              placeholder={t('resultLabels.clickToEdit')}
+              rows={3}
+              borderColor="#2a3a2a"
+            />
+
+            <div style={{ marginTop: '16px', paddingTop: '12px', borderTop: '1px solid #2a2a2a' }}>
+              <p style={{ color: '#666', fontSize: 'var(--text-xs)', margin: '0 0 8px 0' }}>
                 {t('result.refine.prompt')}
               </p>
-              <div style={{ display: 'flex', gap: '8px' }}>
+              <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
                 <input
                   placeholder={getRefinePlaceholder('partner')}
                   value={refineInput}
                   onChange={(e) => setRefineInput && setRefineInput(e.target.value)}
                   style={{
                     flex: 1,
+                    minWidth: '120px',
                     background: '#111',
-                    border: '1px solid #222',
+                    border: '1px solid #2a2a2a',
                     color: '#fff',
-                    borderRadius: '10px',
+                    borderRadius: '8px',
                     padding: 'var(--space-md)',
-                    fontSize: '12px',
+                    fontSize: 'var(--text-sm)',
+                    minHeight: 'var(--btn-min-touch)',
                   }}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' && handleRefine) handleRefine('analogy');
@@ -337,15 +726,16 @@ export default function ResultPage({
                   onClick={() => handleRefine && handleRefine('analogy')}
                   disabled={refiningField === 'analogy'}
                   style={{
+                    padding: '0 16px',
                     background: refiningField === 'analogy' ? '#555' : '#d32f2f',
                     color: '#fff',
                     border: 'none',
-                    borderRadius: '10px',
-                    padding: '0 16px',
+                    borderRadius: '8px',
                     cursor: refiningField === 'analogy' ? 'not-allowed' : 'pointer',
-                    fontSize: '12px',
+                    fontSize: 'var(--text-sm)',
                     whiteSpace: 'nowrap',
-                    fontWeight: 'bold',
+                    fontWeight: '500',
+                    minHeight: 'var(--btn-min-touch)',
                   }}
                 >
                   {refiningField === 'analogy'
@@ -355,7 +745,6 @@ export default function ResultPage({
               </div>
             </div>
 
-            {/* 伴侣科普 */}
             <PeriodScience />
           </>
         )}
@@ -363,47 +752,53 @@ export default function ResultPage({
         {/* ===== 请假视图 ===== */}
         {identity === 'work' && (
           <>
-            <h3 style={{ color: '#ff9800', margin: '0 0 15px 0' }}>
+            <h3 style={{
+              color: '#ff9800',
+              margin: '0 0 12px 0',
+              fontSize: 'var(--text-md)',
+              fontWeight: '500',
+            }}>
               {t('result.work.title')}
             </h3>
             <p
               style={{
                 color: '#888',
-                fontSize: '12.5px',
-                marginBottom: '16px',
+                fontSize: 'var(--text-sm)',
+                marginBottom: '14px',
                 lineHeight: '1.6',
               }}
             >
               {t('result.work.description')}
             </p>
 
-            <div style={{ marginBottom: '16px' }}>
+            <div style={{ marginBottom: '14px' }}>
               <span
                 style={{
                   color: '#666',
-                  fontSize: '11px',
+                  fontSize: 'var(--text-xs)',
                   display: 'block',
-                  marginBottom: '6px',
+                  marginBottom: '4px',
                 }}
               >
                 {t('resultLabels.sendTarget')}
               </span>
-              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
                 {['manager', 'teacher', 'client', 'friend'].map((key) => (
                   <button
                     key={key}
                     onClick={() => setLeaveRecipient && setLeaveRecipient(key)}
                     style={{
                       flex: '1 0 45%',
-                      padding: '10px 0',
-                      fontSize: '12px',
-                      borderRadius: '8px',
-                      border: leaveRecipient === key ? '1px solid #ff9800' : '1px solid #222',
+                      padding: '8px 0',
+                      fontSize: 'var(--text-xs)',
+                      borderRadius: '6px',
+                      border: leaveRecipient === key ? '1px solid #ff9800' : '1px solid #2a2a2a',
                       background: leaveRecipient === key ? 'rgba(255, 152, 0, 0.08)' : '#161616',
                       color: leaveRecipient === key ? '#fff' : '#888',
                       cursor: 'pointer',
                       transition: 'all 0.2s',
                       marginBottom: '4px',
+                      minHeight: 'var(--btn-height-sm)',
                     }}
                   >
                     {t(`result.work.recipients.${key}`)}
@@ -412,32 +807,33 @@ export default function ResultPage({
               </div>
             </div>
 
-            <div style={{ marginBottom: '20px' }}>
+            <div style={{ marginBottom: '16px' }}>
               <span
                 style={{
                   color: '#666',
-                  fontSize: '11px',
+                  fontSize: 'var(--text-xs)',
                   display: 'block',
-                  marginBottom: '6px',
+                  marginBottom: '4px',
                 }}
               >
                 {t('resultLabels.tonePreference')}
               </span>
-              <div style={{ display: 'flex', gap: '8px' }}>
+              <div style={{ display: 'flex', gap: '6px' }}>
                 {['polite', 'objective'].map((key) => (
                   <button
                     key={key}
                     onClick={() => setLeaveTone && setLeaveTone(key)}
                     style={{
                       flex: 1,
-                      padding: '10px 0',
-                      fontSize: '12px',
-                      borderRadius: '8px',
-                      border: leaveTone === key ? '1px solid #ff9800' : '1px solid #222',
+                      padding: '8px 0',
+                      fontSize: 'var(--text-xs)',
+                      borderRadius: '6px',
+                      border: leaveTone === key ? '1px solid #ff9800' : '1px solid #2a2a2a',
                       background: leaveTone === key ? 'rgba(255, 152, 0, 0.08)' : '#161616',
                       color: leaveTone === key ? '#fff' : '#888',
                       cursor: 'pointer',
                       transition: 'all 0.2s',
+                      minHeight: 'var(--btn-height-sm)',
                     }}
                   >
                     {t(`result.work.tones.${key}`)}
@@ -446,58 +842,39 @@ export default function ResultPage({
               </div>
             </div>
 
-            <div
-              style={{
-                background: 'rgba(255,152,0,0.03)',
-                padding: 'var(--space-lg)',
-                borderRadius: 'var(--radius-sm)',
-                border: '1px solid rgba(255,152,0,0.12)',
-              }}
-            >
-              <EditableBlock
-                fieldKey="workText"
-                defaultValue={getWorkText()}  // ✅ 使用动态生成的文本
-                color="#eee"
-                style={{ fontSize: '13px', lineHeight: '1.7', whiteSpace: 'pre-wrap' }}
-                onSave={(key, val) => setEditedContents && setEditedContents({ ...editedContents, [key]: val })}
-              />
-            </div>
+            <EditableCard
+              fieldKey="workText"
+              value={getFieldValue('workText') || getWorkText()}
+              onSave={handleFieldSave}
+              title={t('resultLabels.sendTarget')}
+              icon="📨"
+              textColor="#eee"
+              fontSize="var(--text-sm)"
+              lineHeight="1.7"
+              placeholder={t('resultLabels.clickToEdit')}
+              rows={2}
+              borderColor="#2a3a2a"
+            />
 
-            <button
-              onClick={() => handleCopy(getEditedOrDefault('workText', content.workText || ''))}
-              style={{
-                marginTop: '16px',
-                width: '100%',
-                padding: 'var(--space-md)',
-                background: 'transparent',
-                border: '1px dashed #ff9800',
-                color: '#ffcc80',
-                borderRadius: 'var(--radius-sm)',
-                cursor: 'pointer',
-                fontWeight: '500',
-                fontSize: '13px',
-              }}
-            >
-              {t('result.work.copyTemplate')}
-            </button>
-
-            <div style={{ marginTop: '25px', paddingTop: '15px', borderTop: '1px solid #222' }}>
-              <p style={{ color: '#888', fontSize: '11px', margin: '0 0 10px 0' }}>
+            <div style={{ marginTop: '16px', paddingTop: '12px', borderTop: '1px solid #2a2a2a' }}>
+              <p style={{ color: '#666', fontSize: 'var(--text-xs)', margin: '0 0 8px 0' }}>
                 {t('result.refine.prompt')}
               </p>
-              <div style={{ display: 'flex', gap: '8px' }}>
+              <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
                 <input
                   placeholder={getRefinePlaceholder('work')}
                   value={refineInput}
                   onChange={(e) => setRefineInput && setRefineInput(e.target.value)}
                   style={{
                     flex: 1,
+                    minWidth: '120px',
                     background: '#111',
-                    border: '1px solid #222',
+                    border: '1px solid #2a2a2a',
                     color: '#fff',
-                    borderRadius: '10px',
+                    borderRadius: '8px',
                     padding: 'var(--space-md)',
-                    fontSize: '12px',
+                    fontSize: 'var(--text-sm)',
+                    minHeight: 'var(--btn-min-touch)',
                   }}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' && handleRefine) handleRefine('workText');
@@ -507,15 +884,16 @@ export default function ResultPage({
                   onClick={() => handleRefine && handleRefine('workText')}
                   disabled={refiningField === 'workText'}
                   style={{
+                    padding: '0 16px',
                     background: refiningField === 'workText' ? '#555' : '#ff9800',
                     color: '#fff',
                     border: 'none',
-                    borderRadius: '10px',
-                    padding: '0 16px',
+                    borderRadius: '8px',
                     cursor: refiningField === 'workText' ? 'not-allowed' : 'pointer',
-                    fontSize: '12px',
+                    fontSize: 'var(--text-sm)',
                     whiteSpace: 'nowrap',
-                    fontWeight: 'bold',
+                    fontWeight: '500',
+                    minHeight: 'var(--btn-min-touch)',
                   }}
                 >
                   {refiningField === 'workText'
@@ -529,264 +907,147 @@ export default function ResultPage({
 
         {/* ===== 医生视图 ===== */}
         {identity === 'doctor' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            <div style={{ borderBottom: '1px solid #222', paddingBottom: '14px' }}>
-              <h3
-                style={{
-                  color: '#2196f3',
-                  margin: '0 0 6px 0',
-                  fontSize: '18px',
-                  fontWeight: 'bold',
-                  letterSpacing: '0.5px',
-                }}
-              >
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+            <div style={{ borderBottom: '1px solid #2a2a2a', paddingBottom: '12px' }}>
+              <h3 style={{
+                color: '#2196f3',
+                margin: '0 0 4px 0',
+                fontSize: 'var(--text-md)',
+                fontWeight: '500',
+              }}>
                 {t('result.doctor.title')}
               </h3>
-              <p
-                style={{
-                  color: '#ff9800',
-                  fontSize: '11.5px',
-                  lineHeight: '1.6',
-                  margin: 0,
-                  fontWeight: '500',
-                  background: 'rgba(255,152,0,0.04)',
-                  padding: 'var(--space-md)',
-                  borderRadius: 'var(--radius-sm)',
-                  border: '1px solid rgba(255,152,0,0.1)',
-                }}
-              >
+              <p style={{
+                color: '#ff9800',
+                fontSize: 'var(--text-xs)',
+                lineHeight: '1.6',
+                margin: 0,
+                fontWeight: '400',
+                background: 'rgba(255,152,0,0.04)',
+                padding: 'var(--space-md)',
+                borderRadius: 'var(--radius-sm)',
+                border: '1px solid rgba(255,152,0,0.06)',
+              }}>
                 {t('result.doctor.disclaimer')}
               </p>
             </div>
 
-            {/* 主诉 */}
-            {content.chief_complaint && content.chief_complaint.trim() && (
-              <div
-                style={{
-                  background: 'rgba(211,47,47,0.02)',
-                  padding: 'var(--space-lg)',
-                  borderRadius: '14px',
-                  border: '1px solid rgba(211,47,47,0.1)',
-                  borderLeft: '4px solid #d32f2f',
-                }}
-              >
-                <h4
-                  style={{
-                    color: '#ef5350',
-                    fontSize: '13px',
-                    margin: '0 0 8px 0',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    fontWeight: 'bold',
-                    letterSpacing: '0.5px',
-                  }}
-                >
-                  <span>📋</span> {t('doctorTab.chiefComplaint')}
-                </h4>
-                <EditableBlock
-                  fieldKey="chief_complaint"
-                  defaultValue={content.chief_complaint}
-                  color="#fff"
-                  style={{
-                    fontSize: '14.5px',
-                    fontWeight: '500',
-                    lineHeight: '1.7',
-                    whiteSpace: 'pre-wrap',
-                  }}
-                  onSave={(key, val) => setEditedContents && setEditedContents({ ...editedContents, [key]: val })}
-                />
-              </div>
+            {content.chief_complaint?.trim() && (
+              <EditableCard
+                fieldKey="chief_complaint"
+                value={getFieldValue('chief_complaint') || content.chief_complaint}
+                onSave={handleFieldSave}
+                title={t('doctorTab.chiefComplaint')}
+                icon="📋"
+                textColor="#fff"
+                fontSize="var(--text-base)"
+                lineHeight="1.7"
+                placeholder={t('resultLabels.clickToEdit')}
+                rows={2}
+                borderColor="#2a3a4a"
+                sourceLabel={getSourceInfo('chief_complaint').label}
+                sourceColor={getSourceInfo('chief_complaint').color}
+              />
             )}
 
-            {/* 现病史 */}
-            {content.present_illness && content.present_illness.trim() && (
-              <div
-                style={{
-                  background: '#161616',
-                  padding: '18px',
-                  borderRadius: '14px',
-                  border: '1px solid #222',
-                }}
-              >
-                <h4
-                  style={{
-                    color: '#90caf9',
-                    fontSize: '13px',
-                    margin: '0 0 10px 0',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    fontWeight: 'bold',
-                    letterSpacing: '0.5px',
-                  }}
-                >
-                  <span>📝</span> {t('doctorTab.presentIllness')}
-                </h4>
-                <EditableBlock
-                  fieldKey="present_illness"
-                  defaultValue={content.present_illness}
-                  color="#e0e0e0"
-                  style={{ fontSize: '13.5px', lineHeight: '1.8', whiteSpace: 'pre-wrap' }}
-                  onSave={(key, val) => setEditedContents && setEditedContents({ ...editedContents, [key]: val })}
-                />
-              </div>
+            {content.present_illness?.trim() && (
+              <EditableCard
+                fieldKey="present_illness"
+                value={getFieldValue('present_illness') || content.present_illness}
+                onSave={handleFieldSave}
+                title={t('doctorTab.presentIllness')}
+                icon="📝"
+                textColor="#e0e0e0"
+                fontSize="var(--text-sm)"
+                lineHeight="1.8"
+                placeholder={t('resultLabels.clickToEdit')}
+                rows={3}
+                borderColor="#2a3a4a"
+                sourceLabel={getSourceInfo('present_illness').label}
+                sourceColor={getSourceInfo('present_illness').color}
+              />
             )}
 
-            {/* 既往史 */}
-            {content.past_history && content.past_history.trim() && (
-              <div
-                style={{
-                  background: '#161616',
-                  padding: '18px',
-                  borderRadius: '14px',
-                  border: '1px solid #222',
-                }}
-              >
-                <h4
-                  style={{
-                    color: '#90caf9',
-                    fontSize: '13px',
-                    margin: '0 0 10px 0',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    fontWeight: 'bold',
-                    letterSpacing: '0.5px',
-                  }}
-                >
-                  <span>📂</span> {t('doctorTab.pastHistory')}
-                </h4>
-                <EditableBlock
-                  fieldKey="past_history"
-                  defaultValue={content.past_history}
-                  color="#cccccc"
-                  style={{ fontSize: '13px', lineHeight: '1.8', whiteSpace: 'pre-wrap' }}
-                  onSave={(key, val) => setEditedContents && setEditedContents({ ...editedContents, [key]: val })}
-                />
-              </div>
+            {content.past_history?.trim() && (
+              <EditableCard
+                fieldKey="past_history"
+                value={getFieldValue('past_history') || content.past_history}
+                onSave={handleFieldSave}
+                title={t('doctorTab.pastHistory')}
+                icon="📂"
+                textColor="#ffb74d"
+                fontSize="var(--text-sm)"
+                lineHeight="1.8"
+                placeholder={t('resultLabels.clickToEdit')}
+                rows={2}
+                borderColor="#3a3a2a"
+                sourceLabel={getSourceInfo('past_history').label}
+                sourceColor={getSourceInfo('past_history').color}
+              />
             )}
 
-            {/* 月经史 */}
-            {content.menstrual_history && content.menstrual_history.trim() && (
-              <div
-                style={{
-                  background: '#161616',
-                  padding: '18px',
-                  borderRadius: '14px',
-                  border: '1px solid #222',
-                }}
-              >
-                <h4
-                  style={{
-                    color: '#90caf9',
-                    fontSize: '13px',
-                    margin: '0 0 10px 0',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    fontWeight: 'bold',
-                    letterSpacing: '0.5px',
-                  }}
-                >
-                  <span>🌸</span> {t('doctorTab.menstrualObstetricHistory')}
-                </h4>
-                <EditableBlock
-                  fieldKey="menstrual_history"
-                  defaultValue={content.menstrual_history}
-                  color="#cccccc"
-                  style={{ fontSize: '13px', lineHeight: '1.8', whiteSpace: 'pre-wrap' }}
-                  onSave={(key, val) => setEditedContents && setEditedContents({ ...editedContents, [key]: val })}
-                />
-              </div>
+            {content.menstrual_history?.trim() && (
+              <EditableCard
+                fieldKey="menstrual_history"
+                value={getFieldValue('menstrual_history') || content.menstrual_history}
+                onSave={handleFieldSave}
+                title={t('doctorTab.menstrualObstetricHistory')}
+                icon="🌸"
+                textColor="#ffb74d"
+                fontSize="var(--text-sm)"
+                lineHeight="1.8"
+                placeholder={t('resultLabels.clickToEdit')}
+                rows={2}
+                borderColor="#3a3a2a"
+                sourceLabel={getSourceInfo('menstrual_history').label}
+                sourceColor={getSourceInfo('menstrual_history').color}
+              />
             )}
 
-            {/* 临床诊断 */}
-            {content.clinical_diagnosis && content.clinical_diagnosis.trim() && (
-              <div
-                style={{
-                  background: 'rgba(33,150,243,0.02)',
-                  padding: '18px',
-                  borderRadius: '14px',
-                  border: '1px solid rgba(33,150,243,0.1)',
-                  borderLeft: '4px solid #2196f3',
-                }}
-              >
-                <h4
-                  style={{
-                    color: '#90caf9',
-                    fontSize: '13px',
-                    margin: '0 0 10px 0',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    fontWeight: 'bold',
-                    letterSpacing: '0.5px',
-                  }}
-                >
-                  <span>🩺</span> {t('doctorTab.clinicalDiagnosis')}
-                </h4>
-                <EditableBlock
-                  fieldKey="clinical_diagnosis"
-                  defaultValue={content.clinical_diagnosis}
-                  color="#e3f2fd"
-                  style={{
-                    fontSize: '13.5px',
-                    lineHeight: '1.8',
-                    whiteSpace: 'pre-wrap',
-                    fontWeight: '500',
-                  }}
-                  onSave={(key, val) => setEditedContents && setEditedContents({ ...editedContents, [key]: val })}
-                />
-              </div>
+            {content.clinical_diagnosis?.trim() && (
+              <EditableCard
+                fieldKey="clinical_diagnosis"
+                value={getFieldValue('clinical_diagnosis') || content.clinical_diagnosis}
+                onSave={handleFieldSave}
+                title={t('doctorTab.clinicalDiagnosis')}
+                icon="🩺"
+                textColor="#e3f2fd"
+                fontSize="var(--text-sm)"
+                lineHeight="1.8"
+                placeholder={t('resultLabels.clickToEdit')}
+                rows={3}
+                borderColor="#2a3a4a"
+                sourceLabel={getSourceInfo('clinical_diagnosis').label}
+                sourceColor={getSourceInfo('clinical_diagnosis').color}
+              />
             )}
 
-            {/* 临床建议 */}
-            {content.clinical_suggestions && content.clinical_suggestions.trim() && (
-              <div
-                style={{
-                  background: '#161616',
-                  padding: '18px',
-                  borderRadius: '14px',
-                  border: '1px solid #222',
-                }}
-              >
-                <h4
-                  style={{
-                    color: '#ffb74d',
-                    fontSize: '13px',
-                    margin: '0 0 12px 0',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    fontWeight: 'bold',
-                    letterSpacing: '0.5px',
-                  }}
-                >
-                  <span>💊</span> {t('doctorTab.clinicalAdvice')}
-                </h4>
-                <EditableBlock
-                  fieldKey="clinical_suggestions"
-                  defaultValue={content.clinical_suggestions}
-                  color="#e0e0e0"
-                  style={{ fontSize: '13px', lineHeight: '1.85', whiteSpace: 'pre-wrap' }}
-                  onSave={(key, val) => setEditedContents && setEditedContents({ ...editedContents, [key]: val })}
-                />
-              </div>
+            {content.clinical_suggestions?.trim() && (
+              <EditableCard
+                fieldKey="clinical_suggestions"
+                value={getFieldValue('clinical_suggestions') || content.clinical_suggestions}
+                onSave={handleFieldSave}
+                title={t('doctorTab.clinicalAdvice')}
+                icon="💊"
+                textColor="#e0e0e0"
+                fontSize="var(--text-sm)"
+                lineHeight="1.85"
+                placeholder={t('resultLabels.clickToEdit')}
+                rows={3}
+                borderColor="#2a3a4a"
+                sourceLabel={getSourceInfo('clinical_suggestions').label}
+                sourceColor={getSourceInfo('clinical_suggestions').color}
+              />
             )}
 
-            {/* 优化面板 */}
-            <div style={{ marginTop: '20px', paddingTop: '16px', borderTop: '1px solid #222' }}>
-              <p style={{ color: '#888', fontSize: '11.5px', margin: '0 0 12px 0' }}>
+            <div style={{ marginTop: '16px', paddingTop: '14px', borderTop: '1px solid #2a2a2a' }}>
+              <p style={{ color: '#666', fontSize: 'var(--text-xs)', margin: '0 0 10px 0' }}>
                 {t('result.refine.prompt')}
               </p>
-              <div style={{ display: 'flex', gap: '8px', marginBottom: '10px' }}>
+              <div style={{ display: 'flex', gap: '6px', marginBottom: '8px', flexWrap: 'wrap' }}>
                 {[
                   { key: 'chief_complaint', label: t('result.refine.optimizeComplaint') },
-                  {
-                    key: 'present_illness',
-                    label: t('result.refine.optimizeReference'),
-                  },
+                  { key: 'present_illness', label: t('result.refine.optimizeReference') },
                   { key: 'clinical_suggestions', label: t('result.refine.optimize') },
                 ].map((item) => (
                   <button
@@ -796,34 +1057,38 @@ export default function ResultPage({
                     }}
                     style={{
                       flex: 1,
-                      padding: '8px 0',
-                      fontSize: '11px',
-                      borderRadius: '8px',
+                      minWidth: '60px',
+                      padding: '6px 8px',
+                      fontSize: 'var(--text-xs)',
+                      borderRadius: '6px',
                       border: 'none',
                       cursor: 'pointer',
                       background: refineTargetField === item.key ? '#2196f3' : '#1e1e1e',
-                      color: refineTargetField === item.key ? '#fff' : '#888',
+                      color: refineTargetField === item.key ? '#fff' : '#666',
                       transition: 'all 0.2s',
                       fontWeight: refineTargetField === item.key ? 'bold' : 'normal',
+                      minHeight: 'var(--btn-height-sm)',
                     }}
                   >
                     {item.label}
                   </button>
                 ))}
               </div>
-              <div style={{ display: 'flex', gap: '8px' }}>
+              <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
                 <input
                   placeholder={getRefinePlaceholder('doctor')}
                   value={refineInput}
                   onChange={(e) => setRefineInput && setRefineInput(e.target.value)}
                   style={{
                     flex: 1,
+                    minWidth: '120px',
                     background: '#111',
-                    border: '1px solid #222',
+                    border: '1px solid #2a2a2a',
                     color: '#fff',
-                    borderRadius: '10px',
+                    borderRadius: '8px',
                     padding: 'var(--space-md)',
-                    fontSize: '12px',
+                    fontSize: 'var(--text-sm)',
+                    minHeight: 'var(--btn-min-touch)',
                   }}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' && handleRefine) handleRefine(refineTargetField);
@@ -833,15 +1098,16 @@ export default function ResultPage({
                   onClick={() => handleRefine && handleRefine(refineTargetField)}
                   disabled={refiningField === refineTargetField}
                   style={{
+                    padding: '0 16px',
                     background: refiningField === refineTargetField ? '#555' : '#2196f3',
                     color: '#fff',
                     border: 'none',
-                    borderRadius: '10px',
-                    padding: '0 16px',
+                    borderRadius: '8px',
                     cursor: refiningField === refineTargetField ? 'not-allowed' : 'pointer',
-                    fontSize: '12px',
+                    fontSize: 'var(--text-sm)',
                     whiteSpace: 'nowrap',
-                    fontWeight: 'bold',
+                    fontWeight: '500',
+                    minHeight: 'var(--btn-min-touch)',
                   }}
                 >
                   {refiningField === refineTargetField
@@ -856,23 +1122,30 @@ export default function ResultPage({
         {/* ===== 自愈视图 ===== */}
         {identity === 'self' && (
           <>
-            <h3 style={{ color: '#9c27b0', margin: '0 0 15px 0' }}>
+            <h3 style={{
+              color: '#9c27b0',
+              margin: '0 0 12px 0',
+              fontSize: 'var(--text-md)',
+              fontWeight: '500',
+            }}>
               {t('result.self.title')}
             </h3>
-            <p
-              style={{
-                color: '#ccc',
-                fontSize: '13px',
-                lineHeight: '1.75',
-                marginBottom: '20px',
-                textAlign: 'justify',
-                whiteSpace: 'pre-wrap',
-              }}
-            >
-              {content.comfort}
-            </p>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            <EditableCard
+              fieldKey="selfCare"
+              value={getFieldValue('selfCare') || content.comfort || ''}
+              onSave={handleFieldSave}
+              title={t('result.self.title')}
+              icon="💜"
+              textColor="#ccc"
+              fontSize="var(--text-sm)"
+              lineHeight="1.75"
+              placeholder={t('resultLabels.clickToEdit')}
+              rows={4}
+              borderColor="#2a2a3a"
+            />
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '14px' }}>
               {[
                 {
                   key: 'breathing',
@@ -912,7 +1185,7 @@ export default function ResultPage({
                     background: '#161616',
                     padding: 'var(--space-lg)',
                     borderRadius: 'var(--radius-md)',
-                    border: '1px solid #222',
+                    border: '1px solid #2a2a2a',
                     borderLeft: `4px solid ${tip.color}`,
                     cursor: 'pointer',
                     transition: 'all 0.2s',
@@ -920,17 +1193,25 @@ export default function ResultPage({
                   onMouseEnter={(e) => (e.currentTarget.style.background = '#202020')}
                   onMouseLeave={(e) => (e.currentTarget.style.background = '#161616')}
                 >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-                    <span style={{ fontSize: '26px' }}>{tip.icon}</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <span style={{ fontSize: 'var(--text-xl)' }}>{tip.icon}</span>
                     <div style={{ flex: 1 }}>
-                      <div style={{ color: '#fff', fontWeight: 'bold', fontSize: 'var(--text-base)' }}>
+                      <div style={{
+                        color: '#fff',
+                        fontWeight: '500',
+                        fontSize: 'var(--text-sm)',
+                      }}>
                         {tip.title}
                       </div>
-                      <div style={{ color: '#aaa', fontSize: '11.5px', marginTop: '4px' }}>
+                      <div style={{
+                        color: '#888',
+                        fontSize: 'var(--text-xs)',
+                        marginTop: '2px',
+                      }}>
                         {tip.subtitle}
                       </div>
                     </div>
-                    <span style={{ color: '#666', fontSize: '18px' }}>›</span>
+                    <span style={{ color: '#555', fontSize: 'var(--text-md)' }}>›</span>
                   </div>
                 </div>
               ))}
@@ -946,27 +1227,27 @@ export default function ResultPage({
           alignItems: 'center',
           gap: '6px',
           width: '100%',
-          maxWidth: identity === 'doctor' ? '580px' : '380px',
+          maxWidth: identity === 'doctor' ? '580px' : 'var(--container-max)',
           transition: 'max-width 0.25s',
-          marginTop: '20px',
-          marginBottom: '30px',
+          marginTop: '16px',
+          marginBottom: '20px',
+          flexWrap: 'wrap',
         }}
       >
-        {/* 分享按钮 */}
         <button
           style={{
             flex: 1.8,
             padding: '8px 0',
-            borderRadius: '18px',
+            borderRadius: 'var(--radius-sm)',
             background: '#4caf50',
             color: '#fff',
             border: 'none',
-            fontWeight: 'bold',
+            fontWeight: '500',
             cursor: 'pointer',
-            fontSize: '11px',
+            fontSize: 'var(--text-sm)',
             boxShadow: '0 2px 8px rgba(76,175,80,0.2)',
             whiteSpace: 'nowrap',
-            minHeight: '36px',
+            minHeight: 'var(--btn-min-touch)',
           }}
           type="button"
           onClick={() => {
@@ -980,21 +1261,20 @@ export default function ResultPage({
           {t('result.shareCard')}
         </button>
 
-        {/* 发布按钮 */}
         <button
           style={{
             flex: 1.5,
             padding: '8px 0',
-            borderRadius: '18px',
+            borderRadius: 'var(--radius-sm)',
             background: '#2196f3',
             color: '#fff',
             border: 'none',
-            fontWeight: 'bold',
+            fontWeight: '500',
             cursor: 'pointer',
-            fontSize: '11px',
+            fontSize: 'var(--text-sm)',
             boxShadow: '0 2px 8px rgba(33,150,243,0.2)',
             whiteSpace: 'nowrap',
-            minHeight: '36px',
+            minHeight: 'var(--btn-min-touch)',
           }}
           type="button"
           onClick={() => {
@@ -1008,47 +1288,45 @@ export default function ResultPage({
           {t('result.publish')}
         </button>
 
-        {/* 返回按钮 */}
         <button
           style={{
             flex: 1.1,
             padding: '8px 0',
-            borderRadius: '18px',
-            background: 'rgba(255,255,255,0.05)',
-            border: '1px solid #333',
-            color: '#aaa',
+            borderRadius: 'var(--radius-sm)',
+            background: 'rgba(255,255,255,0.04)',
+            border: '1px solid #2a2a2a',
+            color: '#888',
             cursor: 'pointer',
-            fontSize: '11px',
+            fontSize: 'var(--text-sm)',
             whiteSpace: 'nowrap',
-            minHeight: '36px',
+            minHeight: 'var(--btn-min-touch)',
           }}
           onClick={onBack}
         >
           {t('result.backHome')}
         </button>
 
-        {/* 语言切换按钮 */}
         <button
           type="button"
           style={{
             flex: 0.6,
             padding: '8px 0',
-            borderRadius: '18px',
-            background: 'rgba(255,255,255,0.06)',
-            border: '1px solid #333',
-            color: '#aaa',
+            borderRadius: 'var(--radius-sm)',
+            background: 'rgba(255,255,255,0.04)',
+            border: '1px solid #2a2a2a',
+            color: '#888',
             cursor: 'pointer',
-            fontSize: '10px',
-            fontWeight: 'bold',
+            fontSize: 'var(--text-xs)',
+            fontWeight: '500',
             whiteSpace: 'nowrap',
-            minHeight: '36px',
+            minHeight: 'var(--btn-min-touch)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
           }}
           onClick={toggleLang}
         >
-          {lang === 'zh' ? 'EN' : '中'}
+          {lang === 'zh' ? t('splash.switchLang') : t('splash.switchLang')}
         </button>
       </div>
     </div>

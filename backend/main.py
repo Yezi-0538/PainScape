@@ -52,15 +52,14 @@ PROVIDER_CONFIG = {
     "vivo": {
         "base_url": "https://api-ai.vivo.com.cn/v1",
         "api_key_env": "VIVO_API_KEY",
-        "model": "Volc-DeepSeek-V3.2",  # 医疗专科大病历使用 DeepSeek V3.2
-        "model_quick": "Doubao-Seed-2.0-mini",  # 快速录入及非医疗使用 Doubao-mini
+        "model": "Volc-DeepSeek-V3.2",
+        "model_quick": "Doubao-Seed-2.0-mini",
         "model_refine": "Doubao-Seed-2.0-mini",
         "max_tokens": 4096,
         "display_name": "Vivo蓝心大模型网关",
     },
 }
 
-# 简易多语言映射对照
 PAIN_MAP = {
     "zh": {
         "spasmodic": "痉挛性收缩感",
@@ -76,7 +75,6 @@ PAIN_MAP = {
     },
 }
 
-# 周期阶段常量
 CYCLE_PHASE_MAP = {
     "zh": {
         "menstrual": "月经期",
@@ -94,7 +92,6 @@ CYCLE_PHASE_MAP = {
     },
 }
 
-# 周期阶段对应的生理描述
 CYCLE_PHASE_PHYSIOLOGY = {
     "zh": {
         "menstrual": "患者处于月经期第{day}天，盆腔微循环处于自然生理充血状态。",
@@ -112,7 +109,6 @@ CYCLE_PHASE_PHYSIOLOGY = {
     },
 }
 
-# 周期阶段对应的月经史描述
 CYCLE_PHASE_MENSTRUAL_HISTORY = {
     "zh": {
         "menstrual": "当前处于月经期第{day}天。痛经：有。",
@@ -130,154 +126,6 @@ CYCLE_PHASE_MENSTRUAL_HISTORY = {
     },
 }
 
-def calculate_cycle_day_from_lmp(lmp_str: Optional[str], reference_date: Optional[date] = None) -> Tuple[Optional[int], str]:
-    """
-    根据 LMP 计算当前周期天数，并判断所处阶段
-    
-    Args:
-        lmp_str: LMP 日期字符串，如 "2026-07-01" 或 "2026/07/01"
-        reference_date: 参考日期，默认为今天
-    
-    Returns:
-        (day_count, phase_key): 如 (18, "post") 表示月经后第18天
-    """
-    if not lmp_str:
-        return None, "unknown"
-    
-    if reference_date is None:
-        reference_date = date.today()
-    
-    # 解析 LMP
-    try:
-        # 尝试多种格式
-        for fmt in ["%Y-%m-%d", "%Y/%m/%d", "%Y.%m.%d", "%m/%d/%Y", "%d/%m/%Y"]:
-            try:
-                lmp_date = datetime.strptime(lmp_str.strip(), fmt).date()
-                break
-            except ValueError:
-                continue
-        else:
-            return None, "unknown"
-    except Exception:
-        return None, "unknown"
-    
-    # 计算距 LMP 的天数
-    delta = (reference_date - lmp_date).days
-    
-    if delta < 0:
-        # LMP 在未来？数据错误
-        return None, "unknown"
-    
-    # 判断周期阶段（假设平均周期 28 天）
-    day_in_cycle = delta % 28  # 模运算得到当前周期第几天
-    if day_in_cycle == 0:
-        day_in_cycle = 28  # 第28天即为经前一天
-    
-    if 1 <= day_in_cycle <= 7:
-        phase = "menstrual"  # 月经期
-    elif 8 <= day_in_cycle <= 14:
-        phase = "post"  # 卵泡期
-    elif 15 <= day_in_cycle <= 21:
-        phase = "ovulation"  # 排卵期
-    else:  # 22-28
-        phase = "pre"  # 黄体期/经前期
-    
-    # 对于经前期，计算距离下次月经的天数
-    if phase == "pre":
-        days_until_menses = 28 - day_in_cycle
-        return days_until_menses, phase
-    else:
-        return day_in_cycle, phase
-
-def get_cycle_description(lmp_str: Optional[str], lang: str) -> dict:
-    """
-    获取完整的周期描述信息
-    
-    Returns:
-        {
-            "phase_key": "menstrual" | "pre" | "post" | "ovulation" | "unknown",
-            "phase_display": "Menstrual Phase" | ...,
-            "phase_physiology": "The patient is on Day 3 of her menstrual cycle..." | ...,
-            "menstrual_history": "Currently on Day 3 of menstruation..." | ...,
-            "day_count": 3,  # 周期天数
-        }
-    """
-    day_count, phase_key = calculate_cycle_day_from_lmp(lmp_str)
-    
-    if phase_key == "unknown" or day_count is None:
-        return {
-            "phase_key": "unknown",
-            "phase_display": CYCLE_PHASE_MAP[lang]["unknown"],
-            "phase_physiology": CYCLE_PHASE_PHYSIOLOGY[lang]["unknown"],
-            "menstrual_history": CYCLE_PHASE_MENSTRUAL_HISTORY[lang]["unknown"],
-            "day_count": None,
-        }
-    
-    phase_display = CYCLE_PHASE_MAP[lang].get(phase_key, CYCLE_PHASE_MAP[lang]["unknown"])
-    
-    # 生成生理描述
-    physiology_template = CYCLE_PHASE_PHYSIOLOGY[lang].get(phase_key, CYCLE_PHASE_PHYSIOLOGY[lang]["unknown"])
-    if phase_key == "menstrual":
-        phase_physiology = physiology_template.format(day=day_count)
-    elif phase_key == "pre":
-        # day_count 此时是距离月经的天数
-        phase_physiology = physiology_template.format(day=day_count)
-    elif phase_key == "post":
-        phase_physiology = physiology_template.format(day=day_count)
-    elif phase_key == "ovulation":
-        phase_physiology = physiology_template
-    else:
-        phase_physiology = physiology_template
-    
-    # 生成月经史描述
-    menstrual_template = CYCLE_PHASE_MENSTRUAL_HISTORY[lang].get(phase_key, CYCLE_PHASE_MENSTRUAL_HISTORY[lang]["unknown"])
-    if phase_key == "menstrual":
-        menstrual_history = menstrual_template.format(day=day_count)
-    elif phase_key == "pre":
-        menstrual_history = menstrual_template.format(day=day_count)
-    elif phase_key == "post":
-        menstrual_history = menstrual_template.format(day=day_count)
-    elif phase_key == "ovulation":
-        menstrual_history = menstrual_template
-    else:
-        menstrual_history = menstrual_template
-    
-    return {
-        "phase_key": phase_key,
-        "phase_display": phase_display,
-        "phase_physiology": phase_physiology,
-        "menstrual_history": menstrual_history,
-        "day_count": day_count,
-    }
-
-def detect_cycle_phase(cycle_day_input: Optional[str]) -> str:
-    """检测用户选择的周期阶段，返回标准化key"""
-    if not cycle_day_input:
-        return "unknown"
-    val = str(cycle_day_input).lower()
-    if any(x in val for x in ["月经", "menstrual", "menstruation", "day"]):
-        return "menstrual"
-    elif any(x in val for x in ["前", "pre", "luteal", "pms"]):
-        return "pre"
-    elif any(x in val for x in ["后", "post", "follicular", "after"]):
-        return "post"
-    elif any(x in val for x in ["排卵", "ovulat", "mid"]):
-        return "ovulation"
-    return "unknown"
-
-def extract_cycle_day_from_input(cycle_day_input: Optional[str]) -> Optional[int]:
-    """从用户输入中尝试提取天数（如 'Day 3' 或 '第3天'）"""
-    if not cycle_day_input:
-        return None
-    import re
-    # 匹配数字
-    match = re.search(r'(\d+)', str(cycle_day_input))
-    if match:
-        return int(match.group(1))
-    return None
-# ─────────────────────────────────────────────
-# 数据隔离字典
-# ─────────────────────────────────────────────
 LIFESTYLE_DICT = {
     "zh": {
         "sleepShort": "睡眠时长不足/熬夜",
@@ -332,9 +180,6 @@ REPRODUCTIVE_DICT = {
         "inducedAbortion": "History of induced/medical abortion",
     },
 }
-# ============================================================
-# Work 消息场景配置（新增）
-# ============================================================
 
 WORK_SCENARIOS = {
     "zh": {
@@ -403,114 +248,161 @@ WORK_SCENARIOS = {
     },
 }
 
-# ============================================================
-# LLM 调用函数（统一处理所有提供商）
-# ============================================================
+
+def calculate_cycle_day_from_lmp(lmp_str: Optional[str], reference_date: Optional[date] = None) -> Tuple[Optional[int], str]:
+    if not lmp_str:
+        return None, "unknown"
+    if reference_date is None:
+        reference_date = date.today()
+    try:
+        for fmt in ["%Y-%m-%d", "%Y/%m/%d", "%Y.%m.%d", "%m/%d/%Y", "%d/%m/%Y"]:
+            try:
+                lmp_date = datetime.strptime(lmp_str.strip(), fmt).date()
+                break
+            except ValueError:
+                continue
+        else:
+            return None, "unknown"
+    except Exception:
+        return None, "unknown"
+    delta = (reference_date - lmp_date).days
+    if delta < 0:
+        return None, "unknown"
+    day_in_cycle = delta % 28
+    if day_in_cycle == 0:
+        day_in_cycle = 28
+    if 1 <= day_in_cycle <= 7:
+        phase = "menstrual"
+    elif 8 <= day_in_cycle <= 14:
+        phase = "post"
+    elif 15 <= day_in_cycle <= 21:
+        phase = "ovulation"
+    else:
+        phase = "pre"
+    if phase == "pre":
+        days_until_menses = 28 - day_in_cycle
+        return days_until_menses, phase
+    else:
+        return day_in_cycle, phase
+
+
+def get_cycle_description(lmp_str: Optional[str], lang: str) -> dict:
+    day_count, phase_key = calculate_cycle_day_from_lmp(lmp_str)
+    if phase_key == "unknown" or day_count is None:
+        return {
+            "phase_key": "unknown",
+            "phase_display": CYCLE_PHASE_MAP[lang]["unknown"],
+            "phase_physiology": CYCLE_PHASE_PHYSIOLOGY[lang]["unknown"],
+            "menstrual_history": CYCLE_PHASE_MENSTRUAL_HISTORY[lang]["unknown"],
+            "day_count": None,
+        }
+    phase_display = CYCLE_PHASE_MAP[lang].get(phase_key, CYCLE_PHASE_MAP[lang]["unknown"])
+    physiology_template = CYCLE_PHASE_PHYSIOLOGY[lang].get(phase_key, CYCLE_PHASE_PHYSIOLOGY[lang]["unknown"])
+    if phase_key == "menstrual":
+        phase_physiology = physiology_template.format(day=day_count)
+    elif phase_key == "pre":
+        phase_physiology = physiology_template.format(day=day_count)
+    elif phase_key == "post":
+        phase_physiology = physiology_template.format(day=day_count)
+    elif phase_key == "ovulation":
+        phase_physiology = physiology_template
+    else:
+        phase_physiology = physiology_template
+    menstrual_template = CYCLE_PHASE_MENSTRUAL_HISTORY[lang].get(phase_key, CYCLE_PHASE_MENSTRUAL_HISTORY[lang]["unknown"])
+    if phase_key == "menstrual":
+        menstrual_history = menstrual_template.format(day=day_count)
+    elif phase_key == "pre":
+        menstrual_history = menstrual_template.format(day=day_count)
+    elif phase_key == "post":
+        menstrual_history = menstrual_template.format(day=day_count)
+    elif phase_key == "ovulation":
+        menstrual_history = menstrual_template
+    else:
+        menstrual_history = menstrual_template
+    return {
+        "phase_key": phase_key,
+        "phase_display": phase_display,
+        "phase_physiology": phase_physiology,
+        "menstrual_history": menstrual_history,
+        "day_count": day_count,
+    }
+
+
+def detect_cycle_phase(cycle_day_input: Optional[str]) -> str:
+    if not cycle_day_input:
+        return "unknown"
+    val = str(cycle_day_input).lower()
+    if any(x in val for x in ["月经", "menstrual", "menstruation", "day"]):
+        return "menstrual"
+    elif any(x in val for x in ["前", "pre", "luteal", "pms"]):
+        return "pre"
+    elif any(x in val for x in ["后", "post", "follicular", "after"]):
+        return "post"
+    elif any(x in val for x in ["排卵", "ovulat", "mid"]):
+        return "ovulation"
+    return "unknown"
+
+
+def extract_cycle_day_from_input(cycle_day_input: Optional[str]) -> Optional[int]:
+    if not cycle_day_input:
+        return None
+    match = re.search(r'(\d+)', str(cycle_day_input))
+    if match:
+        return int(match.group(1))
+    return None
+
+
 def call_llm(payload: dict, provider: str, config: dict, api_key: str) -> str:
-    """
-    统一调用 LLM，支持所有提供商
-    
-    Args:
-        payload: 请求参数（model, messages, temperature, etc.）
-        provider: "vivo" | "dashscope" | "deepseek" | "zhipu"
-        config: 提供商配置
-        api_key: API Key
-    
-    Returns:
-        str: LLM 返回的文本内容
-    """
     url = f"{config['base_url']}/chat/completions"
     headers = {
         "Content-Type": "application/json; charset=utf-8",
         "Authorization": f"Bearer {api_key}",
     }
-    
-    # 复制 payload 避免修改原对象
     request_payload = payload.copy()
-    
-    # ============================================================
-    # Vivo 蓝心大模型网关（火山引擎）
-    # ============================================================
     if provider == "vivo":
         model_name = request_payload.get("model", "")
         is_deepseek = "deepseek" in model_name.lower() or "Volc-DeepSeek" in model_name
         is_doubao = "doubao" in model_name.lower()
-        
-        # 【Vivo 特有参数】
-        # 禁用推理链（所有模型都支持）
         if "qwen" in model_name.lower():
             request_payload["enable_thinking"] = False
         else:
-            # DeepSeek 和 Doubao 都支持 thinking
             request_payload["thinking"] = {"type": "disabled"}
-        
-        # DeepSeek 模型支持 reasoning_effort
         if is_deepseek:
             request_payload["reasoning_effort"] = "minimal"
-        
-        # 【关键】response_format 支持情况：
-        # - DeepSeek 系列：✅ 完全支持
-        # - Doubao 系列：⚠️ 可能不支持，最好移除
         if is_deepseek:
-            # DeepSeek 支持 JSON 模式
             request_payload["response_format"] = {"type": "json_object"}
         else:
-            # Doubao 不支持，移除；依赖 System Prompt 约束 + 后端清洗
             request_payload.pop("response_format", None)
-        
-        # Vivo 需要 request_id 参数（用于链路追踪）
         params = {"request_id": str(uuid.uuid4())}
-        
         response = requests.post(
             url, headers=headers, params=params, json=request_payload, timeout=90
         )
         response.raise_for_status()
         return response.json()["choices"][0]["message"]["content"]
-    
-    # ============================================================
-    # OpenAI 兼容模式（DashScope / DeepSeek / Zhipu）
-    # ============================================================
     else:
-        # 这些提供商都支持 response_format
         request_payload["response_format"] = {"type": "json_object"}
-        
         response = requests.post(
             url, headers=headers, json=request_payload, timeout=90
         )
         response.raise_for_status()
         return response.json()["choices"][0]["message"]["content"]
 
+
 def build_work_messages(lang: str, tone: str, scenario: str = "manager") -> dict:
-    """
-    根据语言、语气和场景生成 work 消息
-    
-    Args:
-        lang: "zh" 或 "en"
-        tone: "formal" | "neutral" | "casual"
-        scenario: "manager" | "teacher" | "friend" | "client" | "partner"
-    
-    Returns:
-        dict: {"selected": "消息内容", "all": {...所有场景所有语气...}}
-    """
     scene_dict = WORK_SCENARIOS.get(lang, WORK_SCENARIOS["en"])
-    
-    # 如果场景不存在，默认使用 manager
     if scenario not in scene_dict:
         scenario = "manager"
-    
-    # 如果语气不存在，默认使用 neutral
     if tone not in ["formal", "neutral", "casual"]:
         tone = "neutral"
-    
     return {
         "selected": scene_dict[scenario].get(tone, scene_dict[scenario]["neutral"]),
         "all": scene_dict,
     }
+
+
 config = PROVIDER_CONFIG.get(LLM_PROVIDER, PROVIDER_CONFIG["vivo"])
 api_key = os.getenv(config["api_key_env"])
-
 client = OpenAI(api_key=api_key or "EMPTY", base_url=config["base_url"])
-
 app = FastAPI()
 
 app.add_middleware(
@@ -521,211 +413,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# 全局 Few-Shot 范例模板定义 (统一格式)
-FEW_SHOT_EXAMPLE_ZH = """
-[示例 — 仅作参考，展示输出格式和风格]
 
-{
-  "chief_complaint": "月经期下腹部痉挛性疼痛2天。",
-
-  "present_illness": "患者平素月经规律，周期28天，经期5天。本次月经于2026-07-01来潮，现为月经第2天。近2日出现下腹部持续性绞痛，以脐下及耻骨联合上方为著，呈阵发性加重，发作时疼痛向腰骶部放射，无肛门坠胀感，无尿频尿急，无发热。自服布洛芬后疼痛可短暂缓解，但反复发作，影响正常工作。饮食二便如常，睡眠欠佳。",
-
-  "past_history": "既往体健，否认高血压、糖尿病等慢性病史。否认手术外伤史。否认药物及食物过敏史。否认吸烟饮酒史。", 
-
-  "menstrual_history": "13岁初潮，周期28天，经期5天。LMP：2026-07-01。当前处于月经期第2天。痛经：有，需服药。生育史：G0P0。",
-
-  "clinical_diagnosis": "1. 原发性痛经（功能性）\n2. 盆腔充血综合征（待排除）\n\n💡 以上仅为常规筛查方向。根据您的表现，器质性病变的可能性很低，绝大多数情况属于生理期正常的子宫平滑肌敏感性反应，请不必过度担忧。",
-
-  "clinical_suggestions": "【给您的就诊建议】\n• 建议您与妇科医生沟通时，可主动描述疼痛的规律（何时开始、持续多久、什么情况下加重或缓解），方便医生更准确判断。\n• 如有条件，可请医生安排一次盆腔超声检查，这是常规无创筛查，能帮助排除器质性问题，让您更安心。\n\n【关于检查的小提醒】\n盆腔超声是妇科非常基础的检查项目，全程无痛无创。检查时医生会指导您调整呼吸和体位，您只需放松配合即可。医护人员会充分保护您的隐私，检查室有隔帘和遮挡。",
-
-  "analogy": {
-    "twist": "感觉盆腔里有一只无形的手在用力攥紧、拧绞，越拧越紧，酸胀感和绞痛感交织在一起，连腰都直不起来。",
-    "pierce": "像是有一根滚烫的针在腹腔里毫无预兆地刺一下、再刺一下，每次呼吸都让人倒抽冷气。",
-    "sink": "小腹像灌满了冷铅，沉甸甸地往下坠，牵拉着腰骶一起酸困，站也不是坐也不是。",
-    "swell": "感觉肚子里有个东西在不断胀大、顶住四周，闷闷的压迫感让人坐立不安。",
-    "scrape": "像砂纸在子宫内壁来回磨蹭，牵扯感很重，轻轻压到肚子都觉得难受。"
-  },
-
-  "work": {
-    "manager": {
-      "formal": "您好，因经期身体不适，今日需请假一天。手头工作已交接完毕，明日会正常到岗。",
-      "neutral": "您好，今天身体不适，请假一天。工作已安排妥当，望您批准。",
-      "casual": "您好，身体不太舒服，今天请假休息一下，不好意思。"
-    },
-    "teacher": {
-      "formal": "老师您好！因身体原因，今日无法到课，请假一天，望您批准。已委托同学代记笔记，课业会及时跟进。",
-      "neutral": "老师您好！经期身体不适，需要请假一次，后续会尽快补上进度，望您批准。",
-      "casual": "老师好，今天身体不舒服，请一天假。回头找同学补笔记。"
-    },
-    "friend": {
-      "formal": "米米，我今天痛经身体不适，不适合出门，改日我们再约。",
-      "neutral": "米米，我今天痛经，不太舒服，咱们改天再约吧。",
-      "casual": "米米，痛经痛得我实在扛不住了，这次我放个鸽子，回头补上！"
-    },
-    "client": {
-      "formal": "您好，因突发身体不适，今日会议需改期。已安排王经理代为对接，不便之处敬请谅解。",
-      "neutral": "您好，今天身体不适，会议需要改期。已请同事协助对接，望您谅解。",
-      "casual": "您好，我今天身体不舒服，咱们约的时间可能要改，相关问题已同步给小王，后续她跟您联系。"
-    }
-  },
-
-  "action": [
-    "☑️ 用热水袋或加热垫敷在下腹部，每次15-20分钟，有助于缓解肌肉紧张和痉挛。",
-    "☑️ 如果疼痛影响睡眠，可以尝试侧卧位，双膝微屈，在两膝之间夹一个枕头，减轻骨盆肌肉牵拉。",
-    "☑️ 保持充足饮水，可适量饮用温热的枣茶/姜茶，有助于促进盆腔血液循环。",
-    "☑️ 如需止痛，可考虑非处方止痛药（如布洛芬），服用前请仔细阅读说明书并按推荐剂量使用。"
-  ],
-
-  "selfCare": [
-    "✨ 允许自己今天慢下来。疼痛是真实的生理信号，休息不是软弱，而是对身体的基本尊重。",
-    "✨ 如果条件允许，可以用温水泡脚15分钟，帮助全身放松，缓解腰骶部酸胀。",
-    "✨ 尝试缓慢腹式呼吸：吸气时感觉腹部鼓起，呼气时慢慢收缩，重复5-10次，有助于放松盆底肌群。",
-    "✨ 饮食上可选择温热、易消化的食物，适量增加富含镁和钙的食物（如坚果、绿叶蔬菜），有助于缓解肌肉紧张。"
-  ]
-}
-"""
-FEW_SHOT_EXAMPLE_EN = """
-[EXAMPLE — FOR REFERENCE ONLY, demonstrating output format and style]
-
-{
-  "chief_complaint": "Cyclic lower abdominal cramping for 2 days associated with menstruation.",
-
-  "present_illness": "The patient reports regular menstrual cycles every 28 days, with 5-day duration. Her last menstrual period began on 2026-07-01, and she is currently on Day 2. She describes continuous cramping pain in the lower abdomen, centered below the umbilicus and above the pubic symphysis, with paroxysmal exacerbations radiating to the lumbosacral region. No rectal pressure, no urinary urgency, no fever. Pain partially relieved with ibuprofen but recurs, affecting daily functioning. Bowel and bladder habits are normal. Sleep quality is reduced due to pain.",
-
-  "past_history": "Generally healthy. No chronic conditions. No history of surgery or trauma. No known drug or food allergies. No smoking or alcohol use.",
-
-  "menstrual_history": "Menarche at 13, cycles every 28 days, lasting 5 days. LMP: 07/01/2026. Currently on Day 2 of menstruation. Dysmenorrhea: Present, requires medication. Obstetric history: G0P0.",
-
-  "clinical_diagnosis": "1. Primary dysmenorrhea (functional)\n2. Pelvic congestion syndrome (rule out)\n\n💡 Please note: These are routine screening considerations. Based on your presentation, organic pathology is unlikely. Most cases represent normal physiological uterine smooth muscle sensitivity during menstruation.",
-
-  "clinical_suggestions": "【Questions to discuss with your provider】\n• Consider describing the pain pattern (when it started, how long it lasts, what triggers or relieves it) to help your provider better understand your symptoms.\n• If accessible, consider scheduling a pelvic ultrasound — this is a routine, non-invasive screening that can help rule out organic causes and provide peace of mind.\n\n【Preparing for your examination】\nPelvic ultrasound is a very basic gynecological procedure — it's painless and non-invasive. The technician will guide your breathing and positioning. You can simply relax and follow the instructions. Your privacy will be fully protected with screens and draping.",
-
-  "analogy": {
-    "twist": "It feels like an invisible hand deep in the pelvis is gripping and twisting tighter and tighter — the cramping and aching make it impossible to stand up straight.",
-    "pierce": "Like a hot needle stabbing unpredictably deep inside the abdomen — each breath catches in your throat.",
-    "sink": "Like a heavy cold weight pulling down from the lower abdomen, dragging the lower back into a dull ache — sitting and standing are equally uncomfortable.",
-    "swell": "Like something is inflating inside, pressing against everything — a dull pressure that makes it hard to find a comfortable position.",
-    "scrape": "Like sandpaper rubbing inside — every movement feels raw, and even clothing brushing against the belly is uncomfortable."
-  },
-
-  "work": {
-    "manager": {
-      "formal": "Requesting sick leave today due to a sudden health condition. Work has been delegated. Expected return tomorrow.",
-      "neutral": "Taking a sick day today. Work is covered.",
-      "casual": "Not feeling well today — taking the day off. Apologies."
-    },
-    "teacher": {
-      "formal": "Unable to attend class today due to a health condition. Have arranged for notes. Will catch up on coursework.",
-      "neutral": "Can't make it to class today — health flare-up. Will catch up on materials.",
-      "casual": "Professor — not feeling well today. Will get notes from a classmate."
-    },
-    "friend": {
-      "formal": "Need to cancel today's plans due to a health issue. Let's reschedule soon. Apologies for the inconvenience.",
-      "neutral": "Not feeling great today — let's reschedule.",
-      "casual": "Feeling rough today — rain check? Let's catch up soon!"
-    },
-    "client": {
-      "formal": "Due to a sudden health matter, I need to reschedule today's meeting. My colleague Wang will assist. Apologies for the inconvenience.",
-      "neutral": "Need to reschedule today's meeting due to a health issue. A colleague is briefed.",
-      "casual": "Not feeling well today — need to push our meeting. Wang is up to speed."
-    },
-    "partner": {
-      "formal": "Not feeling great today — need some quiet rest. Would appreciate your help with things around the house.",
-      "neutral": "Not feeling great today. Need to rest — could use your help.",
-      "casual": "Feeling awful today — going to be horizontal. Thanks for taking care of things ❤️"
-    }
-  },
-
-  "action": [
-    "☑️ Apply a heating pad or warm compress to your lower abdomen for 15-20 minutes to relieve muscle tension and cramping.",
-    "☑️ If pain affects sleep, try lying on your side with knees slightly bent and a pillow between your knees to reduce pelvic muscle strain.",
-    "☑️ Stay well hydrated. Warm ginger tea or herbal teas can help promote pelvic circulation.",
-    "☑️ For pain relief, consider over-the-counter options like ibuprofen — always read the label and follow recommended dosage."
-  ],
-
-  "selfCare": [
-    "✨ Give yourself permission to slow down today. Pain is a real physiological signal — resting is not weakness, it's respect for your body.",
-    "✨ If possible, soak your feet in warm water for 15 minutes to promote whole-body relaxation and relieve lumbosacral tension.",
-    "✨ Try slow diaphragmatic breathing: feel your belly rise with each inhale, and slowly contract with each exhale. Repeat 5-10 times to help relax pelvic floor muscles.",
-    "✨ Choose warm, easily digestible meals. Consider foods rich in magnesium and calcium (like nuts and leafy greens) which may help reduce muscle tension."
-  ]
-}
-"""
-# ─────────────────────────────────────────────
-# Pydantic 数据模型
-# ─────────────────────────────────────────────
-
-class SpatialMapModel(BaseModel):
-    abdomen: Optional[float] = 0.5
-    lowerBack: Optional[float] = 0.5
-    upperBody: Optional[float] = 0.0
-
-
-class IntensityProfileModel(BaseModel):
-    avgSpeed: Optional[float] = 5.0
-    peakSpeed: Optional[float] = 10.0
-    avgPressure: Optional[float] = 0.5
-
-
-class TimeRhythmModel(BaseModel):
-    morning: Optional[float] = 0.33
-    afternoon: Optional[float] = 0.33
-    night: Optional[float] = 0.34
-    dominantPeriod: Optional[str] = "morning"
-
-
-class MedicalBackgroundModel(BaseModel):
-    diagnosed: Optional[Any] = ""
-    allergies: Optional[Any] = ""
-    age: Optional[Any] = ""
-    lifestyle: Optional[Any] = ""
-    activityLevel: Optional[Any] = ""
-    familyHistory: Optional[Any] = ""
-    psychosocial: Optional[Any] = ""
-    reproductiveHistory: Optional[Any] = ""
-    height: Optional[Any] = ""
-    weight: Optional[Any] = ""
-    otherDiagnosis: Optional[Any] = ""
-    otherAllergies: Optional[Any] = ""
-    surgicalHistory: Optional[Any] = ""
-    menarcheAge: Optional[Any] = ""
-    cycleRegular: Optional[Any] = ""
-    periodDuration: Optional[Any] = ""
-    lastPeriod: Optional[Any] = ""
-    familyHistoryArr: Optional[List[Any]] = Field(default_factory=list)
-    lifestyleArr: Optional[List[Any]] = Field(default_factory=list)
-    reproductiveHistoryArr: Optional[List[Any]] = Field(default_factory=list)
-    accompanyingSymptomsArr: Optional[List[Any]] = Field(default_factory=list)
-
-class PainData(BaseModel):
-    appMode: Optional[str] = "medical"
-    dominantPain: str
-    userPref: str
-    painScore: int
-    brushCounts: Optional[Dict[str, int]] = None
-    spatialMap: Optional[SpatialMapModel] = None
-    intensityProfile: Optional[IntensityProfileModel] = None
-    timeRhythm: Optional[TimeRhythmModel] = None
-    colorPalette: Optional[str] = None
-    bodyMode: Optional[str] = None
-    medicalBackground: Optional[MedicalBackgroundModel] = None
-    tonePreference: Optional[str] = "gentle"
-    cycleDay: Optional[str] = "未提供"
-    targetLanguage: Optional[str] = "zh"
-    isQuickLog: Optional[bool] = False
-    accompanyingSymptoms: Optional[List[str]] = Field(default_factory=list)
-    # === 新增 work 场景字段 ===
-    workScenario: Optional[str] = "manager"
-    workTone: Optional[str] = "neutral"
-    
-
-
-# ─────────────────────────────────────────────
-# 🛡️ 临床级背景格式化安全处理器
-# ─────────────────────────────────────────────
-def get_val_from_mb(
-    mb: Optional[MedicalBackgroundModel], key: str, fallback: str = "未详述"
-) -> str:
+def get_val_from_mb(mb: Optional[Any], key: str, fallback: str = "未详述") -> str:
     if not mb:
         return fallback
     val = getattr(mb, key, "")
@@ -734,7 +423,7 @@ def get_val_from_mb(
     return str(val)
 
 
-def get_surgical_desc(mb: Optional[MedicalBackgroundModel], lang: str) -> str:
+def get_surgical_desc(mb: Optional[Any], lang: str) -> str:
     surg_val = getattr(mb, "surgicalHistory", "") if mb else ""
     if lang == "zh":
         surgical_map = {
@@ -751,32 +440,26 @@ def get_surgical_desc(mb: Optional[MedicalBackgroundModel], lang: str) -> str:
             "pelvic": "History of pelvic surgery",
             "other": "History of other surgery",
         }
-        return surgical_map.get(
-            str(surg_val).lower(), "No significant surgical history"
-        )
+        return surgical_map.get(str(surg_val).lower(), "No significant surgical history")
 
 
-def get_reproductive_desc(mb: Optional[MedicalBackgroundModel], lang: str) -> str:
+def get_reproductive_desc(mb: Optional[Any], lang: str) -> str:
     repo_list = getattr(mb, "reproductiveHistoryArr", []) if mb else []
-    # 使用中英文映射字典防止 Enum 泄漏
     rep_dict = REPRODUCTIVE_DICT.get(lang, REPRODUCTIVE_DICT["zh"])
     desc_list = [rep_dict.get(str(r), str(r)) for r in repo_list if r]
     if lang == "zh":
         return "、".join(desc_list) if desc_list else "未婚未育（无怀孕史，无生育史）"
     else:
-        return (
-            ", ".join(desc_list)
-            if desc_list
-            else "Nulliparous (no pregnancy or birth history)"
-        )
+        return ", ".join(desc_list) if desc_list else "Nulliparous (no pregnancy or birth history)"
 
 
-def get_cycle_regular_desc(mb: Optional[MedicalBackgroundModel], lang: str) -> str:
+def get_cycle_regular_desc(mb: Optional[Any], lang: str) -> str:
     val = getattr(mb, "cycleRegular", "") if mb else ""
     if lang == "zh":
         reg_map = {
             "regular": "规律（周期稳定）",
-            "irregular": "不规律（周期波动大）",
+            "irregular": "不规律",   
+            "xirregular":"周期非常紊乱",
             "unsure": "不确定",
         }
         return reg_map.get(str(val).lower(), "未详述")
@@ -785,7 +468,7 @@ def get_cycle_regular_desc(mb: Optional[MedicalBackgroundModel], lang: str) -> s
         return reg_map.get(str(val).lower(), "Unspecified")
 
 
-def get_period_duration_desc(mb: Optional[MedicalBackgroundModel], lang: str) -> str:
+def get_period_duration_desc(mb: Optional[Any], lang: str) -> str:
     val = getattr(mb, "periodDuration", "") if mb else ""
     if not val or str(val).lower() in ["none", "unchecked", "unknown", ""]:
         return "未详述" if lang == "zh" else "Unspecified"
@@ -794,7 +477,7 @@ def get_period_duration_desc(mb: Optional[MedicalBackgroundModel], lang: str) ->
     return f"{val}天" if lang == "zh" else f"{val} days"
 
 
-def build_pain_location_desc(spatial_map: Optional[SpatialMapModel], lang: str) -> str:
+def build_pain_location_desc(spatial_map: Optional[Any], lang: str) -> str:
     if not spatial_map:
         return "下腹部" if lang == "zh" else "lower pelvis"
     parts = []
@@ -806,78 +489,34 @@ def build_pain_location_desc(spatial_map: Optional[SpatialMapModel], lang: str) 
         )
     if lb > 0.1:
         parts.append(
-            f"腰骶部({int(lb*100)}%)"
-            if lang == "zh"
-            else f"Lower Back ({int(lb*100)}%)"
+            f"腰骶部({int(lb*100)}%)" if lang == "zh" else f"Lower Back ({int(lb*100)}%)"
         )
     return "、".join(parts) if parts else ("下腹部" if lang == "zh" else "lower pelvis")
 
 
-def build_risk_warning(mb: Optional[MedicalBackgroundModel], lang: str) -> str:
+def build_risk_warning(mb: Optional[Any], lang: str) -> str:
     if not mb:
-        return (
-            "目前未见特异性药物过敏风险提示"
-            if lang == "zh"
-            else "No specific medication risks"
-        )
+        return "目前未见特异性药物过敏风险提示" if lang == "zh" else "No specific medication risks"
     allergy = getattr(mb, "allergies", "") or ""
     if "ibuprofen" in str(allergy).lower():
-        return (
-            "⚠️ 明确非甾体抗炎药（NSAIDs/布洛芬）过敏史。请勿推荐处方布洛芬，建议遵医嘱替换为对乙酰氨基酚。"
-            if lang == "zh"
-            else "⚠️ Documented Ibuprofen (NSAIDs) allergy. Avoid prescribing Ibuprofen; consider Acetaminophen."
-        )
+        return "⚠️ 明确非甾体抗炎药（NSAIDs/布洛芬）过敏史。请勿推荐处方布洛芬，建议遵医嘱替换为对乙酰氨基酚。" if lang == "zh" else "⚠️ Documented Ibuprofen (NSAIDs) allergy. Avoid prescribing Ibuprofen; consider Acetaminophen."
     return "无已知药物过敏" if lang == "zh" else "No known drug allergies"
 
 
-def build_triage_advice(
-    pain_score: int, symptoms: Optional[List[str]], lang: str
-) -> str:
+def build_triage_advice(pain_score: int, symptoms: Optional[List[str]], lang: str) -> str:
     s_list = symptoms or []
     if pain_score > 70 or any(s in ["呕吐", "晕倒", "faint", "vomit"] for s in s_list):
-        return (
-            "🏥 建议急门诊评估：伴随自主神经反射受损（面色苍白/冷汗），请尽快前往急诊排查继发盆腔急腹症。"
-            if lang == "zh"
-            else "🏥 Urgent Gynecological Visit Recommended."
-        )
+        return "🏥 建议急门诊评估：伴随自主神经反射受损（面色苍白/冷汗），请尽快前往急诊排查继发盆腔急腹症。" if lang == "zh" else "🏥 Urgent Gynecological Visit Recommended."
     return "🏠 居家自愈观察" if lang == "zh" else "🏠 Home Self-Care"
 
 
-def build_exam_advice(mb: Optional[MedicalBackgroundModel], lang: str) -> Dict:
-    exam = {
-        "name": (
-            "妇科盆腔超声检查（彩色多普勒超声）"
-            if lang == "zh"
-            else "Pelvic Color Doppler Ultrasound"
-        ),
-        "preparation": (
-            "经阴道彩超需在检查前排空小便（无性生活史者禁用）；经腹部彩超需提前憋尿，可在检查前1小时内饮水500-800ml。"
-            if lang == "zh"
-            else "Empty bladder for transvaginal; full bladder for abdominal."
-        ),
+def build_exam_advice(mb: Optional[Any], lang: str) -> Dict:
+    return {
+        "name": "妇科盆腔超声检查（彩色多普勒超声）" if lang == "zh" else "Pelvic Color Doppler Ultrasound",
+        "preparation": "经阴道彩超需在检查前排空小便（无性生活史者禁用）；经腹部彩超需提前憋尿，可在检查前1小时内饮水500-800ml。" if lang == "zh" else "Empty bladder for transvaginal; full bladder for abdominal.",
         "note": "💡 临床常规、低成本排除方案（多数可在医保范围内全额报销），检查过程无创无痛，用于排除器质病变让您心里踏实，不用担心有财务负担。",
         "alternative": "",
     }
-    return exam
-
-
-def translate_vectors_to_clinical(data: PainData, lang: str) -> str:
-    ip = data.intensityProfile or IntensityProfileModel()
-    pressure_val = ip.avgPressure or 0.5
-    speed_val = ip.avgSpeed or 5.0
-
-    depth = (
-        "深层内脏反射（主要对应盆腔深部平滑肌生理性收缩不协调）"
-        if pressure_val > 0.6
-        else "表浅外周感觉过敏（痛感主要集中于表浅腹壁投影区）"
-    )
-    rhythm = (
-        "发作呈阵发性波动，具有生理性收缩起伏"
-        if speed_val > 12.0
-        else "呈慢性持续不适，变化相对平缓"
-    )
-
-    return f"【画笔物理轨迹分析】：痛感深度对应为{depth}；发作节律表现为{rhythm}。"
 
 
 def get_color_somatic_meaning(color: Optional[str], lang: str) -> str:
@@ -898,9 +537,47 @@ def get_color_somatic_meaning(color: Optional[str], lang: str) -> str:
         }
     return meanings.get(color_key, meanings["crimson"])
 
-# ============================================================
-# 9. System Prompts（完整定义）
-# ============================================================
+
+def mark_user_data_in_text(text: str, user_data: Dict[str, str], lang: str) -> str:
+    """
+    在文本中用 <user> 标签标记用户填写的数据
+    """
+    if not text:
+        return text
+
+    # 收集所有非空、非默认值的用户数据
+    user_parts = []
+    for key, value in user_data.items():
+        if not value:
+            continue
+        # 跳过默认值
+        default_values = ["未详述", "无明确确诊史", "无明确妇科疾病确诊史", "未提供", "不详", 
+                          "Not specified", "No confirmed conditions", "Unspecified", "Not provided"]
+        if value in default_values:
+            continue
+        # 跳过太短的值（可能是无意义数据）
+        if len(str(value)) < 2:
+            continue
+        user_parts.append(str(value))
+
+    if not user_parts:
+        return text
+
+    # 在文本中查找并标记用户数据
+    result = text
+    for part in user_parts:
+        # 使用正则确保精确匹配（避免部分匹配）
+        escaped_part = re.escape(part)
+        # 检查是否已被标记
+        if f"<user>{part}</user>" in result:
+            continue
+        # 替换纯文本部分为标记版本
+        pattern = r'(?<!<user>)' + escaped_part + r'(?!</user>)'
+        result = re.sub(pattern, f'<user>{part}</user>', result, count=1)
+    
+    return result
+
+
 MEDICAL_SYSTEM_PROMPT_ZH = """
 [角色定义]
 你是一名三甲医院妇科住院医师，负责撰写规范的妇科入院记录（大病历）。你的输出必须严格遵循三甲医院病历书写规范。
@@ -950,39 +627,24 @@ You are a clinical gynecological intake specialist writing a SOAP-style medical 
 
 [HARD CONSTRAINTS]
 
-1. 【NO SOFTWARE TERMINOLOGY】ABSOLUTELY FORBIDDEN to use: "canvas", "brush", "trajectory", "particle", "score", "pain vector", "drawing", "stroke count", "frontend". All drawing-derived data must be translated into clinical language (e.g., "pain quality suggests deep visceral sensation", "spatial distribution indicates pelvic and lumbosacral involvement").
+1. 【NO SOFTWARE TERMINOLOGY】ABSOLUTELY FORBIDDEN to use: "canvas", "brush", "trajectory", "particle", "score", "pain vector", "drawing", "stroke count", "frontend". All drawing-derived data must be translated into clinical language.
 
-2. 【INCLUDE NEGATIVE SYMPTOMS】In `present_illness`, include pertinent negatives for differential diagnosis (e.g., "No rectal pressure, no urinary urgency, no fever. Vital signs are stable. Bowel and bladder functions are normal. No significant weight change.").
+2. 【INCLUDE NEGATIVE SYMPTOMS】In `present_illness`, include pertinent negatives for differential diagnosis.
 
-3. 【MENSTRUAL HISTORY】Use standard US medical record format: "Menarche at X, cycles every Y days, lasting Z days. LMP: MM/DD/YYYY. Current phase: [phase]. Dysmenorrhea: Present/Absent. Obstetric history: G_P_ (gravida/para)."
+3. 【MENSTRUAL HISTORY】Use standard US medical record format: "Menarche at X, cycles every Y days, lasting Z days. LMP: MM/DD/YYYY. Current phase: [phase]. Dysmenorrhea: Present/Absent. Obstetric history: G_P_."
 
-4. 【NO NUMERIC SCORES】ABSOLUTELY FORBIDDEN to include any numeric pain scores (e.g., "26/100", "3.5/10") in clinical fields. Pain intensity MUST be described using clinical terminology ONLY: "mild cramping", "moderate spasmodic pain", "severe pelvic pressure".
+4. 【NO NUMERIC SCORES】ABSOLUTELY FORBIDDEN to include any numeric pain scores in clinical fields.
 
-5. 【NO UNSUPPORTED DIAGNOSIS】ABSOLUTELY FORBIDDEN to assert organic diagnoses (e.g., "Endometriosis", "Pelvic Inflammatory Disease", "Adenomyosis") unless the patient's history explicitly confirms a prior diagnosis. Use appropriate tentative language: "rule out", "possible", "suspected", "differential to consider". Include reassurance: "Please note: these are routine differential considerations. Based on the presentation, organic pathology is unlikely."
+5. 【NO UNSUPPORTED DIAGNOSIS】ABSOLUTELY FORBIDDEN to assert organic diagnoses without prior confirmed history. Use tentative language.
 
-6. 【PATIENT-FACING EXAM GUIDANCE】Examination guidance should be written FOR THE PATIENT. DO NOT use first-person ("we", "our team"). Use neutral phrasing: "the clinical team will", "the examination involves".
+6. 【PATIENT-FACING EXAM GUIDANCE】Examination guidance should be written FOR THE PATIENT. DO NOT use first-person.
 
-7. 【WORKPLACE MESSAGE - UNDER 40 WORDS】The `work` field MUST be under 40 WORDS. Professional, natural tone. Examples: "Requesting sick leave today. Will be back tomorrow." / "Taking the day off. Urgent items covered."
+7. 【WORKPLACE MESSAGE - UNDER 40 WORDS】The `work` field MUST be under 40 WORDS.
 
-8. 【PARTNER ANALOGY - VIVID BUT NOT VIOLENT】Use language that is visceral and evocative but NOT violent: "deep, heavy pressure", "relentless cramping sensation". NOT poetic/euphemistic. NOT unnecessarily violent.
-
-9. 【SELFCARE - EVIDENCE-BASED】Include: heat therapy, OTC pain relief, gentle movement, hydration, relaxation techniques, rest.
+8. 【PARTNER ANALOGY - VIVID BUT NOT VIOLENT】Use language that is visceral and evocative but NOT violent.
 
 [OUTPUT FORMAT]
-Strictly output a pure JSON object:
-
-{
-  "chief_complaint": "Brief chief complaint — under 20 words.",
-  "present_illness": "Detailed HPI based on patient data. NO numeric scores. NO software terminology.",
-  "past_history": "Past medical, surgical, and family history. DO NOT include menstrual history.",
-  "menstrual_history": "Menstrual and obstetric history. MUST use exact phase from User Prompt.",
-  "clinical_diagnosis": "Assessment/differential — tentative, de-pathologized. Include reassurance.",
-  "clinical_suggestions": "Two paragraphs: 【Discussion points for your provider】: ... 【Examination preparation guide】: ...",
-  "analogy": "Vivid physical metaphor for support person (NOT violent, NOT poetic).",
-  "work": "Workplace/school leave message — under 40 words, professional.",
-  "action": ["Actionable suggestion 1", "Actionable suggestion 2", "Actionable suggestion 3"],
-  "selfCare": ["Evidence-based self-care 1", "Self-care 2", "Stigma-reducing reassurance"]
-}
+Strictly output a pure JSON object.
 """
 
 GENERAL_SYSTEM_PROMPT_ZH = """
@@ -1029,9 +691,6 @@ You are a warm, empathetic menstrual self-care companion and somatic guide. You 
 Strictly output a pure JSON object.
 """
 
-# ============================================================
-# 10. Few-Shot Examples（中英文完整版）
-# ============================================================
 FEW_SHOT_EXAMPLE_ZH = """
 [示例 — 仅作参考]
 {
@@ -1096,19 +755,14 @@ FEW_SHOT_EXAMPLE_EN_GENERAL = """
 }
 """
 
-# ============================================================
-# 11. Few-Shot 获取函数
-# ============================================================
+
 def get_few_shot(lang: str, app_mode: str) -> str:
-    """根据语言和模式返回对应的 Few-Shot 示例"""
     if app_mode == "medical":
         return FEW_SHOT_EXAMPLE_EN if lang == "en" else FEW_SHOT_EXAMPLE_ZH
     else:
         return FEW_SHOT_EXAMPLE_EN_GENERAL if lang == "en" else FEW_SHOT_EXAMPLE_ZH_GENERAL
 
-# ============================================================
-# 12. User Prompt 构建函数（完整版，只定义一次）
-# ============================================================
+
 def build_user_prompt_zh(
     pain_quality: str,
     pain_location_desc: str,
@@ -1140,10 +794,7 @@ def build_user_prompt_zh(
     work_tone: str,
     include_few_shot: bool = True,
 ) -> str:
-    """构建中文版 User Prompt"""
-    
     few_shot = get_few_shot("zh", app_mode) if include_few_shot else ""
-    
     scenario_labels = {
         "manager": "向领导/上级请假",
         "teacher": "向老师/教授请假",
@@ -1158,7 +809,7 @@ def build_user_prompt_zh(
     }
     scenario_display = scenario_labels.get(work_scenario, work_scenario)
     tone_display = tone_labels.get(work_tone, work_tone)
-    
+
     data_section = f"""
 【指令】
 仅基于以下提供的数据生成输出。未提供的信息写"未详述"。严禁捏造或推断。
@@ -1223,7 +874,6 @@ def build_user_prompt_zh(
 - 使用上方提供的精确月经史描述
 - 严禁捏造信息
 """
-    
     return f"{few_shot}\n\n{data_section}" if few_shot else data_section
 
 
@@ -1258,10 +908,8 @@ def build_user_prompt_en(
     work_tone: str,
     include_few_shot: bool = True,
 ) -> str:
-    """构建英文版 User Prompt"""
-    
     few_shot = get_few_shot("en", app_mode) if include_few_shot else ""
-    
+
     data_section = f"""
 [INSTRUCTION]
 Base ALL output SOLELY on the data provided below. For missing information, write "Not specified". DO NOT fabricate or infer from external sources.
@@ -1326,39 +974,229 @@ Generate JSON now. Remember:
 - Use the EXACT menstrual_history description provided above
 - DO NOT fabricate information
 """
-    
     return f"{few_shot}\n\n{data_section}" if few_shot else data_section
-# ═══════════════════════════════════════════════════════════
-# 13. POST 生成接口
-# ═══════════════════════════════════════════════════════════
+
+
+def _fallback_response(lang: str, painkiller: str, app_mode: str, data: Any) -> dict:
+    """当 LLM 调用失败时使用前端真实数据生成保底输出"""
+    is_general = app_mode == "general"
+    mb = data.medicalBackground
+
+    pain_type_map = {
+        "twist": ("痉挛性绞痛", "spasmodic cramping"),
+        "pierce": ("刺痛", "stabbing pain"),
+        "sink": ("坠胀痛", "heavy dragging pain"),
+        "swell": ("胀痛", "bloating pressure"),
+        "scrape": ("磨扯痛", "abrasive soreness"),
+    }
+    pain_type_cn, pain_type_en = pain_type_map.get(
+        data.dominantPain, ("不适", "discomfort")
+    )
+
+    location_cn = build_pain_location_desc(data.spatialMap, "zh")
+    location_en = build_pain_location_desc(data.spatialMap, "en")
+
+    symptoms = data.accompanyingSymptoms or []
+    symptoms_cn = "、".join(symptoms) if symptoms else "无明显伴随不适"
+    symptoms_en = ", ".join(symptoms) if symptoms else "No other significant symptoms"
+
+    cycle_cn = data.cycleDay or "月经期"
+    cycle_en = data.cycleDay or "menstrual phase"
+
+    menarche = getattr(mb, "menarcheAge", "14") if mb else "14"
+    period_dur = getattr(mb, "periodDuration", "5") if mb else "5"
+    lmp = getattr(mb, "lastPeriod", "未提供") if mb else "未提供"
+
+    surg_cn = get_surgical_desc(mb, "zh")
+    surg_en = get_surgical_desc(mb, "en")
+
+    repo_cn = get_reproductive_desc(mb, "zh")
+    repo_en = get_reproductive_desc(mb, "en")
+
+    allergy_cn = build_risk_warning(mb, "zh")
+    allergy_en = build_risk_warning(mb, "en")
+
+    lifestyle_cn = "无特殊不良作息"
+    lifestyle_en = "No significant lifestyle factors"
+    if mb:
+        ls_dict = LIFESTYLE_DICT.get("zh", LIFESTYLE_DICT["zh"])
+        ls_list = [ls_dict.get(str(x), str(x)) for x in getattr(mb, "lifestyleArr", []) or [] if x]
+        lifestyle_cn = "、".join(ls_list) if ls_list else "无特殊不良作息"
+        ls_dict_en = LIFESTYLE_DICT.get("en", LIFESTYLE_DICT["en"])
+        ls_list_en = [ls_dict_en.get(str(x), str(x)) for x in getattr(mb, "lifestyleArr", []) or [] if x]
+        lifestyle_en = ", ".join(ls_list_en) if ls_list_en else "No significant lifestyle factors"
+
+    diagnosed_cn = "无明确确诊史"
+    diagnosed_en = "No confirmed conditions"
+    if mb and getattr(mb, "diagnosed", "") and getattr(mb, "diagnosed") not in ["none", "unchecked", ""]:
+        diagnosed_cn = f"曾确诊：{getattr(mb, 'diagnosed')}"
+        diagnosed_en = f"Diagnosed: {getattr(mb, 'diagnosed')}"
+        if getattr(mb, "otherDiagnosis", ""):
+            diagnosed_cn += f"、{getattr(mb, 'otherDiagnosis')}"
+            diagnosed_en += f", {getattr(mb, 'otherDiagnosis')}"
+
+    if data.painScore < 30:
+        intensity_cn = "轻度"
+        intensity_en = "mild"
+    elif data.painScore < 60:
+        intensity_cn = "中度"
+        intensity_en = "moderate"
+    else:
+        intensity_cn = "重度"
+        intensity_en = "severe"
+
+    pain_desc_cn = f"{location_cn}出现{intensity_cn}{pain_type_cn}"
+    pain_desc_en = f"{intensity_en} {pain_type_en} in the {location_en}"
+
+    if lang == "zh":
+        cycle_desc = f"当前处于{cycle_cn}"
+        menarche_full = f"{menarche}岁初潮，经期{period_dur}天"
+        lmp_display = lmp if lmp and lmp != "未提供" else "未提供"
+        menstrual_full = f"{menarche_full}。LMP：{lmp_display}。痛经：有。生育史：{repo_cn}。"
+    else:
+        cycle_desc = f"Currently in {cycle_en}"
+        menarche_full = f"Menarche at {menarche}, {period_dur}-day cycles"
+        lmp_display = lmp if lmp and lmp != "未提供" else "Not provided"
+        menstrual_full = f"{menarche_full}. LMP: {lmp_display}. Dysmenorrhea: Present. Obstetric: {repo_en}."
+
+    # 收集用户数据用于标记
+    user_data_cn = {
+        "diagnosed": diagnosed_cn,
+        "surgical": surg_cn,
+        "allergy": allergy_cn,
+        "lifestyle": lifestyle_cn,
+        "menstrual": menstrual_full,
+    }
+    user_data_en = {
+        "diagnosed": diagnosed_en,
+        "surgical": surg_en,
+        "allergy": allergy_en,
+        "lifestyle": lifestyle_en,
+        "menstrual": menstrual_full,
+    }
+
+    if lang == "zh":
+        if is_general:
+            past_history_raw = f"既往：{diagnosed_cn}。手术史：{surg_cn}。过敏：{allergy_cn}。作息：{lifestyle_cn}。"
+            past_history_marked = mark_user_data_in_text(past_history_raw, user_data_cn, lang)
+            menstrual_marked = f"<user>{menstrual_full}</user>"
+            return {
+                "chief_complaint": f"{pain_desc_cn}。",
+                "present_illness": f"您目前处于{cycle_cn}，{location_cn}有{intensity_cn}{pain_type_cn}，伴随{symptoms_cn}。建议适当休息、注意保暖。",
+                "past_history": past_history_marked,
+                "menstrual_history": menstrual_marked,
+                "clinical_diagnosis": "生理期常见的子宫收缩性不适。多数情况属于正常生理反应，不必过度紧张。",
+                "clinical_suggestions": "【给您的建议】\n• 注意保暖，可用热水袋敷在下腹部\n• 适当休息，避免劳累\n• 如疼痛持续加重，建议及时就医咨询",
+                "analogy": f"感觉{location_cn}像被什么东西紧紧攥住，一阵一阵地抽着疼。",
+                "work": "今天身体不适，申请休息一天。",
+                "action": [
+                    "☑️ 用热水袋或暖宝宝敷在腹部，帮助放松肌肉",
+                    "☑️ 喝点温热的水或姜茶，促进血液循环",
+                    "☑️ 找个舒服的姿势躺下，膝盖微屈",
+                    "☑️ 如需要可考虑适量服用止痛药（请确认无过敏史）"
+                ],
+                "selfCare": [
+                    "✨ 允许自己慢下来，今天可以适当休息。",
+                    "✨ 试着做几次深长呼吸，帮助身体放松。",
+                    "✨ 保持心情平和，焦虑会让身体更紧张。"
+                ],
+            }
+        else:
+            past_history_raw = f"既往史：{diagnosed_cn}。手术史：{surg_cn}。过敏史：{allergy_cn}。生活作息：{lifestyle_cn}。"
+            past_history_marked = mark_user_data_in_text(past_history_raw, user_data_cn, lang)
+            menstrual_marked = f"<user>{menstrual_full}</user>"
+            return {
+                "chief_complaint": f"{pain_desc_cn}。",
+                "present_illness": f"患者处于{cycle_cn}，{location_cn}有{intensity_cn}{pain_type_cn}，伴{symptoms_cn}。无发热，无恶心呕吐。二便正常。",
+                "past_history": past_history_marked,
+                "menstrual_history": menstrual_marked,
+                "clinical_diagnosis": "1. 原发性痛经（功能性）\n2. 盆腔充血（待排除）\n\n💡 请放心：上述仅为常规筛查方向，器质性病变的可能性很低。",
+                "clinical_suggestions": "【就诊建议】\n• 建议与医生沟通疼痛规律，便于判断\n• 必要时可考虑盆腔超声检查（常规无创筛查）\n\n【检查提醒】\n盆腔超声是常规检查，全程无痛。医护人员会保护您的隐私。",
+                "analogy": f"感觉{location_cn}有持续的{intensity_cn}牵拉和收缩感。",
+                "work": "因身体不适，申请今天休假一天。",
+                "action": [
+                    "☑️ 腹部热敷，每次15-20分钟",
+                    "☑️ 注意休息，避免剧烈运动",
+                    "☑️ 多喝温水，清淡饮食",
+                    "☑️ 如疼痛剧烈请及时就医"
+                ],
+                "selfCare": [
+                    "✨ 休息是对身体最好的照顾。",
+                    "✨ 保持深呼吸，放松身心。",
+                    "✨ 疼痛是真实存在的，不需要硬撑。"
+                ],
+            }
+    else:
+        if is_general:
+            past_history_raw = f"Past: {diagnosed_en}. Surgery: {surg_en}. Allergies: {allergy_en}. Lifestyle: {lifestyle_en}."
+            past_history_marked = mark_user_data_in_text(past_history_raw, user_data_en, lang)
+            menstrual_marked = f"<user>{menstrual_full}</user>"
+            return {
+                "chief_complaint": f"{pain_desc_en}.",
+                "present_illness": f"You are currently in {cycle_en}, experiencing {intensity_en} {pain_type_en} in the {location_en}, with {symptoms_en}. Consider resting and staying warm.",
+                "past_history": past_history_marked,
+                "menstrual_history": menstrual_marked,
+                "clinical_diagnosis": "Common menstrual cramping. Usually a normal physiological response. No need for excessive concern.",
+                "clinical_suggestions": "【Suggestions】\n• Apply a heating pad to your lower abdomen\n• Rest and avoid strenuous activity\n• If pain worsens, consider consulting a healthcare provider",
+                "analogy": f"A constant pulling and cramping sensation in the {location_en}.",
+                "work": "Requesting a sick day today due to a health condition.",
+                "action": [
+                    "☑️ Apply heat to your abdomen to help relax muscles",
+                    "☑️ Drink warm fluids like water or herbal tea",
+                    "☑️ Rest in a comfortable position with knees slightly bent",
+                    "☑️ Consider over-the-counter pain relief if suitable for you"
+                ],
+                "selfCare": [
+                    "✨ Give yourself permission to slow down today.",
+                    "✨ Take slow, deep breaths to help your body relax.",
+                    "✨ Your pain is real — rest is not weakness."
+                ],
+            }
+        else:
+            past_history_raw = f"Past History: {diagnosed_en}. Surgery: {surg_en}. Allergies: {allergy_en}. Lifestyle: {lifestyle_en}."
+            past_history_marked = mark_user_data_in_text(past_history_raw, user_data_en, lang)
+            menstrual_marked = f"<user>{menstrual_full}</user>"
+            return {
+                "chief_complaint": f"{pain_desc_en}.",
+                "present_illness": f"The patient is in {cycle_en}, experiencing {intensity_en} {pain_type_en} in the {location_en}, with {symptoms_en}. No fever. Bowel and bladder functions normal.",
+                "past_history": past_history_marked,
+                "menstrual_history": menstrual_marked,
+                "clinical_diagnosis": "1. Primary dysmenorrhea (functional)\n2. Pelvic congestion (rule out)\n\n💡 Please note: These are routine screening considerations. Organic pathology is unlikely.",
+                "clinical_suggestions": "【Discussion points】\n• Consider discussing pain patterns with your provider\n• Pelvic ultrasound may be considered for screening (routine, non-invasive)\n\n【Examination reminder】\nPelvic ultrasound is a routine procedure, painless and non-invasive. Medical staff will protect your privacy.",
+                "analogy": f"Continuous pulling and cramping sensation in the {location_en}.",
+                "work": "Requesting sick leave today due to a health condition.",
+                "action": [
+                    "☑️ Apply a heating pad to the lower abdomen for 15-20 minutes",
+                    "☑️ Rest and avoid strenuous activity",
+                    "☑️ Stay hydrated with warm fluids",
+                    "☑️ Consult a healthcare provider if pain persists"
+                ],
+                "selfCare": [
+                    "✨ Rest is essential for recovery.",
+                    "✨ Take slow, deep breaths to help relax.",
+                    "✨ Your pain is valid — you don't have to push through it."
+                ],
+            }
+
 
 @app.post("/api/generate")
 def generate_pain_report(data: PainData):
     """
     PainScape 核心生成接口
-    
-    接收前端绘制的痛觉数据 + 医疗背景，调用 LLM 生成：
-    - 病历报告（Medical Mode）
-    - 自愈指南（General Mode）
     """
     lang = "zh"
     app_mode = "medical"
     painkiller = "布洛芬"
 
     try:
-        # ============================================================
-        # 1. 基础参数解析
-        # ============================================================
         lang = str(data.targetLanguage or "zh")
         app_mode = str(data.appMode or "medical").lower()
         mb = data.medicalBackground
-        
-        # ============================================================
-        # 2. 周期阶段计算
-        # ============================================================
+
+        # 周期阶段计算
         lmp_str = getattr(mb, "lastPeriod", None) if mb else None
         cycle_info = get_cycle_description(lmp_str, lang)
-        
+
         if data.cycleDay and str(data.cycleDay).strip():
             user_phase_key = detect_cycle_phase(data.cycleDay)
             if user_phase_key != "unknown":
@@ -1369,7 +1207,7 @@ def generate_pain_report(data: PainData):
                 )
                 physiology_map = CYCLE_PHASE_PHYSIOLOGY.get(lang, CYCLE_PHASE_PHYSIOLOGY["en"])
                 menstrual_map = CYCLE_PHASE_MENSTRUAL_HISTORY.get(lang, CYCLE_PHASE_MENSTRUAL_HISTORY["en"])
-                
+
                 if user_phase_key == "menstrual" and day_num:
                     cycle_info["phase_physiology"] = physiology_map["menstrual"].format(day=day_num)
                     cycle_info["menstrual_history"] = menstrual_map["menstrual"].format(day=day_num)
@@ -1385,17 +1223,15 @@ def generate_pain_report(data: PainData):
                 else:
                     cycle_info["phase_physiology"] = physiology_map["unknown"]
                     cycle_info["menstrual_history"] = menstrual_map["unknown"]
-        
+
         active_phase_display = cycle_info["phase_display"]
         phase_physiology = cycle_info["phase_physiology"]
         menstrual_phase_description = cycle_info["menstrual_history"]
-        
-        # ============================================================
-        # 3. 痛觉特征转译
-        # ============================================================
+
+        # 痛觉特征转译
         pt_dict = PAIN_MAP.get(lang, PAIN_MAP["zh"])
         pain_quality = pt_dict.get(data.dominantPain, data.dominantPain)
-        
+
         raw_score = data.painScore
         scaled_score = min(100, int(raw_score / 8)) if raw_score > 100 else max(10, raw_score)
         if scaled_score < 30:
@@ -1404,19 +1240,17 @@ def generate_pain_report(data: PainData):
             pain_level_desc = "中度不适" if lang == "zh" else "moderate discomfort"
         else:
             pain_level_desc = "重度不适" if lang == "zh" else "severe discomfort"
-        
-        ip = data.intensityProfile or IntensityProfileModel()
-        speed_val = ip.avgSpeed or 5.0
+
+        ip = data.intensityProfile
+        speed_val = getattr(ip, "avgSpeed", 5.0) if ip else 5.0
         if speed_val > 12.0:
             pain_pattern = "阵发性波动" if lang == "zh" else "paroxysmal, fluctuating"
         else:
             pain_pattern = "持续性平缓" if lang == "zh" else "continuous, gradual"
-        
+
         somatic_sensation = get_color_somatic_meaning(data.colorPalette, lang)
-        
-        # ============================================================
-        # 4. 空间定位 & 伴随症状
-        # ============================================================
+
+        # 空间定位 & 伴随症状
         pain_location_desc = build_pain_location_desc(data.spatialMap, lang)
         accompanying_symptoms = data.accompanyingSymptoms or []
         accompanying_desc = (
@@ -1424,14 +1258,12 @@ def generate_pain_report(data: PainData):
             if accompanying_symptoms
             else ("未诉其余明显伴随异常指征" if lang == "zh" else "No other significant symptoms reported")
         )
-        
-        # ============================================================
-        # 5. 健康背景解析
-        # ============================================================
+
+        # 健康背景解析
         lifestyle_final = "无特殊不良作息" if lang == "zh" else "No significant lifestyle factors"
         family_history_final = "无明确家族痛经遗传史" if lang == "zh" else "No known family history"
         reproductive_final = "未生育" if lang == "zh" else "Nulliparous"
-        
+
         if mb:
             ls_dict = LIFESTYLE_DICT.get(lang, LIFESTYLE_DICT["zh"])
             ls_list = [ls_dict.get(str(x), str(x)) for x in getattr(mb, "lifestyleArr", []) or [] if x]
@@ -1463,7 +1295,7 @@ def generate_pain_report(data: PainData):
         cycle_reg_desc = get_cycle_regular_desc(mb, lang)
         period_dur_desc = get_period_duration_desc(mb, lang)
         lmp_val = get_val_from_mb(mb, "lastPeriod", "未提供" if lang == "zh" else "Not provided")
-        
+
         height_weight = (
             f"{getattr(mb, 'height', '')}cm / {getattr(mb, 'weight', '')}kg"
             if mb and getattr(mb, 'height', '')
@@ -1471,9 +1303,7 @@ def generate_pain_report(data: PainData):
         )
         allergy_history = build_risk_warning(mb, lang)
 
-        # ============================================================
-        # 6. 用药安全红线
-        # ============================================================
+        # 用药安全红线
         raw_allergies = ""
         if mb:
             raw_allergies = f"{getattr(mb, 'allergies', '')} {getattr(mb, 'otherAllergies', '')}"
@@ -1486,23 +1316,14 @@ def generate_pain_report(data: PainData):
             if lang == "zh"
             else "ALL NSAIDs (Ibuprofen, Aspirin, Diclofenac, Naproxen)"
         ) if has_nsaid_allergy else ("无" if lang == "zh" else "None")
-        
+
         safe_recommendation = (
             "对乙酰氨基酚 (Acetaminophen)" if has_nsaid_allergy
             else ("布洛芬 (Ibuprofen) 或 萘普生 (Naproxen)" if lang == "zh" else "Ibuprofen or Naproxen")
         )
         painkiller = "对乙酰氨基酚" if has_nsaid_allergy else "布洛芬"
 
-        # ============================================================
-        # 7. 其他辅助信息
-        # ============================================================
-        risk_warning = build_risk_warning(mb, lang)
-        triage_advice = build_triage_advice(data.painScore, accompanying_symptoms, lang)
-        exam_advice = build_exam_advice(mb, lang)
-
-        # ============================================================
-        # 8. Work 消息
-        # ============================================================
+        # Work 消息
         work_info = build_work_messages(
             lang=lang,
             tone=data.workTone or "neutral",
@@ -1510,17 +1331,13 @@ def generate_pain_report(data: PainData):
         )
         work_default = work_info["selected"]
 
-        # ============================================================
-        # 9. 选择 System Prompt
-        # ============================================================
+        # 选择 System Prompt
         if app_mode == "medical":
             sys_prompt = MEDICAL_SYSTEM_PROMPT_EN if lang == "en" else MEDICAL_SYSTEM_PROMPT_ZH
         else:
             sys_prompt = GENERAL_SYSTEM_PROMPT_EN if lang == "en" else GENERAL_SYSTEM_PROMPT_ZH
 
-        # ============================================================
-        # 10. 构建 User Prompt
-        # ============================================================
+        # 构建 User Prompt
         if lang == "en":
             user_prompt = build_user_prompt_en(
                 pain_quality=pain_quality,
@@ -1584,9 +1401,7 @@ def generate_pain_report(data: PainData):
                 work_tone=data.workTone or "neutral",
             )
 
-        # ============================================================
-        # 11. 调用 LLM
-        # ============================================================
+        # 调用 LLM
         model_name = config["model_quick"] if data.isQuickLog else config["model"]
         print(f"🤖 正在请求服务提供商: {config['display_name']} ({model_name})...")
 
@@ -1602,19 +1417,16 @@ def generate_pain_report(data: PainData):
             "top_p": 0.7,
         }
 
-        # 统一调用 LLM
         raw_text = call_llm(payload, LLM_PROVIDER, config, api_key)
 
-        # ============================================================
-        # 12. 清理并解析 JSON
-        # ============================================================
+        # 清理并解析 JSON
         cleaned_text = re.sub(
             r"^```(?:json)?\s*", "", raw_text, flags=re.MULTILINE | re.IGNORECASE
         )
         cleaned_text = re.sub(r"```\s*$", "", cleaned_text, flags=re.MULTILINE).strip()
         start, end = cleaned_text.find("{"), cleaned_text.rfind("}")
         if start != -1 and end != -1:
-            cleaned_text = cleaned_text[start : end + 1]
+            cleaned_text = cleaned_text[start: end + 1]
 
         parsed_json = json.loads(cleaned_text, strict=False)
         fb = _fallback_response(lang, painkiller, app_mode, data)
@@ -1623,28 +1435,70 @@ def generate_pain_report(data: PainData):
             val = json_data.get(key) if isinstance(json_data, dict) else None
             return val if val and str(val).strip() else fallback_val
 
+        # 获取 LLM 返回的字段
+        chief_complaint = get_safe_field(parsed_json, "chief_complaint", fb["chief_complaint"])
+        present_illness = get_safe_field(parsed_json, "present_illness", fb["present_illness"])
+        past_history_raw = get_safe_field(parsed_json, "past_history", fb["past_history"])
+        menstrual_history_raw = get_safe_field(parsed_json, "menstrual_history", fb["menstrual_history"])
+        clinical_diagnosis = get_safe_field(parsed_json, "clinical_diagnosis", fb["clinical_diagnosis"])
+        clinical_suggestions = get_safe_field(parsed_json, "clinical_suggestions", fb["clinical_suggestions"])
+        analogy = get_safe_field(parsed_json, "analogy", fb["analogy"])
+        work = get_safe_field(parsed_json, "work", fb["work"])
+        action = get_safe_field(parsed_json, "action", fb["action"])
+        selfCare = get_safe_field(parsed_json, "selfCare", fb["selfCare"])
+
         # ============================================================
-        # 13. 返回结果
+        # 【核心】对 past_history 和 menstrual_history 进行用户数据标记
         # ============================================================
+        # 收集用户填写的原始数据
+        user_data = {
+            "diagnosed": diagnosed_history,
+            "surgical": surgical_history_val,
+            "allergy": allergy_history,
+            "lifestyle": lifestyle_final,
+            "menstrual": menstrual_phase_description,
+        }
+
+        # 对 past_history 进行标记
+        past_history_marked = mark_user_data_in_text(past_history_raw, user_data, lang)
+
+        # menstrual_history 直接使用用户数据（因为要求严格使用 User Prompt 中的描述）
+        menstrual_history_marked = f"<user>{menstrual_phase_description}</user>"
+
+        # 对 clinical_diagnosis 中的诊断名称也进行标记（如果有用户确诊史）
+        clinical_diagnosis_marked = clinical_diagnosis
+        # 如果用户有确诊史，在 clinical_diagnosis 中标记
+        if diagnosed_history and diagnosed_history not in ["无明确妇科疾病确诊史", "无明确确诊史", "No confirmed gynecological conditions", "No confirmed conditions"]:
+            clinical_diagnosis_marked = mark_user_data_in_text(clinical_diagnosis, user_data, lang)
+
+        # 对 present_illness 中的用户数据也进行标记（如 LMP、周期等）
+        present_illness_marked = present_illness
+        # 如果 LMP 存在，在现病史中标记
+        if lmp_val and lmp_val not in ["未提供", "Not provided"]:
+            present_illness_marked = mark_user_data_in_text(present_illness_marked, {"lmp": lmp_val}, lang)
+        # 如果周期天数存在，标记
+        if menarche_val and menarche_val not in ["未详述", "Not specified"]:
+            present_illness_marked = mark_user_data_in_text(present_illness_marked, {"menarche": menarche_val}, lang)
+
         return {
             "status": "success",
             "language": lang,
             "appMode": app_mode,
-            "chief_complaint": get_safe_field(parsed_json, "chief_complaint", fb["chief_complaint"]),
-            "present_illness": get_safe_field(parsed_json, "present_illness", fb["present_illness"]),
-            "past_history": get_safe_field(parsed_json, "past_history", fb["past_history"]),
-            "menstrual_history": get_safe_field(parsed_json, "menstrual_history", fb["menstrual_history"]),
-            "clinical_diagnosis": get_safe_field(parsed_json, "clinical_diagnosis", fb["clinical_diagnosis"]),
-            "clinical_suggestions": get_safe_field(parsed_json, "clinical_suggestions", fb["clinical_suggestions"]),
-            "analogy": get_safe_field(parsed_json, "analogy", fb["analogy"]),
-            "work": get_safe_field(parsed_json, "work", fb["work"]),
-            "action": get_safe_field(parsed_json, "action", fb["action"]),
-            "selfCare": get_safe_field(parsed_json, "selfCare", fb["selfCare"]),
+            "chief_complaint": chief_complaint,
+            "present_illness": present_illness_marked,
+            "past_history": past_history_marked,
+            "menstrual_history": menstrual_history_marked,
+            "clinical_diagnosis": clinical_diagnosis_marked,
+            "clinical_suggestions": clinical_suggestions,
+            "analogy": analogy,
+            "work": work,
+            "action": action,
+            "selfCare": selfCare,
             "pain_location": pain_location_desc,
             "accompanying_symptoms": accompanying_desc,
-            "risk_warning": risk_warning,
-            "triage_advice": triage_advice if app_mode == "medical" else ("居家自愈修整中" if lang == "zh" else "Home self-care"),
-            "exam_advice": exam_advice if app_mode == "medical" else None,
+            "risk_warning": build_risk_warning(mb, lang),
+            "triage_advice": build_triage_advice(data.painScore, accompanying_symptoms, lang) if app_mode == "medical" else ("居家自愈修整中" if lang == "zh" else "Home self-care"),
+            "exam_advice": build_exam_advice(mb, lang) if app_mode == "medical" else None,
             "health_tips_link": f"https://health-edu.org/dysmenorrhea/{data.dominantPain}",
         }
 
@@ -1655,211 +1509,3 @@ def generate_pain_report(data: PainData):
         fallback = _fallback_response(lang, painkiller, app_mode, data)
         fallback.update({"is_fallback": True, "error_detail": str(e)})
         return fallback
-
-
-# 降级备用模版 (安全动态重构，完全消除硬编码编造数据与恐慌词)
-# ─────────────────────────────────────────────
-def _fallback_response(lang: str, painkiller: str, app_mode: str, data: PainData) -> dict:
-    """当 LLM 调用失败时使用前端真实数据生成保底输出"""
-    
-    is_general = app_mode == "general"
-    mb = data.medicalBackground
-    
-    # ============================================================
-    # 1. 解析前端传入的真实数据（优先使用，不编造）
-    # ============================================================
-    
-    # 主导痛感（来自前端）
-    pain_type_map = {
-        "twist": ("痉挛性绞痛", "spasmodic cramping"),
-        "pierce": ("刺痛", "stabbing pain"),
-        "sink": ("坠胀痛", "heavy dragging pain"),
-        "swell": ("胀痛", "bloating pressure"),
-        "scrape": ("磨扯痛", "abrasive soreness"),
-    }
-    pain_type_cn, pain_type_en = pain_type_map.get(
-        data.dominantPain, ("不适", "discomfort")
-    )
-    
-    # 痛感位置（来自前端 spatialMap）
-    location_cn = build_pain_location_desc(data.spatialMap, "zh")
-    location_en = build_pain_location_desc(data.spatialMap, "en")
-    
-    # 伴随症状（来自前端）
-    symptoms = data.accompanyingSymptoms or []
-    symptoms_cn = "、".join(symptoms) if symptoms else "无明显伴随不适"
-    symptoms_en = ", ".join(symptoms) if symptoms else "No other significant symptoms"
-    
-    # 周期阶段（来自前端 cycleDay）
-    cycle_cn = data.cycleDay or "月经期"
-    cycle_en = data.cycleDay or "menstrual phase"
-    
-    # 月经史（来自 medicalBackground）
-    menarche = getattr(mb, "menarcheAge", "14") if mb else "14"
-    period_dur = getattr(mb, "periodDuration", "5") if mb else "5"
-    lmp = getattr(mb, "lastPeriod", "未提供") if mb else "未提供"
-    
-    # 手术史
-    surg_cn = get_surgical_desc(mb, "zh")
-    surg_en = get_surgical_desc(mb, "en")
-    
-    # 生育史
-    repo_cn = get_reproductive_desc(mb, "zh")
-    repo_en = get_reproductive_desc(mb, "en")
-    
-    # 过敏史
-    allergy_cn = build_risk_warning(mb, "zh")
-    allergy_en = build_risk_warning(mb, "en")
-    
-    # 生活方式
-    lifestyle_cn = "无特殊不良作息"
-    lifestyle_en = "No significant lifestyle factors"
-    if mb:
-        ls_dict = LIFESTYLE_DICT.get("zh", LIFESTYLE_DICT["zh"])
-        ls_list = [ls_dict.get(str(x), str(x)) for x in getattr(mb, "lifestyleArr", []) or [] if x]
-        lifestyle_cn = "、".join(ls_list) if ls_list else "无特殊不良作息"
-        
-        ls_dict_en = LIFESTYLE_DICT.get("en", LIFESTYLE_DICT["en"])
-        ls_list_en = [ls_dict_en.get(str(x), str(x)) for x in getattr(mb, "lifestyleArr", []) or [] if x]
-        lifestyle_en = ", ".join(ls_list_en) if ls_list_en else "No significant lifestyle factors"
-    
-    # 确诊病史
-    diagnosed_cn = "无明确确诊史"
-    diagnosed_en = "No confirmed conditions"
-    if mb and getattr(mb, "diagnosed", "") and getattr(mb, "diagnosed") not in ["none", "unchecked", ""]:
-        diagnosed_cn = f"曾确诊：{getattr(mb, 'diagnosed')}"
-        diagnosed_en = f"Diagnosed: {getattr(mb, 'diagnosed')}"
-        if getattr(mb, "otherDiagnosis", ""):
-            diagnosed_cn += f"、{getattr(mb, 'otherDiagnosis')}"
-            diagnosed_en += f", {getattr(mb, 'otherDiagnosis')}"
-    
-    # ============================================================
-    # 2. 构建简单明了的保底内容
-    # ============================================================
-    
-    # 痛感强度描述（基于 painScore）
-    if data.painScore < 30:
-        intensity_cn = "轻度"
-        intensity_en = "mild"
-    elif data.painScore < 60:
-        intensity_cn = "中度"
-        intensity_en = "moderate"
-    else:
-        intensity_cn = "重度"
-        intensity_en = "severe"
-    
-    # 痛感描述（简化、直白）
-    pain_desc_cn = f"{location_cn}出现{intensity_cn}{pain_type_cn}"
-    pain_desc_en = f"{intensity_en} {pain_type_en} in the {location_en}"
-    
-    # 周期描述
-    if lang == "zh":
-        cycle_desc = f"当前处于{cycle_cn}"
-        menarche_full = f"{menarche}岁初潮，经期{period_dur}天"
-        lmp_display = lmp if lmp and lmp != "未提供" else "未提供"
-        menstrual_full = f"{menarche_full}。LMP：{lmp_display}。痛经：有。生育史：{repo_cn}。"
-    else:
-        cycle_desc = f"Currently in {cycle_en}"
-        menarche_full = f"Menarche at {menarche}, {period_dur}-day cycles"
-        lmp_display = lmp if lmp and lmp != "未提供" else "Not provided"
-        menstrual_full = f"{menarche_full}. LMP: {lmp_display}. Dysmenorrhea: Present. Obstetric: {repo_en}."
-    
-    # ============================================================
-    # 3. 根据模式和语言返回
-    # ============================================================
-    
-    if lang == "zh":
-        if is_general:
-            return {
-                "chief_complaint": f"{pain_desc_cn}。",
-                "present_illness": f"您目前处于{cycle_cn}，{location_cn}有{intensity_cn}{pain_type_cn}，伴随{symptoms_cn}。建议适当休息、注意保暖。",
-                "past_history": f"既往：{diagnosed_cn}。手术史：{surg_cn}。过敏：{allergy_cn}。作息：{lifestyle_cn}。",
-                "menstrual_history": menstrual_full,
-                "clinical_diagnosis": "生理期常见的子宫收缩性不适。多数情况属于正常生理反应，不必过度紧张。",
-                "clinical_suggestions": "【给您的建议】\n• 注意保暖，可用热水袋敷在下腹部\n• 适当休息，避免劳累\n• 如疼痛持续加重，建议及时就医咨询",
-                "analogy": f"感觉{location_cn}像被什么东西紧紧攥住，一阵一阵地抽着疼。",
-                "work": "今天身体不适，申请休息一天。",
-                "action": [
-                    "☑️ 用热水袋或暖宝宝敷在腹部，帮助放松肌肉",
-                    "☑️ 喝点温热的水或姜茶，促进血液循环",
-                    "☑️ 找个舒服的姿势躺下，膝盖微屈",
-                    "☑️ 如需要可考虑适量服用止痛药（请确认无过敏史）"
-                ],
-                "selfCare": [
-                    "✨ 允许自己慢下来，今天可以适当休息。",
-                    "✨ 试着做几次深长呼吸，帮助身体放松。",
-                    "✨ 保持心情平和，焦虑会让身体更紧张。"
-                ],
-            }
-        else:
-            # Medical mode
-            return {
-                "chief_complaint": f"{pain_desc_cn}。",
-                "present_illness": f"患者处于{cycle_cn}，{location_cn}有{intensity_cn}{pain_type_cn}，伴{symptoms_cn}。无发热，无恶心呕吐。二便正常。",
-                "past_history": f"既往史：{diagnosed_cn}。手术史：{surg_cn}。过敏史：{allergy_cn}。生活作息：{lifestyle_cn}。",
-                "menstrual_history": menstrual_full,
-                "clinical_diagnosis": "1. 原发性痛经（功能性）\n2. 盆腔充血（待排除）\n\n💡 请放心：上述仅为常规筛查方向，器质性病变的可能性很低。",
-                "clinical_suggestions": "【就诊建议】\n• 建议与医生沟通疼痛规律，便于判断\n• 必要时可考虑盆腔超声检查（常规无创筛查）\n\n【检查提醒】\n盆腔超声是常规检查，全程无痛。医护人员会保护您的隐私。",
-                "analogy": f"感觉{location_cn}有持续的{intensity_cn}牵拉和收缩感。",
-                "work": "因身体不适，申请今天休假一天。",
-                "action": [
-                    "☑️ 腹部热敷，每次15-20分钟",
-                    "☑️ 注意休息，避免剧烈运动",
-                    "☑️ 多喝温水，清淡饮食",
-                    "☑️ 如疼痛剧烈请及时就医"
-                ],
-                "selfCare": [
-                    "✨ 休息是对身体最好的照顾。",
-                    "✨ 保持深呼吸，放松身心。",
-                    "✨ 疼痛是真实存在的，不需要硬撑。"
-                ],
-            }
-    
-    else:
-        # ============================================================
-        # 英文版
-        # ============================================================
-        if is_general:
-            return {
-                "chief_complaint": f"{pain_desc_en}.",
-                "present_illness": f"You are currently in {cycle_en}, experiencing {intensity_en} {pain_type_en} in the {location_en}, with {symptoms_en}. Consider resting and staying warm.",
-                "past_history": f"Past: {diagnosed_en}. Surgery: {surg_en}. Allergies: {allergy_en}. Lifestyle: {lifestyle_en}.",
-                "menstrual_history": menstrual_full,
-                "clinical_diagnosis": "Common menstrual cramping. Usually a normal physiological response. No need for excessive concern.",
-                "clinical_suggestions": "【Suggestions】\n• Apply a heating pad to your lower abdomen\n• Rest and avoid strenuous activity\n• If pain worsens, consider consulting a healthcare provider",
-                "analogy": f"A constant pulling and cramping sensation in the {location_en}.",
-                "work": "Requesting a sick day today due to a health condition.",
-                "action": [
-                    "☑️ Apply heat to your abdomen to help relax muscles",
-                    "☑️ Drink warm fluids like water or herbal tea",
-                    "☑️ Rest in a comfortable position with knees slightly bent",
-                    "☑️ Consider over-the-counter pain relief if suitable for you"
-                ],
-                "selfCare": [
-                    "✨ Give yourself permission to slow down today.",
-                    "✨ Take slow, deep breaths to help your body relax.",
-                    "✨ Your pain is real — rest is not weakness."
-                ],
-            }
-        else:
-            return {
-                "chief_complaint": f"{pain_desc_en}.",
-                "present_illness": f"The patient is in {cycle_en}, experiencing {intensity_en} {pain_type_en} in the {location_en}, with {symptoms_en}. No fever. Bowel and bladder functions normal.",
-                "past_history": f"Past History: {diagnosed_en}. Surgery: {surg_en}. Allergies: {allergy_en}. Lifestyle: {lifestyle_en}.",
-                "menstrual_history": menstrual_full,
-                "clinical_diagnosis": "1. Primary dysmenorrhea (functional)\n2. Pelvic congestion (rule out)\n\n💡 Please note: These are routine screening considerations. Organic pathology is unlikely.",
-                "clinical_suggestions": "【Discussion points】\n• Consider discussing pain patterns with your provider\n• Pelvic ultrasound may be considered for screening (routine, non-invasive)\n\n【Examination reminder】\nPelvic ultrasound is a routine procedure, painless and non-invasive. Medical staff will protect your privacy.",
-                "analogy": f"Continuous pulling and cramping sensation in the {location_en}.",
-                "work": "Requesting sick leave today due to a health condition.",
-                "action": [
-                    "☑️ Apply a heating pad to the lower abdomen for 15-20 minutes",
-                    "☑️ Rest and avoid strenuous activity",
-                    "☑️ Stay hydrated with warm fluids",
-                    "☑️ Consult a healthcare provider if pain persists"
-                ],
-                "selfCare": [
-                    "✨ Rest is essential for recovery.",
-                    "✨ Take slow, deep breaths to help relax.",
-                    "✨ Your pain is valid — you don't have to push through it."
-                ],
-            }
