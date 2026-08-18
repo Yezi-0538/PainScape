@@ -32,6 +32,12 @@ import { PAIN_NAME_MAP } from './i18n/translationsConstants';
 // ===== API服务与数据库连接器 =====
 import { createPost, getPosts } from './services/postService';
 import { supabase } from "./services/supabaseClient";
+import { 
+  syncLocalHistoryToCloud, 
+  fetchUserPainRecords, 
+  mergeHistoryRecords, 
+  saveRecordToCloud 
+} from './services/painRecordService';
 
 const API_BASE = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
   ? 'http://127.0.0.1:8000'
@@ -112,6 +118,30 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
     }
   }, [setUserInfo, t]);
 
+  // 🌟 登录/恢复会话后：先搬运本地游客数据，再全量拉取云端记录并写入缓存
+  const syncAndLoadUserHistory = useCallback(async (userId) => {
+    if (!userId || userId.startsWith('guest_') || userId === 'user_guest') return;
+
+    try {
+      // 1. 搬运本地游客记录上云
+      await syncLocalHistoryToCloud(userId);
+
+      // 2. 从云端拉取最新全部记录
+      const cloudRecords = await fetchUserPainRecords(userId);
+
+      // 3. 读取本地已有的缓存并智能合并
+      const currentLocal = JSON.parse(localStorage.getItem('painscape_history') || '[]');
+      const merged = mergeHistoryRecords(cloudRecords, currentLocal, userId);
+
+      // 4. 更新 state 并覆盖本地缓存（旧游客脏数据已被彻底洗掉）
+      setHistory(merged);
+      localStorage.setItem('painscape_history', JSON.stringify(merged));
+      console.log(`🟢 已成功同步并缓存 ${merged.length} 条具身日记记录！`);
+    } catch (err) {
+       console.warn('⚠️ 同步日记记录异常:', err);
+    }
+  }, []);
+
   const [page, setPage] = useState('splash');
   const [splashOpacity, setSplashOpacity] = useState(1);
 
@@ -133,10 +163,11 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
     localStorage.setItem('painscape_last_uid', userId);
     localStorage.setItem('painscape_is_guest', 'false');
     syncSupabaseUserProfile(userId);
+    syncAndLoadUserHistory(userId);
     if (page === 'splash') {
       setPage('modeSelection');
     }
-  }, [page, syncSupabaseUserProfile]);
+  }, [page, syncSupabaseUserProfile, syncAndLoadUserHistory]);
 
   // 生成或获取本地游客 ID
   const getOrCreateGuestUid = () => {
@@ -201,6 +232,7 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
           localStorage.setItem('painscape_last_uid', uid);
           localStorage.setItem('painscape_is_guest', 'false');
           syncSupabaseUserProfile(uid, session.user);
+          syncAndLoadUserHistory(uid);
         } else {
           // 未登录邮箱，严格切入游客模式
           const guestUid = getOrCreateGuestUid();
@@ -238,6 +270,7 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
         localStorage.setItem('painscape_last_uid', uid);
         localStorage.setItem('painscape_is_guest', 'false');
         syncSupabaseUserProfile(uid, session.user);
+        syncAndLoadUserHistory(uid);
       } else {
         const guestUid = getOrCreateGuestUid();
         setCurrentUserId(guestUid);
@@ -259,7 +292,7 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
       isMounted = false;
       subscription?.unsubscribe();
     };
-  }, [syncSupabaseUserProfile, setUserInfo]);
+  }, [syncSupabaseUserProfile, setUserInfo, syncAndLoadUserHistory]);
 
   // 🌟 统一的个人主页跳转守卫
   const handleNavigateToProfile = useCallback((requestedUserId = null) => {
@@ -1275,6 +1308,9 @@ const [hasAgreedPrivacy, setHasAgreedPrivacy] = useState(() => {
         isQuickLog: true,
       };
       setHistory(prev => [historyEntry, ...prev]);
+      if (!isGuest && currentUserId && !currentUserId.startsWith('guest_')) {
+        saveRecordToCloud(currentUserId, historyEntry);
+      }
 
       setPage('result');
     } catch (e) {
@@ -1569,6 +1605,9 @@ const [hasAgreedPrivacy, setHasAgreedPrivacy] = useState(() => {
     };
 
     setHistory(prev => [paintingData, ...prev]);
+    if (!isGuest && currentUserId && !currentUserId.startsWith('guest_')) {
+      saveRecordToCloud(currentUserId, paintingData);
+    }
   };
 
   const handleClear = useCallback(() => {
@@ -2177,6 +2216,9 @@ const [hasAgreedPrivacy, setHasAgreedPrivacy] = useState(() => {
                 };
 
                 setHistory(prev => [historyEntry, ...prev]);
+                if (!isGuest && currentUserId && !currentUserId.startsWith('guest_')) {
+                  saveRecordToCloud(currentUserId, historyEntry);
+}
                 setPage('result');
               } catch (e) {
                 console.error('❌ 生成失败处理:', e);
@@ -2408,6 +2450,7 @@ const [hasAgreedPrivacy, setHasAgreedPrivacy] = useState(() => {
             onPublishRecord={(record, customText) => handlePublishPost(record, customText)}
             showToast={showToast}
             currentUserId={currentUserId}
+            isGuest={isGuest}
           />
         );
 
