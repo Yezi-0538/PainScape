@@ -44,6 +44,13 @@ const CHINESE_TO_KEY_MAP = {
   '撕裂痛': 'scrape', '撕刮痛': 'scrape',
 };
 
+// 🌟 判断用户是否为真正绑定了邮箱的正式登录用户
+const isValidEmailUser = (uid, isGuestFlag) => {
+  if (!uid || isGuestFlag) return false;
+  if (String(uid).startsWith('guest_') || uid === 'user_guest') return false;
+  return true;
+};
+
 function AppContent({ targetLanguage, setTargetLanguage }) {
   const isEn = targetLanguage === 'en';
   const { t } = useI18n();
@@ -113,9 +120,7 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
   const [currentUserId, setCurrentUserId] = useState(() => {
     return localStorage.getItem('painscape_last_uid') || null;
   });
-  const [isGuest, setIsGuest] = useState(() => {
-    return localStorage.getItem('painscape_is_guest') === 'true';
-  });
+  const [isGuest, setIsGuest] = useState(true);
   const [targetUserId, setTargetUserId] = useState(currentUserId);
   const [authReady, setAuthReady] = useState(false);
 
@@ -133,67 +138,87 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
     }
   }, [page, syncSupabaseUserProfile]);
 
+  // 生成或获取本地游客 ID
+  const getOrCreateGuestUid = () => {
+    let guestUid = localStorage.getItem('painscape_guest_id');
+    if (!guestUid) {
+      guestUid = `guest_${Math.random().toString(36).substr(2, 8)}`;
+      localStorage.setItem('painscape_guest_id', guestUid);
+    }
+    return guestUid;
+  };
+
   const handleGuestLogin = useCallback((guestId) => {
-    setCurrentUserId(guestId);
-    setTargetUserId(guestId);
+    const gid = guestId || getOrCreateGuestUid();
+    setCurrentUserId(gid);
+    setTargetUserId(gid);
     setIsGuest(true);
     setShowAuthModal(false);
     setAuthReady(true);
-    localStorage.setItem('painscape_last_uid', guestId);
+    localStorage.setItem('painscape_last_uid', gid);
     localStorage.setItem('painscape_is_guest', 'true');
+    localStorage.removeItem('painscape_user_info');
+    if (setUserInfo) setUserInfo(null);
     if (page === 'splash') {
       setPage('modeSelection');
     }
-  }, [page]);
+  }, [page, setUserInfo]);
 
   const handleLogout = useCallback(async () => {
     try {
       localStorage.removeItem('painscape_last_uid');
-      localStorage.removeItem('painscape_is_guest');
       localStorage.removeItem('painscape_user_info');
+      localStorage.setItem('painscape_is_guest', 'true');
+      if (setUserInfo) setUserInfo(null);
       await supabase.auth.signOut();
     } catch (err) {
       console.warn('Supabase signOut failed:', err);
+    } finally {
+      const gid = getOrCreateGuestUid();
+      setCurrentUserId(gid);
+      setTargetUserId(gid);
+      setIsGuest(true);
+      setPage('onboarding');
+      showToast('logoutSuccess');
     }
-  }, []);
+  }, [setUserInfo, showToast]);
 
   // 🌟 全局统一 Auth 状态与 Active Session 监听器（合并去重）
   useEffect(() => {
     let isMounted = true;
 
-    // 1. 页面加载时，主动检查一次 session 状态
     const checkActiveSession = async () => {
       try {
         const { data: { session } } = await supabase.auth.getSession();
         if (!isMounted) return;
 
-        if (session?.user) {
+        // 必须是存在 user 并且拥有真实 email 才算正式登录
+        if (session?.user && session.user.email) {
           const uid = session.user.id;
           setCurrentUserId(uid);
-          setTargetUserId(prev => prev || uid);
+          setTargetUserId(uid);
           setIsGuest(false);
           localStorage.setItem('painscape_last_uid', uid);
           localStorage.setItem('painscape_is_guest', 'false');
           syncSupabaseUserProfile(uid, session.user);
         } else {
-          let guestUid = localStorage.getItem('painscape_guest_id');
-          if (!guestUid) {
-            guestUid = `guest_${Math.random().toString(36).substr(2, 8)}`;
-            localStorage.setItem('painscape_guest_id', guestUid);
-          }
+          // 未登录邮箱，严格切入游客模式
+          const guestUid = getOrCreateGuestUid();
           setCurrentUserId(guestUid);
-          setTargetUserId(prev => prev || guestUid);
+          setTargetUserId(guestUid);
           setIsGuest(true);
+          localStorage.setItem('painscape_last_uid', guestUid);
           localStorage.setItem('painscape_is_guest', 'true');
-          setShowAuthModal(true);
+          localStorage.removeItem('painscape_user_info');
+          if (setUserInfo) setUserInfo(null);
         }
       } catch (err) {
         console.warn("云端检测失败，切入游客模式:", err);
-        let guestUid = localStorage.getItem('painscape_guest_id') || `guest_${Math.random().toString(36).substr(2, 8)}`;
+        const guestUid = getOrCreateGuestUid();
         setCurrentUserId(guestUid);
-        setTargetUserId(prev => prev || guestUid);
+        setTargetUserId(guestUid);
         setIsGuest(true);
-        setShowAuthModal(true);
+        localStorage.setItem('painscape_is_guest', 'true');
       } finally {
         if (isMounted) setAuthReady(true);
       }
@@ -201,28 +226,30 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
 
     checkActiveSession();
 
-    // 2. 实时监听 Auth 状态变更（仅保持这唯一的监听器）
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (!isMounted) return;
 
-      if (session?.user) {
+      if (session?.user && session.user.email) {
         const uid = session.user.id;
         setCurrentUserId(uid);
-        setTargetUserId(prev => prev || uid);
+        setTargetUserId(uid);
         setIsGuest(false);
         setShowAuthModal(false);
         localStorage.setItem('painscape_last_uid', uid);
         localStorage.setItem('painscape_is_guest', 'false');
         syncSupabaseUserProfile(uid, session.user);
       } else {
-        let guestUid = localStorage.getItem('painscape_guest_id') || `guest_${Math.random().toString(36).substr(2, 8)}`;
+        const guestUid = getOrCreateGuestUid();
         setCurrentUserId(guestUid);
-        setTargetUserId(prev => prev || guestUid);
+        setTargetUserId(guestUid);
         setIsGuest(true);
+        localStorage.setItem('painscape_last_uid', guestUid);
         localStorage.setItem('painscape_is_guest', 'true');
+        localStorage.removeItem('painscape_user_info');
+        if (setUserInfo) setUserInfo(null);
 
-        if (event === 'SIGNED_OUT' || event === 'INITIAL_SESSION') {
-          setShowAuthModal(true);
+        if (event === 'SIGNED_OUT') {
+          setPage('onboarding');
         }
       }
       setAuthReady(true);
@@ -232,7 +259,22 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
       isMounted = false;
       subscription?.unsubscribe();
     };
-  }, [syncSupabaseUserProfile]);
+  }, [syncSupabaseUserProfile, setUserInfo]);
+
+  // 🌟 统一的个人主页跳转守卫
+  const handleNavigateToProfile = useCallback((requestedUserId = null) => {
+    const targetUid = requestedUserId || currentUserId;
+    const isSelfTarget = !requestedUserId || requestedUserId === currentUserId;
+
+    // 游客试图进入自己的个人主页 -> 直接弹窗拦截！
+    if (isSelfTarget && !isValidEmailUser(currentUserId, isGuest)) {
+      setShowAuthModal(true);
+      return;
+    }
+
+    setTargetUserId(targetUid);
+    setPage('profile');
+  }, [currentUserId, isGuest]);
 
   const [showContent, setShowContent] = useState('basicInfo');
   const [appMode, setAppMode] = useState('medical');
@@ -1903,15 +1945,7 @@ const [hasAgreedPrivacy, setHasAgreedPrivacy] = useState(() => {
             onBack={() => setPage('modeSelection')}
             onCommunity={() => setPage('community')}
             onHistory={() => setPage('history')}
-            onProfile={() => {
-              // 🌟 游客点击个人主页直接唤起登录/注册弹窗
-              if (isGuest || !currentUserId) {
-                setShowAuthModal(true);
-                return;
-              }
-              setTargetUserId(currentUserId);
-              setPage('profile');
-            }}
+            onProfile={() =>handleNavigateToProfile(null)}
           />
         );
       case 'quickLog':
@@ -2328,10 +2362,7 @@ const [hasAgreedPrivacy, setHasAgreedPrivacy] = useState(() => {
             isLoading={isCommunityLoading}
             onRefreshCommunity={refreshCommunity}
             onBack={() => setPage('onboarding')}
-            onViewProfile={(userId) => {
-              setTargetUserId(userId);
-              setPage('profile');
-            }}
+            onViewProfile={(userId) => handleNavigateToProfile(userId)}
             handleLikePost={(postId) => {
               setPosts(prev => prev.map(p =>
                 p.id === postId ? { ...p, likes: (p.likes || 0) + 1 } : p
@@ -2381,18 +2412,19 @@ const [hasAgreedPrivacy, setHasAgreedPrivacy] = useState(() => {
         );
 
       case 'profile':
+        if ((!targetUserId || targetUserId === currentUserId) && !isValidEmailUser(currentUserId, isGuest)) {
+          setShowAuthModal(true);
+          return null;
+        }
         return (
           <ProfilePage
-            key={targetUserId}
+            key={targetUserId || currentUserId}
             currentUserId={currentUserId}
-            targetUserId={targetUserId}
+            targetUserId={targetUserId || currentUserId}
             isGuest={isGuest}
             onOpenAuth={() => setShowAuthModal(true)}
             setTargetUserId={setTargetUserId}
-            onViewProfile={(userId) => {
-              setTargetUserId(userId);
-              setPage('profile');
-            }}
+            onViewProfile={(userId) => handleNavigateToProfile(userId)}
             medicalBackground={medicalBackground}
             history={history}
             posts={posts}
