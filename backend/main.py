@@ -248,6 +248,197 @@ WORK_SCENARIOS = {
     },
 }
 
+# ============================================================
+# 疾病与检查映射库
+# ============================================================
+
+# 疾病症状匹配规则
+DISEASE_RULES = {
+    "endometriosis": {
+        "keywords": {
+            "zh": ["内异症", "子宫内膜异位", "腺肌症", "子宫腺肌", "放射痛", "大腿", "腰骶", "刺痛"],
+            "en": ["endometriosis", "adenomyosis", "radiating", "thigh", "lumbosacral", "stabbing", "sharp"]
+        },
+        "condition_zh": "子宫内膜异位症 / 子宫腺肌症",
+        "condition_en": "Endometriosis / Adenomyosis",
+        "exam_zh": "盆腔超声（建议月经结束后3-7天复查）\nCA-125血液检查（辅助参考）",
+        "exam_en": "Pelvic ultrasound (preferably 3-7 days after menstruation)\nCA-125 blood test (auxiliary reference)",
+        "reassurance_zh": "内异症是常见的妇科良性疾病，多数通过药物或微创手术即可有效控制。早发现早干预，对生育能力和生活质量的影响是可控的。",
+        "reassurance_en": "Endometriosis is a common benign gynecological condition that can be effectively managed with medication or minimally invasive surgery. Early detection and intervention can significantly reduce its impact on fertility and quality of life.",
+    },
+    "pcos": {
+        "keywords": {
+            "zh": ["多囊", "pcos", "痤疮", "多毛", "月经稀发", "肥胖", "高雄"],
+            "en": ["pcos", "polycystic", "acne", "hirsutism", "irregular", "obesity", "androgen"]
+        },
+        "condition_zh": "多囊卵巢综合征（PCOS）",
+        "condition_en": "Polycystic Ovary Syndrome (PCOS)",
+        "exam_zh": "性激素六项（月经第2-5天抽血）\n盆腔超声（评估卵巢形态）\n空腹血糖及胰岛素（排除胰岛素抵抗）",
+        "exam_en": "Hormone panel (days 2-5 of menstruation)\nPelvic ultrasound (ovarian morphology)\nFasting blood glucose and insulin (rule out insulin resistance)",
+        "reassurance_zh": "PCOS是育龄期女性最常见的内分泌问题之一，通过生活方式调整和规范治疗，绝大多数人都可以正常生活、生育。您不需要为此感到焦虑。",
+        "reassurance_en": "PCOS is one of the most common endocrine conditions in women of reproductive age. With lifestyle modifications and proper treatment, the vast majority of women can live normal lives and have healthy pregnancies. There is no need to feel anxious.",
+    },
+    "pelvic_congestion": {
+        "keywords": {
+            "zh": ["坠胀", "沉重", "充血", "久坐", "经前", "站立加重"],
+            "en": ["heavy", "dragging", "congestion", "sedentary", "premenstrual", "standing"]
+        },
+        "condition_zh": "盆腔静脉淤血 / 器质性充血",
+        "condition_en": "Pelvic Venous Congestion / Organic Congestion",
+        "exam_zh": "盆腔彩色多普勒超声（评估血流情况）\n必要时行盆腔静脉造影",
+        "exam_en": "Pelvic color Doppler ultrasound (blood flow assessment)\nPelvic venography if needed",
+        "reassurance_zh": "盆腔充血多与久坐、缺乏运动有关。通过改善生活方式和针对性的康复训练，绝大多数情况都能得到很好的改善。",
+        "reassurance_en": "Pelvic congestion is often related to sedentary lifestyle and lack of exercise. Most cases improve significantly with lifestyle changes and targeted rehabilitation exercises.",
+    },
+    "fibroids": {
+        "keywords": {
+            "zh": ["肌瘤", "子宫肌瘤", "经量过多", "经期延长", "腹部包块"],
+            "en": ["fibroid", "myoma", "heavy bleeding", "prolonged", "mass"]
+        },
+        "condition_zh": "子宫肌瘤",
+        "condition_en": "Uterine Fibroids",
+        "exam_zh": "盆腔超声（评估肌瘤大小、位置、数量）\n必要时行MRI进一步明确",
+        "exam_en": "Pelvic ultrasound (size, location, number of fibroids)\nMRI if further characterization is needed",
+        "reassurance_zh": "子宫肌瘤是女性最常见的良性肿瘤之一，绝大多数为良性，恶变率极低。治疗方案因人而异，可以是观察、药物或手术，选择非常多。",
+        "reassurance_en": "Uterine fibroids are one of the most common benign tumors in women. The vast majority are benign with an extremely low malignancy rate. Treatment options range from observation to medication to surgery — there are many choices.",
+    },
+    "ovarian_cyst": {
+        "keywords": {
+            "zh": ["囊肿", "卵巢囊肿", "突发剧痛", "扭转", "破裂"],
+            "en": ["cyst", "ovarian", "sudden", "torsion", "rupture"]
+        },
+        "condition_zh": "卵巢囊肿（需排除扭转/破裂等急症）",
+        "condition_en": "Ovarian Cyst (rule out torsion/rupture)",
+        "exam_zh": "急诊盆腔超声\n必要时行急诊CT或MRI\n急症指标：血常规、CRP",
+        "exam_en": "Emergency pelvic ultrasound\nCT or MRI if needed\nEmergency lab: CBC, CRP",
+        "reassurance_zh": "绝大多数卵巢囊肿是生理性的、良性的，会随月经周期自行消退。只有少数情况需要医疗干预。如果有突发剧烈疼痛，及时就医是最安全的选择。",
+        "reassurance_en": "The vast majority of ovarian cysts are physiological and benign, and will resolve on their own with the menstrual cycle. Only a small percentage require medical intervention. If you experience sudden severe pain, seeking medical attention promptly is the safest choice.",
+    },
+    "infection": {
+        "keywords": {
+            "zh": ["发热", "异常分泌物", "异味", "瘙痒", "盆腔炎", "pid", "白带"],
+            "en": ["fever", "discharge", "odor", "itching", "pelvic inflammatory", "pid"]
+        },
+        "condition_zh": "盆腔炎性疾病 / 生殖道感染",
+        "condition_en": "Pelvic Inflammatory Disease / Reproductive Tract Infection",
+        "exam_zh": "妇科检查（双合诊）\n阴道分泌物常规及培养\n血常规、CRP\n衣原体/支原体检测",
+        "exam_en": "Pelvic examination\nVaginal swab and culture\nCBC, CRP\nChlamydia/Mycoplasma testing",
+        "reassurance_zh": "生殖道感染和盆腔炎是可治愈的。及时规范的抗感染治疗可以完全清除病原体，避免远期并发症。不要因为尴尬而拖延就医。",
+        "reassurance_en": "Reproductive tract infections and PID are treatable. Prompt and appropriate antibiotic therapy can fully clear the infection and prevent long-term complications. Please don't delay seeking care due to embarrassment.",
+    },
+}
+
+def match_diseases(dominant_pain: str, symptoms_list: list, accompanying_other: str, spatial_map, lang: str) -> list:
+    """根据症状匹配可能的疾病"""
+    matched = []
+    is_en = lang == 'en'
+    symptom_text = " ".join(symptoms_list or []) + " " + (accompanying_other or "")
+    
+    # 从 spatial_map 提取部位信息
+    location_hints = []
+    if spatial_map:
+        if getattr(spatial_map, 'lowerBack', 0) > 0.3:
+            location_hints.append("腰骶" if not is_en else "lumbosacral")
+        if getattr(spatial_map, 'abdomen', 0) > 0.3:
+            location_hints.append("腹部" if not is_en else "abdomen")
+    
+    for disease_key, rules in DISEASE_RULES.items():
+        keywords = rules["keywords"]["zh" if not is_en else "en"]
+        # 检查痛感类型匹配
+        pain_match = dominant_pain and any(k in dominant_pain for k in keywords)
+        # 检查症状匹配
+        symptom_match = any(k in symptom_text.lower() for k in keywords)
+        # 检查部位匹配
+        location_match = any(k in "".join(location_hints) for k in keywords)
+        if pain_match or symptom_match or location_match:
+            matched.append(disease_key)
+    
+    # 按优先级排序：内异症 > 囊肿 > 肌瘤 > PCOS > 盆腔充血 > 感染
+    priority = ["endometriosis", "ovarian_cyst", "fibroids", "pcos", "pelvic_congestion", "infection"]
+    matched.sort(key=lambda x: priority.index(x) if x in priority else 99)
+    
+    # 最多返回3个，避免太多
+    return matched[:3]
+
+def build_diagnosis_items_fallback(dominant_pain: str, symptoms_list: list, accompanying_other: str, spatial_map, lang: str) -> str:
+    """构建诊断项（降级版）"""
+    is_en = lang == 'en'
+    matched_diseases = match_diseases(dominant_pain, symptoms_list, accompanying_other, spatial_map, lang)
+    
+    items = []
+    # 1. 原发性痛经（始终存在）
+    items.append(
+        "1. Primary dysmenorrhea (functional) — uterine smooth muscle spasm associated with the menstrual cycle"
+        if is_en else
+        "1. 原发性痛经（功能性）—— 与月经周期相关的子宫平滑肌痉挛"
+    )
+    
+    # 2. 匹配到的疾病
+    for i, disease_key in enumerate(matched_diseases, start=2):
+        rules = DISEASE_RULES[disease_key]
+        condition = rules["condition_en"] if is_en else rules["condition_zh"]
+        items.append(
+            f"{i}. {condition} (待排除)"
+            if not is_en else
+            f"{i}. {condition} (rule out)"
+        )
+    
+    return "\n".join(items)
+
+def build_exam_suggestions_fallback(matched_diseases: list, lang: str) -> str:
+    """构建检查建议（降级版）"""
+    is_en = lang == 'en'
+    suggestions = []
+    
+    # 默认检查
+    suggestions.append("Routine gynecological ultrasound" if is_en else "常规妇科超声")
+    
+    for disease_key in matched_diseases:
+        rules = DISEASE_RULES[disease_key]
+        exam = rules["exam_en"] if is_en else rules["exam_zh"]
+        # 拆分多条建议
+        for line in exam.split('\n'):
+            if line.strip() and line.strip() not in suggestions:
+                suggestions.append(line.strip())
+    
+    # 去重并限制数量
+    seen = set()
+    unique_suggestions = []
+    for s in suggestions:
+        if s not in seen:
+            seen.add(s)
+            unique_suggestions.append(s)
+    
+    return "\n".join(unique_suggestions) if is_en else "\n".join(unique_suggestions)
+
+def build_reassurance_fallback(matched_diseases: list, lang: str) -> str:
+    """构建安抚文字（降级版）"""
+    is_en = lang == 'en'
+    
+    base_reassurance = (
+        "Please do not be overly anxious. While your pain does affect your quality of life, clinical statistics show that the vast majority of similar symptoms ultimately point to benign functional dysmenorrhea rather than serious organic disease. Even if further investigation is needed, modern gynecological medicine has very well-established diagnostic and interventional pathways. Your pain is real, but it does not necessarily mean danger — the fact that you are actively recording and confronting it now is itself the most important step."
+        if is_en else
+        "请不必过度焦虑。您描述的疼痛虽然确实影响了生活质量，但从临床统计来看，绝大多数类似症状最终都指向良性的功能性痛经，而非严重的器质性疾病。即便需要进一步排查，现代妇科医学也有非常成熟的诊断和干预路径。疼痛是真实的，但不等于危险——您现在主动记录和面对它，本身就是最重要的一步。"
+    )
+    
+    # 如果有匹配到的疾病，添加针对性的安抚
+    specific_reassurances = []
+    for disease_key in matched_diseases:
+        rules = DISEASE_RULES[disease_key]
+        specific = rules["reassurance_en"] if is_en else rules["reassurance_zh"]
+        specific_reassurances.append(specific)
+    
+    if specific_reassurances:
+        return base_reassurance + "\n\n" + "\n".join(specific_reassurances)
+    return base_reassurance
+
+def build_exam_info_fallback(lang: str) -> str:
+    """构建检查科普（降级版）"""
+    return (
+        "Cost: Gynecological ultrasound is a routine medical insurance item, typically covered by insurance.\nRadiation: Absolutely none. Ultrasound uses sound wave imaging — no ionizing radiation, completely non-invasive and harmless.\nProcess: Takes about 10-15 minutes. You lie flat, gel is applied, and the probe glides gently over the area — completely painless. You can resume normal activities immediately after. Transvaginal ultrasound (if needed) is performed with strict privacy protection."
+        if lang == 'en' else
+        "费用：妇科超声属于医保常规项目，费用约100-300元，绝大多数地区均可医保报销。\n辐射：完全没有。超声检查利用声波成像，不含电离辐射，对人体无创无害。\n过程：约10-15分钟。平躺、涂耦合凝胶、探头轻轻滑动探查，全程无痛。检查结束后即可正常活动。经阴道超声（如有需要）也有严格隐私保护。"
+    )
 
 def calculate_cycle_day_from_lmp(lmp_str: Optional[str], reference_date: Optional[date] = None) -> Tuple[Optional[int], str]:
     if not lmp_str:
@@ -611,11 +802,11 @@ MEDICAL_SYSTEM_PROMPT_ZH = """
   "chief_complaint": "主诉——部位+体感。20字以内。",
   "present_illness": "现病史——学术规范，基于患者数据，含阴性症状。无数值评分。无软件术语。",
   "past_history": "既往史——基于提供数据。无则写'未详述'。绝对不含月经史。",
-  "menstrual_history": "月经史与生育史——必须使用User Prompt中的周期描述。格式：'14 (5/28天) LMP: 2026-07-01. 当前阶段：... 痛经：有。生育史：...'",
-  "clinical_diagnosis": "重点筛查方向——温和、去病理化。必须含安抚文字。",
-  "clinical_suggestions": "两个段落，双换行分隔：建议就诊时与医生讨论的要点：... 妇科专科检查消除恐惧指南：...",
-  "analogy": "伴侣通感隐喻——物理压迫感，拒绝美化。",
-  "work": "请假短信——40字以内，自然得体。",
+  "menstrual_history": "月经史与生育史——必须使用User Prompt中的周期描述。",
+  "clinical_diagnosis": "诊断方向——必须包含以下结构：\n1. 列出2-3个需要排查的方向（具体方向根据患者症状动态判断）\n2. 建议检查项目\n3. 【重要】必须包含安抚文字（参考下方格式）",
+  "clinical_suggestions": "必须包含以下四个模块（使用【】标记）：\n【缓解期自我照护】\n【供您与医生讨论】\n【给您的提醒】\n【关于检查，您可能想知道的】",
+  "analogy": "伴侣通感隐喻",
+  "work": "请假短信——40字以内",
   "action": ["实操建议1", "实操建议2", "实操建议3"],
   "selfCare": ["自愈建议1", "自愈建议2", "消除病耻感安慰"]
 }
@@ -645,6 +836,19 @@ You are a clinical gynecological intake specialist writing a SOAP-style medical 
 
 [OUTPUT FORMAT]
 Strictly output a pure JSON object.
+
+{
+  "chief_complaint": "Brief chief complaint — under 20 words.",
+  "present_illness": "Detailed HPI based on patient data. NO numeric scores. NO software terminology.",
+  "past_history": "Past medical, surgical, and family history. DO NOT include menstrual history.",
+  "menstrual_history": "Menstrual and obstetric history. MUST use exact phase from User Prompt.",
+  "clinical_diagnosis": "Diagnosis direction — must include:\n1. 2-3 potential directions to rule out (dynamically determined based on symptoms)\n2. Recommended examinations\n3. 【Important】Must include reassurance text (see format below)",
+  "clinical_suggestions": "Must include four sections with 【】 markers:\n【Self-Care During Recovery】\n【Questions for Your Doctor】\n【A Note to You】\n【What You May Want to Know About the Exam】",
+  "analogy": "Vivid physical metaphor for support person",
+  "work": "Workplace/school leave message — under 40 words, professional.",
+  "action": ["Actionable suggestion 1", "Actionable suggestion 2", "Actionable suggestion 3"],
+  "selfCare": ["Evidence-based self-care 1", "Self-care 2", "Stigma-reducing reassurance"]
+}
 """
 
 GENERAL_SYSTEM_PROMPT_ZH = """
@@ -694,12 +898,12 @@ Strictly output a pure JSON object.
 FEW_SHOT_EXAMPLE_ZH = """
 [示例 — 仅作参考]
 {
-  "chief_complaint": "周期性下腹部痉挛性收缩感。",
-  "present_illness": "患者既往月经规律。今日处于生理期第2天，盆腔微循环处于自然生理充血状态。感下腹部持续性收紧痛，痛感中等，伴阵发性收缩，向腰骶部有轻度酸胀感。无肛门坠胀感，无尿频尿急，无发热。起病以来精神可，二便正常，体重无明显变化。",
-  "past_history": "既往史：平素健康。无特殊慢性病史。手术史：无腹部及盆腔手术史。过敏史：无明确药物过敏史。",
-  "menstrual_history": "13 (5/28天) LMP: 2026-06-27. 当前处于月经期第2天。痛经：有。生育史：G0P0。",
-  "clinical_diagnosis": "1. 周期性子宫平滑肌痉挛（生理期功能性痛觉高敏可能）\\n\\n💡 请放心：上述筛查仅为临床常规排除项，器质性病变的概率极低，多为一过性敏感，请勿惊慌。",
-  "clinical_suggestions": "【建议就诊时与医生讨论的要点】：\\n1. 结合既往健康档案及痛觉表现，建议请医生在行盆腔超声检查（高性价比、常规无创初筛，多属于医保报销范畴）时评估是否存在局部痉挛或潜在功能性不协调。\\n2. 讨论口服抗炎镇痛药物的针对性调节。\\n\\n【妇科专科检查消除恐惧指南】：\\n妇科超声及妇检检查是极基础的无创初筛排查方法。如果推荐您进行相关检查，请配合医生进行深慢呼吸，主动放松盆底括约肌。医生会提供充分的屏风和隐私防护以保护您的隐私边界与检查尊严。请放心配合医生，尽早明确痛因。",
+  "chief_complaint": "月经期出现下腹部绞痛，伴恶心1天。",
+  "present_illness": "患者26岁，165cm / 55kg。自述月经规律（周期28-30天，经期5天）。本次于月经期第2天出现下腹部持续性绞痛，阵发性加重，向腰骶部放射，伴轻度酸胀感。无肛门坠胀感，无尿频尿急，无发热。起病以来精神可，二便正常，体重无明显变化。日常活动负荷：轻度活动。",
+  "past_history": "平素健康状况良好。无明确高血压、糖尿病等慢性病史。无腹部及盆腔手术史。无明确药物过敏史。生活作息方面，偶有睡眠不足。家族史：母亲有痛经史。生育史：未生育。心理社会评估：低压力。",
+  "menstrual_history": "13岁初潮，经期5天，周期28-30天，规律。LMP：2026-08-10。当前处于月经期第2天。痛经：有。生育史：G0P0。",
+  "clinical_diagnosis": "结合痛觉成像特征及周期性发作规律，需考虑以下方向：\n\n1. 原发性痛经（功能性）—— 与月经周期相关的子宫平滑肌痉挛\n2. 子宫内膜异位症（待排除）—— 腰骶部受累、刺痛性质为典型指向\n\n建议检查：常规妇科超声、盆腔超声（建议月经结束后3-7天复查）。\n\n请不必过度焦虑。您描述的疼痛虽然确实影响了生活质量，但从临床统计来看，绝大多数类似症状最终都指向良性的功能性痛经，而非严重的器质性疾病。即便需要进一步排查，现代妇科医学也有非常成熟的诊断和干预路径。疼痛是真实的，但不等于危险——您现在主动记录和面对它，本身就是最重要的一步。",
+  "clinical_suggestions": "【缓解期自我照护】\n• 温敷下腹部及腰骶部，每次15-20分钟，每日2-3次\n• 静卧休养，采取侧卧胎儿位减轻盆腔张力\n• 适量饮用温热水或姜枣茶，避免生冷、辛辣饮食\n\n【供您与医生讨论】\n• 疼痛是否与月经周期相关？每次持续多久？\n• 疼痛主要集中在下腹部，还是向腰骶部或大腿放射？\n• 是否伴有恶心、腹泻等其他症状？\n• 日常作息、睡眠、饮食、压力情况如何？\n• 既往是否做过妇科检查？结果如何？\n\n【给您的提醒】\n请不必过度焦虑。您的疼痛是真实的，它确实影响了您的生活质量。但从临床统计来看，绝大多数类似症状最终都指向良性的功能性痛经，而非严重的器质性疾病。您主动记录和面对它，本身就是最重要的一步。\n\n【关于检查，您可能想知道的】\n费用：妇科超声属于医保常规项目，费用约100-300元，绝大多数地区均可医保报销。\n辐射：完全没有。超声检查利用声波成像，不含电离辐射，对人体无创无害。\n过程：约10-15分钟。平躺、涂耦合凝胶、探头轻轻滑动探查，全程无痛。检查结束后即可正常活动。经阴道超声（如有需要）也有严格隐私保护。",
   "analogy": "子宫内像藏着一个上紧了发条的金属夹子，在不断收缩拧动，冷意带着尖锐的酸麻感直窜后脊，疼得根本站不直身子。",
   "work": "因今天生理期不适/痛经，特申请请假休息一天，望批准。",
   "action": ["☑️ 准备一个温热的热水袋，帮她放置在下腹部或后腰处进行物理热敷理疗。", "☑️ 帮她倒一杯温热的饮用水，并准备好安全的止痛药。"],
@@ -710,12 +914,12 @@ FEW_SHOT_EXAMPLE_ZH = """
 FEW_SHOT_EXAMPLE_EN = """
 [EXAMPLE — FOR REFERENCE ONLY]
 {
-  "chief_complaint": "Cyclic lower abdominal cramping for 2 days.",
-  "present_illness": "The patient reports cyclic, spasmodic lower abdominal pain associated with menses. Pain is moderate in intensity, with paroxysmal exacerbations radiating to the lumbosacral region. No relief from rest. No rectal pressure, no urinary urgency, no fever. Vital signs are stable. Bowel and bladder functions are normal. No significant weight change.",
-  "past_history": "Past Medical History: Generally healthy. No chronic conditions. Surgical History: No abdominal or pelvic surgery. Allergies: No known drug allergies. Family History: Maternal history of dysmenorrhea.",
-  "menstrual_history": "Menarche at 13, cycles every 28 days, lasting 5 days. LMP: 06/27/2026. Currently on Day 2 of menstruation. Dysmenorrhea: Present. Obstetric history: G0P0.",
-  "clinical_diagnosis": "1. Primary spasmodic dysmenorrhea (rule out). 2. Pelvic congestion (possible). Please note: these are routine differential considerations. Based on the presentation, organic pathology is unlikely.",
-  "clinical_suggestions": "【Discussion points for your provider】:\\n1. Discuss with your gynecologist the possibility of a pelvic ultrasound (a routine, non-invasive screening test, typically covered by insurance) to evaluate for localized spasm or functional incoordination.\\n2. Discuss appropriate anti-inflammatory or analgesic medication tailored to your needs and allergy profile.\\n\\n【Examination preparation guide】:\\nPelvic ultrasound and gynecological examinations are routine, non-invasive screening procedures. If recommended, please cooperate with your physician by taking slow, deep breaths and consciously relaxing your pelvic floor muscles. Medical staff will provide full privacy screens throughout the procedure.",
+  "chief_complaint": "Lower abdominal cramping during menstruation, accompanied by nausea for 1 day.",
+  "present_illness": "Patient is 26 years old, 165cm / 55kg. Reports regular menstrual cycles (28-30 days, 5-day duration). Developed persistent lower abdominal cramping with paroxysmal exacerbations on Day 2 of menstruation, radiating to the lumbosacral region with mild soreness. No rectal pressure, no urinary urgency, no fever. Vital signs are stable. Bowel and bladder functions are normal. No significant weight change. Activity level: light.",
+  "past_history": "Generally healthy. No history of hypertension or diabetes. No abdominal or pelvic surgery. No known drug allergies. Lifestyle: occasional sleep deprivation. Family history: maternal history of dysmenorrhea. Obstetric history: Nulliparous. Psychosocial assessment: low stress.",
+  "menstrual_history": "Menarche at 13, 5-day duration, 28-30 day cycles, regular. LMP: 2026-08-10. Currently on Day 2 of menstruation. Dysmenorrhea: Present. Obstetric history: G0P0.",
+  "clinical_diagnosis": "Based on pain imaging characteristics and cyclical patterns, the following should be considered:\n\n1. Primary dysmenorrhea (functional) — uterine smooth muscle spasm associated with the menstrual cycle\n2. Endometriosis (rule out) — lumbosacral involvement and sharp pain quality are typical indicators\n\nRecommended examinations: Routine gynecological ultrasound, Pelvic ultrasound (preferably 3-7 days after menstruation).\n\nPlease do not be overly anxious. While your pain does affect your quality of life, clinical statistics show that the vast majority of similar symptoms ultimately point to benign functional dysmenorrhea rather than serious organic disease. Even if further investigation is needed, modern gynecological medicine has very well-established diagnostic and interventional pathways. Your pain is real, but it does not necessarily mean danger — the fact that you are actively recording and confronting it now is itself the most important step.",
+  "clinical_suggestions": "【Self-Care During Recovery】\n• Apply warm compress to lower abdomen and lumbosacral area, 15-20 minutes at a time, 2-3 times daily\n• Rest in a side-lying fetal position to reduce pelvic tension\n• Drink warm water or ginger/date tea; avoid cold, raw, and spicy foods\n\n【Questions for Your Doctor】\n• Is your pain related to your menstrual cycle? How long does each episode last?\n• Is the pain mainly in your lower abdomen, or does it radiate to your lower back or thighs?\n• Do you experience any other symptoms like nausea or diarrhea?\n• What is your daily routine like — sleep, diet, stress levels?\n• Have you had any gynecological exams before? What were the results?\n\n【A Note to You】\nPlease do not be overly anxious. Your pain is real, and it does affect your quality of life. However, clinical statistics show that the vast majority of similar symptoms ultimately point to benign functional dysmenorrhea rather than serious organic disease. The fact that you are actively recording and confronting it now is itself the most important step.\n\n【What You May Want to Know About the Exam】\nCost: Gynecological ultrasound is a routine medical insurance item, typically covered by insurance.\nRadiation: Absolutely none. Ultrasound uses sound wave imaging — no ionizing radiation, completely non-invasive and harmless.\nProcess: Takes about 10-15 minutes. You lie flat, gel is applied, and the probe glides gently over the area — completely painless. You can resume normal activities immediately after. Transvaginal ultrasound (if needed) is performed with strict privacy protection.",
   "analogy": "A deep, heavy pressure in the pelvis — like a constant, intense muscle cramp that makes it hard to stand or sit comfortably.",
   "work": "Taking a sick day today. Work is covered.",
   "action": ["Apply a heating pad to your lower abdomen for 15-20 minutes to relieve muscle tension.", "Stay hydrated with warm beverages. Consider over-the-counter pain relief (e.g., ibuprofen) if appropriate for you."],
@@ -726,12 +930,12 @@ FEW_SHOT_EXAMPLE_EN = """
 FEW_SHOT_EXAMPLE_ZH_GENERAL = """
 [示例 — 仅作参考]
 {
-  "chief_complaint": "下腹部痉挛和胀满感。",
-  "present_illness": "下腹部中度痉挛，伴随沉重胀满感。疼痛呈阵发性。精力低下。",
-  "past_history": "身体健康。偶有作息不规律。",
-  "menstrual_history": "当前月经期第2天。痛经：有。",
-  "clinical_diagnosis": "身体正在响应激素变化，这是正常的生理过程。",
-  "clinical_suggestions": "用暖水袋热敷下腹部休息。温热饮品补水。温和拉伸可能有帮助。",
+  "chief_complaint": "月经期出现下腹部绞痛，伴恶心。",
+  "present_illness": "患者25岁，165cm / 55kg。自述月经规律。于月经期出现下腹部绞痛，伴恶心。日常活动负荷：轻度活动。",
+  "past_history": "生活作息方面，睡眠不足、喜食生冷。生育史：未生育。心理社会评估提示低压力。",
+  "menstrual_history": "月经史：13岁初潮，经期5天，周期规律。末次月经：2026-08-17。",
+  "clinical_diagnosis": "结合痛觉成像特征及周期性发作规律，需考虑以下方向：\n\n1. 原发性痛经（功能性）—— 与月经周期相关的子宫平滑肌痉挛\n\n建议检查：常规妇科超声。\n\n请不必过度焦虑。您描述的疼痛虽然确实影响了生活质量，但从临床统计来看，绝大多数类似症状最终都指向良性的功能性痛经，而非严重的器质性疾病。即便需要进一步排查，现代妇科医学也有非常成熟的诊断和干预路径。疼痛是真实的，但不等于危险——您现在主动记录和面对它，本身就是最重要的一步。",
+  "clinical_suggestions": "【缓解期自我照护】\n• 温敷下腹部及腰骶部，每次15-20分钟，每日2-3次\n• 静卧休养，采取侧卧胎儿位减轻盆腔张力\n• 适量饮用温热水或姜枣茶，避免生冷、辛辣饮食\n\n【供您与医生讨论】\n• 疼痛是否与月经周期相关？每次持续多久？\n• 是否伴有恶心、腹泻等其他症状？\n• 日常作息、睡眠、饮食、压力情况如何？\n• 既往是否做过妇科检查？结果如何？\n\n【给您的提醒】\n请不必过度焦虑。您的疼痛是真实的，它确实影响了您的生活质量。但从临床统计来看，绝大多数类似症状最终都指向良性的功能性痛经，而非严重的器质性疾病。您主动记录和面对它，本身就是最重要的一步。\n\n【关于检查，您可能想知道的】\n费用：妇科超声属于医保常规项目，费用约100-300元，绝大多数地区均可医保报销。\n辐射：完全没有。超声检查利用声波成像，不含电离辐射，对人体无创无害。\n过程：约10-15分钟。平躺、涂耦合凝胶、探头轻轻滑动探查，全程无痛。检查结束后即可正常活动。经阴道超声（如有需要）也有严格隐私保护。",
   "analogy": "深层沉重的压迫感——像持续的肌肉收缩。",
   "work": "今天身体不适，请假休息一天。明天恢复。",
   "action": ["下腹部热敷", "舒适姿势休息"],
@@ -742,12 +946,12 @@ FEW_SHOT_EXAMPLE_ZH_GENERAL = """
 FEW_SHOT_EXAMPLE_EN_GENERAL = """
 [EXAMPLE — FOR REFERENCE ONLY]
 {
-  "chief_complaint": "Lower abdominal cramping and bloating.",
-  "present_illness": "Experiencing moderate cramping in the lower pelvis. The pain comes in waves and is accompanied by a heavy, bloated sensation. Energy levels are low.",
-  "past_history": "Generally healthy. Sometimes have irregular sleep patterns.",
-  "menstrual_history": "Currently on Day 2 of menstruation. Dysmenorrhea: Present.",
-  "clinical_diagnosis": "Your body is responding to hormonal shifts. This is a normal physiological process.",
-  "clinical_suggestions": "Rest with a heating pad on your lower abdomen. Stay hydrated with warm beverages. Gentle stretching may help.",
+  "chief_complaint": "Lower abdominal cramping during menstruation, accompanied by nausea.",
+  "present_illness": "Patient is 25 years old, 165cm / 55kg. Reports regular menstrual cycles. Developed lower abdominal cramping during menstruation, accompanied by nausea. Activity level: light.",
+  "past_history": "Lifestyle: sleep deprivation, prefers cold foods. Obstetric history: Nulliparous. Psychosocial assessment: low stress.",
+  "menstrual_history": "Menstrual history: Menarche at 13, 5-day cycles, regular. LMP: 2026-08-17.",
+  "clinical_diagnosis": "Based on pain imaging characteristics and cyclical patterns, the following should be considered:\n\n1. Primary dysmenorrhea (functional) — uterine smooth muscle spasm associated with the menstrual cycle\n\nRecommended examinations: Routine gynecological ultrasound.\n\nPlease do not be overly anxious. While your pain does affect your quality of life, clinical statistics show that the vast majority of similar symptoms ultimately point to benign functional dysmenorrhea rather than serious organic disease. Even if further investigation is needed, modern gynecological medicine has very well-established diagnostic and interventional pathways. Your pain is real, but it does not necessarily mean danger — the fact that you are actively recording and confronting it now is itself the most important step.",
+  "clinical_suggestions": "【Self-Care During Recovery】\n• Apply warm compress to lower abdomen and lumbosacral area, 15-20 minutes at a time, 2-3 times daily\n• Rest in a side-lying fetal position to reduce pelvic tension\n• Drink warm water or ginger/date tea; avoid cold, raw, and spicy foods\n\n【Questions for Your Doctor】\n• Is your pain related to your menstrual cycle? How long does each episode last?\n• Do you experience any other symptoms like nausea or diarrhea?\n• What is your daily routine like — sleep, diet, stress levels?\n• Have you had any gynecological exams before? What were the results?\n\n【A Note to You】\nPlease do not be overly anxious. Your pain is real, and it does affect your quality of life. However, clinical statistics show that the vast majority of similar symptoms ultimately point to benign functional dysmenorrhea rather than serious organic disease. The fact that you are actively recording and confronting it now is itself the most important step.\n\n【What You May Want to Know About the Exam】\nCost: Gynecological ultrasound is a routine medical insurance item, typically covered by insurance.\nRadiation: Absolutely none. Ultrasound uses sound wave imaging — no ionizing radiation, completely non-invasive and harmless.\nProcess: Takes about 10-15 minutes. You lie flat, gel is applied, and the probe glides gently over the area — completely painless. You can resume normal activities immediately after. Transvaginal ultrasound (if needed) is performed with strict privacy protection.",
   "analogy": "A deep, heavy pressure — like a constant internal muscle contraction.",
   "work": "Taking a sick day today. Will be back tomorrow.",
   "action": ["Apply heat to your lower abdomen", "Rest in a comfortable position"],
@@ -1078,15 +1282,107 @@ def _fallback_response(lang: str, painkiller: str, app_mode: str, data: Any) -> 
     if lang == "zh":
         if is_general:
             past_history_raw = f"既往：{diagnosed_cn}。手术史：{surg_cn}。过敏：{allergy_cn}。作息：{lifestyle_cn}。"
-            past_history_marked = mark_user_data_in_text(past_history_raw, user_data_cn, lang)
-            menstrual_marked = f"<user>{menstrual_full}</user>"
+        else:
+            past_history_raw = f"既往史：{diagnosed_cn}。手术史：{surg_cn}。过敏史：{allergy_cn}。生活作息：{lifestyle_cn}。"
+        past_history_marked = mark_user_data_in_text(past_history_raw, user_data_cn, lang)
+        menstrual_marked = f"<user>{menstrual_full}</user>"
+    else:
+        if is_general:
+            past_history_raw = f"Past: {diagnosed_en}. Surgery: {surg_en}. Allergies: {allergy_en}. Lifestyle: {lifestyle_en}."
+        else:
+            past_history_raw = f"Past History: {diagnosed_en}. Surgery: {surg_en}. Allergies: {allergy_en}. Lifestyle: {lifestyle_en}."
+        past_history_marked = mark_user_data_in_text(past_history_raw, user_data_en, lang)
+        menstrual_marked = f"<user>{menstrual_full}</user>"
+    
+    # ---- 构建诊断和建议（使用 matched diseases） ----
+    matched = match_diseases(
+        data.dominantPain,
+        symptoms or [],
+        getattr(mb, 'accompanyingOther', '') if mb else '',
+        data.spatialMap,
+        lang
+    )
+    
+    diagnosis_items = build_diagnosis_items_fallback(
+        data.dominantPain,
+        symptoms or [],
+        getattr(mb, 'accompanyingOther', '') if mb else '',
+        data.spatialMap,
+        lang
+    )
+    
+    exam_suggestions = build_exam_suggestions_fallback(matched, lang)
+    reassurance = build_reassurance_fallback(matched, lang)
+    exam_info = build_exam_info_fallback(lang)
+    
+    # ---- 构建自我照护建议 ----
+    self_care_items = []
+    self_care_items.append(
+        "Apply warm compress to lower abdomen and lumbosacral area, 15-20 minutes at a time, 2-3 times daily"
+        if lang == 'en' else
+        "温敷下腹部及腰骶部，每次15-20分钟，每日2-3次"
+    )
+    self_care_items.append(
+        "Rest in a side-lying fetal position to reduce pelvic tension"
+        if lang == 'en' else
+        "静卧休养，采取侧卧胎儿位减轻盆腔张力"
+    )
+    if data.dominantPain in ['heavy', 'sink']:
+        self_care_items.append(
+            "Elevate hips with a pillow to promote venous return from the pelvis"
+            if lang == 'en' else
+            "用枕头垫高臀部，促进盆腔静脉回流"
+        )
+    else:
+        self_care_items.append(
+            "Drink warm water or ginger/date tea; avoid cold, raw, and spicy foods"
+            if lang == 'en' else
+            "适量饮用温热水或姜枣茶，避免生冷、辛辣饮食"
+        )
+    
+    self_care_text = "\n".join(["• " + item for item in self_care_items])
+    
+    # ---- 构建医生讨论问题 ----
+    discussion_items = []
+    discussion_items.append(
+        "Is your pain related to your menstrual cycle? How long does each episode last?"
+        if lang == 'en' else
+        "疼痛是否与月经周期相关？每次持续多久？"
+    )
+    if symptoms and len(symptoms) > 0:
+        discussion_items.append(
+            f"Do you experience any other symptoms like {', '.join(symptoms)}?"
+            if lang == 'en' else
+            f"是否伴有{'、'.join(symptoms)}等其他症状？"
+        )
+    else:
+        discussion_items.append(
+            "Do you experience any other symptoms like constipation, diarrhea, or nausea?"
+            if lang == 'en' else
+            "是否伴有便秘、腹泻、恶心等其他症状？"
+        )
+    discussion_items.append(
+        "What is your daily routine like — sleep, diet, stress levels?"
+        if lang == 'en' else
+        "日常作息、睡眠、饮食、压力情况如何？"
+    )
+    discussion_items.append(
+        "Have you had any gynecological exams before? What were the results?"
+        if lang == 'en' else
+        "既往是否做过妇科检查？结果如何？"
+    )
+    discussion_text = "\n".join(["• " + item for item in discussion_items])
+    
+    # ---- 组装返回 ----
+    if lang == 'zh':
+        if is_general:
             return {
                 "chief_complaint": f"{pain_desc_cn}。",
                 "present_illness": f"您目前处于{cycle_cn}，{location_cn}有{intensity_cn}{pain_type_cn}，伴随{symptoms_cn}。建议适当休息、注意保暖。",
                 "past_history": past_history_marked,
                 "menstrual_history": menstrual_marked,
-                "clinical_diagnosis": "生理期常见的子宫收缩性不适。多数情况属于正常生理反应，不必过度紧张。",
-                "clinical_suggestions": "【给您的建议】\n• 注意保暖，可用热水袋敷在下腹部\n• 适当休息，避免劳累\n• 如疼痛持续加重，建议及时就医咨询",
+                "clinical_diagnosis": f"{diagnosis_items}\n\n建议检查：\n{exam_suggestions}\n\n{reassurance}",
+                "clinical_suggestions": f"【缓解期自我照护】\n{self_care_text}\n\n【供您与医生讨论】\n{discussion_text}\n\n【给您的提醒】\n{reassurance}\n\n【关于检查，您可能想知道的】\n{exam_info}",
                 "analogy": f"感觉{location_cn}像被什么东西紧紧攥住，一阵一阵地抽着疼。",
                 "work": "今天身体不适，申请休息一天。",
                 "action": [
@@ -1102,16 +1398,13 @@ def _fallback_response(lang: str, painkiller: str, app_mode: str, data: Any) -> 
                 ],
             }
         else:
-            past_history_raw = f"既往史：{diagnosed_cn}。手术史：{surg_cn}。过敏史：{allergy_cn}。生活作息：{lifestyle_cn}。"
-            past_history_marked = mark_user_data_in_text(past_history_raw, user_data_cn, lang)
-            menstrual_marked = f"<user>{menstrual_full}</user>"
             return {
                 "chief_complaint": f"{pain_desc_cn}。",
-                "present_illness": f"患者处于{cycle_cn}，{location_cn}有{intensity_cn}{pain_type_cn}，伴{symptoms_cn}。无发热，无恶心呕吐。二便正常。",
+                "present_illness": f"患者处于{cycle_cn}，{location_cn}有{intensity_cn}{pain_type_cn}，伴{symptoms_cn}。",
                 "past_history": past_history_marked,
                 "menstrual_history": menstrual_marked,
-                "clinical_diagnosis": "1. 原发性痛经（功能性）\n2. 盆腔充血（待排除）\n\n💡 请放心：上述仅为常规筛查方向，器质性病变的可能性很低。",
-                "clinical_suggestions": "【就诊建议】\n• 建议与医生沟通疼痛规律，便于判断\n• 必要时可考虑盆腔超声检查（常规无创筛查）\n\n【检查提醒】\n盆腔超声是常规检查，全程无痛。医护人员会保护您的隐私。",
+                "clinical_diagnosis": f"{diagnosis_items}\n\n建议检查：\n{exam_suggestions}\n\n{reassurance}",
+                "clinical_suggestions": f"【缓解期自我照护】\n{self_care_text}\n\n【供您与医生讨论】\n{discussion_text}\n\n【给您的提醒】\n{reassurance}\n\n【关于检查，您可能想知道的】\n{exam_info}",
                 "analogy": f"感觉{location_cn}有持续的{intensity_cn}牵拉和收缩感。",
                 "work": "因身体不适，申请今天休假一天。",
                 "action": [
@@ -1127,17 +1420,15 @@ def _fallback_response(lang: str, painkiller: str, app_mode: str, data: Any) -> 
                 ],
             }
     else:
+        # 英文版
         if is_general:
-            past_history_raw = f"Past: {diagnosed_en}. Surgery: {surg_en}. Allergies: {allergy_en}. Lifestyle: {lifestyle_en}."
-            past_history_marked = mark_user_data_in_text(past_history_raw, user_data_en, lang)
-            menstrual_marked = f"<user>{menstrual_full}</user>"
             return {
                 "chief_complaint": f"{pain_desc_en}.",
                 "present_illness": f"You are currently in {cycle_en}, experiencing {intensity_en} {pain_type_en} in the {location_en}, with {symptoms_en}. Consider resting and staying warm.",
                 "past_history": past_history_marked,
                 "menstrual_history": menstrual_marked,
-                "clinical_diagnosis": "Common menstrual cramping. Usually a normal physiological response. No need for excessive concern.",
-                "clinical_suggestions": "【Suggestions】\n• Apply a heating pad to your lower abdomen\n• Rest and avoid strenuous activity\n• If pain worsens, consider consulting a healthcare provider",
+                "clinical_diagnosis": f"{diagnosis_items}\n\nRecommended examinations:\n{exam_suggestions}\n\n{reassurance}",
+                "clinical_suggestions": f"【Self-Care During Recovery】\n{self_care_text}\n\n【Questions for Your Doctor】\n{discussion_text}\n\n【A Note to You】\n{reassurance}\n\n【What You May Want to Know About the Exam】\n{exam_info}",
                 "analogy": f"A constant pulling and cramping sensation in the {location_en}.",
                 "work": "Requesting a sick day today due to a health condition.",
                 "action": [
@@ -1153,16 +1444,13 @@ def _fallback_response(lang: str, painkiller: str, app_mode: str, data: Any) -> 
                 ],
             }
         else:
-            past_history_raw = f"Past History: {diagnosed_en}. Surgery: {surg_en}. Allergies: {allergy_en}. Lifestyle: {lifestyle_en}."
-            past_history_marked = mark_user_data_in_text(past_history_raw, user_data_en, lang)
-            menstrual_marked = f"<user>{menstrual_full}</user>"
             return {
                 "chief_complaint": f"{pain_desc_en}.",
-                "present_illness": f"The patient is in {cycle_en}, experiencing {intensity_en} {pain_type_en} in the {location_en}, with {symptoms_en}. No fever. Bowel and bladder functions normal.",
+                "present_illness": f"The patient is in {cycle_en}, experiencing {intensity_en} {pain_type_en} in the {location_en}, with {symptoms_en}.",
                 "past_history": past_history_marked,
                 "menstrual_history": menstrual_marked,
-                "clinical_diagnosis": "1. Primary dysmenorrhea (functional)\n2. Pelvic congestion (rule out)\n\n💡 Please note: These are routine screening considerations. Organic pathology is unlikely.",
-                "clinical_suggestions": "【Discussion points】\n• Consider discussing pain patterns with your provider\n• Pelvic ultrasound may be considered for screening (routine, non-invasive)\n\n【Examination reminder】\nPelvic ultrasound is a routine procedure, painless and non-invasive. Medical staff will protect your privacy.",
+                "clinical_diagnosis": f"{diagnosis_items}\n\nRecommended examinations:\n{exam_suggestions}\n\n{reassurance}",
+                "clinical_suggestions": f"【Self-Care During Recovery】\n{self_care_text}\n\n【Questions for Your Doctor】\n{discussion_text}\n\n【A Note to You】\n{reassurance}\n\n【What You May Want to Know About the Exam】\n{exam_info}",
                 "analogy": f"Continuous pulling and cramping sensation in the {location_en}.",
                 "work": "Requesting sick leave today due to a health condition.",
                 "action": [
@@ -1445,61 +1733,163 @@ def generate_pain_report(data: PainData):
             val = json_data.get(key) if isinstance(json_data, dict) else None
             return val if val and str(val).strip() else fallback_val
 
-        # 获取 LLM 返回的字段
+        # 获取 LLM 返回的原始字段
         chief_complaint = get_safe_field(parsed_json, "chief_complaint", fb["chief_complaint"])
         present_illness = get_safe_field(parsed_json, "present_illness", fb["present_illness"])
         past_history_raw = get_safe_field(parsed_json, "past_history", fb["past_history"])
         menstrual_history_raw = get_safe_field(parsed_json, "menstrual_history", fb["menstrual_history"])
-        clinical_diagnosis = get_safe_field(parsed_json, "clinical_diagnosis", fb["clinical_diagnosis"])
-        clinical_suggestions = get_safe_field(parsed_json, "clinical_suggestions", fb["clinical_suggestions"])
+        clinical_diagnosis_raw = get_safe_field(parsed_json, "clinical_diagnosis", fb["clinical_diagnosis"])
+        clinical_suggestions_raw = get_safe_field(parsed_json, "clinical_suggestions", fb["clinical_suggestions"])
         analogy = get_safe_field(parsed_json, "analogy", fb["analogy"])
         work = get_safe_field(parsed_json, "work", fb["work"])
         action = get_safe_field(parsed_json, "action", fb["action"])
         selfCare = get_safe_field(parsed_json, "selfCare", fb["selfCare"])
 
         # ============================================================
-        # 【核心】对 past_history 和 menstrual_history 进行用户数据标记
+        # ✅ 对 clinical_diagnosis 和 clinical_suggestions 进行后处理
         # ============================================================
-        # 收集用户填写的原始数据
-        user_data = {
-            "diagnosed": diagnosed_history,
-            "surgical": surgical_history_val,
-            "allergy": allergy_history,
-            "lifestyle": lifestyle_final,
-            "menstrual": menstrual_phase_description,
-        }
 
-        # 对 past_history 进行标记
-        past_history_marked = mark_user_data_in_text(past_history_raw, user_data, lang)
+        def build_diagnosis_items(dominant_pain, mb, symptoms_list, spatial_map, cycle_day, lang):
+            """动态构建诊断项列表"""
+            items = []
+            is_en = lang == 'en'
+            has_lower_back = False
+            if spatial_map:
+                has_lower_back = getattr(spatial_map, 'lowerBack', 0) or 0 > 0.3
+            
+            # 1. 原发性痛经（始终存在）
+            items.append(
+                "1. Primary dysmenorrhea (functional) — uterine smooth muscle spasm associated with the menstrual cycle"
+                if is_en else
+                "1. 原发性痛经（功能性）—— 与月经周期相关的子宫平滑肌痉挛"
+            )
+            
+            # 2. 内异症提示
+            endo_reasons = []
+            if dominant_pain in ['pierce', 'scrape']:
+                endo_reasons.append("sharp/stabbing pain quality" if is_en else "刺痛/刮痛性质")
+            if has_lower_back:
+                endo_reasons.append("lumbosacral involvement" if is_en else "腰骶部受累")
+            if symptoms_list and 'lumbosacral' in symptoms_list:
+                endo_reasons.append("lumbosacral pain" if is_en else "腰骶痛")
+            
+            mb_dict = mb.dict() if hasattr(mb, 'dict') else (mb or {})
+            accompanying_other = mb_dict.get('accompanyingOther', '') if isinstance(mb_dict, dict) else ''
+            if '放射' in accompanying_other or '大腿' in accompanying_other:
+                endo_reasons.append("radiating pain" if is_en else "放射痛")
+            
+            if endo_reasons:
+                items.append(
+                    f"2. Endometriosis (rule out) — {', '.join(endo_reasons)} are typical indicators"
+                    if is_en else
+                    f"2. 子宫内膜异位症（待排除）—— {'、'.join(endo_reasons)}为典型指向"
+                )
+            
+            # 3. 盆腔充血提示
+            congestion_reasons = []
+            if dominant_pain in ['heavy', 'sink']:
+                congestion_reasons.append("heavy dragging sensation" if is_en else "坠胀/沉重感")
+            if cycle_day and ('经前' in cycle_day or 'pre' in cycle_day.lower()):
+                congestion_reasons.append("premenstrual timing" if is_en else "经前期")
+            
+            activity = mb_dict.get('activityLevel', '') if isinstance(mb_dict, dict) else ''
+            if activity == 'sedentary':
+                congestion_reasons.append("sedentary lifestyle" if is_en else "久坐生活方式")
+            
+            if congestion_reasons:
+                items.append(
+                    f"3. Pelvic congestion (rule out) — {', '.join(congestion_reasons)} are contributing factors"
+                    if is_en else
+                    f"3. 盆腔器质性充血（待排除）—— {'、'.join(congestion_reasons)}为可能诱因"
+                )
+            
+            return '\n'.join(items)
 
-        # menstrual_history 直接使用用户数据（因为要求严格使用 User Prompt 中的描述）
-        menstrual_history_marked = f"<user>{menstrual_phase_description}</user>"
+        def build_exam_suggestions(dominant_pain, lang):
+            """构建检查建议"""
+            is_en = lang == 'en'
+            suggestions = []
+            suggestions.append("Routine gynecological ultrasound" if is_en else "常规妇科超声")
+            if dominant_pain in ['pierce', 'scrape']:
+                suggestions.append(
+                    "Pelvic ultrasound (preferably 3-7 days after menstruation)"
+                    if is_en else
+                    "盆腔超声（建议月经结束后3-7天）"
+                )
+            return ', '.join(suggestions) if is_en else '、'.join(suggestions)
 
-        # 对 clinical_diagnosis 中的诊断名称也进行标记（如果有用户确诊史）
-        clinical_diagnosis_marked = clinical_diagnosis
-        # 如果用户有确诊史，在 clinical_diagnosis 中标记
-        if diagnosed_history and diagnosed_history not in ["无明确妇科疾病确诊史", "无明确确诊史", "No confirmed gynecological conditions", "No confirmed conditions"]:
-            clinical_diagnosis_marked = mark_user_data_in_text(clinical_diagnosis, user_data, lang)
+        def get_reassurance(lang):
+            """获取安抚文字"""
+            return (
+                "Please do not be overly anxious. While your pain does affect your quality of life, clinical statistics show that the vast majority of similar symptoms ultimately point to benign functional dysmenorrhea rather than serious organic disease. Even if further investigation is needed, modern gynecological medicine has very well-established diagnostic and interventional pathways. Your pain is real, but it does not necessarily mean danger — the fact that you are actively recording and confronting it now is itself the most important step."
+                if lang == 'en' else
+                "请不必过度焦虑。您描述的疼痛虽然确实影响了生活质量，但从临床统计来看，绝大多数类似症状最终都指向良性的功能性痛经，而非严重的器质性疾病。即便需要进一步排查，现代妇科医学也有非常成熟的诊断和干预路径。疼痛是真实的，但不等于危险——您现在主动记录和面对它，本身就是最重要的一步。"
+            )
 
-        # 对 present_illness 中的用户数据也进行标记（如 LMP、周期等）
-        present_illness_marked = present_illness
-        # 如果 LMP 存在，在现病史中标记
-        if lmp_val and lmp_val not in ["未提供", "Not provided"]:
-            present_illness_marked = mark_user_data_in_text(present_illness_marked, {"lmp": lmp_val}, lang)
-        # 如果周期天数存在，标记
-        if menarche_val and menarche_val not in ["未详述", "Not specified"]:
-            present_illness_marked = mark_user_data_in_text(present_illness_marked, {"menarche": menarche_val}, lang)
+        def get_exam_info(lang):
+            """获取检查科普信息"""
+            return (
+                "Cost: Gynecological ultrasound is a routine medical insurance item, typically covered by insurance.\nRadiation: Absolutely none. Ultrasound uses sound wave imaging — no ionizing radiation, completely non-invasive and harmless.\nProcess: Takes about 10-15 minutes. You lie flat, gel is applied, and the probe glides gently over the area — completely painless. You can resume normal activities immediately after. Transvaginal ultrasound (if needed) is performed with strict privacy protection."
+                if lang == 'en' else
+                "费用：妇科超声属于医保常规项目，费用约100-300元，绝大多数地区均可医保报销。\n辐射：完全没有。超声检查利用声波成像，不含电离辐射，对人体无创无害。\n过程：约10-15分钟。平躺、涂耦合凝胶、探头轻轻滑动探查，全程无痛。检查结束后即可正常活动。经阴道超声（如有需要）也有严格隐私保护。"
+            )
 
+        # 构建增强版的 clinical_diagnosis 和 clinical_suggestions
+        reassurance_text = get_reassurance(lang)
+        exam_info_text = get_exam_info(lang)
+
+        # 如果 LLM 返回的内容已经是完整的，则直接使用；否则用动态构建的
+        if clinical_diagnosis_raw and len(clinical_diagnosis_raw) > 50:
+            # LLM 返回了完整内容，直接使用
+            clinical_diagnosis_final = clinical_diagnosis_raw
+        else:
+            # 动态构建
+            diagnosis_items = build_diagnosis_items(
+                data.dominantPain, 
+                mb, 
+                data.accompanyingSymptoms or [], 
+                data.spatialMap, 
+                data.cycleDay, 
+                lang
+            )
+            exam_suggestions = build_exam_suggestions(data.dominantPain, lang)
+            clinical_diagnosis_final = f"{diagnosis_items}\n\n建议检查：{exam_suggestions}。\n\n{reassurance_text}"
+
+        # 对 clinical_suggestions 做同样处理
+        if clinical_suggestions_raw and len(clinical_suggestions_raw) > 50:
+            clinical_suggestions_final = clinical_suggestions_raw
+        else:
+            # 构建结构化内容
+            self_care_items = "\n".join([
+                "• " + ("Apply warm compress to lower abdomen and lumbosacral area, 15-20 minutes at a time, 2-3 times daily" if lang == 'en' else "温敷下腹部及腰骶部，每次15-20分钟，每日2-3次"),
+                "• " + ("Rest in a side-lying fetal position to reduce pelvic tension" if lang == 'en' else "静卧休养，采取侧卧胎儿位减轻盆腔张力"),
+                "• " + ("Drink warm water or ginger/date tea; avoid cold, raw, and spicy foods" if lang == 'en' else "适量饮用温热水或姜枣茶，避免生冷、辛辣饮食"),
+            ])
+            
+            discussion_items = "\n".join([
+                "• " + ("Is your pain related to your menstrual cycle? How long does each episode last?" if lang == 'en' else "疼痛是否与月经周期相关？每次持续多久？"),
+                "• " + ("Do you experience any other symptoms like constipation, diarrhea, or nausea?" if lang == 'en' else "是否伴有便秘、腹泻、恶心等其他症状？"),
+                "• " + ("What is your daily routine like — sleep, diet, stress levels?" if lang == 'en' else "日常作息、睡眠、饮食、压力情况如何？"),
+                "• " + ("Have you had any gynecological exams before? What were the results?" if lang == 'en' else "既往是否做过妇科检查？结果如何？"),
+            ])
+            
+            clinical_suggestions_final = (
+                f"【Self-Care During Recovery】\n{self_care_items}\n\n【Questions for Your Doctor】\n{discussion_items}\n\n【A Note to You】\n{reassurance_text}\n\n【What You May Want to Know About the Exam】\n{exam_info_text}"
+                if lang == 'en' else
+                f"【缓解期自我照护】\n{self_care_items}\n\n【供您与医生讨论】\n{discussion_items}\n\n【给您的提醒】\n{reassurance_text}\n\n【关于检查，您可能想知道的】\n{exam_info_text}"
+            )
+
+            # 返回时使用处理后的内容
         return {
             "status": "success",
             "language": lang,
             "appMode": app_mode,
             "chief_complaint": chief_complaint,
-            "present_illness": present_illness_marked,
-            "past_history": past_history_marked,
-            "menstrual_history": menstrual_history_marked,
-            "clinical_diagnosis": clinical_diagnosis_marked,
-            "clinical_suggestions": clinical_suggestions,
+            "present_illness": present_illness,
+            "past_history": past_history_raw,
+            "menstrual_history": menstrual_history_raw,
+            "clinical_diagnosis": clinical_diagnosis_final,  # ✅ 使用处理后的
+            "clinical_suggestions": clinical_suggestions_final,  # ✅ 使用处理后的
             "analogy": analogy,
             "work": work,
             "action": action,

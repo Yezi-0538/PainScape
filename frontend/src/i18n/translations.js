@@ -92,6 +92,34 @@ const translations = {
         "这不是矫情，这是一场真切的生理型灾难。",
       ],
     },
+    // zh
+    privacy: {
+      title: "隐私政策",
+      subtitle: "在您使用 PainScape 前，请先阅读并同意以下条款",
+      promise: "我们承诺",
+      promiseItems: [
+        "您的疼痛记录默认仅保存在本地设备，不上传云端",
+        "云端存储的数据经过加密，仅您本人可以查看",
+        "您随时可以删除自己的所有数据",
+        "我们不会向任何第三方出售或共享您的个人信息"
+      ],
+      readMore: "📄 阅读完整隐私政策",
+      agree: "同意并继续",
+      disagree: "不同意",
+      policyContentTitle: "PainScape 隐私政策（试用版）",
+      policyContent: `
+    PainScape 是一款记录和表达疼痛的工具。
+    试用期间，您填写的数据仅用于帮助您生成个性化的疼痛报告。
+    
+    我们将保护您的隐私：
+    • 您可以选择匿名登录，数据仅保存在本地
+    • 注册登录后，您的数据将加密存储在云端
+    • 您随时可以查看、修改或删除自己的数据
+    • 我们不会向任何第三方共享您的个人信息
+    
+    如您有疑问，可私信官方小红书账号PainScape.
+  `,
+    },
     modeSelection: {
       title: "选择您的使用场景",
       medicalTab: "就诊协助",
@@ -443,10 +471,10 @@ const translations = {
         description: "客观描述身体状况，保持职场规范的同时为任务交接留出转圜空间。",
         copyTemplate: "📋 复制请假文本",
         recipients: {
-          manager: "💼 经理/HR",
-          teacher: "🏫 教授/老师",
-          client: "👥 客户/合作方",
-          friend: "🫂 朋友/同伴"
+          manager: "经理/HR",
+          teacher: "教授/老师",
+          client: "客户/合作方",
+          friend: "朋友/同伴"
         },
         tones: {
           polite: "🌿 温暖礼貌版",
@@ -1305,7 +1333,13 @@ const translations = {
       clickToEditTitle: "点击编辑",
       sourceUser: "📋 用户填写",
       sourceAi: "🤖 AI 分析",
+      // ✅ 视图切换
+      viewUser: "👤 用户视图",
+      viewDoctor: "🏥 医生视图",
+      viewModeTitle: "查看模式",
 
+      // ✅ 导出相关（医生视图用）
+      doctorViewHint: "此视图为结构化病历，适合向医生展示。",
     },
     // ============ ✅ 新增：默认模板（用于 generateContent 后备） ============
     defaultTemplates: {
@@ -1314,7 +1348,7 @@ const translations = {
       defaultActions: '☑️ 帮她热敷小腹并准备好止痛药。\n☑️ 给她倒杯温水，陪伴在她身边。\n☑️ 调暗灯光，让她安静休息。',
       workTemplate: '领导您好：本人今日突发严重{{pain}}，身体状态无法维持正常工作，申请休假一天，望批准。紧急事务已做交接安排。感谢您的理解。',
 
-      // ✅ 新增：占位符默认值
+      // ✅ 占位符默认值
       notProvided: "未提供",
       noSymptoms: "无明显伴随症状",
       noDiagnosis: "无明确妇科疾病确诊史",
@@ -1325,9 +1359,9 @@ const translations = {
       noReproductive: "未提供",
       noPsychosocial: "未提供",
 
-      // ✅ 修改：支持变量替换的模板
-      chief_complaint: '月经期出现腹部{{pain}}，伴{{symptoms}}。',
-      present_illness: '患者{{age}}，{{heightWeight}}。自述月经{{cycleRegular}}。自述于{{cycleDay}}突发{{pain}}，伴{{symptoms}}。日常活动负荷：{{activityLevel}}。',
+      // ✅ 支持变量替换的模板
+      chiefComplaint: '{{timing}}出现{{location}}{{pain}}，伴{{symptoms}}。',
+      presentillness: '患者{{age}}，{{heightWeight}}。自述月经{{cycleRegular}}。{{timing}}出现{{location}}{{pain}}，伴{{symptoms}}。日常活动负荷：{{activityLevel}}。',
       pastHistoryDiagnosis: '患者既往{{diagnosed}}病史。',
       pastHistorySurgery: '曾行{{surgery}}。',
       pastHistoryAllergy: '对{{allergy}}过敏。',
@@ -1341,32 +1375,33 @@ const translations = {
       presentIllnessOnset: '于{{cycleDay}}突发{{pain}}。',
       presentIllnessSymptoms: '伴{{symptoms}}。',
       presentIllnessActivity: '日常活动负荷：{{activityLevel}}。',
-      menstrual_history: '月经史：{{menarche}}岁初潮，经期{{periodDuration}}天，周期{{cycleRegular}}。末次月经：{{lmp}}。',
-      clinical_diagnosis: '结合痛觉成像，建议排查子宫内膜异位症、子宫平滑肌痉挛或盆腔器质性充血。建议行妇科超声筛查。',
-      clinical_suggestions: '温敷小腹与腰骶，静卧休养。若症状持续加重建议常规门诊行超声探查。',
-      medication: '布洛芬',
-      defaultActions: '☑️ 帮她热敷小腹并准备好止痛药。\n☑️ 给她倒杯温水，陪伴在她身边。\n☑️ 调暗灯光，让她安静休息。',
-      workTemplate: '领导您好：本人今日突发严重{{pain}}，身体状态无法维持正常工作，申请休假一天，望批准。紧急事务已做交接安排。感谢您的理解。',
-    },
+      menstrualHistory: '月经史：{{menarche}}岁初潮，经期{{periodDuration}}天，周期{{cycleRegular}}。末次月经：{{lmp}}。',
 
-    // ============ 医生视图标签 ============
+      clinicalDiagnosis: '结合痛觉成像特征及周期性发作规律，需考虑以下方向：\n\n{{diagnosisItems}}\n\n建议检查：{{examSuggestions}}。\n\n{{reassurance}}',
+
+      clinicalSuggestions: '【缓解期自我照护】\n{{selfCareItems}}\n\n【供您与医生讨论】\n{{discussionItems}}\n\n【给您的提醒】\n{{reassurance}}\n\n【关于检查，您可能想知道的】\n{{examInfo}}',
+
+      clinicalDiagnosisStructured: '结合痛觉成像特征及周期性发作规律，需考虑以下方向：\n\n{{diagnosisItems}}\n\n建议检查：{{examSuggestions}}。',
+
+      clinicalSuggestionsStructured: '缓解措施：\n{{selfCareItems}}',
+
+      // ✅ 新增：各模块标题（用于分开展示时）
+      moduleSelfCare: '缓解期自我照护',
+      moduleDiscussion: '供您与医生讨论',
+      moduleReminder: '给您的提醒',
+      moduleExamInfo: '关于检查，您可能想知道的',
+    },
     doctorTab: {
       chiefComplaint: "主诉",
       presentIllness: "现病史与痛觉描述",
       pastHistory: "既往史与个人习惯",
       menstrualObstetricHistory: "月经与婚育史",
       clinicalDiagnosis: "临床诊断与筛查建议",
-      clinicalAdvice: "临床干预与检查引导",
-      discussionPoints: "建议就诊时与医生讨论：",
-      discussionReference: "供就诊讨论参考",
-      examPreparation: "患者检查须知：",
-      referenceKnowledge: "参考知识库",
-      doctorFeedbackPanel: "医生报告深度优化面板",
-      optimizeComplaint: "调优主诉",
-      optimizeAnalysis: "调优病生理分析",
-      optimizeGuidance: "调优就诊引导",
+      selfCareTitle: "缓解期自我照护",
+      discussionTitle: "供您与医生讨论",
+      reminderTitle: "给您的提醒",
+      examInfoTitle: "关于检查，您可能想知道的",
     },
-
     // ============ 自愈弹窗标签 ============
     healingModal: {
       breathing: "呼吸共愈 | 音频潮汐呼吸引导，放松盆底肌",
@@ -1518,6 +1553,34 @@ const translations = {
         "Your body is a battlefield  allow it to bear the marks of the storm.",
         "This is not an overreaction; this is a real physiological crisis.",
       ],
+    },
+    // en
+    privacy: {
+      title: "Privacy Policy",
+      subtitle: "Please read and agree to the following terms before using PainScape",
+      promise: "Our Promise",
+      promiseItems: [
+        "Your pain records are stored locally by default, not automatically uploaded",
+        "Cloud data is encrypted and only accessible by you",
+        "You can delete all your data at any time",
+        "We will never sell or share your personal information with third parties"
+      ],
+      readMore: "📄 Read Full Privacy Policy",
+      agree: "Agree & Continue",
+      disagree: "Disagree",
+      policyContentTitle: "PainScape Privacy Policy (Beta)",
+      policyContent: `
+    PainScape is a tool for recording and expressing pain.
+    During the trial, your data is used solely to help generate personalized pain reports.
+    
+    We protect your privacy:
+    • You can log in anonymously — data stays locally on your device
+    • After signing up, your data is encrypted and stored in the cloud
+    • You can view, edit, or delete your data at any time
+    • We never share your personal information with third parties
+    
+    If you have any questions, please contact offical RedNote Account: PainScape.
+  `,
     },
     modeSelection: {
       title: "Choose Your Purpose",
@@ -2627,16 +2690,72 @@ const translations = {
 
     // ============ ✅ 新增：默认模板（用于 generateContent 后备） ============
     defaultTemplates: {
-      chief_complaint: 'Recurrent lower abdominal {{pain}} during menstruation, accompanied by {{symptoms}} for 1 day.',
-      present_illness: 'Patient reports regular menstrual cycles. Sudden onset of {{pain}} today (day {{cycleDay}} of menstruation). Pain image reconstruction shows high pain scores with typical {{analogy}}, limited activity.',
-      past_history: 'Generally healthy. No history of hypertension, diabetes, or other chronic diseases. No surgical history or food/drug allergies.',
-      menstrual_history: 'Menstrual history: Menarche at 13, 5-day duration, 28-30 day cycle.',
-      clinical_diagnosis: 'Based on pain imaging, recommend evaluation for endometriosis, uterine smooth muscle spasms, or pelvic organic congestion. Pelvic ultrasound is recommended.',
-      clinical_suggestions: 'Apply warm compress to lower abdomen and lumbosacral area, rest in supine position. If symptoms persist, schedule outpatient ultrasound examination.',
       medication: 'Ibuprofen',
       defaultActions: '☑️ Apply warm compress to her lower abdomen and prepare pain medication.\n☑️ Bring her a glass of warm water and stay by her side.\n☑️ Dim the lights and let her rest quietly.',
-    },
+      workTemplate: 'Dear Manager, I am experiencing severe {{pain}} today and am unable to work. I kindly request a day off. Urgent matters have been handed over. Thank you for your understanding.',
 
+      // ✅ Placeholder defaults
+      notProvided: "Not provided",
+      noSymptoms: "No significant accompanying symptoms",
+      noDiagnosis: "No confirmed gynecological conditions",
+      noSurgery: "No surgery",
+      noAllergy: "No known drug allergies",
+      noLifestyle: "No significant lifestyle factors",
+      noFamilyHistory: "No family history",
+      noReproductive: "Not specified",
+      noPsychosocial: "Not specified",
+
+      // ✅ Variable substitution templates
+      chiefComplaint: '{{timing}} {{location}} {{pain}}, accompanied by {{symptoms}}.',
+
+      presentillness: 'Patient is {{age}}, {{heightWeight}}. Reports {{cycleRegular}} menstrual cycles. {{timing}} developed {{location}} {{pain}}, accompanied by {{symptoms}}. Activity level: {{activityLevel}}.',
+
+      pastHistoryDiagnosis: 'Patient has a history of {{diagnosed}}.',
+      pastHistorySurgery: 'Surgical history: {{surgery}}.',
+      pastHistoryAllergy: 'Allergies: {{allergy}}.',
+      pastHistoryLifestyle: 'Lifestyle: {{lifestyle}}.',
+      pastHistoryFamily: 'Family history: {{familyHistory}}.',
+      pastHistoryReproductive: 'Obstetric history: {{reproductiveHistory}}.',
+      pastHistoryPsychosocial: 'Psychosocial assessment: {{psychosocial}}.',
+      pastHistoryNone: 'No significant medical history reported.',
+
+      presentIllnessAge: 'Patient is {{age}}, {{heightWeight}}.',
+      presentIllnessCycle: 'Reports {{cycleRegular}} menstrual cycles.',
+      presentIllnessOnset: 'Developed {{pain}} during {{cycleDay}}.',
+      presentIllnessSymptoms: 'Accompanied by {{symptoms}}.',
+      presentIllnessActivity: 'Activity level: {{activityLevel}}.',
+
+      menstrualHistory: 'Menstrual history: Menarche at {{menarche}}, {{periodDuration}}-day cycles, {{cycleRegular}}. LMP: {{lmp}}.',
+
+      clinicalDiagnosis: 'Based on pain imaging characteristics and cyclical patterns, the following should be considered:\n\n{{diagnosisItems}}\n\nRecommended examinations: {{examSuggestions}}.\n\n{{reassurance}}',
+
+      clinicalSuggestions: '【Self-Care During Recovery】\n{{selfCareItems}}\n\n【Questions for Your Doctor】\n{{discussionItems}}\n\n【A Note to You】\n{{reassurance}}\n\n【What You May Want to Know About the Exam】\n{{examInfo}}',
+
+      clinicalDiagnosisStructured: 'Based on pain imaging characteristics and cyclical patterns, the following should be considered:\n\n{{diagnosisItems}}\n\nRecommended examinations: {{examSuggestions}}.',
+
+      clinicalSuggestionsStructured: 'Recommended measures:\n{{selfCareItems}}',
+
+      // ✅ 新增：各模块标题（用于分开展示时）
+      moduleSelfCare: 'Self-Care During Recovery',
+      moduleDiscussion: 'Questions for Your Doctor',
+      moduleReminder: 'A Note to You',
+      moduleExamInfo: 'What You May Want to Know About the Exam',
+    },
+    doctorTab: {
+      chiefComplaint: "Chief Complaint",
+      presentIllness: "Present Illness & Pain Description",
+      pastHistory: "Past History & Personal Habits",
+      menstrualObstetricHistory: "Menstrual & Obstetric History",
+      clinicalDiagnosis: "Clinical Diagnosis & Screening Recommendations",
+      clinicalAdvice: "Self-Care During Remission",
+      discussionPoints: "Points for Discussion with Your Doctor",
+      reminder: "Reminders for You",
+      aboutExam: "About Examinations: What You May Want to Know",
+      selfCareTitle: "Self-Care During Recovery",
+      discussionTitle: "Questions for Your Doctor",
+      reminderTitle: "A Note to You",
+      examInfoTitle: "What You May Want to Know About the Exam",
+    },
     // ============ Result page labels ============
     resultLabels: {
       companionGuide: "Period Companion Guide",
@@ -2717,45 +2836,10 @@ const translations = {
       optimizeFailed: "Optimization failed",
       clickToEdit: "Click to edit...",
       clickToEditTitle: "Click to edit",
-    },
-    defaultTemplates: {
-      // Default Values
-      medication: 'Ibuprofen',
-      defaultActions: '☑️ Apply a warm compress to her lower abdomen and prepare painkillers.\n☑️ Pour her a glass of warm water and stay by her side.\n☑️ Dim the lights and let her rest quietly.',
-
-      // ✅ New: Placeholder default values
-      notProvided: "Not provided",
-      noSymptoms: "No significant accompanying symptoms",
-      noDiagnosis: "No confirmed gynecological disease history",
-      noSurgery: "No surgical history",
-      noAllergy: "No known drug allergies",
-      noLifestyle: "No unusual lifestyle habits",
-      noFamilyHistory: "No family history",
-      noReproductive: "Not provided",
-      noPsychosocial: "Not provided",
-
-      // ✅ Modified: Templates supporting variable substitution
-      chief_complaint: 'Experiencing abdominal {{pain}} during menstruation, accompanied by {{symptoms}}.',
-      present_illness: 'Patient is {{age}}, {{heightWeight}}. Reports menstrual cycle is {{cycleRegular}}. Reports sudden onset of {{pain}} on cycle day {{cycleDay}}, accompanied by {{symptoms}}. Daily activity load: {{activityLevel}}.',
-      pastHistoryDiagnosis: 'Patient has a history of {{diagnosed}}.',
-      pastHistorySurgery: 'Previously underwent {{surgery}}.',
-      pastHistoryAllergy: 'Allergic to {{allergy}}.',
-      pastHistoryLifestyle: 'Regarding lifestyle, {{lifestyle}}.',
-      pastHistoryFamily: 'Family history: {{familyHistory}}.',
-      pastHistoryReproductive: 'Reproductive history: {{reproductiveHistory}}.',
-      pastHistoryPsychosocial: 'Psychosocial assessment indicates {{psychosocial}}.',
-      pastHistoryNone: 'No significant past medical history reported.',
-      presentIllnessAge: 'Patient is {{age}}, {{heightWeight}}.',
-      presentIllnessCycle: 'Reports menstrual cycle is {{cycleRegular}}.',
-      presentIllnessOnset: 'Sudden onset of {{pain}} on cycle day {{cycleDay}}.',
-      presentIllnessSymptoms: 'Accompanied by {{symptoms}}.',
-      presentIllnessActivity: 'Daily activity load: {{activityLevel}}.',
-      menstrual_history: 'Menstrual history: Menarche at {{menarche}} years, period duration {{periodDuration}} days, cycle {{cycleRegular}}. Last menstrual period (LMP): {{lmp}}.',
-      clinical_diagnosis: 'Based on pain imaging, it is recommended to rule out endometriosis, uterine smooth muscle spasm, or pelvic organic congestion. Gynecological ultrasound screening is advised.',
-      clinical_suggestions: 'Apply warm compresses to the lower abdomen and lumbosacral region, and rest in a supine position. If symptoms persist or worsen, routine outpatient ultrasound examination is recommended.',
-      medication: 'Ibuprofen',
-      defaultActions: '☑️ Apply a warm compress to her lower abdomen and prepare painkillers.\n☑️ Pour her a glass of warm water and stay by her side.\n☑️ Dim the lights and let her rest quietly.',
-      workTemplate: 'Dear Leader: I am experiencing sudden severe {{pain}} today and am unable to perform my normal work duties. I am requesting one day of sick leave, and I kindly ask for your approval. Urgent matters have been properly handed over. Thank you for your understanding.',
+      viewUser: "👤 User View",
+      viewDoctor: "🏥 Doctor View",
+      viewModeTitle: "View Mode",
+      doctorViewHint: "This is a structured medical record, suitable for sharing with your doctor.",
     },
     // ============ Onboarding labels ============
     onboardingLabels: {
@@ -2835,23 +2919,7 @@ const translations = {
       clinicalHiddenTitle: "Clinical History Hidden",
       clinicalHiddenDesc: "You have selected the general/community sharing mode. No need to collect menstrual history or other complex background information. You can directly set your companionship and self-care preferences in the final step.",
     },
-    // ============ Doctor tab labels ============
-    doctorTab: {
-      chiefComplaint: "Chief Complaint",
-      presentIllness: "History of Present Illness & Pain Mechanism Analysis",
-      pastHistory: "Past History & Personal Habit Risks",
-      menstrualObstetricHistory: "Menstrual & Reproductive History",
-      clinicalDiagnosis: "Clinical Diagnosis & Screening Suggestions",
-      clinicalAdvice: "Clinical Intervention & Exam Guidance",
-      discussionPoints: "Discussion Points for Your Doctor Visit:",
-      discussionReference: "For discussion with your doctor",
-      examPreparation: "Exam Preparation:",
-      referenceKnowledge: "Reference Knowledge Base",
-      doctorFeedbackPanel: "Doctor Report Deep Optimization Panel",
-      optimizeComplaint: "Optimize Complaint",
-      optimizeAnalysis: "Optimize Pathophysiology Analysis",
-      optimizeGuidance: "Optimize Consultation Guidance",
-    },
+
     // ============ Self-care healing modal ============
     healingModal: {
       breathing: "Breathe Together | Audio tidal breathing guidance, relax pelvic floor muscles",

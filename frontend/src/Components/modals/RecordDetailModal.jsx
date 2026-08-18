@@ -32,9 +32,9 @@ const getReportDataForModal = (viewingDiary, isEn, t) => {
       if (containsChinese(rd.chief_complaint) || containsChinese(rd.present_illness) || containsChinese(rd.action)) {
         const painName = t(`painNames.${dominantKey}`) || dominantKey;
         const analogy = t(`painTemplates.${dominantKey}.analogy`) || '';
-        const chief = t('defaultTemplates.chief_complaint', { pain: painName, symptoms: 'No significant accompanying symptoms' });
-        const illness = t('defaultTemplates.present_illness', { pain: painName, cycleDay: viewingDiary?.cycleDay || 'X', analogy });
-        const diag = t('defaultTemplates.clinical_diagnosis');
+        const chief = t('defaultTemplates.chiefComplaint', { pain: painName, symptoms: 'No significant accompanying symptoms' });
+        const illness = t('defaultTemplates.presentillness', { pain: painName, cycleDay: viewingDiary?.cycleDay || 'X', analogy });
+        const diag = t('defaultTemplates.clinicalDiagnosis');
         const selfCare = t(`painTemplates.${dominantKey}.selfCare`);
 
         const prefKey = viewingDiary?.userPrefs?.[0] || 'care';
@@ -49,9 +49,9 @@ const getReportDataForModal = (viewingDiary, isEn, t) => {
       if (containsEnglish(rd.chief_complaint) || containsEnglish(rd.present_illness)) {
         const painName = t(`painNames.${dominantKey}`) || '痛经';
         const analogy = t(`painTemplates.${dominantKey}.analogy`) || '';
-        const chief = t('defaultTemplates.chief_complaint', { pain: painName, symptoms: '无明显伴随症状' });
-        const illness = t('defaultTemplates.present_illness', { pain: painName, cycleDay: viewingDiary?.cycleDay || 'X', analogy });
-        const diag = t('defaultTemplates.clinical_diagnosis');
+        const chief = t('defaultTemplates.chiefComplaint', { pain: painName, symptoms: '无明显伴随症状' });
+        const illness = t('defaultTemplates.presentillness', { pain: painName, cycleDay: viewingDiary?.cycleDay || 'X', analogy });
+        const diag = t('defaultTemplates.clinicalDiagnosis');
         const selfCare = t(`painTemplates.${dominantKey}.selfCare`);
 
         const prefKey = viewingDiary?.userPrefs?.[0] || 'care';

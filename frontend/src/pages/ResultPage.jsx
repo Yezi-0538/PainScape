@@ -394,6 +394,7 @@ export default function ResultPage({
   identity = 'partner',
   setIdentity,
   editedContents = {},
+  spatialMap = {},
   medicalBackground = {},
   setEditedContents,
   editingField,
@@ -413,10 +414,13 @@ export default function ResultPage({
   prepareSharePreview,
   setHealingState,
   randomPartnerTips = [],
-  handleCopy = () => {},
+  handleCopy = () => { },
 }) {
+  console.log('🔍 ResultPage content:', content);
+  console.log('🔍 content.clinical_suggestions:', content.clinical_suggestions);
+  console.log('🔍 content.full_content:', content.full_content);
   const { t, lang, toggleLang } = useI18n();
-
+  const [viewMode, setViewMode] = useState('user'); // 'user' | 'doctor'
   const [showPublishModal, setShowPublishModal] = useState(false);
   const [publishTitleText, setPublishTitleText] = useState('');
 
@@ -433,9 +437,20 @@ export default function ResultPage({
       [fieldKey]: value,
     });
   };
-
+  const getDisplayContent = (fieldKey) => {
+    if (viewMode === 'doctor') {
+      // 医生模式：直接返回结构化字段
+      return content[fieldKey] || '';
+    }
+    // 用户模式：优先使用 full_content
+    if (content.full_content && content.full_content[fieldKey] !== undefined) {
+      return content.full_content[fieldKey];
+    }
+    return content[fieldKey] || '';
+  };
   const getWorkText = useCallback(() => {
     if (editedContents?.workText !== undefined) return editedContents.workText;
+
     const toneMap = {
       polite: 'formal',
       objective: 'neutral',
@@ -443,79 +458,18 @@ export default function ResultPage({
       neutral: 'neutral',
       casual: 'casual',
     };
-    const workScenarios = {
-      zh: {
-        manager: {
-          formal: '领导您好：因身体不适，申请今天休假一天。紧急事务已交接，明天恢复正常工作。',
-          neutral: '今天身体不适，请假一天。工作已安排妥当。',
-          casual: '身体不太舒服，今天请假休息一天，不好意思。',
-        },
-        teacher: {
-          formal: '老师您好！因身体不适，今日无法到课。已安排同学代为记录课堂内容。',
-          neutral: '今天身体不适，请假缺席课程。会及时补上学习内容。',
-          casual: '老师好，今天身体不舒服，请一天假。后续会补上笔记。',
-        },
-        friend: {
-          formal: '今天身体不适，需取消本次见面。改日再约，抱歉。',
-          neutral: '今天不太舒服，咱们改天再约吧。',
-          casual: '身体有点扛不住了，今天先鸽了，回头约！',
-        },
-        client: {
-          formal: '因突发身体不适，需将今日会议改期。已协调同事代为对接，给您带来不便深表歉意。',
-          neutral: '今天身体不适，需要将会议改期。已安排同事协助对接。',
-          casual: '今天临时身体不适，会议改天再约。相关问题已同步给同事。',
-        },
-        partner: {
-          formal: '今天身体不适，需要安静休息。晚间事宜需请你代为处理。',
-          neutral: '今天不太舒服，想好好休息一下。家里的事麻烦你多担待。',
-          casual: '今天疼得厉害，想躺平一天。辛苦你照顾啦。',
-        },
-      },
-      en: {
-        manager: {
-          formal: 'Requesting sick leave today. Urgent matters have been delegated. Expected return tomorrow.',
-          neutral: 'Taking a sick day today. Work is covered.',
-          casual: 'Not feeling well today — taking the day off. Will catch up tomorrow.',
-        },
-        teacher: {
-          formal: 'Unable to attend class today due to a health condition. Arranged for notes to be shared.',
-          neutral: 'Can\'t make it to class today — health flare-up. Will catch up on materials.',
-          casual: 'Professor — not feeling well today. Will get notes from a classmate.',
-        },
-        friend: {
-          formal: 'Need to cancel today\'s plans due to a health issue. Let\'s reschedule soon.',
-          neutral: 'Not feeling great today — let\'s reschedule.',
-          casual: 'Feeling rough today — gonna have to rain check. Let\'s catch up soon!',
-        },
-        client: {
-          formal: 'Due to a sudden health matter, I need to reschedule today\'s meeting. A colleague will handle urgent matters. Apologies for the inconvenience.',
-          neutral: 'Need to reschedule today\'s meeting due to a health issue. A colleague is briefed and available.',
-          casual: 'Not feeling well today — need to push our meeting. Colleague is up to speed if anything urgent.',
-        },
-        partner: {
-          formal: 'Need to rest today due to a health condition. Would appreciate your support with household matters.',
-          neutral: 'Not feeling great today. Need some quiet rest — could use your help around the house.',
-          casual: 'Feeling awful today — going to be horizontal. Thanks for taking care of things.',
-        },
-      },
-    };
 
     const langKey = lang === 'en' ? 'en' : 'zh';
     const recipient = leaveRecipient || 'manager';
     const rawTone = leaveTone || 'neutral';
     const tone = toneMap[rawTone] || 'neutral';
 
-    const scenarios = workScenarios[langKey];
-    if (scenarios && scenarios[recipient] && scenarios[recipient][tone]) {
-      return scenarios[recipient][tone];
-    }
-    if (scenarios && scenarios[recipient] && scenarios[recipient]['neutral']) {
-      return scenarios[recipient]['neutral'];
-    }
-    return lang === 'en'
-      ? 'Requesting sick leave today due to a health condition.'
-      : '因身体不适，申请今天休假一天。';
-  }, [leaveRecipient, leaveTone, lang, editedContents?.workText]);
+    // 使用 defaultTemplates.workTemplate 作为 fallback
+    const workTemplate = t('defaultTemplates.workTemplate');
+    // 替换 {{pain}} 占位符
+    const painName = content.pain || t('painNames.twist') || 'pain';
+    return workTemplate.replace(/\{\{pain\}\}/g, painName);
+  }, [leaveRecipient, leaveTone, lang, editedContents?.workText, content.pain, t]);
 
   const getRefinePlaceholder = (tabIdentity) => {
     const map = {
@@ -547,6 +501,22 @@ export default function ResultPage({
       label: t('resultLabels.sourceAi'),
       color: '#64b5f6',
     };
+  };
+
+  // 获取 doctorTab 翻译的辅助函数
+  const getDoctorTabLabel = (key) => {
+    const labels = {
+      chiefComplaint: t('doctorTab.chiefComplaint'),
+      presentIllness: t('doctorTab.presentIllness'),
+      pastHistory: t('doctorTab.pastHistory'),
+      menstrualObstetricHistory: t('doctorTab.menstrualObstetricHistory'),
+      clinicalDiagnosis: t('doctorTab.clinicalDiagnosis'),
+      clinicalAdvice: t('doctorTab.clinicalAdvice'),
+      discussionPoints: t('doctorTab.discussionPoints'),
+      reminder: t('doctorTab.reminder'),
+      aboutExam: t('doctorTab.aboutExam'),
+    };
+    return labels[key] || key;
   };
 
   return (
@@ -933,6 +903,70 @@ export default function ResultPage({
               </p>
             </div>
 
+            {/* ✅ 视图切换按钮 - 放在头部下方 */}
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'center',
+                gap: '10px',
+                marginBottom: '12px',
+              }}
+            >
+              <button
+                style={{
+                  padding: '6px 20px',
+                  borderRadius: '20px',
+                  border: viewMode === 'user' ? '2px solid #4caf50' : '1px solid #333',
+                  background: viewMode === 'user' ? 'rgba(76,175,80,0.12)' : 'transparent',
+                  color: viewMode === 'user' ? '#4caf50' : '#888',
+                  cursor: 'pointer',
+                  fontSize: 'var(--text-xs)',
+                  fontWeight: viewMode === 'user' ? '600' : '400',
+                  transition: 'all 0.2s',
+                  minHeight: 'var(--btn-height-sm)',
+                }}
+                onClick={() => setViewMode('user')}
+              >
+                {t('resultLabels.viewUser')}
+              </button>
+              <button
+                style={{
+                  padding: '6px 20px',
+                  borderRadius: '20px',
+                  border: viewMode === 'doctor' ? '2px solid #2196f3' : '1px solid #333',
+                  background: viewMode === 'doctor' ? 'rgba(33,150,243,0.12)' : 'transparent',
+                  color: viewMode === 'doctor' ? '#2196f3' : '#888',
+                  cursor: 'pointer',
+                  fontSize: 'var(--text-xs)',
+                  fontWeight: viewMode === 'doctor' ? '600' : '400',
+                  transition: 'all 0.2s',
+                  minHeight: 'var(--btn-height-sm)',
+                }}
+                onClick={() => setViewMode('doctor')}
+              >
+                {t('resultLabels.viewDoctor')}
+              </button>
+            </div>
+
+            {/* ✅ 医生视图提示 */}
+            {viewMode === 'doctor' && (
+              <div
+                style={{
+                  background: 'rgba(33,150,243,0.06)',
+                  border: '1px solid rgba(33,150,243,0.15)',
+                  borderRadius: 'var(--radius-sm)',
+                  padding: '6px 14px',
+                  marginBottom: '12px',
+                  textAlign: 'center',
+                }}
+              >
+                <span style={{ color: '#64b5f6', fontSize: 'var(--text-xs)' }}>
+                  {t('resultLabels.doctorViewHint')}
+                </span>
+              </div>
+            )}
+
+            {/* 主诉 */}
             {content.chief_complaint?.trim() && (
               <EditableCard
                 fieldKey="chief_complaint"
@@ -951,6 +985,7 @@ export default function ResultPage({
               />
             )}
 
+            {/* 现病史 */}
             {content.present_illness?.trim() && (
               <EditableCard
                 fieldKey="present_illness"
@@ -969,6 +1004,7 @@ export default function ResultPage({
               />
             )}
 
+            {/* 既往史 */}
             {content.past_history?.trim() && (
               <EditableCard
                 fieldKey="past_history"
@@ -987,6 +1023,7 @@ export default function ResultPage({
               />
             )}
 
+            {/* 月经史 */}
             {content.menstrual_history?.trim() && (
               <EditableCard
                 fieldKey="menstrual_history"
@@ -1005,40 +1042,114 @@ export default function ResultPage({
               />
             )}
 
-            {content.clinical_diagnosis?.trim() && (
-              <EditableCard
-                fieldKey="clinical_diagnosis"
-                value={getFieldValue('clinical_diagnosis') || content.clinical_diagnosis}
-                onSave={handleFieldSave}
-                title={t('doctorTab.clinicalDiagnosis')}
-                icon="🩺"
-                textColor="#e3f2fd"
-                fontSize="var(--text-sm)"
-                lineHeight="1.8"
-                placeholder={t('resultLabels.clickToEdit')}
-                rows={3}
-                borderColor="#2a3a4a"
-                sourceLabel={getSourceInfo('clinical_diagnosis').label}
-                sourceColor={getSourceInfo('clinical_diagnosis').color}
-              />
-            )}
+            {/* 临床诊断 - 根据视图模式显示不同内容 */}
+            {(() => {
+              const displayValue = viewMode === 'doctor'
+                ? content.clinical_diagnosis
+                : (content.full_content?.clinical_diagnosis || content.clinical_diagnosis);
 
-            {content.clinical_suggestions?.trim() && (
-              <EditableCard
-                fieldKey="clinical_suggestions"
-                value={getFieldValue('clinical_suggestions') || content.clinical_suggestions}
-                onSave={handleFieldSave}
-                title={t('doctorTab.clinicalAdvice')}
-                icon="💊"
-                textColor="#e0e0e0"
-                fontSize="var(--text-sm)"
-                lineHeight="1.85"
-                placeholder={t('resultLabels.clickToEdit')}
-                rows={3}
-                borderColor="#2a3a4a"
-                sourceLabel={getSourceInfo('clinical_suggestions').label}
-                sourceColor={getSourceInfo('clinical_suggestions').color}
-              />
+              if (!displayValue?.trim()) return null;
+
+              return (
+                <EditableCard
+                  fieldKey="clinical_diagnosis"
+                  value={getFieldValue('clinical_diagnosis') || displayValue}
+                  onSave={handleFieldSave}
+                  title={t('doctorTab.clinicalDiagnosis')}
+                  icon="🩺"
+                  textColor="#e3f2fd"
+                  fontSize="var(--text-sm)"
+                  lineHeight="1.8"
+                  placeholder={t('resultLabels.clickToEdit')}
+                  rows={3}
+                  borderColor="#2a3a4a"
+                  sourceLabel={getSourceInfo('clinical_diagnosis').label}
+                  sourceColor={getSourceInfo('clinical_diagnosis').color}
+                />
+              );
+            })()}
+
+            {/* 临床建议 - 根据视图模式显示不同内容 */}
+            {(() => {
+              // const displayValue = viewMode === 'doctor'
+              //   ? content.clinical_suggestions
+              //   : (content.full_content?.clinical_suggestions || content.clinical_suggestions);
+              const displayValue = getDisplayContent('clinical_suggestions');
+              if (!displayValue?.trim()) return null;
+
+              return (
+                <EditableCard
+                  fieldKey="clinical_suggestions"
+                  value={getFieldValue('clinical_suggestions') || displayValue}
+                  onSave={handleFieldSave}
+                  title={t('doctorTab.clinicalAdvice')}
+                  icon="💊"
+                  textColor="#e0e0e0"
+                  fontSize="var(--text-sm)"
+                  lineHeight="1.85"
+                  placeholder={t('resultLabels.clickToEdit')}
+                  rows={3}
+                  borderColor="#2a3a4a"
+                  sourceLabel={getSourceInfo('clinical_suggestions').label}
+                  sourceColor={getSourceInfo('clinical_suggestions').color}
+                />
+              );
+            })()}
+
+            {/* ✅ 用户模式下额外显示三个辅助模块 */}
+            {viewMode === 'user' && content.full_content && (
+              <>
+                {/* 供您与医生讨论 */}
+                {content.full_content.discussion_points && (
+                  <EditableCard
+                    fieldKey="discussion_points"
+                    value={getFieldValue('discussion_points') || content.full_content.discussion_points}
+                    onSave={handleFieldSave}
+                    title={t('doctorTab.discussionTitle')}
+                    icon="💬"
+                    textColor="#b0b0b0"
+                    fontSize="var(--text-sm)"
+                    lineHeight="1.8"
+                    placeholder={t('resultLabels.clickToEdit')}
+                    rows={3}
+                    borderColor="#2a3a4a"
+                  />
+                )}
+
+                {/* 给您的提醒 */}
+                {content.full_content.reassurance && (
+                  <EditableCard
+                    fieldKey="reassurance"
+                    value={getFieldValue('reassurance') || content.full_content.reassurance}
+                    onSave={handleFieldSave}
+                    title={t('doctorTab.reminderTitle')}
+                    icon="💛"
+                    textColor="#ffcc80"
+                    fontSize="var(--text-sm)"
+                    lineHeight="1.8"
+                    placeholder={t('resultLabels.clickToEdit')}
+                    rows={3}
+                    borderColor="#3a3a2a"
+                  />
+                )}
+
+                {/* 关于检查 */}
+                {content.full_content.exam_info && (
+                  <EditableCard
+                    fieldKey="exam_info"
+                    value={getFieldValue('exam_info') || content.full_content.exam_info}
+                    onSave={handleFieldSave}
+                    title={t('doctorTab.examInfoTitle')}
+                    icon="🔬"
+                    textColor="#90caf9"
+                    fontSize="var(--text-sm)"
+                    lineHeight="1.8"
+                    placeholder={t('resultLabels.clickToEdit')}
+                    rows={3}
+                    borderColor="#2a3a4a"
+                  />
+                )}
+              </>
             )}
 
             <div style={{ marginTop: '16px', paddingTop: '14px', borderTop: '1px solid #2a2a2a' }}>
@@ -1327,7 +1438,7 @@ export default function ResultPage({
           }}
           onClick={toggleLang}
         >
-          {lang === 'zh' ? t('splash.switchLang') : t('splash.switchLang')}
+          {t('splash.switchLang')}
         </button>
       </div>
     </div>

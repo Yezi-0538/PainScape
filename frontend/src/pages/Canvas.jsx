@@ -32,6 +32,9 @@ export default function CanvasPage({
   onViewHistory,
   onShareSaved,
 
+  // ✅ 新增：spatialMap 回调
+  onSpatialMapUpdate,
+  
   // 画板状态
   bodyMode,
   setBodyMode,
@@ -74,7 +77,7 @@ export default function CanvasPage({
   handleClear,
   resetView,
 }) {
-  
+
   const { t, lang, toggleLang } = useI18n();
   const { playBrushSound } = useAudio(isMuted);
   const [tipVisible, setTipVisible] = useState(true);
@@ -92,7 +95,7 @@ export default function CanvasPage({
   // });
   const [showGuide, setShowGuide] = useState(false);
   const [guideLoading, setGuideLoading] = useState(true);
-  
+
   useEffect(() => {
     const checkUserGuideStatus = async () => {
       // 如果用户已登录，从 userInfo 读取
@@ -266,6 +269,86 @@ export default function CanvasPage({
       link.click();
     }
   };
+  // ============================================================
+  // spatialMap 计算函数
+  // ============================================================
+  const calculateSpatialMap = useCallback((positions, bodyMode, canvasWidth, canvasHeight) => {
+    // 身体分区定义（基于身体图像的比例）
+    const regions = {
+      // 正面
+      front: {
+        head: { x: 0.5, y: 0.12, w: 0.3, h: 0.15 },
+        upperAbdomen: { x: 0.5, y: 0.32, w: 0.4, h: 0.18 },
+        lowerAbdomen: { x: 0.5, y: 0.52, w: 0.38, h: 0.2 },
+        legs: { x: 0.5, y: 0.78, w: 0.3, h: 0.2 },
+      },
+      // 背面
+      back: {
+        head: { x: 0.5, y: 0.12, w: 0.3, h: 0.15 },
+        upperBack: { x: 0.5, y: 0.32, w: 0.42, h: 0.18 },
+        waist: { x: 0.5, y: 0.52, w: 0.4, h: 0.18 },
+        sacrum: { x: 0.5, y: 0.72, w: 0.3, h: 0.15 },
+        legs: { x: 0.5, y: 0.88, w: 0.3, h: 0.1 },
+      }
+    };
+
+    // 如果 positions 为空，返回空对象
+    if (!positions || positions.length === 0) {
+      return { abdomen: 0, lowerBack: 0, upperBody: 0 };
+    }
+
+    const regionMap = regions[bodyMode] || regions.front;
+    const canvasCenterX = canvasWidth / 2;
+    const canvasCenterY = canvasHeight / 2;
+
+    // 归一化位置
+    const normalizedPositions = positions.map(p => ({
+      x: (p.x - canvasCenterX) / canvasWidth + 0.5,
+      y: (p.y - canvasCenterY) / canvasHeight + 0.5,
+    }));
+
+    const counts = {};
+    Object.keys(regionMap).forEach(key => { counts[key] = 0; });
+
+    normalizedPositions.forEach(pos => {
+      if (pos.x < 0 || pos.x > 1 || pos.y < 0 || pos.y > 1) return;
+      for (const [key, region] of Object.entries(regionMap)) {
+        const halfW = region.w / 2;
+        const halfH = region.h / 2;
+        if (pos.x >= region.x - halfW && pos.x <= region.x + halfW &&
+          pos.y >= region.y - halfH && pos.y <= region.y + halfH) {
+          counts[key] = (counts[key] || 0) + 1;
+          break;
+        }
+      }
+    });
+
+    const total = positions.length || 1;
+    const result = {};
+    Object.keys(counts).forEach(key => {
+      result[key] = counts[key] / total;
+    });
+
+    // 转换为前端需要的格式（兼容旧字段）
+    return {
+      head: result.head || 0,
+      upperAbdomen: result.upperAbdomen || 0,
+      lowerAbdomen: result.lowerAbdomen || 0,
+      legs: result.legs || 0,
+      upperBack: result.upperBack || 0,
+      waist: result.waist || 0,
+      sacrum: result.sacrum || 0,
+      // 兼容旧字段
+      abdomen: (result.upperAbdomen || 0) + (result.lowerAbdomen || 0),
+      lowerBack: (result.waist || 0) + (result.sacrum || 0),
+      upperBody: (result.upperBack || 0) + (result.head || 0),
+    };
+  }, []);
+
+  // ============================================================
+  // 用 ref 追踪粒子数量变化，避免每帧都触发更新
+  // ============================================================
+  const prevParticleCountRef = useRef(0);
   const draw = (p5) => {
     // 【修复3】切换 bodyMode 时清除对侧离屏画布
     if (prevBodyModeRef.current !== bodyMode) {
@@ -376,6 +459,28 @@ export default function CanvasPage({
         p.show(targetPg);
       }
       if (p.isDead()) staticParticles.current.splice(i, 1);
+    }
+    // ===== 计算 spatialMap（粒子更新后） =====
+    const currentCount = particlePositions.current.length;
+    // 只在粒子数量变化时更新（避免每帧都触发）
+    if (currentCount > 0 && currentCount !== prevParticleCountRef.current) {
+      prevParticleCountRef.current = currentCount;
+      if (onSpatialMapUpdate) {
+        const map = calculateSpatialMap(
+          particlePositions.current,
+          bodyMode,
+          p5.width,
+          p5.height
+        );
+        onSpatialMapUpdate(map);
+      }
+    }
+    // 如果粒子被清空（数量变为0），也要更新
+    if (currentCount === 0 && prevParticleCountRef.current !== 0) {
+      prevParticleCountRef.current = 0;
+      if (onSpatialMapUpdate) {
+        onSpatialMapUpdate({ abdomen: 0, lowerBack: 0, upperBody: 0 });
+      }
     }
 
     // ===== 【核心修复】动态粒子只更新，不绘制到离屏画布 =====
