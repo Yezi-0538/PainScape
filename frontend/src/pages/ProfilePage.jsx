@@ -45,6 +45,14 @@ export default function ProfilePage({
   const [cropSrc, setCropSrc] = useState(null);
   const [cropType, setCropType] = useState('avatar');
 
+  // 🌟 核心拦截锁：如果游客误入自身主页，立刻弹窗并退回
+  useEffect(() => {
+    if (isSelf && isGuest) {
+      if (onOpenAuth) onOpenAuth();
+      if (onBack) onBack();
+    }
+  }, [isSelf, isGuest, onOpenAuth, onBack]);
+
   const authorPostFromApp = useMemo(() => {
     return posts.find(p => String(p.userId || p.user_id || p.authorId) === String(targetUserId));
   }, [posts, targetUserId]);
@@ -54,12 +62,13 @@ export default function ProfilePage({
     if (isSelf && !isGuest && (userInfo?.email || localCached?.email)) {
       return { ...localCached, ...userInfo };
     }
-    
+  
+    // 游客态下的展示
     if (isGuest && isSelf) {
       return {
         id: targetUserId,
         nickname: "游客同伴",
-        email: "未登录 (点击登录同步云端档案)",
+        email: "未绑定邮箱",
         avatar: "🩹",
         signature: t('profile.defaultSignature'),
         bgIndex: 0,
@@ -68,10 +77,11 @@ export default function ProfilePage({
       };
     }
 
+    // 查看社区其他用户主页时的展示
     return {
       id: targetUserId,
-      nickname: authorPostFromApp?.nickname || authorPostFromApp?.authorName || `云端同伴_${String(targetUserId).slice(-4)}`,
-      email: "已验证云端账户",
+      nickname: authorPostFromApp?.nickname || authorPostFromApp?.authorName || `同伴_${String(targetUserId).slice(-4)}`,
+      email: "云端注册成员",
       avatar: authorPostFromApp?.avatar || "🌸",
       signature: t('profile.defaultSignature'),
       bgIndex: 0,
@@ -136,7 +146,7 @@ export default function ProfilePage({
     hasSavedDuringLoadRef.current = false; // 进入主页时重置保存标记
 
     const loadCloudDataOnEnter = async () => {
-      if (!targetUserId || targetUserId.startsWith('guest_') || targetUserId === 'user_guest') {
+      if (!targetUserId || targetUserId.startsWith('guest_') || targetUserId === 'user_guest' || isGuest) {
         if (isMounted) setIsProfileLoading(false);
         return;
       }
@@ -485,7 +495,8 @@ export default function ProfilePage({
       setSelectedPostDetail(null);
     }
   };
-
+  
+  if (isSelf && isGuest) return null;
   if (!activeProfile) return null;
 
   return (

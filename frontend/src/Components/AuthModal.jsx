@@ -68,10 +68,12 @@ export default function AuthModal({ isOpen, onAuthSuccess, onGuestLogin, onClose
       const { data, error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) throw error;
       const userId = data?.user?.id ?? data?.session?.user?.id;
-      if (!userId) {
+      if (userId) {
+        onAuthSuccess(userId);
+      }
+      else{
         throw new Error('登录成功但未获取用户信息，请稍后重试。');
       }
-      onAuthSuccess(userId);
     } catch (err) {
       setErrorMsg(err.message || "登录失败，请检查账号密码");
     } finally {
