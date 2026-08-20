@@ -566,14 +566,14 @@ def call_llm(payload: dict, provider: str, config: dict, api_key: str) -> str:
             request_payload.pop("response_format", None)
         params = {"request_id": str(uuid.uuid4())}
         response = requests.post(
-            url, headers=headers, params=params, json=request_payload, timeout=90
+            url, headers=headers, params=params, json=request_payload, timeout=15
         )
         response.raise_for_status()
         return response.json()["choices"][0]["message"]["content"]
     else:
         request_payload["response_format"] = {"type": "json_object"}
         response = requests.post(
-            url, headers=headers, json=request_payload, timeout=90
+            url, headers=headers, json=request_payload, timeout=15
         )
         response.raise_for_status()
         return response.json()["choices"][0]["message"]["content"]
