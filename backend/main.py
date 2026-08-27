@@ -604,6 +604,12 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# 埋点数据传输模型
+class TelemetryPayload(BaseModel):
+    sessions: Optional[List[Dict[str, Any]]] = []
+    painting_data: Optional[List[Dict[str, Any]]] = []
+    quick_record_data: Optional[List[Dict[str, Any]]] = []
+    report_events: Optional[List[Dict[str, Any]]] = []
 
 def get_val_from_mb(mb: Optional[Any], key: str, fallback: str = "未详述") -> str:
     if not mb:
@@ -1466,6 +1472,28 @@ def _fallback_response(lang: str, painkiller: str, app_mode: str, data: Any) -> 
                 ],
             }
 
+# 埋点接收保存端点
+@app.post("/api/telemetry/sync")
+def sync_telemetry_logs(payload: TelemetryPayload):
+    """
+    接收前端同步的行为日志，按行追加写入到服务端的 painscape_telemetry.jsonl 文件中
+    """
+    try:
+        log_file = "painscape_telemetry.jsonl"
+        with open(log_file, "a", encoding="utf-8") as f:
+            for s in payload.sessions:
+                f.write(json.dumps({"table": "sessions", **s}, ensure_ascii=False) + "\n")
+            for p in payload.painting_data:
+                f.write(json.dumps({"table": "painting_data", **p}, ensure_ascii=False) + "\n")
+            for q in payload.quick_record_data:
+                f.write(json.dumps({"table": "quick_record_data", **q}, ensure_ascii=False) + "\n")
+            for r in payload.report_events:
+                f.write(json.dumps({"table": "report_events", **r}, ensure_ascii=False) + "\n")
+        return {"status": "success", "message": "Telemetry records logged"}
+    except Exception as e:
+        print(f"❌ 埋点保存失败: {e}")
+        return {"status": "error", "message": str(e)}
+    
 
 @app.post("/api/generate")
 def generate_pain_report(data: PainData):
