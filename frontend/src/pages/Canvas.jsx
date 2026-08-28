@@ -34,7 +34,7 @@ export default function CanvasPage({
 
   // ✅ 新增：spatialMap 回调
   onSpatialMapUpdate,
-  
+
   // 画板状态
   bodyMode,
   setBodyMode,
@@ -44,7 +44,8 @@ export default function CanvasPage({
   setActiveColor,
   bgScale,
   setBgScale,
-
+  onSaveDraft,           // 新增：保存草稿回调
+  onViewDraftBox,        // 新增：查看草稿箱回调
   // 音频
   isMuted,
   setIsMuted,
@@ -76,6 +77,7 @@ export default function CanvasPage({
   handleRedo,
   handleClear,
   resetView,
+  showToast,   
 }) {
 
   const { t, lang, toggleLang } = useI18n();
@@ -95,6 +97,9 @@ export default function CanvasPage({
   // });
   const [showGuide, setShowGuide] = useState(false);
   const [guideLoading, setGuideLoading] = useState(true);
+  // 新增：保存草稿状态
+  const [showDraftSuccess, setShowDraftSuccess] = useState(false);
+  const [draftSaveMessage, setDraftSaveMessage] = useState('');
 
   useEffect(() => {
     const checkUserGuideStatus = async () => {
@@ -139,6 +144,44 @@ export default function CanvasPage({
     return () => clearTimeout(timer);
   }, [bodyMode]);
 
+  // 新增：保存草稿处理函数
+  const handleSaveDraftOnly = useCallback(async () => {
+    // 收集画布数据
+    const draftData = {
+      brushCounts: { ...brushCounts.current },
+      particlePositions: [...particlePositions.current],
+      speedHistory: [...speedHistory.current],
+      pressureHistory: [...pressureHistory.current],
+      activeColor: activeColor,
+      bodyMode: bodyMode,
+      bgScale: bgScale,
+      timestamp: new Date().toISOString(),
+    };
+
+    // 保存静态粒子到离屏画布的截图
+    const canvas = p5Ref.current?.canvas;
+    if (canvas) {
+      draftData.canvasImage = canvas.toDataURL('image/png');
+    }
+
+    // 获取当前的图形内容
+    if (pgFrontRef.current) {
+      const frontImg = pgFrontRef.current.get();
+      draftData.frontImage = frontImg.canvas.toDataURL('image/png');
+    }
+    if (pgBackRef.current) {
+      const backImg = pgBackRef.current.get();
+      draftData.backImage = backImg.canvas.toDataURL('image/png');
+    }
+
+    const result = await onSaveDraft(draftData);
+    if (result) {
+      setDraftSaveMessage(t('canvas.draftSaved'));
+      setShowDraftSuccess(true);
+    } else {
+      showToast('saveDraftFailed');
+    }
+  }, [onSaveDraft, brushCounts, particlePositions, speedHistory, pressureHistory, activeColor, bodyMode, bgScale, p5Ref, pgFrontRef, pgBackRef, t, showToast]);
   // ============================================================
   // p5.js 生命周期函数
   // ============================================================
@@ -749,11 +792,41 @@ export default function CanvasPage({
 
           {/* 右侧：仅保存 + 生成（不包含缩放） */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
+            {/* 草稿箱入口 */}
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                if (onViewDraftBox) onViewDraftBox();
+              }}
+              style={{
+                background: 'rgba(255,255,255,0.05)',
+                border: '1px solid #333',
+                borderRadius: '50%',
+                width: '32px',
+                height: '32px',
+                minWidth: '32px',
+                minHeight: '32px',
+                fontSize: 'var(--text-base)',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: '#888',
+                flexShrink: 0,
+                padding: 0,
+                lineHeight: 1,
+              }}
+              title={t('canvas.draftBox')}
+            >
+              📋
+            </button>
+
+            {/* 保存草稿按钮 */}
             <button
               style={{
-                background: 'rgba(255,255,255,0.08)',
-                color: '#aaa',
-                border: '1px solid #444',
+                background: 'rgba(255,152,0,0.15)',
+                color: '#ffb74d',
+                border: '1px solid rgba(255,152,0,0.3)',
                 padding: '3px 8px',
                 borderRadius: 'var(--radius-sm)',
                 cursor: 'pointer',
@@ -762,10 +835,34 @@ export default function CanvasPage({
                 whiteSpace: 'nowrap',
                 minHeight: '24px',
               }}
-              onClick={() => { onSaveOnly(); setSaveSuccess(true); }}
+              onClick={handleSaveDraftOnly}
+            >
+              📝 {t('canvas.saveDraft')}
+            </button>
+
+            {/* 原有的仅保存按钮 - 改为正式保存 */}
+            <button
+              style={{
+                background: 'rgba(76,175,80,0.15)',
+                color: '#4caf50',
+                border: '1px solid rgba(76,175,80,0.3)',
+                padding: '3px 8px',
+                borderRadius: 'var(--radius-sm)',
+                cursor: 'pointer',
+                fontWeight: 'bold',
+                fontSize: '9px',
+                whiteSpace: 'nowrap',
+                minHeight: '24px',
+              }}
+              onClick={() => {
+                onSaveOnly();
+                setSaveSuccess(true);
+              }}
             >
               {t('canvas.saveOnly')}
             </button>
+
+            {/* 生成按钮 */}
             <button
               style={{
                 background: '#d32f2f',
@@ -1220,6 +1317,80 @@ export default function CanvasPage({
                   width: '100%',
                 }}
                 onClick={() => setSaveSuccess(false)}
+              >
+                {t('canvas.continueDrawing')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {showDraftSuccess && (
+        <div
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            width: '100vw',
+            height: '100vh',
+            background: 'rgba(0,0,0,0.7)',
+            zIndex: 200,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+          onClick={() => setShowDraftSuccess(false)}
+        >
+          <div
+            style={{
+              background: '#1a1a1a',
+              border: '1px solid #333',
+              borderRadius: 'var(--radius-md)',
+              padding: '24px',
+              maxWidth: '320px',
+              width: '85%',
+              textAlign: 'center',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ fontSize: '36px', marginBottom: '12px' }}>📝</div>
+            <p style={{ color: '#fff', fontSize: 'var(--text-md)', fontWeight: 'bold', margin: '0 0 8px 0' }}>
+              {t('canvas.draftSaved')}
+            </p>
+            <p style={{ color: '#888', fontSize: '13px', margin: '0 0 20px 0', lineHeight: '1.5' }}>
+              {t('canvas.draftSavedHint')}
+            </p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <button
+                style={{
+                  background: '#ff9800',
+                  border: 'none',
+                  color: '#fff',
+                  padding: '10px',
+                  borderRadius: 'var(--radius-lg)',
+                  cursor: 'pointer',
+                  fontSize: '13px',
+                  fontWeight: 'bold',
+                  width: '100%',
+                }}
+                onClick={() => {
+                  setShowDraftSuccess(false);
+                  if (onViewDraftBox) onViewDraftBox();
+                }}
+              >
+                📋 {t('canvas.viewDraftBox')}
+              </button>
+              <button
+                style={{
+                  background: 'rgba(255,255,255,0.08)',
+                  border: '1px solid #444',
+                  color: '#ccc',
+                  padding: '10px',
+                  borderRadius: 'var(--radius-lg)',
+                  cursor: 'pointer',
+                  fontSize: '13px',
+                  width: '100%',
+                }}
+                onClick={() => setShowDraftSuccess(false)}
               >
                 {t('canvas.continueDrawing')}
               </button>

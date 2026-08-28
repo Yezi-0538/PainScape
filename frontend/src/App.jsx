@@ -13,6 +13,7 @@ import CommunityPage from './pages/Community';
 import HistoryPage from './pages/History';
 import ProfilePage from './pages/ProfilePage';
 import QuickLogPage from './pages/QuickLogPage';
+import DraftBox from './pages/DraftBox';
 
 // ===== 组件导入 =====
 import SomaticHealingSpace from './Components/SomaticHealingSpace.jsx';
@@ -32,11 +33,11 @@ import { PAIN_NAME_MAP } from './i18n/translationsConstants';
 // ===== API服务与数据库连接器 =====
 import { createPost, getPosts } from './services/postService';
 import { supabase } from "./services/supabaseClient";
-import { 
-  syncLocalHistoryToCloud, 
-  fetchUserPainRecords, 
-  mergeHistoryRecords, 
-  saveRecordToCloud 
+import {
+  syncLocalHistoryToCloud,
+  fetchUserPainRecords,
+  mergeHistoryRecords,
+  saveRecordToCloud
 } from './services/painRecordService';
 import { telemetry } from './services/telemetry';
 
@@ -161,7 +162,7 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
       localStorage.setItem('painscape_history', JSON.stringify(merged));
       console.log(`🟢 已成功同步并缓存 ${merged.length} 条具身日记记录！`);
     } catch (err) {
-       console.warn('⚠️ 同步日记记录异常:', err);
+      console.warn('⚠️ 同步日记记录异常:', err);
     }
   }, []);
 
@@ -176,6 +177,9 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
   const [isGuest, setIsGuest] = useState(true);
   const [targetUserId, setTargetUserId] = useState(currentUserId);
   const [authReady, setAuthReady] = useState(false);
+  const [showDraftBox, setShowDraftBox] = useState(false);
+  const [draftToEdit, setDraftToEdit] = useState(null);
+  const [draftToGenerate, setDraftToGenerate] = useState(null);
 
   const handleAuthSuccess = useCallback((userId) => {
     setCurrentUserId(userId);
@@ -361,7 +365,7 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
     const maxVal = Math.max(...Object.values(counts));
     return maxVal > 0 ? Object.keys(counts).reduce((a, b) => counts[a] > counts[b] ? a : b) : 'twist';
   }, []);
-  
+
   const [hasAgreedPrivacy, setHasAgreedPrivacy] = useState(() => {
     return localStorage.getItem('painscape_privacy_agreed') === 'true';
   });
@@ -1619,7 +1623,7 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
   const handleSaveOnly = () => {
     const endTime = new Date().toISOString();
     const durationMs = canvasStartTimeRef.current ? Date.now() - canvasStartTimeRef.current : 0;
-  
+
     const prHist = pressureHistory.current || [];
     const avgPressure = prHist.length > 0 ? prHist.reduce((a, b) => a + b, 0) / prHist.length : 0.5;
     const maxPressure = prHist.length > 0 ? Math.max(...prHist) : 0.8;
@@ -1987,6 +1991,240 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
     }
   }, [shareContent, imgUrl, targetLanguage, getContextTitle, showToast, getFallbackImgUrl]);
 
+  // 新增：保存草稿函数
+  const handleSaveDraft = useCallback(async (draftData) => {
+    const draftId = `draft_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
+    const draft = {
+      id: draftId,
+      status: 'draft',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      draft_data: draftData,
+    };
+
+    try {
+      if (!isGuest && currentUserId && !currentUserId.startsWith('guest_')) {
+        // 保存到 Supabase
+        const { error } = await supabase
+          .from('pain_records')
+          .insert([{
+            id: draftId,
+            user_id: currentUserId,
+            status: 'draft',
+            draft_data: draftData,
+            created_at: draft.created_at,
+            updated_at: draft.updated_at,
+          }]);
+        if (error) throw error;
+      } else {
+        // 保存到 localStorage
+        const existing = JSON.parse(localStorage.getItem('paintScape_drafts') || '[]');
+        existing.unshift(draft);
+        localStorage.setItem('paintScape_drafts', JSON.stringify(existing));
+      }
+      showToast('draftSaved');
+      return draftId;
+    } catch (err) {
+      console.error('保存草稿失败:', err);
+      showToast('saveDraftFailed');
+      return null;
+    }
+  }, [currentUserId, isGuest, showToast]);
+
+  // 新增：从草稿生成报告
+  const handleGenerateFromDraft = useCallback(async (draft) => {
+    setIsLoading(true);
+    try {
+      // 将草稿数据加载到画布状态
+      const data = draft.draft_data;
+      if (data) {
+        // 恢复画笔计数
+        if (data.brushCounts) {
+          Object.keys(data.brushCounts).forEach(key => {
+            brushCounts.current[key] = data.brushCounts[key] || 0;
+          });
+        }
+
+        // 恢复粒子位置
+        if (data.particlePositions) {
+          particlePositions.current = data.particlePositions;
+        }
+
+        // 恢复速度历史
+        if (data.speedHistory) {
+          speedHistory.current = data.speedHistory;
+        }
+
+        // 恢复压力历史
+        if (data.pressureHistory) {
+          pressureHistory.current = data.pressureHistory;
+        }
+
+        // 恢复颜色和身体模式
+        if (data.activeColor) setActiveColor(data.activeColor);
+        if (data.bodyMode) setBodyMode(data.bodyMode);
+        if (data.bgScale) setBgScale(data.bgScale);
+
+        // 恢复画布图像（如果有保存）
+        if (data.frontImage) {
+          const img = new Image();
+          img.onload = () => {
+            if (pgFrontRef.current) {
+              pgFrontRef.current.image(img, 0, 0);
+            }
+          };
+          img.src = data.frontImage;
+        }
+        if (data.backImage) {
+          const img = new Image();
+          img.onload = () => {
+            if (pgBackRef.current) {
+              pgBackRef.current.image(img, 0, 0);
+            }
+          };
+          img.src = data.backImage;
+        }
+
+        // 设置 imgUrl 用于结果页
+        if (data.canvasImage) {
+          setImgUrl(data.canvasImage);
+        }
+      }
+
+      // 切换到画布页面
+      setPage('canvas');
+      // 自动触发生成
+      // 由于需要在画布加载完成后触发生成，使用 setTimeout
+      setTimeout(() => {
+        // 触发画布的生成逻辑
+        // 这里需要调用 CanvasPage 的 onGenerate，但由于我们无法直接调用，
+        // 可以使用一个 ref 或者通过状态触发
+        setDraftToGenerate(draft);
+      }, 500);
+
+    } catch (err) {
+      console.error('从草稿生成失败:', err);
+      showToast('generateFromDraftFailed');
+    } finally {
+      setIsLoading(false);
+    }
+  }, [setIsLoading, setActiveColor, setBodyMode, setBgScale, pgFrontRef, pgBackRef, setImgUrl, showToast]);
+
+  // 新增：打开草稿编辑
+  const handleOpenDraft = useCallback((draft) => {
+    const data = draft.draft_data;
+    if (data) {
+      // 恢复画笔计数
+      if (data.brushCounts) {
+        Object.keys(data.brushCounts).forEach(key => {
+          brushCounts.current[key] = data.brushCounts[key] || 0;
+        });
+      }
+
+      // 恢复粒子位置
+      if (data.particlePositions) {
+        particlePositions.current = data.particlePositions;
+      }
+
+      // 恢复速度历史
+      if (data.speedHistory) {
+        speedHistory.current = data.speedHistory;
+      }
+
+      // 恢复压力历史
+      if (data.pressureHistory) {
+        pressureHistory.current = data.pressureHistory;
+      }
+
+      // 恢复颜色和身体模式
+      if (data.activeColor) setActiveColor(data.activeColor);
+      if (data.bodyMode) setBodyMode(data.bodyMode);
+      if (data.bgScale) setBgScale(data.bgScale);
+
+      // 恢复画布图像
+      if (data.frontImage) {
+        const img = new Image();
+        img.onload = () => {
+          if (pgFrontRef.current) {
+            pgFrontRef.current.image(img, 0, 0);
+          }
+        };
+        img.src = data.frontImage;
+      }
+      if (data.backImage) {
+        const img = new Image();
+        img.onload = () => {
+          if (pgBackRef.current) {
+            pgBackRef.current.image(img, 0, 0);
+          }
+        };
+        img.src = data.backImage;
+      }
+
+      if (data.canvasImage) {
+        setImgUrl(data.canvasImage);
+      }
+    }
+
+    setDraftToEdit(draft);
+    setPage('canvas');
+  }, [setActiveColor, setBodyMode, setBgScale, pgFrontRef, pgBackRef, setImgUrl]);
+
+  // 新增：草稿箱中删除草稿
+  const handleDeleteDraft = useCallback(async (draftId) => {
+    try {
+      if (!isGuest && currentUserId && !currentUserId.startsWith('guest_')) {
+        await supabase
+          .from('pain_records')
+          .delete()
+          .eq('id', draftId)
+          .eq('user_id', currentUserId);
+      } else {
+        const localDrafts = JSON.parse(localStorage.getItem('paintScape_drafts') || '[]');
+        const updated = localDrafts.filter(d => d.id !== draftId);
+        localStorage.setItem('paintScape_drafts', JSON.stringify(updated));
+      }
+      showToast('draftDeleted');
+      return true;
+    } catch (err) {
+      console.error('删除草稿失败:', err);
+      showToast('deleteDraftFailed');
+      return false;
+    }
+  }, [currentUserId, isGuest, showToast]);
+
+  const getDraftCount = useCallback(() => {
+    try {
+      if (!isGuest && currentUserId && !currentUserId.startsWith('guest_')) {
+        // 异步获取，这里先用本地缓存估算
+        const cached = JSON.parse(localStorage.getItem('painscape_draft_count') || '0');
+        return cached;
+      } else {
+        const localDrafts = JSON.parse(localStorage.getItem('paintScape_drafts') || '[]');
+        return localDrafts.length;
+      }
+    } catch {
+      return 0;
+    }
+  }, [currentUserId, isGuest]);
+
+  // 在登录/注册成功后刷新草稿数量
+  const updateDraftCount = useCallback(async () => {
+    try {
+      if (!isGuest && currentUserId && !currentUserId.startsWith('guest_')) {
+        const { count, error } = await supabase
+          .from('pain_records')
+          .select('*', { count: 'exact', head: true })
+          .eq('user_id', currentUserId)
+          .eq('status', 'draft');
+        if (!error) {
+          localStorage.setItem('painscape_draft_count', String(count || 0));
+        }
+      }
+    } catch {
+      // ignore
+    }
+  }, [currentUserId, isGuest]);
   // ===== 页面路由渲染函数 =====
   const renderPage = () => {
     switch (page) {
@@ -2013,7 +2251,7 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
                 extra: { language: nextLang }
               });
             }}
-             onSelectMode={(mode) => {
+            onSelectMode={(mode) => {
               setAppMode(mode);
               setPage('onboarding');
               telemetry.startSession({
@@ -2027,6 +2265,20 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
                 setShowContent('basicInfo');
               }
             }}
+          />
+        );
+
+      case 'draftBox':
+        return (
+          <DraftBox
+            onBack={() => setPage('history')}
+            onOpenDraft={handleOpenDraft}
+            onDeleteDraft={handleDeleteDraft}
+            onGenerateFromDraft={handleGenerateFromDraft}
+            currentUserId={currentUserId}
+            isGuest={isGuest}
+            showToast={showToast}
+            t={t}
           />
         );
 
@@ -2060,7 +2312,7 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
               setBodyMode('front');
               setPage('canvas');
             }}
-            onQuickLog={() =>{
+            onQuickLog={() => {
               telemetry.updateSession({ profile_completed: true, entry_point: 'quick_record' });
               setPage('quickLog')
             }}
@@ -2071,7 +2323,7 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
             onBack={() => setPage('modeSelection')}
             onCommunity={() => setPage('community')}
             onHistory={() => setPage('history')}
-            onProfile={() =>handleNavigateToProfile(null)}
+            onProfile={() => handleNavigateToProfile(null)}
           />
         );
       case 'quickLog':
@@ -2091,6 +2343,8 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
           <CanvasPage
             bodyMode={bodyMode}
             onSaveOnly={handleSaveOnly}
+            onSaveDraft={handleSaveDraft}
+            onViewDraftBox={() => setPage('draftBox')}
             onViewHistory={() => setPage('history')}
             setBodyMode={setBodyMode}
             activeBrush={activeBrush}
@@ -2122,14 +2376,14 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
               // 记录绘画结束时间与总时长 (用于 painting_data 埋点)
               const nowEndTime = new Date();
               const endTimeStr = nowEndTime.toISOString();
-              const startTimeStr = canvasStartTimeRef.current 
-              ? new Date(canvasStartTimeRef.current).toISOString() 
-              : new Date(Date.now() - 30000).toISOString();
+              const startTimeStr = canvasStartTimeRef.current
+                ? new Date(canvasStartTimeRef.current).toISOString()
+                : new Date(Date.now() - 30000).toISOString();
               const durationMs = canvasStartTimeRef.current ? (Date.now() - canvasStartTimeRef.current) : 0;
               try {
                 const canvasImg = generateCompositeCanvas() || getFallbackImgUrl();
                 setImgUrl(canvasImg);
-                
+
                 const BODY_ZONES = {
                   front: {
                     head: { x: [0.35, 0.65], y: [0.00, 0.08] },
@@ -2144,29 +2398,29 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
                     sacrum: { x: [0.25, 0.75], y: [0.58, 0.82] },
                   },
                 };
-               
+
                 const isInZone = (x, y, zone) => {
                   return x >= zone.x[0] && x <= zone.x[1] &&
-                  y >= zone.y[0] && y <= zone.y[1];
+                    y >= zone.y[0] && y <= zone.y[1];
                 };
-             
+
                 const getDefaultSpatialMap = (mode) => {
                   if (mode === 'back') {
                     return { upperBack: 0.3, waist: 0.5, sacrum: 0.2 };
                   }
                   return { head: 0.0, chest: 0.1, upperAbdomen: 0.4, lowerAbdomen: 0.5, legs: 0.0 };
                 };
-                
+
                 const calculateSpatialMap = (positions, mode, p5) => {
                   if (!p5 || !p5.width || !p5.height) {
                     return getDefaultSpatialMap(mode);
                   }
-                  
+
                   const activeImg = mode === 'back' ? bgBackRef.current : bgFrontRef.current;
                   if (!activeImg) {
                     return getDefaultSpatialMap(mode);
                   }
-                  
+
                   const currentBgScale = bgScale || 1.0;
                   const imgScale = ((p5.height * 0.8) / activeImg.height) * currentBgScale;
                   const imgWidth = activeImg.width * imgScale;
@@ -2183,7 +2437,7 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
 
                   positions.forEach(p => {
                     if (!p || p.x == null || p.y == null) return;
-                    
+
                     const normX = (p.x - imgLeft) / imgWidth;
                     const normY = (p.y - imgTop) / imgHeight;
 
@@ -2192,154 +2446,154 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
                     totalInBody++;
 
                     for (const key of zoneKeys) {
-                    if (isInZone(normX, normY, zones[key])) {
-                    counts[key] += 1;
-                    break;
+                      if (isInZone(normX, normY, zones[key])) {
+                        counts[key] += 1;
+                        break;
+                      }
+                    }
+                  });
+
+                  if (totalInBody === 0) {
+                    return getDefaultSpatialMap(mode);
                   }
+                  const result = {};
+                  zoneKeys.forEach(key => {
+                    result[key] = counts[key] / totalInBody;
+                  });
+                  return result;
+                };
+
+                const dominant = getDominantPain() || 'twist';
+                const bc = brushCounts.current || {};
+                const brushNameMap = { heavy: 'sink', wave: 'swell' };
+                const mappedDominant = brushNameMap[dominant] || dominant;
+                const mappedBc = Object.fromEntries(
+                  Object.entries(bc).map(([k, v]) => [brushNameMap[k] || k, v])
+                );
+
+                const toneMap = { polite: 'neutral', objective: 'formal' };
+                const mappedWorkTone = toneMap[leaveTone] || leaveTone || 'neutral';
+
+                const totalBrushes = Object.values(bc).reduce((a, b) => a + b, 0);
+                const painScore = Math.min(100, Math.max(10, Math.round(totalBrushes * 1.5)));
+
+                const spHist = speedHistory.current || [];
+                const prHist = pressureHistory.current || [];
+                const avgSpeed = spHist.length > 0 ? spHist.reduce((a, b) => a + b, 0) / spHist.length : 5.0;
+                const peakSpeed = spHist.length > 0 ? Math.max(...spHist) : 10.0;
+                const avgPressure = prHist.length > 0 ? prHist.reduce((a, b) => a + b, 0) / prHist.length : 0.5;
+
+                const positions = particlePositions.current || [];
+                const p5 = p5Ref.current;
+
+                const spatialMap = calculateSpatialMap(positions, bodyMode, p5);
+
+                const timeRhythm = {
+                  morning: 0.33,
+                  afternoon: 0.33,
+                  night: 0.34,
+                  dominantPeriod: 'morning',
+                };
+                //  插入 painting_data 埋点记录（对照 PDF 表 2）
+                telemetry.logPaintingData({
+                  startTime: startTimeStr,
+                  endTime: endTimeStr,
+                  durationMs: durationMs,
+                  brushesUsed: mappedBc,
+                  totalStrokes: totalBrushes,
+                  avgPressure: avgPressure,
+                  maxPressure: prHist.length > 0 ? Math.max(...prHist) : 1.0,
+                  colorsUsed: Array.from(colorsUsedRef.current || ['crimson']),
+                  canvasView: bodyMode === 'none' ? 'blind' : bodyMode, // front / back / blind
+                  undoCount: undoCountRef.current || 0,
+                  clearCount: clearCountRef.current || 0,
+                  dominantPainType: mappedDominant,
+                  painScore: painScore,
+                  savedOnly: false // 点击生成报告，所以为 false
+                });
+
+                const requestBody = {
+                  appMode: appMode || 'medical',
+                  dominantPain: mappedDominant,
+                  userPref: userPrefs[0] || 'care',
+                  painScore,
+                  brushCounts: mappedBc,
+                  spatialMap,
+                  intensityProfile: { avgSpeed, peakSpeed, avgPressure },
+                  timeRhythm,
+                  colorPalette: activeColor || 'crimson',
+                  bodyMode: bodyMode || 'front',
+                  medicalBackground,
+                  tonePreference: tonePreference || 'gentle',
+                  cycleDay: cycleDay || (isEn ? 'Not provided' : '未提供'),
+                  targetLanguage: targetLanguage || 'zh',
+                  accompanyingSymptoms: allSymptoms,
+                  workScenario: leaveRecipient || 'manager',
+                  workTone: mappedWorkTone,
+                };
+
+                let apiResult = null;
+                try {
+                  const resp = await fetch(`${API_BASE}/api/generate`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(requestBody),
+                  });
+                  if (resp.ok) {
+                    apiResult = await resp.json();
+                  }
+                } catch (apiErr) {
+                  console.warn('⚠️ 无后端 API，启用本地模板:', apiErr.message);
                 }
-              });
-              
-              if (totalInBody === 0) {
-                return getDefaultSpatialMap(mode);
+
+                if (apiResult) {
+                  setLlmData(apiResult);
+                  setCurrentReportData(apiResult);
+                } else {
+                  const content = generateContent(dominant);
+                  setCurrentReportData(content);
+                }
+
+                const now = new Date();
+                const dateStr = `${now.getFullYear()}/${String(now.getMonth() + 1).padStart(2, '0')}/${String(now.getDate()).padStart(2, '0')}`;
+                const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+
+                const historyEntry = {
+                  id: Date.now().toString(),
+                  userId: currentUserId || 'user_guest',
+                  date: dateStr,
+                  time: timeStr,
+                  img: canvasImg,
+                  appMode,
+                  reportData: apiResult || generateContent(dominant),
+                  medicalBackground,
+                  userPrefs,
+                  tonePreference,
+                  cycleDay,
+                  spatialMap,
+                  colorPalette: activeColor || 'crimson',
+                  accompanyingSymptoms: allSymptoms,
+                };
+
+                setHistory(prev => [historyEntry, ...prev]);
+                if (!isGuest && currentUserId && !currentUserId.startsWith('guest_')) {
+                  saveRecordToCloud(currentUserId, historyEntry);
+                }
+                // 切换到报告页，并记录进入第一个 Tab（partner）的 tab_viewed 事件
+                setIdentity('partner');
+                telemetry.switchTab('partner');
+                setPage('result');
+              } catch (e) {
+                console.error('❌ 生成失败处理:', e);
+                const dominant = getDominantPain();
+                setCurrentReportData(generateContent(dominant));
+                setIdentity('partner');
+                telemetry.switchTab('partner');
+                setPage('result');
+              } finally {
+                setIsLoading(false);
               }
-              const result = {};
-              zoneKeys.forEach(key => {
-                result[key] = counts[key] / totalInBody;
-              });
-              return result;
-            };
-            
-            const dominant = getDominantPain() || 'twist';
-            const bc = brushCounts.current || {};
-            const brushNameMap = { heavy: 'sink', wave: 'swell' };
-            const mappedDominant = brushNameMap[dominant] || dominant;
-            const mappedBc = Object.fromEntries(
-              Object.entries(bc).map(([k, v]) => [brushNameMap[k] || k, v])
-            );
-
-            const toneMap = { polite: 'neutral', objective: 'formal' };
-            const mappedWorkTone = toneMap[leaveTone] || leaveTone || 'neutral';
-
-            const totalBrushes = Object.values(bc).reduce((a, b) => a + b, 0);
-            const painScore = Math.min(100, Math.max(10, Math.round(totalBrushes * 1.5)));
-
-            const spHist = speedHistory.current || [];
-            const prHist = pressureHistory.current || [];
-            const avgSpeed = spHist.length > 0 ? spHist.reduce((a, b) => a + b, 0) / spHist.length : 5.0;
-            const peakSpeed = spHist.length > 0 ? Math.max(...spHist) : 10.0;
-            const avgPressure = prHist.length > 0 ? prHist.reduce((a, b) => a + b, 0) / prHist.length : 0.5;
-
-            const positions = particlePositions.current || [];
-            const p5 = p5Ref.current;
-
-            const spatialMap = calculateSpatialMap(positions, bodyMode, p5);
-
-            const timeRhythm = {
-              morning: 0.33,
-              afternoon: 0.33,
-              night: 0.34,
-              dominantPeriod: 'morning',
-            };
-            //  插入 painting_data 埋点记录（对照 PDF 表 2）
-            telemetry.logPaintingData({
-              startTime: startTimeStr,
-              endTime: endTimeStr,
-              durationMs: durationMs,
-              brushesUsed: mappedBc,
-              totalStrokes: totalBrushes,
-              avgPressure: avgPressure,
-              maxPressure: prHist.length > 0 ? Math.max(...prHist) : 1.0,
-              colorsUsed: Array.from(colorsUsedRef.current || ['crimson']),
-              canvasView: bodyMode === 'none' ? 'blind' : bodyMode, // front / back / blind
-              undoCount: undoCountRef.current || 0,
-              clearCount: clearCountRef.current || 0,
-              dominantPainType: mappedDominant,
-              painScore: painScore,
-              savedOnly: false // 点击生成报告，所以为 false
-            });
-            
-            const requestBody = {
-              appMode: appMode || 'medical',
-              dominantPain: mappedDominant,
-              userPref: userPrefs[0] || 'care',
-              painScore,
-              brushCounts: mappedBc,
-              spatialMap,
-              intensityProfile: { avgSpeed, peakSpeed, avgPressure },
-              timeRhythm,
-              colorPalette: activeColor || 'crimson',
-              bodyMode: bodyMode || 'front',
-              medicalBackground,
-              tonePreference: tonePreference || 'gentle',
-              cycleDay: cycleDay || (isEn ? 'Not provided' : '未提供'),
-              targetLanguage: targetLanguage || 'zh',
-              accompanyingSymptoms: allSymptoms,
-              workScenario: leaveRecipient || 'manager',
-              workTone: mappedWorkTone,
-            };
-            
-            let apiResult = null;
-            try {
-              const resp = await fetch(`${API_BASE}/api/generate`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(requestBody),
-              });
-              if (resp.ok) {
-                apiResult = await resp.json();
-              }
-            } catch (apiErr) {
-              console.warn('⚠️ 无后端 API，启用本地模板:', apiErr.message);
-            }
-            
-            if (apiResult) {
-              setLlmData(apiResult);
-              setCurrentReportData(apiResult);
-            } else {
-              const content = generateContent(dominant);
-              setCurrentReportData(content);
-            }
-            
-            const now = new Date();
-            const dateStr = `${now.getFullYear()}/${String(now.getMonth() + 1).padStart(2, '0')}/${String(now.getDate()).padStart(2, '0')}`;
-            const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-            
-            const historyEntry = {
-              id: Date.now().toString(),
-              userId: currentUserId || 'user_guest',
-              date: dateStr,
-              time: timeStr,
-              img: canvasImg,
-              appMode,
-              reportData: apiResult || generateContent(dominant),
-              medicalBackground,
-              userPrefs,
-              tonePreference,
-              cycleDay,
-              spatialMap,
-              colorPalette: activeColor || 'crimson',
-              accompanyingSymptoms: allSymptoms,
-            };
-            
-            setHistory(prev => [historyEntry, ...prev]);
-            if (!isGuest && currentUserId && !currentUserId.startsWith('guest_')) {
-              saveRecordToCloud(currentUserId, historyEntry);
-            }
-            // 切换到报告页，并记录进入第一个 Tab（partner）的 tab_viewed 事件
-            setIdentity('partner');
-            telemetry.switchTab('partner');
-            setPage('result');
-          } catch (e) {
-            console.error('❌ 生成失败处理:', e);
-            const dominant = getDominantPain();
-            setCurrentReportData(generateContent(dominant));
-            setIdentity('partner');
-            telemetry.switchTab('partner');
-            setPage('result');
-          } finally {
-            setIsLoading(false);
-          }
-        }}
+            }}
             saveSnapshot={saveSnapshot}
             handleUndo={handleUndo}
             handleRedo={handleRedo}
@@ -2547,6 +2801,8 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
             setTargetLanguage={setTargetLanguage}
             history={history}
             setHistory={setHistory}
+            onViewDraftBox={() => setPage('draftBox')}
+            draftCount={getDraftCount()} // 需要实现获取草稿数量的函数
             calendarDate={calendarDate}
             setCalendarDate={setCalendarDate}
             selectedDate={selectedDate}
@@ -2621,8 +2877,8 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
           setHasAgreedPrivacy(true);
         }}
         onDisagree={() => {
-          alert(isEn 
-            ? 'You need to agree to the Privacy Policy to use PainScape.' 
+          alert(isEn
+            ? 'You need to agree to the Privacy Policy to use PainScape.'
             : '您需要同意隐私政策才能使用 PainScape。'
           );
         }}
@@ -2715,7 +2971,7 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
       />
 
       {/* 🌟 ===== [在此处添加] 实验员悬浮导出工具条 ===== */}
-      <div 
+      <div
         style={{
           position: 'fixed',
           bottom: 12,
@@ -2784,7 +3040,7 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
           🗑️
         </button>
       </div>
-    </>    
+    </>
   );
 }
 
@@ -2799,6 +3055,6 @@ export default function App() {
         />
       </UserProvider>
     </I18nProvider>
-    
+
   );
 }
