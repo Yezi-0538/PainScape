@@ -431,6 +431,7 @@ export default function ResultPage({
     return content[fieldKey] || '';
   };
 
+
   const handleFieldSave = (fieldKey, value) => {
     setEditedContents && setEditedContents({
       ...editedContents,
