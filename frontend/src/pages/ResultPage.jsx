@@ -3,6 +3,7 @@ import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { useI18n } from '../i18n/i18nContext';
 import PublishPostModal from '../Components/modals/PublishPostModal';
 import PeriodScience from '../Components/PeriodScience';
+import { telemetry } from '../services/telemetry';
 
 // ============================================================
 // 🏷️ 标记文本解析工具函数
@@ -433,6 +434,16 @@ export default function ResultPage({
 
 
   const handleFieldSave = (fieldKey, value) => {
+    const originalText = content[fieldKey] || '';
+    const editedText = stripUserMarkers(value);
+    // 埋点：仅在保存时记录最终编辑文本（规则①）
+    telemetry.logReportEvent({
+      outputType: mapTabToOutputType(identity),
+      event_type: 'edited',
+      fieldName: fieldKey,
+      originalText: originalText,
+      editedText: editedText
+    });
     setEditedContents && setEditedContents({
       ...editedContents,
       [fieldKey]: value,
@@ -581,7 +592,14 @@ export default function ResultPage({
               transition: 'all 0.2s',
               minHeight: 'var(--btn-min-touch)',
             }}
-            onClick={() => setIdentity && setIdentity(tab)}
+            onClick={() => {
+              if (setIdentity) {
+                setIdentity(tab);
+                //埋点：自动计算上一个 Tab 停留时长，并触发当前 Tab 的 tab_viewed
+                const outputType = mapTabToOutputType(tab);
+                telemetry.switchTab(outputType);
+              }
+            }}
           >
             {t(`result.tabs.${tab}`)}
           </button>
@@ -1292,6 +1310,12 @@ export default function ResultPage({
                 <div
                   key={tip.key}
                   onClick={() => {
+                    // 埋点：进入自愈舱
+                    telemetry.logReportEvent({
+                      outputType: 'selfcare',
+                      event_type: 'entered_selfcare',
+                      extra: { healing_tab: tip.key }
+                    });
                     setHealingState && setHealingState({ isOpen: true, activeTab: tip.key });
                   }}
                   style={{
@@ -1437,7 +1461,16 @@ export default function ResultPage({
             alignItems: 'center',
             justifyContent: 'center',
           }}
-          onClick={toggleLang}
+          onClick={() => {
+            toggleLang();
+            const nextLang = lang === 'zh' ? 'en' : 'zh';
+            //埋点：中英切换
+            telemetry.logReportEvent({
+              outputType: mapTabToOutputType(identity),
+              event_type: 'bilingual_toggled',
+              extra: { language: nextLang }
+            });
+          }}
         >
           {t('splash.switchLang')}
         </button>

@@ -32,6 +32,13 @@ import { PAIN_NAME_MAP } from './i18n/translationsConstants';
 // ===== API服务与数据库连接器 =====
 import { createPost, getPosts } from './services/postService';
 import { supabase } from "./services/supabaseClient";
+import { 
+  syncLocalHistoryToCloud, 
+  fetchUserPainRecords, 
+  mergeHistoryRecords, 
+  saveRecordToCloud 
+} from './services/painRecordService';
+import { telemetry } from './services/telemetry';
 
 const API_BASE = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
   ? 'http://127.0.0.1:8000'
@@ -44,11 +51,28 @@ const CHINESE_TO_KEY_MAP = {
   '撕裂痛': 'scrape', '撕刮痛': 'scrape',
 };
 
+// 🌟 判断用户是否为真正绑定了邮箱的正式登录用户
+const isValidEmailUser = (uid, isGuestFlag) => {
+  if (!uid || isGuestFlag) return false;
+  if (String(uid).startsWith('guest_') || uid === 'user_guest') return false;
+  return true;
+};
+
 function AppContent({ targetLanguage, setTargetLanguage }) {
   const isEn = targetLanguage === 'en';
   const { t } = useI18n();
   const { userInfo, setUserInfo } = useUser();
   const { show, ToastContainer } = useToast();
+
+  // ===== 埋点统计专用 Refs =====
+  const canvasStartTimeRef = useRef(null);
+  const undoCountRef = useRef(0);
+  const clearCountRef = useRef(0);
+  const colorsUsedRef = useRef(new Set(['crimson']));
+  const mapTabToOutputType = (tab) => {
+    const map = { partner: 'partner', work: 'timeoff', doctor: 'medical', self: 'selfcare' };
+    return map[tab] || tab;
+  };
 
   const [spatialMap, setSpatialMap] = useState({});
   const showToast = useCallback((key, vars = {}) => {
@@ -59,6 +83,18 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
   useEffect(() => {
     Toast.init({ show });
   }, [show]);
+
+  // 实验员快捷调用
+  useEffect(() => {
+    window.__exportTelemetryCSV = () => telemetry.exportAllAsCSV();
+    window.__exportTelemetryJSON = () => telemetry.exportAllAsJSON();
+    window.__clearTelemetry = () => {
+      if (window.confirm("确定清空本地所有实验埋点数据吗？")) {
+        telemetry.clearTelemetry();
+        alert("实验数据已清空");
+      }
+    };
+  }, []);
 
   // 兜底静态图片生成器
   const getFallbackImgUrl = useCallback(() => {
@@ -105,6 +141,30 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
     }
   }, [setUserInfo, t]);
 
+  // 🌟 登录/恢复会话后：先搬运本地游客数据，再全量拉取云端记录并写入缓存
+  const syncAndLoadUserHistory = useCallback(async (userId) => {
+    if (!userId || userId.startsWith('guest_') || userId === 'user_guest') return;
+
+    try {
+      // 1. 搬运本地游客记录上云
+      await syncLocalHistoryToCloud(userId);
+
+      // 2. 从云端拉取最新全部记录
+      const cloudRecords = await fetchUserPainRecords(userId);
+
+      // 3. 读取本地已有的缓存并智能合并
+      const currentLocal = JSON.parse(localStorage.getItem('painscape_history') || '[]');
+      const merged = mergeHistoryRecords(cloudRecords, currentLocal, userId);
+
+      // 4. 更新 state 并覆盖本地缓存（旧游客脏数据已被彻底洗掉）
+      setHistory(merged);
+      localStorage.setItem('painscape_history', JSON.stringify(merged));
+      console.log(`🟢 已成功同步并缓存 ${merged.length} 条具身日记记录！`);
+    } catch (err) {
+       console.warn('⚠️ 同步日记记录异常:', err);
+    }
+  }, []);
+
   const [page, setPage] = useState('splash');
   const [splashOpacity, setSplashOpacity] = useState(1);
 
@@ -113,9 +173,7 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
   const [currentUserId, setCurrentUserId] = useState(() => {
     return localStorage.getItem('painscape_last_uid') || null;
   });
-  const [isGuest, setIsGuest] = useState(() => {
-    return localStorage.getItem('painscape_is_guest') === 'true';
-  });
+  const [isGuest, setIsGuest] = useState(true);
   const [targetUserId, setTargetUserId] = useState(currentUserId);
   const [authReady, setAuthReady] = useState(false);
 
@@ -128,72 +186,94 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
     localStorage.setItem('painscape_last_uid', userId);
     localStorage.setItem('painscape_is_guest', 'false');
     syncSupabaseUserProfile(userId);
+    syncAndLoadUserHistory(userId);
     if (page === 'splash') {
       setPage('modeSelection');
     }
-  }, [page, syncSupabaseUserProfile]);
+  }, [page, syncSupabaseUserProfile, syncAndLoadUserHistory]);
+
+  // 生成或获取本地游客 ID
+  const getOrCreateGuestUid = () => {
+    let guestUid = localStorage.getItem('painscape_guest_id');
+    if (!guestUid) {
+      guestUid = `guest_${Math.random().toString(36).substr(2, 8)}`;
+      localStorage.setItem('painscape_guest_id', guestUid);
+    }
+    return guestUid;
+  };
 
   const handleGuestLogin = useCallback((guestId) => {
-    setCurrentUserId(guestId);
-    setTargetUserId(guestId);
+    const gid = guestId || getOrCreateGuestUid();
+    setCurrentUserId(gid);
+    setTargetUserId(gid);
     setIsGuest(true);
     setShowAuthModal(false);
     setAuthReady(true);
-    localStorage.setItem('painscape_last_uid', guestId);
+    localStorage.setItem('painscape_last_uid', gid);
     localStorage.setItem('painscape_is_guest', 'true');
+    localStorage.removeItem('painscape_user_info');
+    if (setUserInfo) setUserInfo(null);
     if (page === 'splash') {
       setPage('modeSelection');
     }
-  }, [page]);
+  }, [page, setUserInfo]);
 
   const handleLogout = useCallback(async () => {
     try {
       localStorage.removeItem('painscape_last_uid');
-      localStorage.removeItem('painscape_is_guest');
       localStorage.removeItem('painscape_user_info');
+      localStorage.setItem('painscape_is_guest', 'true');
+      if (setUserInfo) setUserInfo(null);
       await supabase.auth.signOut();
     } catch (err) {
       console.warn('Supabase signOut failed:', err);
+    } finally {
+      const gid = getOrCreateGuestUid();
+      setCurrentUserId(gid);
+      setTargetUserId(gid);
+      setIsGuest(true);
+      setPage('onboarding');
+      showToast('logoutSuccess');
     }
-  }, []);
+  }, [setUserInfo, showToast]);
 
   // 🌟 全局统一 Auth 状态与 Active Session 监听器（合并去重）
   useEffect(() => {
     let isMounted = true;
 
-    // 1. 页面加载时，主动检查一次 session 状态
     const checkActiveSession = async () => {
       try {
         const { data: { session } } = await supabase.auth.getSession();
         if (!isMounted) return;
 
-        if (session?.user) {
+        // 必须是存在 user 并且拥有真实 email 才算正式登录
+        if (session?.user && session.user.email) {
           const uid = session.user.id;
           setCurrentUserId(uid);
-          setTargetUserId(prev => prev || uid);
+          setTargetUserId(uid);
           setIsGuest(false);
           localStorage.setItem('painscape_last_uid', uid);
           localStorage.setItem('painscape_is_guest', 'false');
           syncSupabaseUserProfile(uid, session.user);
+          syncAndLoadUserHistory(uid);
         } else {
-          let guestUid = localStorage.getItem('painscape_guest_id');
-          if (!guestUid) {
-            guestUid = `guest_${Math.random().toString(36).substr(2, 8)}`;
-            localStorage.setItem('painscape_guest_id', guestUid);
-          }
+          // 未登录邮箱，严格切入游客模式
+          const guestUid = getOrCreateGuestUid();
           setCurrentUserId(guestUid);
-          setTargetUserId(prev => prev || guestUid);
+          setTargetUserId(guestUid);
           setIsGuest(true);
+          localStorage.setItem('painscape_last_uid', guestUid);
           localStorage.setItem('painscape_is_guest', 'true');
-          setShowAuthModal(true);
+          localStorage.removeItem('painscape_user_info');
+          if (setUserInfo) setUserInfo(null);
         }
       } catch (err) {
         console.warn("云端检测失败，切入游客模式:", err);
-        let guestUid = localStorage.getItem('painscape_guest_id') || `guest_${Math.random().toString(36).substr(2, 8)}`;
+        const guestUid = getOrCreateGuestUid();
         setCurrentUserId(guestUid);
-        setTargetUserId(prev => prev || guestUid);
+        setTargetUserId(guestUid);
         setIsGuest(true);
-        setShowAuthModal(true);
+        localStorage.setItem('painscape_is_guest', 'true');
       } finally {
         if (isMounted) setAuthReady(true);
       }
@@ -201,28 +281,31 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
 
     checkActiveSession();
 
-    // 2. 实时监听 Auth 状态变更（仅保持这唯一的监听器）
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (!isMounted) return;
 
-      if (session?.user) {
+      if (session?.user && session.user.email) {
         const uid = session.user.id;
         setCurrentUserId(uid);
-        setTargetUserId(prev => prev || uid);
+        setTargetUserId(uid);
         setIsGuest(false);
         setShowAuthModal(false);
         localStorage.setItem('painscape_last_uid', uid);
         localStorage.setItem('painscape_is_guest', 'false');
         syncSupabaseUserProfile(uid, session.user);
+        syncAndLoadUserHistory(uid);
       } else {
-        let guestUid = localStorage.getItem('painscape_guest_id') || `guest_${Math.random().toString(36).substr(2, 8)}`;
+        const guestUid = getOrCreateGuestUid();
         setCurrentUserId(guestUid);
-        setTargetUserId(prev => prev || guestUid);
+        setTargetUserId(guestUid);
         setIsGuest(true);
+        localStorage.setItem('painscape_last_uid', guestUid);
         localStorage.setItem('painscape_is_guest', 'true');
+        localStorage.removeItem('painscape_user_info');
+        if (setUserInfo) setUserInfo(null);
 
-        if (event === 'SIGNED_OUT' || event === 'INITIAL_SESSION') {
-          setShowAuthModal(true);
+        if (event === 'SIGNED_OUT') {
+          setPage('onboarding');
         }
       }
       setAuthReady(true);
@@ -232,7 +315,22 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
       isMounted = false;
       subscription?.unsubscribe();
     };
-  }, [syncSupabaseUserProfile]);
+  }, [syncSupabaseUserProfile, setUserInfo, syncAndLoadUserHistory]);
+
+  // 统一的个人主页跳转守卫
+  const handleNavigateToProfile = useCallback((requestedUserId = null) => {
+    const targetUid = requestedUserId || currentUserId;
+    const isSelfTarget = !requestedUserId || requestedUserId === currentUserId;
+
+    // 游客试图进入自己的个人主页 -> 直接弹窗拦截！
+    if (isSelfTarget && !isValidEmailUser(currentUserId, isGuest)) {
+      setShowAuthModal(true);
+      return;
+    }
+
+    setTargetUserId(targetUid);
+    setPage('profile');
+  }, [currentUserId, isGuest]);
 
   const [showContent, setShowContent] = useState('basicInfo');
   const [appMode, setAppMode] = useState('medical');
@@ -263,10 +361,10 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
     const maxVal = Math.max(...Object.values(counts));
     return maxVal > 0 ? Object.keys(counts).reduce((a, b) => counts[a] > counts[b] ? a : b) : 'twist';
   }, []);
-
-const [hasAgreedPrivacy, setHasAgreedPrivacy] = useState(() => {
-  return localStorage.getItem('painscape_privacy_agreed') === 'true';
-});
+  
+  const [hasAgreedPrivacy, setHasAgreedPrivacy] = useState(() => {
+    return localStorage.getItem('painscape_privacy_agreed') === 'true';
+  });
 
   const handlePublishPost = useCallback(async (record, customText) => {
     if (!record) return;
@@ -332,6 +430,12 @@ const [hasAgreedPrivacy, setHasAgreedPrivacy] = useState(() => {
   }, [currentUserId, userInfo, imgUrl, getDominantPain, t, showToast, getFallbackImgUrl]);
 
   const handleSaveImage = useCallback((url) => {
+    // 🌟 埋点：分享/保存卡片
+    telemetry.logReportEvent({
+      outputType: identity === 'work' ? 'timeoff' : (identity === 'doctor' ? 'medical' : identity),
+      event_type: 'shared',
+      extra: { channel: 'download' } // download / wechat
+    });
     const downloadUrl = url || imgUrl;
     if (!downloadUrl) return;
     const link = document.createElement('a');
@@ -1167,6 +1271,13 @@ const [hasAgreedPrivacy, setHasAgreedPrivacy] = useState(() => {
   const handleGenerateFromData = async (data) => {
     setIsLoading(true);
     try {
+      //埋点：记录快速记录数据
+      telemetry.logQuickRecordData({
+        painTypeSelected: data.selectedPain || 'twist',
+        pressureValue: data.painScore || 50,
+        colorTemperature: data.colorTemperature || (data.activeColor === 'blue' ? '冷' : '暖'),
+        holdDurationMs: data.holdDurationMs || 3000
+      });
       const canvasImg = getFallbackImgUrl();
 
       const requestBody = {
@@ -1233,7 +1344,10 @@ const [hasAgreedPrivacy, setHasAgreedPrivacy] = useState(() => {
         isQuickLog: true,
       };
       setHistory(prev => [historyEntry, ...prev]);
-
+      if (!isGuest && currentUserId && !currentUserId.startsWith('guest_')) {
+        saveRecordToCloud(currentUserId, historyEntry);
+      }
+      telemetry.switchTab('partner');
       setPage('result');
     } catch (e) {
       console.error('Generate failed:', e);
@@ -1503,6 +1617,31 @@ const [hasAgreedPrivacy, setHasAgreedPrivacy] = useState(() => {
   };
 
   const handleSaveOnly = () => {
+    const endTime = new Date().toISOString();
+    const durationMs = canvasStartTimeRef.current ? Date.now() - canvasStartTimeRef.current : 0;
+  
+    const prHist = pressureHistory.current || [];
+    const avgPressure = prHist.length > 0 ? prHist.reduce((a, b) => a + b, 0) / prHist.length : 0.5;
+    const maxPressure = prHist.length > 0 ? Math.max(...prHist) : 0.8;
+    const totalStrokes = Object.values(brushCounts.current || {}).reduce((a, b) => a + b, 0);
+
+    telemetry.logPaintingData({
+      startTime: new Date(canvasStartTimeRef.current || Date.now()).toISOString(),
+      endTime,
+      durationMs,
+      brushesUsed: { ...brushCounts.current },
+      totalStrokes,
+      avgPressure,
+      maxPressure,
+      colorsUsed: Array.from(colorsUsedRef.current),
+      canvasView: bodyMode === 'none' ? 'blind' : bodyMode,
+      undoCount: undoCountRef.current,
+      clearCount: clearCountRef.current,
+      dominantPainType: getDominantPain(),
+      painScore: null,
+      savedOnly: true
+    });
+
     saveSnapshot();
 
     const canvasImg = generateCompositeCanvas() || getFallbackImgUrl();
@@ -1527,10 +1666,14 @@ const [hasAgreedPrivacy, setHasAgreedPrivacy] = useState(() => {
     };
 
     setHistory(prev => [paintingData, ...prev]);
+    if (!isGuest && currentUserId && !currentUserId.startsWith('guest_')) {
+      saveRecordToCloud(currentUserId, paintingData);
+    }
   };
 
   const handleClear = useCallback(() => {
     saveSnapshot();
+    clearCountRef.current += 1;
     brushCounts.current = { twist: 0, pierce: 0, heavy: 0, wave: 0, scrape: 0 };
     dynamicParticles.current = [];
     staticParticles.current = [];
@@ -1548,6 +1691,7 @@ const [hasAgreedPrivacy, setHasAgreedPrivacy] = useState(() => {
 
   const handleUndo = useCallback(() => {
     if (undoStackRef.current.length === 0) return;
+    undoCountRef.current += 1;
     if (!pgFrontRef.current || !pgBackRef.current) return;
 
     const currentFront = pgFrontRef.current.get();
@@ -1570,6 +1714,12 @@ const [hasAgreedPrivacy, setHasAgreedPrivacy] = useState(() => {
     dynamicParticles.current = lastState.dynamicParticles ? [...lastState.dynamicParticles] : [];
     brushCounts.current = { ...lastState.counts };
   }, []);
+
+  useEffect(() => {
+    if (activeColor) {
+      colorsUsedRef.current.add(activeColor);
+    }
+  }, [activeColor]);
 
   const handleRedo = useCallback(() => {
     if (redoStackRef.current.length === 0) return;
@@ -1854,10 +2004,23 @@ const [hasAgreedPrivacy, setHasAgreedPrivacy] = useState(() => {
         return (
           <ModeSelectionPage
             targetLanguage={targetLanguage}
-            onLanguageSwitch={() => setTargetLanguage(targetLanguage === 'zh' ? 'en' : 'zh')}
-            onSelectMode={(mode) => {
+            onLanguageSwitch={() => {
+              const nextLang = targetLanguage === 'zh' ? 'en' : 'zh';
+              setTargetLanguage(nextLang);
+              telemetry.logReportEvent({
+                outputType: identity,
+                event_type: 'bilingual_toggled',
+                extra: { language: nextLang }
+              });
+            }}
+             onSelectMode={(mode) => {
               setAppMode(mode);
               setPage('onboarding');
+              telemetry.startSession({
+                userId: currentUserId,
+                mode: mode === 'medical' ? 'clinical' : 'daily',
+                entryPoint: 'canvas'
+              });
               if (mode === 'general') {
                 setShowContent('preference');
               } else {
@@ -1891,10 +2054,15 @@ const [hasAgreedPrivacy, setHasAgreedPrivacy] = useState(() => {
             setTargetLanguage={setTargetLanguage}
             showGuide={showGuide}
             setShowGuide={setShowGuide}
-            onQuickLog={() => setPage('quickLog')}
             onStartDrawing={() => {
+              telemetry.updateSession({ profile_completed: true, entry_point: 'canvas' });
+              canvasStartTimeRef.current = Date.now();
               setBodyMode('front');
               setPage('canvas');
+            }}
+            onQuickLog={() =>{
+              telemetry.updateSession({ profile_completed: true, entry_point: 'quick_record' });
+              setPage('quickLog')
             }}
             onSkip={() => {
               setBodyMode('front');
@@ -1903,15 +2071,7 @@ const [hasAgreedPrivacy, setHasAgreedPrivacy] = useState(() => {
             onBack={() => setPage('modeSelection')}
             onCommunity={() => setPage('community')}
             onHistory={() => setPage('history')}
-            onProfile={() => {
-              // 🌟 游客点击个人主页直接唤起登录/注册弹窗
-              if (isGuest || !currentUserId) {
-                setShowAuthModal(true);
-                return;
-              }
-              setTargetUserId(currentUserId);
-              setPage('profile');
-            }}
+            onProfile={() =>handleNavigateToProfile(null)}
           />
         );
       case 'quickLog':
@@ -1959,10 +2119,17 @@ const [hasAgreedPrivacy, setHasAgreedPrivacy] = useState(() => {
             onBack={() => setPage('onboarding')}
             onGenerate={async () => {
               setIsLoading(true);
+              // 记录绘画结束时间与总时长 (用于 painting_data 埋点)
+              const nowEndTime = new Date();
+              const endTimeStr = nowEndTime.toISOString();
+              const startTimeStr = canvasStartTimeRef.current 
+              ? new Date(canvasStartTimeRef.current).toISOString() 
+              : new Date(Date.now() - 30000).toISOString();
+              const durationMs = canvasStartTimeRef.current ? (Date.now() - canvasStartTimeRef.current) : 0;
               try {
                 const canvasImg = generateCompositeCanvas() || getFallbackImgUrl();
                 setImgUrl(canvasImg);
-
+                
                 const BODY_ZONES = {
                   front: {
                     head: { x: [0.35, 0.65], y: [0.00, 0.08] },
@@ -1977,29 +2144,29 @@ const [hasAgreedPrivacy, setHasAgreedPrivacy] = useState(() => {
                     sacrum: { x: [0.25, 0.75], y: [0.58, 0.82] },
                   },
                 };
-
+               
                 const isInZone = (x, y, zone) => {
                   return x >= zone.x[0] && x <= zone.x[1] &&
-                    y >= zone.y[0] && y <= zone.y[1];
+                  y >= zone.y[0] && y <= zone.y[1];
                 };
-
+             
                 const getDefaultSpatialMap = (mode) => {
                   if (mode === 'back') {
                     return { upperBack: 0.3, waist: 0.5, sacrum: 0.2 };
                   }
                   return { head: 0.0, chest: 0.1, upperAbdomen: 0.4, lowerAbdomen: 0.5, legs: 0.0 };
                 };
-
+                
                 const calculateSpatialMap = (positions, mode, p5) => {
                   if (!p5 || !p5.width || !p5.height) {
                     return getDefaultSpatialMap(mode);
                   }
-
+                  
                   const activeImg = mode === 'back' ? bgBackRef.current : bgFrontRef.current;
                   if (!activeImg) {
                     return getDefaultSpatialMap(mode);
                   }
-
+                  
                   const currentBgScale = bgScale || 1.0;
                   const imgScale = ((p5.height * 0.8) / activeImg.height) * currentBgScale;
                   const imgWidth = activeImg.width * imgScale;
@@ -2016,7 +2183,7 @@ const [hasAgreedPrivacy, setHasAgreedPrivacy] = useState(() => {
 
                   positions.forEach(p => {
                     if (!p || p.x == null || p.y == null) return;
-
+                    
                     const normX = (p.x - imgLeft) / imgWidth;
                     const normY = (p.y - imgTop) / imgHeight;
 
@@ -2025,134 +2192,154 @@ const [hasAgreedPrivacy, setHasAgreedPrivacy] = useState(() => {
                     totalInBody++;
 
                     for (const key of zoneKeys) {
-                      if (isInZone(normX, normY, zones[key])) {
-                        counts[key] += 1;
-                        break;
-                      }
-                    }
-                  });
-
-                  if (totalInBody === 0) {
-                    return getDefaultSpatialMap(mode);
+                    if (isInZone(normX, normY, zones[key])) {
+                    counts[key] += 1;
+                    break;
                   }
-
-                  const result = {};
-                  zoneKeys.forEach(key => {
-                    result[key] = counts[key] / totalInBody;
-                  });
-
-                  return result;
-                };
-
-                const dominant = getDominantPain() || 'twist';
-                const bc = brushCounts.current || {};
-                const brushNameMap = { heavy: 'sink', wave: 'swell' };
-                const mappedDominant = brushNameMap[dominant] || dominant;
-                const mappedBc = Object.fromEntries(
-                  Object.entries(bc).map(([k, v]) => [brushNameMap[k] || k, v])
-                );
-
-                const toneMap = { polite: 'neutral', objective: 'formal' };
-                const mappedWorkTone = toneMap[leaveTone] || leaveTone || 'neutral';
-
-                const totalBrushes = Object.values(bc).reduce((a, b) => a + b, 0);
-                const painScore = Math.min(100, Math.max(10, Math.round(totalBrushes * 1.5)));
-
-                const spHist = speedHistory.current || [];
-                const prHist = pressureHistory.current || [];
-                const avgSpeed = spHist.length > 0 ? spHist.reduce((a, b) => a + b, 0) / spHist.length : 5.0;
-                const peakSpeed = spHist.length > 0 ? Math.max(...spHist) : 10.0;
-                const avgPressure = prHist.length > 0 ? prHist.reduce((a, b) => a + b, 0) / prHist.length : 0.5;
-
-                const positions = particlePositions.current || [];
-                const p5 = p5Ref.current;
-
-                const spatialMap = calculateSpatialMap(positions, bodyMode, p5);
-
-                const timeRhythm = {
-                  morning: 0.33,
-                  afternoon: 0.33,
-                  night: 0.34,
-                  dominantPeriod: 'morning',
-                };
-
-                const requestBody = {
-                  appMode: appMode || 'medical',
-                  dominantPain: mappedDominant,
-                  userPref: userPrefs[0] || 'care',
-                  painScore,
-                  brushCounts: mappedBc,
-                  spatialMap,
-                  intensityProfile: { avgSpeed, peakSpeed, avgPressure },
-                  timeRhythm,
-                  colorPalette: activeColor || 'crimson',
-                  bodyMode: bodyMode || 'front',
-                  medicalBackground,
-                  tonePreference: tonePreference || 'gentle',
-                  cycleDay: cycleDay || (isEn ? 'Not provided' : '未提供'),
-                  targetLanguage: targetLanguage || 'zh',
-                  accompanyingSymptoms: allSymptoms,
-                  workScenario: leaveRecipient || 'manager',
-                  workTone: mappedWorkTone,
-                };
-
-                let apiResult = null;
-                try {
-                  const resp = await fetch(`${API_BASE}/api/generate`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(requestBody),
-                  });
-                  if (resp.ok) {
-                    apiResult = await resp.json();
-                  }
-                } catch (apiErr) {
-                  console.warn('⚠️ 无后端 API，启用本地模板:', apiErr.message);
                 }
-
-                if (apiResult) {
-                  setLlmData(apiResult);
-                  setCurrentReportData(apiResult);
-                } else {
-                  const content = generateContent(dominant);
-                  setCurrentReportData(content);
-                }
-
-                const now = new Date();
-                const dateStr = `${now.getFullYear()}/${String(now.getMonth() + 1).padStart(2, '0')}/${String(now.getDate()).padStart(2, '0')}`;
-                const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-
-                const historyEntry = {
-                  id: Date.now().toString(),
-                  userId: currentUserId || 'user_guest',
-                  date: dateStr,
-                  time: timeStr,
-                  img: canvasImg,
-                  painName: t(`painNames.${dominant}`) || dominant,
-                  dominantPain: dominant,
-                  painScore,
-                  appMode,
-                  reportData: apiResult || generateContent(dominant),
-                  medicalBackground,
-                  userPrefs,
-                  tonePreference,
-                  cycleDay,
-                  spatialMap,
-                  colorPalette: activeColor || 'crimson',
-                  accompanyingSymptoms: allSymptoms,
-                };
-
-                setHistory(prev => [historyEntry, ...prev]);
-                setPage('result');
-              } catch (e) {
-                console.error('❌ 生成失败处理:', e);
-                const dominant = getDominantPain();
-                setCurrentReportData(generateContent(dominant));
-                setPage('result');
-              } finally {
-                setIsLoading(false);
+              });
+              
+              if (totalInBody === 0) {
+                return getDefaultSpatialMap(mode);
               }
-            }}
+              const result = {};
+              zoneKeys.forEach(key => {
+                result[key] = counts[key] / totalInBody;
+              });
+              return result;
+            };
+            
+            const dominant = getDominantPain() || 'twist';
+            const bc = brushCounts.current || {};
+            const brushNameMap = { heavy: 'sink', wave: 'swell' };
+            const mappedDominant = brushNameMap[dominant] || dominant;
+            const mappedBc = Object.fromEntries(
+              Object.entries(bc).map(([k, v]) => [brushNameMap[k] || k, v])
+            );
+
+            const toneMap = { polite: 'neutral', objective: 'formal' };
+            const mappedWorkTone = toneMap[leaveTone] || leaveTone || 'neutral';
+
+            const totalBrushes = Object.values(bc).reduce((a, b) => a + b, 0);
+            const painScore = Math.min(100, Math.max(10, Math.round(totalBrushes * 1.5)));
+
+            const spHist = speedHistory.current || [];
+            const prHist = pressureHistory.current || [];
+            const avgSpeed = spHist.length > 0 ? spHist.reduce((a, b) => a + b, 0) / spHist.length : 5.0;
+            const peakSpeed = spHist.length > 0 ? Math.max(...spHist) : 10.0;
+            const avgPressure = prHist.length > 0 ? prHist.reduce((a, b) => a + b, 0) / prHist.length : 0.5;
+
+            const positions = particlePositions.current || [];
+            const p5 = p5Ref.current;
+
+            const spatialMap = calculateSpatialMap(positions, bodyMode, p5);
+
+            const timeRhythm = {
+              morning: 0.33,
+              afternoon: 0.33,
+              night: 0.34,
+              dominantPeriod: 'morning',
+            };
+            //  插入 painting_data 埋点记录（对照 PDF 表 2）
+            telemetry.logPaintingData({
+              startTime: startTimeStr,
+              endTime: endTimeStr,
+              durationMs: durationMs,
+              brushesUsed: mappedBc,
+              totalStrokes: totalBrushes,
+              avgPressure: avgPressure,
+              maxPressure: prHist.length > 0 ? Math.max(...prHist) : 1.0,
+              colorsUsed: Array.from(colorsUsedRef.current || ['crimson']),
+              canvasView: bodyMode === 'none' ? 'blind' : bodyMode, // front / back / blind
+              undoCount: undoCountRef.current || 0,
+              clearCount: clearCountRef.current || 0,
+              dominantPainType: mappedDominant,
+              painScore: painScore,
+              savedOnly: false // 点击生成报告，所以为 false
+            });
+            
+            const requestBody = {
+              appMode: appMode || 'medical',
+              dominantPain: mappedDominant,
+              userPref: userPrefs[0] || 'care',
+              painScore,
+              brushCounts: mappedBc,
+              spatialMap,
+              intensityProfile: { avgSpeed, peakSpeed, avgPressure },
+              timeRhythm,
+              colorPalette: activeColor || 'crimson',
+              bodyMode: bodyMode || 'front',
+              medicalBackground,
+              tonePreference: tonePreference || 'gentle',
+              cycleDay: cycleDay || (isEn ? 'Not provided' : '未提供'),
+              targetLanguage: targetLanguage || 'zh',
+              accompanyingSymptoms: allSymptoms,
+              workScenario: leaveRecipient || 'manager',
+              workTone: mappedWorkTone,
+            };
+            
+            let apiResult = null;
+            try {
+              const resp = await fetch(`${API_BASE}/api/generate`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(requestBody),
+              });
+              if (resp.ok) {
+                apiResult = await resp.json();
+              }
+            } catch (apiErr) {
+              console.warn('⚠️ 无后端 API，启用本地模板:', apiErr.message);
+            }
+            
+            if (apiResult) {
+              setLlmData(apiResult);
+              setCurrentReportData(apiResult);
+            } else {
+              const content = generateContent(dominant);
+              setCurrentReportData(content);
+            }
+            
+            const now = new Date();
+            const dateStr = `${now.getFullYear()}/${String(now.getMonth() + 1).padStart(2, '0')}/${String(now.getDate()).padStart(2, '0')}`;
+            const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+            
+            const historyEntry = {
+              id: Date.now().toString(),
+              userId: currentUserId || 'user_guest',
+              date: dateStr,
+              time: timeStr,
+              img: canvasImg,
+              appMode,
+              reportData: apiResult || generateContent(dominant),
+              medicalBackground,
+              userPrefs,
+              tonePreference,
+              cycleDay,
+              spatialMap,
+              colorPalette: activeColor || 'crimson',
+              accompanyingSymptoms: allSymptoms,
+            };
+            
+            setHistory(prev => [historyEntry, ...prev]);
+            if (!isGuest && currentUserId && !currentUserId.startsWith('guest_')) {
+              saveRecordToCloud(currentUserId, historyEntry);
+            }
+            // 切换到报告页，并记录进入第一个 Tab（partner）的 tab_viewed 事件
+            setIdentity('partner');
+            telemetry.switchTab('partner');
+            setPage('result');
+          } catch (e) {
+            console.error('❌ 生成失败处理:', e);
+            const dominant = getDominantPain();
+            setCurrentReportData(generateContent(dominant));
+            setIdentity('partner');
+            telemetry.switchTab('partner');
+            setPage('result');
+          } finally {
+            setIsLoading(false);
+          }
+        }}
             saveSnapshot={saveSnapshot}
             handleUndo={handleUndo}
             handleRedo={handleRedo}
@@ -2211,6 +2398,7 @@ const [hasAgreedPrivacy, setHasAgreedPrivacy] = useState(() => {
             handleRefine={async (field) => {
               if (!field) return;
               setRefiningField(field);
+              const originalText = currentReportData?.[field] || '';
               try {
                 const dominant = getDominantPain();
                 const bc = brushCounts.current || {};
@@ -2269,6 +2457,16 @@ const [hasAgreedPrivacy, setHasAgreedPrivacy] = useState(() => {
                   if (fieldValue !== undefined && fieldValue !== null) {
                     setCurrentReportData(prev => ({ ...prev, [field]: fieldValue }));
                     setLlmData(prev => ({ ...prev, [field]: fieldValue }));
+                    // 埋点：记录 AI 精调前后的内容（规则②）
+                    telemetry.logReportEvent({
+                      outputType: identity === 'work' ? 'timeoff' : (identity === 'doctor' ? 'medical' : identity),
+                      event_type: 'ai_refined',
+                      fieldName: field,
+                      originalText: originalText,
+                      editedText: fieldValue,
+                      extra: { refine_type: 'tone' } // tone / style / general
+                    });
+
                     setEditedContents(prev => {
                       const next = { ...prev };
                       delete next[field];
@@ -2328,10 +2526,7 @@ const [hasAgreedPrivacy, setHasAgreedPrivacy] = useState(() => {
             isLoading={isCommunityLoading}
             onRefreshCommunity={refreshCommunity}
             onBack={() => setPage('onboarding')}
-            onViewProfile={(userId) => {
-              setTargetUserId(userId);
-              setPage('profile');
-            }}
+            onViewProfile={(userId) => handleNavigateToProfile(userId)}
             handleLikePost={(postId) => {
               setPosts(prev => prev.map(p =>
                 p.id === postId ? { ...p, likes: (p.likes || 0) + 1 } : p
@@ -2377,22 +2572,24 @@ const [hasAgreedPrivacy, setHasAgreedPrivacy] = useState(() => {
             onPublishRecord={(record, customText) => handlePublishPost(record, customText)}
             showToast={showToast}
             currentUserId={currentUserId}
+            isGuest={isGuest}
           />
         );
 
       case 'profile':
+        if ((!targetUserId || targetUserId === currentUserId) && !isValidEmailUser(currentUserId, isGuest)) {
+          setShowAuthModal(true);
+          return null;
+        }
         return (
           <ProfilePage
-            key={targetUserId}
+            key={targetUserId || currentUserId}
             currentUserId={currentUserId}
-            targetUserId={targetUserId}
+            targetUserId={targetUserId || currentUserId}
             isGuest={isGuest}
             onOpenAuth={() => setShowAuthModal(true)}
             setTargetUserId={setTargetUserId}
-            onViewProfile={(userId) => {
-              setTargetUserId(userId);
-              setPage('profile');
-            }}
+            onViewProfile={(userId) => handleNavigateToProfile(userId)}
             medicalBackground={medicalBackground}
             history={history}
             posts={posts}
@@ -2447,6 +2644,15 @@ const [hasAgreedPrivacy, setHasAgreedPrivacy] = useState(() => {
         setPostText={setPostText}
         onClose={() => setShowPostModal(false)}
         onSubmit={(submitData) => {
+          // 埋点：发布到社区广场
+          telemetry.logReportEvent({
+            outputType: identity === 'work' ? 'timeoff' : (identity === 'doctor' ? 'medical' : identity),
+            event_type: 'published',
+            extra: {
+              anonymous: Boolean(isAnonymous),
+              blur_level: submitData?.blurLevel || 0
+            }
+          });
           // ✅ submitData 包含 text, blurEnabled, blurLevel
           handlePublishPost({
             img: imgUrl,
@@ -2507,6 +2713,77 @@ const [hasAgreedPrivacy, setHasAgreedPrivacy] = useState(() => {
         aiSelfCareTips={[]}
         onPublishSharedTip={() => { }}
       />
+
+      {/* 🌟 ===== [在此处添加] 实验员悬浮导出工具条 ===== */}
+      <div 
+        style={{
+          position: 'fixed',
+          bottom: 12,
+          left: 12,
+          zIndex: 99999,
+          display: 'flex',
+          gap: 6,
+          background: 'rgba(0,0,0,0.75)',
+          padding: '6px 8px',
+          borderRadius: 8,
+          border: '1px solid #444',
+          backdropFilter: 'blur(6px)',
+          boxShadow: '0 4px 12px rgba(0,0,0,0.5)'
+        }}
+      >
+        <button
+          onClick={() => telemetry.exportAllAsCSV()}
+          style={{
+            padding: '4px 8px',
+            fontSize: '11px',
+            background: '#2e7d32',
+            color: '#fff',
+            border: 'none',
+            borderRadius: 4,
+            cursor: 'pointer',
+            fontWeight: 'bold'
+          }}
+          title="导出4张CSV表格用于Excel/SPSS分析"
+        >
+          📊 导出实验CSV
+        </button>
+        <button
+          onClick={() => telemetry.exportAllAsJSON()}
+          style={{
+            padding: '4px 8px',
+            fontSize: '11px',
+            background: '#1565c0',
+            color: '#fff',
+            border: 'none',
+            borderRadius: 4,
+            cursor: 'pointer',
+            fontWeight: 'bold'
+          }}
+          title="导出完整JSON数据备份"
+        >
+          📁 导出JSON
+        </button>
+        <button
+          onClick={() => {
+            if (window.confirm("确定清空所有本地埋点数据吗？")) {
+              telemetry.clearTelemetry();
+              alert("已清空");
+            }
+          }}
+          style={{
+            padding: '4px 6px',
+            fontSize: '11px',
+            background: '#c62828',
+            color: '#fff',
+            border: 'none',
+            borderRadius: 4,
+            cursor: 'pointer'
+          }}
+          title="清空当前所有实验数据"
+        >
+          🗑️
+        </button>
+      </div>
     </>    
   );
 }

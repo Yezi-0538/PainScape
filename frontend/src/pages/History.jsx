@@ -1,6 +1,7 @@
 // src/pages/HistoryPage.jsx
 import React, { useState, useMemo } from 'react';
 import { useI18n } from '../i18n/i18nContext';
+import { deleteRecordFromCloud } from '../services/painRecordService';
 import RecordDetailModal from '../Components/modals/RecordDetailModal';
 import PublishPostModal from '../Components/modals/PublishPostModal';
 
@@ -1108,26 +1109,36 @@ export default function HistoryPage({
     setSelectedDateRecords(records);
   };
 
-  const handleDeleteRecord = (recordId) => {
-    // ✅ 找到要删除的记录
+  const handleDeleteRecord = async (recordId) => {
+    // 1. 找到目标记录
     const recordToDelete = history.find(h => h.id === recordId);
     if (!recordToDelete) return;
 
-    // ✅ 验证记录是否属于当前用户
-    if (currentUserId && recordToDelete.userId && recordToDelete.userId !== currentUserId) {
+    // 2. 权限校验：已登录用户不能删除其他用户的记录
+    if (
+      currentUserId &&
+      !currentUserId.startsWith('guest_') &&
+      recordToDelete.userId &&
+      !recordToDelete.userId.startsWith('guest_') &&
+      recordToDelete.userId !== currentUserId
+    ) {
       showToast?.('noPermission');
       return;
     }
 
-    if (window.confirm(t('history.deleteConfirm'))) {
+    // 3. 用户确认删除
+    if (window.confirm(t('history.deleteConfirm') || '确定要删除这条记录吗？')) {
+      // 本地状态与缓存优先移除，保证界面响应毫无卡顿
       const updated = history.filter(h => h.id !== recordId);
       setHistory(updated);
       try {
         localStorage.setItem('painscape_history', JSON.stringify(updated));
-      } catch (e) { }
+      } catch (e) {}
+
       setSelectedDateRecords(prev => prev.filter(h => h.id !== recordId));
       if (viewingDiary?.id === recordId) setViewingDiary(null);
-      // 清除对比中涉及的记录
+
+      // 清除对比视图中关联的记录
       if (compareSource?.id === recordId) {
         setCompareSource(null);
         setCompareTarget(null);
@@ -1137,7 +1148,17 @@ export default function HistoryPage({
         setCompareTarget(null);
         setCompareMode(false);
       }
+
       showToast?.('recordDeleted');
+
+      // 4. 🌟 若为正式登录用户，静默同步删除云端记录
+      if (currentUserId && !currentUserId.startsWith('guest_') && currentUserId !== 'user_guest') {
+        try {
+          await deleteRecordFromCloud(recordId, currentUserId);
+        } catch (err) {
+          console.warn('⚠️ 云端记录删除失败:', err);
+        }
+      }
     }
   };
 
