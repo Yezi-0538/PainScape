@@ -164,11 +164,17 @@ const translations = {
       ],
       medicalTitle: "填写健康信息（可选）",
       step1: "基础信息",
-      step2: "健康背景",
-      step3: "偏好设置",
+      step2: "干预偏好",
       basicPhysiologicalTitle: "基础生理档案",
       basicInfoTitle: "基础信息",
       basicInfoHint: "以下信息用于生成更准确的医疗参考，均为选填",
+      basicInfoDesc: "以下信息用于生成更准确的医疗参考，均为选填",
+      recentActivityLevelLabel: "近期活动负荷",
+      recentLifestyleTitle: "近期习惯",
+      recentPsychosocialLabel: "近期压力状况 (可选)",
+      openProfileModalBtn: "完善个人档案 (常态生理/病史/过敏等)",
+      profileModalTitle: "个人档案",
+      profileModalDesc: "这些常态基础生理与既往病史指标将被保存，避免重复录入",
       ageGroupLabel: "您的年龄段",
       activityLevelLabel: "日常活动负荷",
       lifestyleHabitsLabel: "日常习惯",
@@ -573,6 +579,13 @@ const translations = {
       add: "添加",
       cancel: "取消",
       youAdded: "你添加",
+
+      // 搜索相关
+      searchPlaceholder: "搜索经期常识、护理技巧、饮食...",
+      searchResults: "找到 {{count}} 条相关科普",
+      searchEmpty: "未找到与 “{{query}}” 相关的科普内容",
+      searchEmptyHint: "试试搜索：洗头、热敷、饮食、血块、棉条...",
+      clearSearch: "恢复随机展示",
 
       // 标题
       title: "经期知识科普",
@@ -1674,11 +1687,18 @@ const translations = {
       ],
       medicalTitle: "Health Information (Optional)",
       step1: "Basic Info",
-      step2: "Health Background",
-      step3: "Preferences",
+      step2: "Preferences",
       basicPhysiologicalTitle: "Basic Physiological Profile",
       basicInfoTitle: "Basic Information",
       basicInfoHint: "The following info helps generate more accurate medical references, all optional",
+      basicInfoDesc: "The following info helps generate more accurate medical references, all optional",
+      recentActivityLevelLabel: "Recent Activity Level",
+      recentLifestyleTitle: "Recent Habits",
+      recentPsychosocialLabel: "Recent Stress Level (Optional)",
+      openProfileModalBtn: "Complete Personal Profile (Baselines/History/Allergies)",
+      profileModalTitle: "Personal Profile",
+      profileModalDesc: "These baseline physiological indicators & medical histories are saved locally",
+      dailyActivityLevelLabel: "Daily Activity Level",
       ageGroupLabel: "Age Group",
       activityLevelLabel: "Physical Activity Level",
       lifestyleHabitsLabel: "Lifestyle Habits",
@@ -2040,8 +2060,15 @@ const translations = {
       add: "Add",
       cancel: "Cancel",
       youAdded: "You",
-
       title: "Period Science & Tips",
+
+      //搜索相关
+      searchPlaceholder: "Search period facts, care tips, diet...",
+      searchResults: "Found {{count}} related topics",
+      searchEmpty: "No science topics found for \"{{query}}\"",
+      searchEmptyHint: "Try searching: shower, heat, diet, cramps, tampons...",
+      clearSearch: "Reset view",
+
 
       cards: [
         // ===== 生理常识 =====

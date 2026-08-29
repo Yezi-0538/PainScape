@@ -1,15 +1,13 @@
 // src/pages/OnboardingPage.jsx
 import React, { useState, useEffect } from 'react';
 import { useI18n } from '../i18n/i18nContext';
-import { BRUSHES } from '../i18n/translationsConstants';
 import OnboardingTooltip from '../Components/OnboardingTooltip';
-
+import PersonalProfileModal from '../Components/modals/PersonalProfileModal';
 
 // 子组件：可折叠多选下拉框
 const CollapsibleMultiSelect = ({ label, options, selectedValues, onChange, placeholder }) => {
   const { t } = useI18n();
   const [isOpen, setIsOpen] = useState(false);
-  const triggerRef = React.useRef(null);
 
   const toggleOpen = () => setIsOpen(!isOpen);
 
@@ -22,9 +20,8 @@ const CollapsibleMultiSelect = ({ label, options, selectedValues, onChange, plac
   };
 
   const displayText = selectedValues?.length > 0
-    ? `${selectedValues.length} ${t('common.itemsSelected')}`
-    : placeholder || t('common.pleaseSelect');
-
+    ? `${selectedValues.length} ${t('common.itemsSelected') || '项已选'}`
+    : placeholder || t('common.pleaseSelect') || '请选择';
 
   return (
     <div style={{ position: 'relative', marginBottom: '12px', width: '100%' }}>
@@ -32,7 +29,6 @@ const CollapsibleMultiSelect = ({ label, options, selectedValues, onChange, plac
         {label}
       </label>
       <div
-        ref={triggerRef}
         onClick={toggleOpen}
         style={{
           width: '100%',
@@ -100,7 +96,6 @@ const CollapsibleMultiSelect = ({ label, options, selectedValues, onChange, plac
 // 子组件：可折叠单选下拉框
 const CollapsibleSingleSelect = ({ label, options, selectedValue, onChange, placeholder }) => {
   const [isOpen, setIsOpen] = useState(false);
-  const triggerRef = React.useRef(null);
 
   const toggleOpen = () => setIsOpen(!isOpen);
 
@@ -118,7 +113,6 @@ const CollapsibleSingleSelect = ({ label, options, selectedValue, onChange, plac
         {label}
       </label>
       <div
-        ref={triggerRef}
         onClick={toggleOpen}
         style={{
           width: '100%',
@@ -183,9 +177,6 @@ const CollapsibleSingleSelect = ({ label, options, selectedValue, onChange, plac
   );
 };
 
-// ============================================================
-// 主组件
-// ============================================================
 export default function OnboardingPage({
   // 导航
   onBack,
@@ -233,9 +224,10 @@ export default function OnboardingPage({
 }) {
   const { t } = useI18n();
   const [tooltipStep, setTooltipStep] = useState(null);
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
 
   useEffect(() => {
-    if (['basicInfo', 'medical', 'preference'].includes(showContent)) {
+    if (['basicInfo', 'preference'].includes(showContent)) {
       setTooltipStep(showContent);
     }
   }, [showContent]);
@@ -273,7 +265,7 @@ export default function OnboardingPage({
         margin: '0 auto',
       }}
     >
-      {/* Mode toggle */}
+      {/* 模式切换 Tabs */}
       <div
         style={{
           display: 'flex',
@@ -331,98 +323,90 @@ export default function OnboardingPage({
         </button>
       </div>
 
-      {/* Help button */}
+      {/* 帮助指引按钮 */}
       <div style={{ position: 'absolute', top: '15px', right: '15px', zIndex: 10 }}>
-        <div style={{ position: 'absolute', top: '15px', right: '15px', zIndex: 10 }}>
-          <button
-            onClick={() => setShowGuide(!showGuide)}
+        <button
+          onClick={() => setShowGuide(!showGuide)}
+          style={{
+            background: 'rgba(255,255,255,0.05)',
+            border: '1px solid rgba(255,255,255,0.1)',
+            color: '#888',
+            width: '32px',
+            height: '32px',
+            minWidth: '32px',
+            minHeight: '32px',
+            borderRadius: '50%',
+            fontSize: 'var(--text-md)',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: 0,
+            lineHeight: 1,
+          }}
+        >
+          ?
+        </button>
+        {showGuide && (
+          <div
             style={{
-              background: 'rgba(255,255,255,0.05)',
-              border: '1px solid rgba(255,255,255,0.1)',
-              color: '#888',
-              width: '32px',
-              height: '32px',
-              minWidth: '32px',
-              minHeight: '32px',
-              borderRadius: '50%',
-              fontSize: 'var(--text-md)',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              flexShrink: 0,
-              padding: 0,
-              lineHeight: 1,
+              position: 'absolute',
+              top: '40px',
+              right: '0',
+              background: 'rgba(20,20,20,0.97)',
+              border: '1px solid rgba(255,255,255,0.05)',
+              borderRadius: 'var(--radius-md)',
+              padding: 'var(--space-xl)',
+              width: '260px',
+              backdropFilter: 'blur(20px)',
+              zIndex: 200,
             }}
           >
-            ?
-          </button>
-          {showGuide && (
-            <div
+            <p style={{ color: '#eee', fontSize: 'var(--text-base)', fontWeight: 'bold', margin: '0 0 12px 0' }}>
+              {t('onboarding.guideTitle')}
+            </p>
+            {t('onboarding.guideItems').map(([title, desc], idx) => (
+              <div key={idx} style={{ marginBottom: '8px' }}>
+                <span style={{ color: '#fff', fontSize: '12px', fontWeight: 'bold' }}>{title}</span>
+                <p style={{ color: '#888', fontSize: '11px', margin: '2px 0 0 0' }}>{desc}</p>
+              </div>
+            ))}
+            <button
+              onClick={() => setShowGuide(false)}
               style={{
-                position: 'absolute',
-                top: '40px',
-                right: '0',
-                background: 'rgba(20,20,20,0.97)',
-                border: '1px solid rgba(255,255,255,0.05)',
-                borderRadius: 'var(--radius-md)',
-                padding: 'var(--space-xl)',
-                width: '260px',
-                backdropFilter: 'blur(20px)',
-                zIndex: 200,
+                marginTop: '8px',
+                width: '100%',
+                background: 'transparent',
+                border: '1px solid rgba(255,255,255,0.1)',
+                color: '#666',
+                padding: '6px',
+                borderRadius: '10px',
+                fontSize: '10px',
+                cursor: 'pointer',
               }}
             >
-              <p
-                style={{
-                  color: '#eee',
-                  fontSize: 'var(--text-base)',
-                  fontWeight: 'bold',
-                  margin: '0 0 12px 0',
-                }}
-              >
-                {t('onboarding.guideTitle')}
-              </p>
-              {t('onboarding.guideItems').map(([title, desc], idx) => (
-                <div key={idx} style={{ marginBottom: '8px' }}>
-                  <span style={{ color: '#fff', fontSize: '12px', fontWeight: 'bold' }}>{title}</span>
-                  <p style={{ color: '#888', fontSize: '11px', margin: '2px 0 0 0' }}>{desc}</p>
-                </div>
-              ))}
-              <button
-                onClick={() => setShowGuide(false)}
-                style={{
-                  marginTop: '8px',
-                  width: '100%',
-                  background: 'transparent',
-                  border: '1px solid rgba(255,255,255,0.1)',
-                  color: '#666',
-                  padding: '6px',
-                  borderRadius: '10px',
-                  fontSize: '10px',
-                  cursor: 'pointer',
-                }}
-              >
-                {t('onboarding.gotIt')}
-              </button>
-            </div>
-          )}
-        </div>
+              {t('onboarding.gotIt')}
+            </button>
+          </div>
+        )}
       </div>
 
       <h1 style={{ color: '#fff', marginBottom: '5px', fontSize: '2rem', marginTop: '20px' }}>
         PainScape
       </h1>
       <p style={{ color: '#aaa', marginBottom: '20px' }}>{t('app.subtitle')}</p>
-      {/*操作指引*/}
+
+      {/* 操作指引 Tooltip */}
       {tooltipStep && (
         <OnboardingTooltip
           step={tooltipStep}
           onClose={() => setTooltipStep(null)}
         />
       )}
-      {/* Content area */}
+
+      {/* 主表单内容区域 */}
       <div style={{ width: '100%', boxSizing: 'border-box' }}>
-        {/* STEP 1: Basic Info */}
+        {/* ===== STEP 1: 基础信息 (合并与精简后的第1页) ===== */}
         {showContent === 'basicInfo' && appMode !== 'general' && (
           <div
             style={{
@@ -442,96 +426,21 @@ export default function OnboardingPage({
                   fontWeight: '500',
                 }}
               >
-                {t('onboarding.basicPhysiologicalTitle')}
+                {t('onboarding.basicInfoTitle') || '基础信息'}
               </h3>
               <p style={{ color: '#888', fontSize: '11px', margin: 0 }}>
-                {t('onboarding.basicPhysiologicalDesc')}
+                {t('onboarding.basicInfoDesc') || '采集本次痛经动态指标，辅助精准诊断'}
               </p>
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              {/* 1. 近期活动负荷 */}
               <div>
                 <label style={{ color: '#888', fontSize: '11px', display: 'block', marginBottom: '6px' }}>
-                  {t('onboarding.ageGroupLabel')}
+                  {t('onboarding.recentActivityLevelLabel') || '近期活动负荷'}
                 </label>
                 <select
-                  value={medicalBackground.age}
-                  onChange={(e) =>
-                    setMedicalBackground({ ...medicalBackground, age: e.target.value })
-                  }
-                  style={{
-                    width: '100%',
-                    padding: 'var(--space-md)',
-                    background: '#111',
-                    color: '#fff',
-                    border: '1.5px solid #333',
-                    borderRadius: 'var(--radius-sm)',
-                    fontSize: '13px',
-                  }}
-                >
-                  {Object.entries(t('onboarding.ageOptions') || {}).map(([value, label]) => (
-                    <option key={value} value={value}>
-                      {label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div style={{ display: 'flex', gap: '12px' }}>
-                <div style={{ flex: 1 }}>
-                  <label style={{ color: '#888', fontSize: '11px', display: 'block', marginBottom: '6px' }}>
-                    {t('onboarding.heightLabel')}
-                  </label>
-                  <input
-                    type="number"
-                    placeholder={t('onboarding.heightPlaceholder')}
-                    value={medicalBackground.height}
-                    onChange={(e) =>
-                      setMedicalBackground({ ...medicalBackground, height: e.target.value })
-                    }
-                    style={{
-                      width: '100%',
-                      padding: 'var(--space-md)',
-                      background: '#111',
-                      color: '#fff',
-                      border: '1.5px solid #333',
-                      borderRadius: 'var(--radius-sm)',
-                      fontSize: '13px',
-                      boxSizing: 'border-box',
-                    }}
-                  />
-                </div>
-                <div style={{ flex: 1 }}>
-                  <label style={{ color: '#888', fontSize: '11px', display: 'block', marginBottom: '6px' }}>
-                    {t('onboarding.weightLabel')}
-                  </label>
-                  <input
-                    type="number"
-                    placeholder={t('onboarding.weightPlaceholder')}
-                    value={medicalBackground.weight}
-                    onChange={(e) =>
-                      setMedicalBackground({ ...medicalBackground, weight: e.target.value })
-                    }
-                    style={{
-                      width: '100%',
-                      padding: 'var(--space-md)',
-                      background: '#111',
-                      color: '#fff',
-                      border: '1.5px solid #333',
-                      borderRadius: 'var(--radius-sm)',
-                      fontSize: '13px',
-                      boxSizing: 'border-box',
-                    }}
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label style={{ color: '#888', fontSize: '11px', display: 'block', marginBottom: '6px' }}>
-                  {t('onboarding.activityLevelLabel')}
-                </label>
-                <select
-                  value={medicalBackground.activityLevel}
+                  value={medicalBackground.activityLevel || ''}
                   onChange={(e) =>
                     setMedicalBackground({ ...medicalBackground, activityLevel: e.target.value })
                   }
@@ -553,9 +462,10 @@ export default function OnboardingPage({
                 </select>
               </div>
 
+              {/* 2. 近期习惯 & 3. 近期压力状况 */}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                 <CollapsibleMultiSelect
-                  label={t('onboarding.lifestyleTitle') || '日常习惯'}
+                  label={t('onboarding.recentLifestyleTitle') || '近期习惯'}
                   options={[
                     { value: 'sleepShort', label: t('onboarding.lifestyleSleepShort') },
                     { value: 'sleepIrregular', label: t('onboarding.lifestyleSleepIrregular') },
@@ -570,263 +480,116 @@ export default function OnboardingPage({
                   onChange={(newValues) =>
                     setMedicalBackground({ ...medicalBackground, lifestyleArr: newValues })
                   }
-                  placeholder={t('onboarding.pleaseSelect') || '不详 / 未选择'}
+                  placeholder={t('onboarding.pleaseSelect') || '未选择'}
                 />
                 <CollapsibleSingleSelect
-                  label={t('onboarding.psychosocialLabel')}
+                  label={t('onboarding.recentPsychosocialLabel') || '近期压力状况 (可选)'}
                   options={[
                     { value: 'lowStress', label: t('onboarding.psychosocialLowStress') },
                     { value: 'moderateStress', label: t('onboarding.psychosocialModerateStress') },
                     { value: 'highStress', label: t('onboarding.psychosocialHighStress') },
                     { value: 'trauma', label: t('onboarding.psychosocialTrauma') },
                   ]}
-                  selectedValue={medicalBackground.psychosocial}
+                  selectedValue={medicalBackground.psychosocial || ''}
                   onChange={(value) =>
                     setMedicalBackground({ ...medicalBackground, psychosocial: value })
                   }
-                  placeholder={t('onboarding.pleaseSelect') || '不详 / 未选择'}
+                  placeholder={t('onboarding.pleaseSelect') || '未选择'}
                 />
               </div>
-            </div>
-          </div>
-        )}
 
-        {/* STEP 2: Medical Background */}
-        {showContent === 'medical' && appMode !== 'general' && (
-          <div
-            style={{
-              background: '#1c1c1c',
-              borderRadius: 'var(--radius-lg)',
-              padding: 'var(--space-xl)',
-              border: '1px solid #333',
-            }}
-          >
-            <div style={{ textAlign: 'center', marginBottom: '16px' }}>
-              <span style={{ fontSize: '28px' }}>🩺</span>
-              <h3
-                style={{
-                  color: '#fff',
-                  fontSize: 'var(--text-md)',
-                  margin: '8px 0 4px 0',
-                  fontWeight: '500',
-                }}
-              >
-                {t('onboarding.clinicalMedicalTitle')}
-              </h3>
-              <p style={{ color: '#888', fontSize: '11px', margin: 0 }}>
-                {t('onboarding.medicalHintDesc')}
-              </p>
-            </div>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              {/* Menstrual History */}
-              <div
-                style={{
-                  background: '#131313',
-                  borderRadius: 'var(--radius-md)',
-                  padding: '14px',
-                  border: '1.5px solid #2d2d2d',
-                }}
-              >
-                <h4
-                  style={{
-                    color: '#eee',
-                    margin: '0 0 12px 0',
-                    fontSize: '13px',
-                    borderBottom: '1px solid #222',
-                    paddingBottom: '6px',
-                  }}
-                >
-                  {t('onboarding.menstrualHistoryTitle')}
-                </h4>
-
-                <div style={{ display: 'flex', gap: '12px', marginBottom: '12px' }}>
-                  <div style={{ flex: 1 }}>
-                    <label
-                      style={{ color: '#888', fontSize: '11px', display: 'block', marginBottom: '6px' }}
-                    >
-                      {t('onboarding.menarcheAgeLabel')}
-                    </label>
-                    <input
-                      type="number"
-                      min="8"
-                      max="20"
-                      placeholder="eg：13"
-                      value={medicalBackground.menarcheAge}
-                      onChange={(e) =>
-                        setMedicalBackground({ ...medicalBackground, menarcheAge: e.target.value })
-                      }
-                      style={{
-                        width: '100%',
-                        padding: '10px',
-                        background: '#111',
-                        color: '#fff',
-                        border: '1.5px solid #333',
-                        borderRadius: 'var(--radius-sm)',
-                        fontSize: '12px',
-                        boxSizing: 'border-box',
-                      }}
-                    />
-                  </div>
-                  <div style={{ flex: 1 }}>
-                    <label
-                      style={{ color: '#888', fontSize: '11px', display: 'block', marginBottom: '6px' }}
-                    >
-                      {t('onboarding.cycleRegularityLabel')}
-                    </label>
-                    <select
-                      value={medicalBackground.cycleRegular}
-                      onChange={(e) =>
-                        setMedicalBackground({ ...medicalBackground, cycleRegular: e.target.value })
-                      }
-                      style={{
-                        width: '100%',
-                        padding: '10px',
-                        background: '#111',
-                        color: '#fff',
-                        border: '1.5px solid #333',
-                        borderRadius: 'var(--radius-sm)',
-                        fontSize: '12px',
-                        boxSizing: 'border-box',
-                      }}
-                    >
-                      <option value="">{t('onboarding.cycleRegularPlaceholder')}</option>
-                      <option value="regular">{t('onboarding.cycleRegularRegular')}</option>
-                      <option value="irregular">{t('onboarding.cycleRegularIrregular')}</option>
-                      <option value="unsure">{t('onboarding.cycleRegularUnsure')}</option>
-                    </select>
-                  </div>
-                </div>
-
-                <div style={{ marginBottom: '12px' }}>
-                  <label
-                    style={{ color: '#888', fontSize: '11px', display: 'block', marginBottom: '6px' }}
-                  >
-                    {t('onboarding.periodDurationLabel')}
-                  </label>
-                  <select
-                    value={medicalBackground.periodDuration || ''}
+              {/* 4. 末次月经第一天 (LMP) */}
+              <div>
+                <label style={{ color: '#888', fontSize: '11px', display: 'block', marginBottom: '6px' }}>
+                  {t('onboarding.lmpLabel') || '末次月经第一天 (LMP)'}
+                </label>
+                <div style={{ position: 'relative', width: '100%' }}>
+                  <input
+                    type="date"
+                    className="dark-date-input"
+                    value={medicalBackground.lastPeriod || ''}
                     onChange={(e) =>
-                      setMedicalBackground({ ...medicalBackground, periodDuration: e.target.value })
+                      setMedicalBackground({ ...medicalBackground, lastPeriod: e.target.value })
                     }
+                    onClick={(e) => {
+                      try {
+                        if (typeof e.target.showPicker === 'function') {
+                          e.target.showPicker();
+                        }
+                      } catch (err) {
+                        console.warn('showPicker not supported', err);
+                      }
+                    }}
                     style={{
                       width: '100%',
-                      padding: '10px',
+                      padding: 'var(--space-md)',
                       background: '#111',
                       color: '#fff',
                       border: '1.5px solid #333',
                       borderRadius: 'var(--radius-sm)',
-                      fontSize: '12px',
+                      fontSize: '13px',
+                      boxSizing: 'border-box',
+                      cursor: 'pointer',
+                      WebkitAppearance: 'none',
+                      appearance: 'none',
                     }}
-                  >
-                    {Object.entries(t('onboarding.periodDurationOptions') || {}).map(
-                      ([value, label]) => (
-                        <option key={value} value={value}>
-                          {label}
-                        </option>
-                      )
-                    )}
-                  </select>
+                  />
                 </div>
+                <style>{`
+                  .dark-date-input::-webkit-calendar-picker-indicator {
+                    filter: invert(1);
+                    cursor: pointer;
+                    opacity: 0.8;
+                    padding: 4px;
+                  }
+                  .dark-date-input {
+                    color-scheme: dark;
+                  }
+                `}</style>
+              </div>
 
-                <div style={{ marginBottom: '12px' }}>
-                  <label
-                    style={{ color: '#888', fontSize: '11px', display: 'block', marginBottom: '6px' }}
-                  >
-                    {t('onboarding.lmpLabel')}
-                  </label>
-                  <div style={{ position: 'relative', width: '100%' }}>
-                    <input
-                      type="date"
-                      className="dark-date-input"
-                      value={medicalBackground.lastPeriod || ''}
-                      onChange={(e) =>
-                        setMedicalBackground({ ...medicalBackground, lastPeriod: e.target.value })
-                      }
-                      onClick={(e) => {
-                        try {
-                          if (typeof e.target.showPicker === 'function') {
-                            e.target.showPicker();
-                          }
-                        } catch (err) {
-                          console.warn('showPicker not supported', err);
-                        }
-                      }}
+              {/* 5. 当前处于什么时期 */}
+              <div>
+                <label style={{ color: '#888', fontSize: '11px', display: 'block', marginBottom: '8px' }}>
+                  {t('onboarding.cyclePeriodLabel') || '当前处于什么时期'}
+                </label>
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                  {[
+                    t('onboarding.cyclePeriods.pre') || '月经前期',
+                    t('onboarding.cyclePeriods.menstrual') || '月经期',
+                    t('onboarding.cyclePeriods.post') || '月经后期',
+                    t('onboarding.cyclePeriods.ovulation') || '排卵期',
+                  ].map((item) => (
+                    <button
+                      key={item}
+                      onClick={() => setCycleDay(cycleDay === item ? '' : item)}
                       style={{
-                        width: '100%',
-                        padding: 'var(--space-md)',
-                        background: '#111',
-                        color: '#fff',
-                        border: '1.5px solid #333',
-                        borderRadius: 'var(--radius-sm)',
-                        fontSize: '13px',
-                        boxSizing: 'border-box',
+                        padding: '8px 16px',
+                        borderRadius: 'var(--radius-lg)',
+                        fontSize: '12px',
                         cursor: 'pointer',
-                        WebkitAppearance: 'none',
-                        appearance: 'none',
+                        background: cycleDay === item ? '#d32f2f' : '#111',
+                        color: cycleDay === item ? '#fff' : '#888',
+                        border: cycleDay === item ? 'none' : '1.5px solid #333',
+                        transition: 'all 0.2s',
                       }}
-                    />
-                  </div>
-                  <style>{`
-                    .dark-date-input::-webkit-calendar-picker-indicator {
-                      filter: invert(1);
-                      cursor: pointer;
-                      opacity: 0.8;
-                      padding: 4px;
-                    }
-                    .dark-date-input {
-                      color-scheme: dark;
-                    }
-                  `}</style>
-                </div>
-
-                <div>
-                  <label
-                    style={{ color: '#888', fontSize: '11px', display: 'block', marginBottom: '8px' }}
-                  >
-                    {t('onboarding.cyclePeriodLabel')}
-                  </label>
-                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                    {[
-                      t('onboarding.cyclePeriods.pre') || '经前',
-                      t('onboarding.cyclePeriods.menstrual') || '经期',
-                      t('onboarding.cyclePeriods.post') || '经后',
-                      t('onboarding.cyclePeriods.ovulation') || '排卵期',
-                    ].map((item) => (
-                      <button
-                        key={item}
-                        onClick={() => setCycleDay(cycleDay === item ? '' : item)}
-                        style={{
-                          padding: '6px 14px',
-                          borderRadius: 'var(--radius-lg)',
-                          fontSize: '12px',
-                          cursor: 'pointer',
-                          background: cycleDay === item ? '#d32f2f' : '#111',
-                          color: cycleDay === item ? '#fff' : '#888',
-                          border: cycleDay === item ? 'none' : '1.5px solid #333',
-                        }}
-                      >
-                        {item}
-                      </button>
-                    ))}
-                  </div>
+                    >
+                      {item}
+                    </button>
+                  ))}
                 </div>
               </div>
 
-              {/* Accompanying Symptoms */}
-              <div style={{ marginTop: '16px' }}>
-                <label
-                  style={{ color: '#888', fontSize: '11px', display: 'block', marginBottom: '8px' }}
-                >
-                  {t('onboarding.accompanyingLabel')}
+              {/* 6. 伴随症状 (可多选) */}
+              <div>
+                <label style={{ color: '#888', fontSize: '11px', display: 'block', marginBottom: '8px' }}>
+                  {t('onboarding.accompanyingLabel') || '伴随症状 (可多选)'}
                 </label>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
                   {Object.entries(
                     t('onboarding.accompanyingOptions', { returnObjects: true }) || {}
                   ).map(([key, label]) => {
-                    const isChecked = (medicalBackground.accompanyingSymptomsArr || []).includes(
-                      key
-                    );
+                    const isChecked = (medicalBackground.accompanyingSymptomsArr || []).includes(key);
                     return (
                       <label
                         key={key}
@@ -841,6 +604,7 @@ export default function OnboardingPage({
                           cursor: 'pointer',
                           fontSize: '12px',
                           color: isChecked ? '#fff' : '#888',
+                          transition: 'all 0.2s',
                         }}
                       >
                         <input
@@ -863,173 +627,79 @@ export default function OnboardingPage({
                     );
                   })}
                 </div>
-
-                {/* ✅ 新增：自定义伴随症状输入 */}
-                <div style={{ marginTop: '10px' }}>
-                  <label
-                    style={{ color: '#888', fontSize: '11px', display: 'block', marginBottom: '4px' }}
-                  >
-                    {t('onboarding.accompanyingOther')}
-                  </label>
-                  <input
-                    type="text"
-                    placeholder={t('onboarding.accompanyingOtherPlaceholder')}
-                    value={medicalBackground.accompanyingOther || ''}
-                    onChange={(e) =>
-                      setMedicalBackground({
-                        ...medicalBackground,
-                        accompanyingOther: e.target.value,
-                      })
-                    }
-                    style={{
-                      width: '100%',
-                      padding: 'var(--space-md)',
-                      background: '#111',
-                      color: '#fff',
-                      border: '1.5px solid #333',
-                      borderRadius: 'var(--radius-sm)',
-                      fontSize: '13px',
-                      boxSizing: 'border-box',
-                    }}
-                  />
-                </div>
               </div>
 
+              {/* 7. 其他症状 (请填写) */}
               <div>
-                <label
-                  style={{ color: '#888', fontSize: '11px', display: 'block', marginBottom: '6px' }}
-                >
-                  {t('onboarding.gynecologicalDiagnosisTitle')}
+                <label style={{ color: '#888', fontSize: '11px', display: 'block', marginBottom: '4px' }}>
+                  {t('onboarding.accompanyingOther') || '其他症状 (请填写)'}
                 </label>
-                <select
-                  value={medicalBackground.diagnosed}
+                <input
+                  type="text"
+                  placeholder={t('onboarding.accompanyingOtherPlaceholder') || '例如：头晕、心慌、背痛...'}
+                  value={medicalBackground.accompanyingOther || ''}
                   onChange={(e) =>
-                    setMedicalBackground({ ...medicalBackground, diagnosed: e.target.value })
+                    setMedicalBackground({
+                      ...medicalBackground,
+                      accompanyingOther: e.target.value,
+                    })
                   }
                   style={{
                     width: '100%',
-                    padding: '10px',
+                    padding: 'var(--space-md)',
                     background: '#111',
                     color: '#fff',
                     border: '1.5px solid #333',
                     borderRadius: 'var(--radius-sm)',
-                    fontSize: '12px',
+                    fontSize: '13px',
+                    boxSizing: 'border-box',
                   }}
-                >
-                  {Object.entries(t('onboarding.diagnosisOptions') || {}).map(([value, label]) => (
-                    <option key={value} value={value}>
-                      {label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label
-                  style={{ color: '#888', fontSize: '11px', display: 'block', marginBottom: '6px' }}
-                >
-                  {t('onboarding.allergyLabelFull')}
-                </label>
-                <select
-                  value={medicalBackground.allergies}
-                  onChange={(e) =>
-                    setMedicalBackground({ ...medicalBackground, allergies: e.target.value })
-                  }
-                  style={{
-                    width: '100%',
-                    padding: '10px',
-                    background: '#111',
-                    color: '#fff',
-                    border: '1.5px solid #333',
-                    borderRadius: 'var(--radius-sm)',
-                    fontSize: '12px',
-                  }}
-                >
-                  {Object.entries(t('onboarding.allergyOptions') || {}).map(([value, label]) => (
-                    <option key={value} value={value}>
-                      {label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                <div>
-                  <label
-                    style={{ color: '#888', fontSize: '11px', display: 'block', marginBottom: '6px' }}
-                  >
-                    {t('onboarding.surgicalHistoryLabel')}
-                  </label>
-                  <select
-                    value={medicalBackground.surgicalHistory}
-                    onChange={(e) =>
-                      setMedicalBackground({ ...medicalBackground, surgicalHistory: e.target.value })
-                    }
-                    style={{
-                      width: '100%',
-                      padding: '10px',
-                      background: '#111',
-                      color: '#fff',
-                      border: '1.5px solid #333',
-                      borderRadius: 'var(--radius-sm)',
-                      fontSize: '12px',
-                    }}
-                  >
-                    {Object.entries(t('onboarding.surgicalHistoryOptions') || {}).map(
-                      ([value, label]) => (
-                        <option key={value} value={value}>
-                          {label}
-                        </option>
-                      )
-                    )}
-                  </select>
-                </div>
-
-                <CollapsibleMultiSelect
-                  label={t('onboarding.familyHistoryLabelFull')}
-                  options={[
-                    { value: 'mother', label: t('onboarding.familyHistoryMother') },
-                    { value: 'sister', label: t('onboarding.familyHistorySister') },
-                    { value: 'none', label: t('onboarding.familyHistoryNone') },
-                    { value: 'unknown', label: t('onboarding.familyHistoryUnknown') },
-                  ]}
-                  selectedValues={medicalBackground.familyHistoryArr || []}
-                  onChange={(newValues) =>
-                    setMedicalBackground({ ...medicalBackground, familyHistoryArr: newValues })
-                  }
-                  placeholder={t('onboarding.familyHistoryPlaceholder')}
                 />
               </div>
 
-              <CollapsibleMultiSelect
-                label={t('onboarding.reproductiveHistoryLabelFull')}
-                options={[
-                  { value: 'nulliparous', label: t('onboarding.reproductiveHistoryNulliparous') },
-                  { value: 'pregnant', label: t('onboarding.reproductiveHistoryPregnant') },
-                  { value: 'parous', label: t('onboarding.reproductiveHistoryParous') },
-                  {
-                    value: 'spontaneousAbortion',
-                    label: t('onboarding.reproductiveHistorySpontaneousAbortion'),
-                  },
-                  {
-                    value: 'inducedAbortion',
-                    label: t('onboarding.reproductiveHistoryInducedAbortion'),
-                  },
-                ]}
-                selectedValues={medicalBackground.reproductiveHistoryArr || []}
-                onChange={(newValues) =>
-                  setMedicalBackground({
-                    ...medicalBackground,
-                    reproductiveHistoryArr: newValues,
-                  })
-                }
-                placeholder={t('onboarding.familyHistoryPlaceholder')}
-              />
+              {/* 8. 个人档案弹窗触发按钮 */}
+              <div style={{ marginTop: '10px', paddingTop: '14px', borderTop: '1px solid #282828' }}>
+                <button
+                  type="button"
+                  onClick={() => setIsProfileModalOpen(true)}
+                  style={{
+                    width: '100%',
+                    padding: '12px 16px',
+                    background: 'rgba(255, 255, 255, 0.04)',
+                    border: '1px dashed #555',
+                    borderRadius: '10px',
+                    color: '#ccc',
+                    fontSize: '13px',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '8px',
+                    transition: 'all 0.2s',
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.borderColor = '#d32f2f';
+                    e.currentTarget.style.color = '#fff';
+                    e.currentTarget.style.background = 'rgba(211, 47, 47, 0.06)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.borderColor = '#555';
+                    e.currentTarget.style.color = '#ccc';
+                    e.currentTarget.style.background = 'rgba(255, 255, 255, 0.04)';
+                  }}
+                >
+                  <span style={{ fontSize: '16px' }}>📋</span>
+                  <span style={{ fontWeight: '500' }}>
+                    {t('onboarding.openProfileModalBtn') || '完善个人档案 (常态生理/病史/过敏等)'}
+                  </span>
+                  <span style={{ color: '#888', fontSize: '11px', marginLeft: 'auto' }}>›</span>
+                </button>
+              </div>
             </div>
           </div>
         )}
 
-        {/* STEP 3: Preferences */}
+        {/* ===== STEP 2: 干预偏好 (原第3页) ===== */}
         {showContent === 'preference' && (
           <div
             style={{
@@ -1052,19 +722,12 @@ export default function OnboardingPage({
                   fontWeight: '500',
                 }}
               >
-                {t('onboarding.step3')}
+                {t('onboarding.preferenceTitle') || '干预偏好'}
               </h3>
             </div>
 
             <div>
-              <p
-                style={{
-                  color: '#888',
-                  fontSize: '12px',
-                  marginBottom: '12px',
-                  textAlign: 'center',
-                }}
-              >
+              <p style={{ color: '#888', fontSize: '12px', marginBottom: '12px', textAlign: 'center' }}>
                 {t('onboarding.preferenceHint')}
               </p>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
@@ -1092,14 +755,7 @@ export default function OnboardingPage({
             </div>
 
             <div style={{ borderTop: '1px solid #2d2d2d', paddingTop: '16px' }}>
-              <p
-                style={{
-                  color: '#888',
-                  fontSize: '12px',
-                  marginBottom: '12px',
-                  textAlign: 'center',
-                }}
-              >
+              <p style={{ color: '#888', fontSize: '12px', marginBottom: '12px', textAlign: 'center' }}>
                 {t('onboarding.toneTitle')}
               </p>
               <div style={{ display: 'flex', gap: '12px' }}>
@@ -1136,15 +792,7 @@ export default function OnboardingPage({
                   {t('onboarding.toneDirect')}
                 </button>
               </div>
-              <p
-                style={{
-                  color: '#555',
-                  fontSize: '11px',
-                  marginTop: '8px',
-                  textAlign: 'center',
-                  lineHeight: '1.4',
-                }}
-              >
+              <p style={{ color: '#555', fontSize: '11px', marginTop: '8px', textAlign: 'center', lineHeight: '1.4' }}>
                 {t('onboarding.toneHint')}
               </p>
             </div>
@@ -1152,7 +800,7 @@ export default function OnboardingPage({
         )}
       </div>
 
-      {/* Navigation - Medical mode */}
+      {/* 2 步导航指示器（医疗模式下） */}
       {appMode !== 'general' && (
         <div
           style={{
@@ -1166,9 +814,8 @@ export default function OnboardingPage({
           }}
         >
           {[
-            { key: 'basicInfo', label: '1', title: t('onboarding.basicInfoTitle') || '基础档案' },
-            { key: 'medical', label: '2', title: t('onboarding.medicalTitle') || '医疗背景' },
-            { key: 'preference', label: '3', title: t('onboarding.preferenceTitle') || '干预偏好' },
+            { key: 'basicInfo', label: '1', title: t('onboarding.basicInfoTitle') || '基础信息' },
+            { key: 'preference', label: '2', title: t('onboarding.preferenceTitle') || '干预偏好' },
           ].map((step) => (
             <button
               key={step.key}
@@ -1196,7 +843,7 @@ export default function OnboardingPage({
         </div>
       )}
 
-      {/* Action buttons */}
+      {/* 底部主按钮区 */}
       <div
         style={{
           display: 'flex',
@@ -1207,12 +854,9 @@ export default function OnboardingPage({
           width: '100%',
         }}
       >
-        {appMode === 'medical' && showContent !== 'preference' ? (
+        {appMode === 'medical' && showContent === 'basicInfo' ? (
           <button
-            onClick={() => {
-              if (showContent === 'basicInfo') setShowContent('medical');
-              else if (showContent === 'medical') setShowContent('preference');
-            }}
+            onClick={() => setShowContent('preference')}
             style={{
               width: '200px',
               padding: '14px',
@@ -1249,7 +893,7 @@ export default function OnboardingPage({
           </button>
         )}
 
-        {appMode === 'medical' && showContent !== 'preference' && (
+        {appMode === 'medical' && showContent === 'basicInfo' && (
           <button
             onClick={onSkip}
             style={{
@@ -1270,7 +914,7 @@ export default function OnboardingPage({
         )}
       </div>
 
-      {/* ===== Footer ===== */}
+      {/* 页脚导航链接 */}
       <footer
         style={{
           marginTop: '40px',
@@ -1285,53 +929,20 @@ export default function OnboardingPage({
         }}
       >
         <button
-          style={{
-            background: 'none',
-            border: 'none',
-            color: '#888',
-            fontSize: 'var(--text-sm, 12px)',
-            cursor: 'pointer',
-            padding: '6px 10px',
-            whiteSpace: 'nowrap',
-            transition: 'color 0.2s',
-          }}
+          style={{ background: 'none', border: 'none', color: '#888', fontSize: '12px', cursor: 'pointer', padding: '6px 10px' }}
           onClick={onCommunity}
-          onMouseEnter={(e) => e.currentTarget.style.color = '#ccc'}
-          onMouseLeave={(e) => e.currentTarget.style.color = '#888'}
         >
           {t('onboarding.exploreCommunity')}
         </button>
         <button
-          style={{
-            background: 'none',
-            border: 'none',
-            color: '#888',
-            fontSize: 'var(--text-sm, 12px)',
-            cursor: 'pointer',
-            padding: '6px 10px',
-            whiteSpace: 'nowrap',
-            transition: 'color 0.2s',
-          }}
+          style={{ background: 'none', border: 'none', color: '#888', fontSize: '12px', cursor: 'pointer', padding: '6px 10px' }}
           onClick={onHistory}
-          onMouseEnter={(e) => e.currentTarget.style.color = '#ccc'}
-          onMouseLeave={(e) => e.currentTarget.style.color = '#888'}
         >
           {t('onboarding.painDiary')}
         </button>
         <button
-          style={{
-            background: 'none',
-            border: 'none',
-            color: '#888',
-            fontSize: 'var(--text-sm, 12px)',
-            cursor: 'pointer',
-            padding: '6px 10px',
-            whiteSpace: 'nowrap',
-            transition: 'color 0.2s',
-          }}
+          style={{ background: 'none', border: 'none', color: '#888', fontSize: '12px', cursor: 'pointer', padding: '6px 10px' }}
           onClick={onProfile}
-          onMouseEnter={(e) => e.currentTarget.style.color = '#ccc'}
-          onMouseLeave={(e) => e.currentTarget.style.color = '#888'}
         >
           {t('onboarding.myProfile')}
         </button>
@@ -1340,29 +951,18 @@ export default function OnboardingPage({
             background: 'rgba(255,255,255,0.04)',
             border: '1px solid rgba(255,255,255,0.08)',
             color: '#888',
-            fontSize: 'var(--text-sm, 12px)',
+            fontSize: '12px',
             cursor: 'pointer',
             padding: '4px 12px',
             borderRadius: '14px',
-            whiteSpace: 'nowrap',
-            transition: 'all 0.2s',
           }}
           onClick={() => setTargetLanguage(targetLanguage === 'zh' ? 'en' : 'zh')}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.background = 'rgba(255,255,255,0.08)';
-            e.currentTarget.style.color = '#ccc';
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.background = 'rgba(255,255,255,0.04)';
-            e.currentTarget.style.color = '#888';
-          }}
         >
-          {targetLanguage === 'zh'
-            ? t('onboarding.english') || 'English'
-            : t('onboarding.chinese') || '中文'}
+          {targetLanguage === 'zh' ? 'English' : '中文'}
         </button>
       </footer>
-      {/* 快速记录入口 - 底部独立条幅 */}
+
+      {/* 快速记录底部悬浮入口 */}
       <div
         style={{
           position: 'fixed',
@@ -1390,40 +990,27 @@ export default function OnboardingPage({
             backdropFilter: 'blur(10px)',
             transition: 'all 0.2s ease',
           }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.background = 'rgba(211, 47, 47, 0.14)';
-            e.currentTarget.style.borderColor = 'rgba(211, 47, 47, 0.4)';
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.background = 'rgba(211, 47, 47, 0.08)';
-            e.currentTarget.style.borderColor = 'rgba(211, 47, 47, 0.2)';
-          }}
         >
-          {/* 闪电图标 */}
           <span style={{ fontSize: '18px' }}>⚡</span>
-
-          {/* 文字 */}
           <div style={{ textAlign: 'left' }}>
-            <div style={{ color: '#e57373', fontSize: '13px', fontWeight: '600', letterSpacing: '0.5px' }}>
+            <div style={{ color: '#e57373', fontSize: '13px', fontWeight: '600' }}>
               {t('quickLog.entry')}
             </div>
             <div style={{ color: '#888', fontSize: '10px', marginTop: '2px' }}>
               {t('quickLog.entryHint')}
             </div>
           </div>
-
-          {/* 箭头 */}
-          <span style={{ color: '#d32f2f', fontSize: 'var(--text-base)', marginLeft: 'auto' }}>→</span>
+          <span style={{ color: '#d32f2f', fontSize: '14px', marginLeft: 'auto' }}>→</span>
         </button>
       </div>
-      {/* {tooltipStep && (
-        <OnboardingTooltip
-          step={tooltipStep}
-          onClose={() => setTooltipStep(null)}
-        />
-      )} */}
 
+      {/* 个人档案弹窗 */}
+      <PersonalProfileModal
+        isOpen={isProfileModalOpen}
+        onClose={() => setIsProfileModalOpen(false)}
+        medicalBackground={medicalBackground}
+        setMedicalBackground={setMedicalBackground}
+      />
     </div>
-
   );
 }

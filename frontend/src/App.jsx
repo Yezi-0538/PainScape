@@ -52,7 +52,7 @@ const CHINESE_TO_KEY_MAP = {
   '撕裂痛': 'scrape', '撕刮痛': 'scrape',
 };
 
-// 🌟 判断用户是否为真正绑定了邮箱的正式登录用户
+// 判断用户是否为绑定了邮箱的正式登录用户
 const isValidEmailUser = (uid, isGuestFlag) => {
   if (!uid || isGuestFlag) return false;
   if (String(uid).startsWith('guest_') || uid === 'user_guest') return false;
@@ -112,7 +112,7 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
     return canvas.toDataURL("image/jpeg", 0.6);
   }, []);
 
-  // 🌟 仅在 Auth 初始化时校验 basic session，绝不主动强行冲掉当前用户修改
+  // 仅在 Auth 初始化时校验 basic session，防强行冲掉当前用户修改
   const syncSupabaseUserProfile = useCallback(async (userId, sessionUser = null) => {
     if (!userId || userId.startsWith('guest_') || userId === 'user_guest') return;
     try {
@@ -142,7 +142,7 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
     }
   }, [setUserInfo, t]);
 
-  // 🌟 登录/恢复会话后：先搬运本地游客数据，再全量拉取云端记录并写入缓存
+  // 登录/恢复会话后：先搬运本地游客数据，再全量拉取云端记录并写入缓存
   const syncAndLoadUserHistory = useCallback(async (userId) => {
     if (!userId || userId.startsWith('guest_') || userId === 'user_guest') return;
 
@@ -169,7 +169,7 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
   const [page, setPage] = useState('splash');
   const [splashOpacity, setSplashOpacity] = useState(1);
 
-  // 🌟 核心状态初始化（无重复声明）
+  // 核心状态初始化
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [currentUserId, setCurrentUserId] = useState(() => {
     return localStorage.getItem('painscape_last_uid') || null;
@@ -241,7 +241,7 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
     }
   }, [setUserInfo, showToast]);
 
-  // 🌟 全局统一 Auth 状态与 Active Session 监听器（合并去重）
+  // 全局统一 Auth 状态与 Active Session 监听器
   useEffect(() => {
     let isMounted = true;
 
@@ -250,7 +250,7 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
         const { data: { session } } = await supabase.auth.getSession();
         if (!isMounted) return;
 
-        // 必须是存在 user 并且拥有真实 email 才算正式登录
+        // user并拥有真实 email 才算正式登录
         if (session?.user && session.user.email) {
           const uid = session.user.id;
           setCurrentUserId(uid);
@@ -326,7 +326,7 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
     const targetUid = requestedUserId || currentUserId;
     const isSelfTarget = !requestedUserId || requestedUserId === currentUserId;
 
-    // 游客试图进入自己的个人主页 -> 直接弹窗拦截！
+    // 游客试图进入自己的个人主页 -> 登录弹窗拦截
     if (isSelfTarget && !isValidEmailUser(currentUserId, isGuest)) {
       setShowAuthModal(true);
       return;
@@ -434,7 +434,7 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
   }, [currentUserId, userInfo, imgUrl, getDominantPain, t, showToast, getFallbackImgUrl]);
 
   const handleSaveImage = useCallback((url) => {
-    // 🌟 埋点：分享/保存卡片
+    // 埋点：分享/保存卡片
     telemetry.logReportEvent({
       outputType: identity === 'work' ? 'timeoff' : (identity === 'doctor' ? 'medical' : identity),
       event_type: 'shared',
@@ -556,6 +556,7 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
       lifestyleArr: cached.lifestyleArr || [],
       reproductiveHistoryArr: cached.reproductiveHistoryArr || [],
       accompanyingSymptomsArr: cached.accompanyingSymptomsArr || [],
+      accompanyingOther: cached.accompanyingOther || '',
     };
   });
 
@@ -789,7 +790,7 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
         : t('defaultTemplates.noPsychosocial');
 
       // ============================================================
-      // ✅ 构建疼痛时间和位置描述
+      // 构建疼痛时间和位置描述
       // ============================================================
       const buildPainTiming = (cycleDay, isEn) => {
         if (!cycleDay || cycleDay === '未提供' || cycleDay === 'Not provided') {
@@ -801,7 +802,7 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
       const painTiming = buildPainTiming(cycleDay, isEn);
 
       // ============================================================
-      // ✅ 构建各字段文本
+      // 构建各字段文本
       // ============================================================
 
       // ---- 主诉 ----
@@ -879,7 +880,7 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
         .replace(/{{lmp}}/g, lmp);
 
       // ============================================================
-      // ✅ 临床诊断 - 动态构建
+      // 临床诊断 - 动态构建
       // ============================================================
       const buildDiagnosisItems = (dominant, mb, symptomsArr, isEn) => {
         const items = [];
@@ -966,7 +967,7 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
         .replace(/{{reassurance}}/g, reassurance);
 
       // ============================================================
-      // ✅ 临床建议 - 动态构建
+      // 临床建议 - 动态构建
       // ============================================================
       const buildSelfCareItems = (dominant, symptomsArr, mb, isEn) => {
         const items = [];
@@ -1106,7 +1107,7 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
       }
 
       // ============================================================
-      // ✅ 降级返回 - 使用用户填写的真实数据
+      // 降级返回 - 使用用户填写的真实数据
       // ============================================================
       return {
         pain: painName,
@@ -1391,7 +1392,7 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
 
         let rd = record.reportData || {};
 
-        // ✅ 修改：PDF 导出强制使用结构化数据（医生视图）
+        // PDF 导出强制使用结构化数据（医生视图）
         // 如果 reportData 包含 full_content，优先提取其中的结构化数据
         if (rd.full_content) {
           // 已经有 full_content，直接使用结构化字段
@@ -1406,7 +1407,7 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
             work: rd.work || '',
           };
         } else {
-          // 没有 full_content，直接使用原有数据（但确保是结构化版本）
+          // 没有 full_content，直接使用结构化版本原有数据
           rd = {
             chief_complaint: rd.chief_complaint || '',
             present_illness: rd.present_illness || '',
@@ -1419,7 +1420,7 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
           };
         }
 
-        // 英文翻译处理（保持不变）
+        // 英文翻译处理
         if (isEn) {
           const freshEn = generateContent(dominantKey);
           const prefKey = record.userPrefs?.[0] || 'care';
@@ -1991,7 +1992,7 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
     }
   }, [shareContent, imgUrl, targetLanguage, getContextTitle, showToast, getFallbackImgUrl]);
 
-  // 新增：保存草稿函数
+  // 保存草稿函数
   const handleSaveDraft = useCallback(async (draftData) => {
     const draftId = `draft_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
     const draft = {
@@ -2031,7 +2032,7 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
     }
   }, [currentUserId, isGuest, showToast]);
 
-  // 新增：从草稿生成报告
+  // 从草稿生成报告
   const handleGenerateFromDraft = useCallback(async (draft) => {
     setIsLoading(true);
     try {
@@ -2110,7 +2111,7 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
     }
   }, [setIsLoading, setActiveColor, setBodyMode, setBgScale, pgFrontRef, pgBackRef, setImgUrl, showToast]);
 
-  // 新增：打开草稿编辑
+  // 打开草稿编辑
   const handleOpenDraft = useCallback((draft) => {
     const data = draft.draft_data;
     if (data) {
@@ -2170,7 +2171,7 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
     setPage('canvas');
   }, [setActiveColor, setBodyMode, setBgScale, pgFrontRef, pgBackRef, setImgUrl]);
 
-  // 新增：草稿箱中删除草稿
+  // 草稿箱中删除草稿
   const handleDeleteDraft = useCallback(async (draftId) => {
     try {
       if (!isGuest && currentUserId && !currentUserId.startsWith('guest_')) {
@@ -2868,7 +2869,7 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
     }
   };
 
-  // ✅ 如果未同意隐私政策，显示弹窗
+  // 如果未同意隐私政策，显示弹窗
   if (!hasAgreedPrivacy) {
     return (
       <PrivacyModal
@@ -2892,7 +2893,7 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
       {renderPage()}
 
       {/* 社区发布弹窗 */}
-      // App.jsx - PublishPostModal 调用
+      {/* PublishPostModal 调用 */}
       <PublishPostModal
         isOpen={showPostModal}
         imgUrl={imgUrl}
@@ -2909,7 +2910,7 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
               blur_level: submitData?.blurLevel || 0
             }
           });
-          // ✅ submitData 包含 text, blurEnabled, blurLevel
+          // submitData 包含 text, blurEnabled, blurLevel
           handlePublishPost({
             img: imgUrl,
             reportData: generateContent(),
@@ -2970,7 +2971,7 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
         onPublishSharedTip={() => { }}
       />
 
-      {/* 🌟 ===== [在此处添加] 实验员悬浮导出工具条 ===== */}
+      {/* 实验员悬浮导出工具条 */}
       <div
         style={{
           position: 'fixed',

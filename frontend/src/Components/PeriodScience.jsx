@@ -2,6 +2,11 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useI18n } from '../i18n/i18nContext';
 
+const HOT_SEARCH_TAGS = {
+  zh: ['洗头洗澡', '热敷', '棉条安全', '饮食红黑榜', '血渍清洗', '止痛药', '经血颜色'],
+  en: ['Shower', 'Heat therapy', 'Tampon safety', 'Foods to eat', 'Blood stains', 'Painkillers', 'Blood color'],
+};
+
 const PeriodScience = ({ userTips = [], onAddUserTip }) => {
   const { t, lang } = useI18n();
   const isEn = lang === 'en';
@@ -14,8 +19,11 @@ const PeriodScience = ({ userTips = [], onAddUserTip }) => {
   const [inputTag, setInputTag] = useState('');
   const [localUserTips, setLocalUserTips] = useState(userTips || []);
 
+  // 🔍 搜索状态
+  const [searchQuery, setSearchQuery] = useState('');
+
   // ============================================================
-  // ✅ 从 translations.js 读取科普数据
+  // ✅ 从 translations.js 读取全部科普数据
   // ============================================================
   const scienceCards = useMemo(() => {
     let cards = [];
@@ -71,8 +79,30 @@ const PeriodScience = ({ userTips = [], onAddUserTip }) => {
   }, [refreshCards]);
 
   const handleRefresh = () => {
+    setSearchQuery(''); // 刷新时重置搜索
     refreshCards();
   };
+
+  // ============================================================
+  // 🔍 搜索过滤逻辑
+  // ============================================================
+  const isSearching = searchQuery.trim().length > 0;
+
+  const displayedCards = useMemo(() => {
+    if (!isSearching) {
+      return selectedCards;
+    }
+
+    const query = searchQuery.trim().toLowerCase();
+
+    return allTips.filter((item) => {
+      const title = (isEn ? (item.title_en || item.title_zh) : (item.title_zh || item.title_en)).toLowerCase();
+      const desc = (isEn ? (item.desc_en || item.desc_zh) : (item.desc_zh || item.desc_en)).toLowerCase();
+      const tag = (isEn ? (item.tag_en || item.tag_zh) : (item.tag_zh || item.tag_en)).toLowerCase();
+
+      return title.includes(query) || desc.includes(query) || tag.includes(query);
+    });
+  }, [isSearching, searchQuery, selectedCards, allTips, isEn]);
 
   const handleAddTip = () => {
     if (!inputTitle.trim() || !inputDesc.trim()) return;
@@ -83,8 +113,8 @@ const PeriodScience = ({ userTips = [], onAddUserTip }) => {
       title_en: isEn ? inputTitle.trim() : '',
       desc_zh: isEn ? '' : inputDesc.trim(),
       desc_en: isEn ? inputDesc.trim() : '',
-      tag_zh: isEn ? '' : (inputTag.trim() || t('periodScience.userTag')),
-      tag_en: isEn ? (inputTag.trim() || t('periodScience.userTag')) : '',
+      tag_zh: isEn ? '' : (inputTag.trim() || t('periodScience.userTag') || '用户分享'),
+      tag_en: isEn ? (inputTag.trim() || t('periodScience.userTag') || 'User Share') : '',
       isUser: true,
       createdLang: lang,
     };
@@ -107,15 +137,17 @@ const PeriodScience = ({ userTips = [], onAddUserTip }) => {
     }
   };
 
+  const hotTags = HOT_SEARCH_TAGS[lang] || HOT_SEARCH_TAGS.zh;
+
   return (
     <div style={{ marginTop: '24px', paddingTop: '16px', borderTop: '1px solid #222' }}>
-      {/* 头部 */}
+      {/* 头部标题与操作按钮 */}
       <div
         style={{
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          marginBottom: '16px',
+          marginBottom: '14px',
           flexWrap: 'wrap',
           gap: '8px',
         }}
@@ -172,6 +204,7 @@ const PeriodScience = ({ userTips = [], onAddUserTip }) => {
               transition: 'all 0.2s ease',
               opacity: isRefreshing ? 0.5 : 1,
             }}
+            title={isEn ? "Shuffle 3 random facts" : "随机换一批"}
           >
             <span
               style={{
@@ -187,6 +220,122 @@ const PeriodScience = ({ userTips = [], onAddUserTip }) => {
         </div>
       </div>
 
+      {/* 🔍 搜索栏与热门标签 */}
+      <div style={{ marginBottom: '14px' }}>
+        {/* 输入框 */}
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            background: '#141414',
+            border: '1px solid #2d2d2d',
+            borderRadius: '10px',
+            padding: '4px 12px',
+            gap: '8px',
+            boxSizing: 'border-box',
+            transition: 'border-color 0.2s',
+          }}
+        >
+          <span style={{ fontSize: '13px', color: '#888' }}>🔍</span>
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder={t('periodScience.searchPlaceholder') || (isEn ? 'Search period facts, diet, care tips...' : '搜索经期常识、护理技巧、饮食...')}
+            style={{
+              flex: 1,
+              background: 'transparent',
+              border: 'none',
+              color: '#fff',
+              fontSize: '12px',
+              padding: '6px 0',
+              outline: 'none',
+            }}
+          />
+          {searchQuery && (
+            <button
+              onClick={() => setSearchQuery('')}
+              style={{
+                background: 'transparent',
+                border: 'none',
+                color: '#888',
+                cursor: 'pointer',
+                fontSize: '12px',
+                padding: '2px 4px',
+                borderRadius: '50%',
+              }}
+            >
+              ✕
+            </button>
+          )}
+        </div>
+
+        {/* 热门快捷搜索气泡 (Hot chips) */}
+        <div
+          style={{
+            display: 'flex',
+            gap: '6px',
+            overflowX: 'auto',
+            padding: '8px 2px 2px 2px',
+            scrollbarWidth: 'none',
+          }}
+        >
+          {hotTags.map((tag) => (
+            <button
+              key={tag}
+              onClick={() => setSearchQuery(searchQuery === tag ? '' : tag)}
+              style={{
+                background: searchQuery === tag ? 'rgba(239, 83, 80, 0.2)' : 'rgba(255, 255, 255, 0.04)',
+                border: searchQuery === tag ? '1px solid #ef5350' : '1px solid #282828',
+                color: searchQuery === tag ? '#ff8a80' : '#888',
+                borderRadius: '12px',
+                padding: '3px 9px',
+                fontSize: '10.5px',
+                cursor: 'pointer',
+                whiteSpace: 'nowrap',
+                transition: 'all 0.15s ease',
+              }}
+            >
+              {tag}
+            </button>
+          ))}
+        </div>
+
+        {/* 搜索结果数量提示 */}
+        {isSearching && (
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              marginTop: '8px',
+              padding: '0 4px',
+              fontSize: '11px',
+              color: '#888',
+            }}
+          >
+            <span>
+              {t('periodScience.searchResults', { count: displayedCards.length }) || 
+                (isEn ? `Found ${displayedCards.length} matching topics` : `找到 ${displayedCards.length} 条相关科普`)}
+            </span>
+            <button
+              onClick={() => setSearchQuery('')}
+              style={{
+                background: 'none',
+                border: 'none',
+                color: '#ef5350',
+                fontSize: '11px',
+                cursor: 'pointer',
+                padding: 0,
+                textDecoration: 'underline',
+              }}
+            >
+              {t('periodScience.clearSearch') || (isEn ? 'Reset view' : '恢复随机展示')}
+            </button>
+          </div>
+        )}
+      </div>
+
       {/* ✅ 用户添加输入区域 */}
       {showInput && (
         <div
@@ -199,14 +348,7 @@ const PeriodScience = ({ userTips = [], onAddUserTip }) => {
           }}
         >
           <div style={{ marginBottom: '10px' }}>
-            <label
-              style={{
-                color: '#888',
-                fontSize: '11px',
-                display: 'block',
-                marginBottom: '4px',
-              }}
-            >
+            <label style={{ color: '#888', fontSize: '11px', display: 'block', marginBottom: '4px' }}>
               {isEn ? 'Title' : '标题'}
             </label>
             <input
@@ -228,14 +370,7 @@ const PeriodScience = ({ userTips = [], onAddUserTip }) => {
           </div>
 
           <div style={{ marginBottom: '10px' }}>
-            <label
-              style={{
-                color: '#888',
-                fontSize: '11px',
-                display: 'block',
-                marginBottom: '4px',
-              }}
-            >
+            <label style={{ color: '#888', fontSize: '11px', display: 'block', marginBottom: '4px' }}>
               {isEn ? 'Description' : '内容描述'}
             </label>
             <textarea
@@ -259,19 +394,12 @@ const PeriodScience = ({ userTips = [], onAddUserTip }) => {
           </div>
 
           <div style={{ marginBottom: '12px' }}>
-            <label
-              style={{
-                color: '#888',
-                fontSize: '11px',
-                display: 'block',
-                marginBottom: '4px',
-              }}
-            >
+            <label style={{ color: '#888', fontSize: '11px', display: 'block', marginBottom: '4px' }}>
               {isEn ? 'Tag (optional)' : '标签（可选）'}
             </label>
             <input
               type="text"
-              placeholder={isEn ? 'e.g. Nutrition, Exercise' : '例如：营养、运动'}
+              placeholder={isEn ? 'e.g. Nutrition, Exercise' : '例如：营养饮食、生活技巧'}
               value={inputTag}
               onChange={(e) => setInputTag(e.target.value)}
               style={{
@@ -328,7 +456,7 @@ const PeriodScience = ({ userTips = [], onAddUserTip }) => {
         </div>
       )}
 
-      {/* ✅ 科普卡片列表 */}
+      {/* ✅ 科普卡片列表 / 搜索无结果提示 */}
       <div
         style={{
           display: 'flex',
@@ -338,119 +466,139 @@ const PeriodScience = ({ userTips = [], onAddUserTip }) => {
           transition: 'opacity 0.2s ease',
         }}
       >
-        {selectedCards.map((item) => (
+        {displayedCards.length === 0 ? (
           <div
-            key={item.id}
             style={{
-              background: item.isUser ? '#1a2a1a' : '#161616',
-              borderRadius: '14px',
-              padding: '14px 16px',
-              border: `1px solid ${item.isUser ? '#2a4a2a' : '#262626'}`,
-              borderLeft: `4px solid ${item.isUser ? 'rgba(76, 175, 80, 0.8)' : 'rgba(239, 83, 80, 0.8)'}`,
-              position: 'relative',
+              padding: '24px 16px',
+              background: 'rgba(255, 255, 255, 0.02)',
+              borderRadius: '12px',
+              border: '1px dashed #333',
+              textAlign: 'center',
             }}
           >
+            <div style={{ fontSize: '24px', marginBottom: '8px' }}>🔍</div>
+            <div style={{ color: '#ccc', fontSize: '12px', fontWeight: '500', marginBottom: '4px' }}>
+              {t('periodScience.searchEmpty', { query: searchQuery }) || (isEn ? `No science topics found for "${searchQuery}"` : `未找到与 “${searchQuery}” 相关的科普`)}
+            </div>
+            <div style={{ color: '#777', fontSize: '11px' }}>
+              {t('periodScience.searchEmptyHint') || (isEn ? 'Try searching: shower, heat, diet, cramps, tampons...' : '试试搜索：洗头、热敷、饮食、血块、棉条...')}
+            </div>
+          </div>
+        ) : (
+          displayedCards.map((item) => (
             <div
+              key={item.id}
               style={{
-                display: 'flex',
-                alignItems: 'flex-start',
-                justifyContent: 'space-between',
-                marginBottom: '6px',
-                flexWrap: 'wrap',
-                gap: '4px',
+                background: item.isUser ? '#1a2a1a' : '#161616',
+                borderRadius: '14px',
+                padding: '14px 16px',
+                border: `1px solid ${item.isUser ? '#2a4a2a' : '#262626'}`,
+                borderLeft: `4px solid ${item.isUser ? 'rgba(76, 175, 80, 0.8)' : 'rgba(239, 83, 80, 0.8)'}`,
+                position: 'relative',
               }}
             >
-              {/* ✅ 标题 - 优先当前语言 */}
-              <span
+              <div
                 style={{
-                  color: '#fff',
-                  fontSize: '11px',
-                  fontWeight: '600',
-                  letterSpacing: '0.2px',
-                  wordBreak: 'break-word',
-                  overflowWrap: 'break-word',
-                  flex: 1,
-                  minWidth: 0,
+                  display: 'flex',
+                  alignItems: 'flex-start',
+                  justifyContent: 'space-between',
+                  marginBottom: '6px',
+                  flexWrap: 'wrap',
+                  gap: '4px',
                 }}
               >
-                {isEn ? (item.title_en || item.title_zh) : (item.title_zh || item.title_en)}
-                {item.isUser && (
+                {/* 标题 */}
+                <span
+                  style={{
+                    color: '#fff',
+                    fontSize: '12px',
+                    fontWeight: '600',
+                    letterSpacing: '0.2px',
+                    wordBreak: 'break-word',
+                    overflowWrap: 'break-word',
+                    flex: 1,
+                    minWidth: 0,
+                  }}
+                >
+                  {isEn ? (item.title_en || item.title_zh) : (item.title_zh || item.title_en)}
+                  {item.isUser && (
+                    <span
+                      style={{
+                        marginLeft: '8px',
+                        fontSize: '9px',
+                        color: '#4caf50',
+                        background: 'rgba(76, 175, 80, 0.15)',
+                        padding: '1px 6px',
+                        borderRadius: '4px',
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      {t('periodScience.youAdded')}
+                    </span>
+                  )}
+                </span>
+
+                {/* 标签与删除按钮 */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
                   <span
                     style={{
-                      marginLeft: '8px',
-                      fontSize: '9px',
-                      color: '#4caf50',
-                      background: 'rgba(76, 175, 80, 0.15)',
-                      padding: '1px 6px',
-                      borderRadius: '4px',
+                      fontSize: '10px',
+                      color: item.isUser ? '#4caf50' : '#ef5350',
+                      background: item.isUser ? 'rgba(76, 175, 80, 0.12)' : 'rgba(239, 83, 80, 0.12)',
+                      border: `1px solid ${item.isUser ? 'rgba(76, 175, 80, 0.25)' : 'rgba(239, 83, 80, 0.25)'}`,
+                      padding: '2px 7px',
+                      borderRadius: '8px',
                       whiteSpace: 'nowrap',
                     }}
                   >
-                    {t('periodScience.youAdded')}
+                    {isEn ? (item.tag_en || item.tag_zh) : (item.tag_zh || item.tag_en)}
                   </span>
-                )}
-              </span>
 
-              {/* ✅ 标签 - 优先当前语言 */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
-                <span
-                  style={{
-                    fontSize: '10px',
-                    color: item.isUser ? '#4caf50' : '#ef5350',
-                    background: item.isUser ? 'rgba(76, 175, 80, 0.12)' : 'rgba(239, 83, 80, 0.12)',
-                    border: `1px solid ${item.isUser ? 'rgba(76, 175, 80, 0.25)' : 'rgba(239, 83, 80, 0.25)'}`,
-                    padding: '2px 7px',
-                    borderRadius: '8px',
-                    whiteSpace: 'nowrap',
-                  }}
-                >
-                  {isEn ? (item.tag_en || item.tag_zh) : (item.tag_zh || item.tag_en)}
-                </span>
-
-                {item.isUser && (
-                  <button
-                    onClick={() => handleDeleteTip(item.id)}
-                    style={{
-                      background: 'transparent',
-                      border: 'none',
-                      color: '#555',
-                      cursor: 'pointer',
-                      fontSize: '12px',
-                      padding: '2px 6px',
-                      borderRadius: '4px',
-                      transition: 'color 0.2s',
-                      flexShrink: 0,
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.color = '#ef5350';
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.color = '#555';
-                    }}
-                  >
-                    ✕
-                  </button>
-                )}
+                  {item.isUser && (
+                    <button
+                      onClick={() => handleDeleteTip(item.id)}
+                      style={{
+                        background: 'transparent',
+                        border: 'none',
+                        color: '#555',
+                        cursor: 'pointer',
+                        fontSize: '12px',
+                        padding: '2px 6px',
+                        borderRadius: '4px',
+                        transition: 'color 0.2s',
+                        flexShrink: 0,
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.color = '#ef5350';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.color = '#555';
+                      }}
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
               </div>
-            </div>
 
-            {/* ✅ 描述 - 优先当前语言 */}
-            <p
-              style={{
-                color: '#aaa',
-                fontSize: '11px',
-                lineHeight: '1.7',
-                margin: 0,
-                textAlign: 'justify',
-                whiteSpace: 'pre-wrap',
-                wordBreak: 'break-word',
-                overflowWrap: 'break-word',
-              }}
-            >
-              {isEn ? (item.desc_en || item.desc_zh) : (item.desc_zh || item.desc_en)}
-            </p>
-          </div>
-        ))}
+              {/* 描述文本 */}
+              <p
+                style={{
+                  color: '#aaa',
+                  fontSize: '11.5px',
+                  lineHeight: '1.7',
+                  margin: 0,
+                  textAlign: 'justify',
+                  whiteSpace: 'pre-wrap',
+                  wordBreak: 'break-word',
+                  overflowWrap: 'break-word',
+                }}
+              >
+                {isEn ? (item.desc_en || item.desc_zh) : (item.desc_zh || item.desc_en)}
+              </p>
+            </div>
+          ))
+        )}
       </div>
     </div>
   );
