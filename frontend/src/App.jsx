@@ -2372,6 +2372,7 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
             pressureHistory={pressureHistory}
             appMode={appMode}
             onBack={() => setPage('onboarding')}
+             draftCount={getDraftCount()}
             onGenerate={async () => {
               setIsLoading(true);
               // 记录绘画结束时间与总时长 (用于 painting_data 埋点)

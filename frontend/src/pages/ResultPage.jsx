@@ -72,6 +72,16 @@ const MarkedTextDisplay = ({ text, style = {} }) => {
   );
 };
 
+const mapTabToOutputType = (tab) => {
+  const map = {
+    partner: 'partner',
+    work: 'timeoff',
+    doctor: 'medical',
+    self: 'selfcare'
+  };
+  return map[tab] || tab;
+};
+
 // ============================================================
 // 🔧 可编辑的可复制模块组件
 // ============================================================

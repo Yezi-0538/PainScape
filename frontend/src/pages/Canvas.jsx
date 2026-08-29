@@ -7,6 +7,7 @@ import { PainParticle } from '../Components/PainParticle';
 import { useAudio } from '../hooks/useAudio';
 import OnboardingGuide from '../Components/OnboardingGuide';
 import { useUser } from '../contexts/UserContext';
+import { telemetry } from '../services/telemetry';
 
 // ============================================================
 // 子组件：画笔颜色描述
@@ -77,7 +78,8 @@ export default function CanvasPage({
   handleRedo,
   handleClear,
   resetView,
-  showToast,   
+  showToast,
+  draftCount = 0,
 }) {
 
   const { t, lang, toggleLang } = useI18n();
@@ -158,13 +160,11 @@ export default function CanvasPage({
       timestamp: new Date().toISOString(),
     };
 
-    // 保存静态粒子到离屏画布的截图
     const canvas = p5Ref.current?.canvas;
     if (canvas) {
       draftData.canvasImage = canvas.toDataURL('image/png');
     }
 
-    // 获取当前的图形内容
     if (pgFrontRef.current) {
       const frontImg = pgFrontRef.current.get();
       draftData.frontImage = frontImg.canvas.toDataURL('image/png');
@@ -174,14 +174,34 @@ export default function CanvasPage({
       draftData.backImage = backImg.canvas.toDataURL('image/png');
     }
 
+    // 计算画笔数量和粒子数量
+    const brushCount = Object.values(brushCounts.current).reduce((a, b) => a + b, 0);
+    const particleCount = particlePositions.current.length;
+
     const result = await onSaveDraft(draftData);
     if (result) {
+      // ✅ 埋点：用户点击了"保存草稿"按钮
+      telemetry.logDraftSaved({
+        draftId: result,
+        brushCount,
+        particleCount,
+        fromPage: 'canvas'
+      });
+
       setDraftSaveMessage(t('canvas.draftSaved'));
       setShowDraftSuccess(true);
-    } else {
-      showToast('saveDraftFailed');
     }
   }, [onSaveDraft, brushCounts, particlePositions, speedHistory, pressureHistory, activeColor, bodyMode, bgScale, p5Ref, pgFrontRef, pgBackRef, t, showToast]);
+
+  const handleViewDraftBox = useCallback(() => {
+    // ✅ 埋点：用户点击了草稿箱入口，使用父组件传入的真实数量
+    telemetry.logDraftBoxViewedWithCount({
+      fromPage: 'canvas',
+      draftCount: draftCount  // ✅ 使用 props 传入的数量
+    });
+    if (onViewDraftBox) onViewDraftBox();
+  }, [onViewDraftBox, draftCount]);
+
   // ============================================================
   // p5.js 生命周期函数
   // ============================================================
@@ -792,12 +812,9 @@ export default function CanvasPage({
 
           {/* 右侧：仅保存 + 生成（不包含缩放） */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
-            {/* 草稿箱入口 */}
+            {/* ✅ 新增：草稿箱入口按钮 */}
             <button
-              onClick={(e) => {
-                e.stopPropagation();
-                if (onViewDraftBox) onViewDraftBox();
-              }}
+              onClick={handleViewDraftBox}
               style={{
                 background: 'rgba(255,255,255,0.05)',
                 border: '1px solid #333',
@@ -815,10 +832,33 @@ export default function CanvasPage({
                 flexShrink: 0,
                 padding: 0,
                 lineHeight: 1,
+                position: 'relative',
               }}
-              title={t('canvas.draftBox')}
+              title={t('canvas.draftBox') || '草稿箱'}
             >
               📋
+              {/* 如果有草稿，显示小红点或数量徽标 */}
+              {draftCount > 0 && (
+                <span
+                  style={{
+                    position: 'absolute',
+                    top: '-2px',
+                    right: '-2px',
+                    width: '16px',
+                    height: '16px',
+                    borderRadius: '50%',
+                    background: '#ff9800',
+                    color: '#000',
+                    fontSize: '9px',
+                    fontWeight: 'bold',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  {draftCount > 9 ? '9+' : draftCount}
+                </span>
+              )}
             </button>
 
             {/* 保存草稿按钮 */}
@@ -840,7 +880,7 @@ export default function CanvasPage({
               📝 {t('canvas.saveDraft')}
             </button>
 
-            {/* 原有的仅保存按钮 - 改为正式保存 */}
+            {/* 仅保存按钮 */}
             <button
               style={{
                 background: 'rgba(76,175,80,0.15)',
@@ -859,7 +899,7 @@ export default function CanvasPage({
                 setSaveSuccess(true);
               }}
             >
-              {t('canvas.saveOnly')}
+              💾 {t('canvas.saveOnly')}
             </button>
 
             {/* 生成按钮 */}

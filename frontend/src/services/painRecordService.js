@@ -41,7 +41,7 @@ export async function syncLocalHistoryToCloud(userId) {
 
     const inserts = guestRecords.map(r => ({
       user_id: userId,
-      pain_data: {
+      record_data: {
         ...r,
         userId: userId,
       },
@@ -138,7 +138,7 @@ export async function saveRecordToCloud(userId, recordData) {
       .from('pain_records')
       .insert({
         user_id: userId,
-        pain_data: {
+        record_data: {
           ...recordData,
           userId,
         },
@@ -172,7 +172,7 @@ export async function deleteRecordFromCloud(recordId, userId) {
       .from('pain_records')
       .delete()
       .eq('user_id', userId)
-      .filter('pain_data->>id', 'eq', String(recordId));
+      .filter('record_data->>id', 'eq', String(recordId));
 
     if (error) {
       console.warn('⚠️ 云端删除记录失败:', error.message);

@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../services/supabaseClient';
 import { useI18n } from '../i18n/i18nContext';
+import { telemetry } from '../services/telemetry';
 
 export default function DraftBox({
     onBack,
@@ -39,6 +40,11 @@ export default function DraftBox({
                 const localDrafts = JSON.parse(localStorage.getItem('paintScape_drafts') || '[]');
                 setDrafts(localDrafts);
             }
+            // ✅ 埋点：用户打开了草稿箱（统计页面访问次数）
+            telemetry.logDraftBoxViewed({
+                fromPage: 'draft_box',
+                draftCount: drafts.length
+            });
         } catch (err) {
             console.error('加载草稿失败:', err);
             showToast('draftBox.loadFailed');
@@ -48,21 +54,62 @@ export default function DraftBox({
     };
 
     const handleDelete = async (draftId) => {
+        // ✅ 先找到对应的草稿
+        const draft = drafts.find(d => d.id === draftId);
+        if (!draft) return;
+
+        // ✅ 计算画笔数量和粒子数量（在 try 块之前）
+        const brushCount = draft.draft_data?.brushCounts
+            ? Object.values(draft.draft_data.brushCounts).reduce((a, b) => a + b, 0)
+            : 0;
+        const particleCount = draft.draft_data?.particlePositions?.length || 0;
+
         const success = await onDeleteDraft(draftId);
         if (success) {
             setDrafts(drafts.filter(d => d.id !== draftId));
             setConfirmDelete(null);
-            showToast('draftBox.deleteSuccess');
+            showToast('draftbox.deleteSuccess');
+
+            // ✅ 埋点：用户删除了一个草稿
+            telemetry.logDraftDeleted({
+                draftId,
+                brushCount,
+                particleCount
+            });
         }
     };
 
     const handleGenerate = (draft) => {
+        const brushCount = draft.draft_data?.brushCounts
+            ? Object.values(draft.draft_data.brushCounts).reduce((a, b) => a + b, 0)
+            : 0;
+        const particleCount = draft.draft_data?.particlePositions?.length || 0;
+
+        // ✅ 埋点：用户从草稿生成报告
+        telemetry.logDraftGenerated({
+            draftId: draft.id,
+            brushCount,
+            particleCount
+        });
+
         if (onGenerateFromDraft) {
             onGenerateFromDraft(draft);
         }
     };
 
     const handleOpen = (draft) => {
+        const brushCount = draft.draft_data?.brushCounts
+            ? Object.values(draft.draft_data.brushCounts).reduce((a, b) => a + b, 0)
+            : 0;
+        const particleCount = draft.draft_data?.particlePositions?.length || 0;
+
+        // ✅ 埋点：用户打开草稿继续编辑
+        telemetry.logDraftOpened({
+            draftId: draft.id,
+            brushCount,
+            particleCount
+        });
+
         if (onOpenDraft) {
             onOpenDraft(draft);
         }

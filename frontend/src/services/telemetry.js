@@ -4,6 +4,10 @@ const SESSIONS_KEY = 'painscape_telemetry_sessions';
 const PAINTING_KEY = 'painscape_telemetry_painting';
 const QUICK_RECORD_KEY = 'painscape_telemetry_quick_record';
 const REPORT_EVENTS_KEY = 'painscape_telemetry_report_events';
+// 新增存储键
+const DRAFT_ACTIONS_KEY = 'painscape_telemetry_draft_actions';
+const HISTORY_ACTIONS_KEY = 'painscape_telemetry_history_actions';
+
 
 class TelemetryService {
   constructor() {
@@ -161,11 +165,226 @@ class TelemetryService {
     this.tabStartTime = now;
   }
 
+  // ================= 5. draft_actions（草稿箱用户行为） =================
+  logDraftAction({
+    action,        // save_draft / view_draft_box / open_draft / generate_from_draft / delete_draft
+    draftId = null,
+    brushCount = 0,
+    particleCount = 0,
+    fromPage = 'canvas', // canvas / history
+  }) {
+    const record = {
+      session_id: this.getSessionId(),
+      timestamp: new Date().toISOString(),
+      action: action,
+      draft_id: draftId,
+      brush_count: brushCount,
+      particle_count: particleCount,
+      from_page: fromPage,
+    };
+    this._saveItem(DRAFT_ACTIONS_KEY, record);
+  }
+
+  // ================= 6. history_actions（历史记录用户行为） =================
+  logHistoryAction({
+    action,        // view_history / search / filter_by_pain / clear_search / switch_view / select_date / compare_records / clear_compare / view_record_detail / delete_record / export_records / share_record / publish_record
+    searchQuery = null,
+    painTypeFilter = null,
+    viewMode = null, // calendar / timeline
+    selectedDate = null,
+    recordCount = 0,
+    extra = null
+  }) {
+    const record = {
+      session_id: this.getSessionId(),
+      timestamp: new Date().toISOString(),
+      action: action,
+      search_query: searchQuery,
+      pain_type_filter: painTypeFilter,
+      view_mode: viewMode,
+      selected_date: selectedDate,
+      record_count: recordCount,
+      extra: extra || null
+    };
+    this._saveItem(HISTORY_ACTIONS_KEY, record);
+  }
+
+  // ================= 便捷方法：草稿箱行为 =================
+  logDraftSaved({ draftId, brushCount, particleCount, fromPage = 'canvas' }) {
+    this.logDraftAction({
+      action: 'save_draft',
+      draftId,
+      brushCount,
+      particleCount,
+      fromPage
+    });
+  }
+
+  // 修复 logDraftBoxViewed 方法
+  logDraftBoxViewed({ fromPage = 'canvas', draftCount = 0 }) {
+    this._saveDraftAction({
+      session_id: this.getSessionId(),
+      timestamp: new Date().toISOString(),
+      action: 'view_draft_box',
+      from_page: fromPage,
+      extra: { draft_count: draftCount }
+    });
+  }
+
+  // 修正：支持 extra 字段
+  _saveDraftAction(record) {
+    this._saveItem(DRAFT_ACTIONS_KEY, record);
+  }
+
+  logDraftBoxViewedWithCount({ fromPage = 'canvas', draftCount = 0 }) {
+    this._saveDraftAction({
+      session_id: this.getSessionId(),
+      timestamp: new Date().toISOString(),
+      action: 'view_draft_box',
+      from_page: fromPage,
+      extra: { draft_count: draftCount }
+    });
+  }
+
+  logDraftOpened({ draftId, brushCount, particleCount }) {
+    this.logDraftAction({
+      action: 'open_draft',
+      draftId,
+      brushCount,
+      particleCount
+    });
+  }
+
+  logDraftGenerated({ draftId, brushCount, particleCount }) {
+    this.logDraftAction({
+      action: 'generate_from_draft',
+      draftId,
+      brushCount,
+      particleCount
+    });
+  }
+
+  logDraftDeleted({ draftId, brushCount, particleCount }) {
+    this.logDraftAction({
+      action: 'delete_draft',
+      draftId,
+      brushCount,
+      particleCount
+    });
+  }
+
+  // ================= 便捷方法：历史记录行为 =================
+  logHistoryViewed({ recordCount = 0 }) {
+    this.logHistoryAction({
+      action: 'view_history',
+      recordCount
+    });
+  }
+
+  logHistorySearched({ query, resultCount = 0 }) {
+    this.logHistoryAction({
+      action: 'search',
+      searchQuery: query,
+      recordCount: resultCount
+    });
+  }
+
+  logHistoryFiltered({ painType, resultCount = 0 }) {
+    this.logHistoryAction({
+      action: 'filter_by_pain',
+      painTypeFilter: painType,
+      recordCount: resultCount
+    });
+  }
+
+  logHistoryClearedSearch() {
+    this.logHistoryAction({
+      action: 'clear_search'
+    });
+  }
+
+  logHistoryViewSwitched({ viewMode, recordCount = 0 }) {
+    this.logHistoryAction({
+      action: 'switch_view',
+      viewMode,
+      recordCount
+    });
+  }
+
+  logHistoryDateSelected({ selectedDate, recordCount = 0 }) {
+    this.logHistoryAction({
+      action: 'select_date',
+      selectedDate,
+      recordCount
+    });
+  }
+
+  logHistoryCompared({ sourceId, targetId, sameType = false, sameDay = false, daysDiff = 0 }) {
+    this.logHistoryAction({
+      action: 'compare_records',
+      extra: {
+        source_id: sourceId,
+        target_id: targetId,
+        same_type: sameType,
+        same_day: sameDay,
+        days_diff: daysDiff
+      }
+    });
+  }
+
+  logHistoryClearedCompare() {
+    this.logHistoryAction({
+      action: 'clear_compare'
+    });
+  }
+
+  logHistoryRecordViewed({ recordId, hasReport = false, isQuickLog = false }) {
+    this.logHistoryAction({
+      action: 'view_record_detail',
+      extra: {
+        record_id: recordId,
+        has_report: hasReport,
+        is_quick_log: isQuickLog
+      }
+    });
+  }
+
+  logHistoryRecordDeleted({ recordId }) {
+    this.logHistoryAction({
+      action: 'delete_record',
+      extra: { record_id: recordId }
+    });
+  }
+
+  logHistoryExported({ count }) {
+    this.logHistoryAction({
+      action: 'export_records',
+      exportCount: count
+    });
+  }
+
+  logHistoryRecordShared({ recordId }) {
+    this.logHistoryAction({
+      action: 'share_record',
+      extra: { record_id: recordId }
+    });
+  }
+
+  logHistoryRecordPublished({ recordId, hasCustomText = false }) {
+    this.logHistoryAction({
+      action: 'publish_record',
+      extra: {
+        record_id: recordId,
+        has_custom_text: hasCustomText
+      }
+    });
+  }
+
   // ================= CSV & JSON 数据导出工具 =================
   _convertToCSV(objArray) {
     if (!objArray || !objArray.length) return '';
     const headers = Object.keys(objArray[0]);
-    const rows = objArray.map(obj => 
+    const rows = objArray.map(obj =>
       headers.map(field => {
         let val = obj[field];
         if (typeof val === 'object' && val !== null) {
@@ -196,7 +415,9 @@ class TelemetryService {
       { name: 'sessions', key: SESSIONS_KEY },
       { name: 'painting_data', key: PAINTING_KEY },
       { name: 'quick_record_data', key: QUICK_RECORD_KEY },
-      { name: 'report_events', key: REPORT_EVENTS_KEY }
+      { name: 'report_events', key: REPORT_EVENTS_KEY },
+      { name: 'draft_actions', key: DRAFT_ACTIONS_KEY },      // 新增
+      { name: 'history_actions', key: HISTORY_ACTIONS_KEY }   // 新增
     ];
 
     tables.forEach(t => {
@@ -213,7 +434,9 @@ class TelemetryService {
       sessions: JSON.parse(localStorage.getItem(SESSIONS_KEY) || '[]'),
       painting_data: JSON.parse(localStorage.getItem(PAINTING_KEY) || '[]'),
       quick_record_data: JSON.parse(localStorage.getItem(QUICK_RECORD_KEY) || '[]'),
-      report_events: JSON.parse(localStorage.getItem(REPORT_EVENTS_KEY) || '[]')
+      report_events: JSON.parse(localStorage.getItem(REPORT_EVENTS_KEY) || '[]'),
+      draft_actions: JSON.parse(localStorage.getItem(DRAFT_ACTIONS_KEY) || '[]'),      // 新增
+      history_actions: JSON.parse(localStorage.getItem(HISTORY_ACTIONS_KEY) || '[]')    // 新增
     };
     this._downloadFile(JSON.stringify(fullData, null, 2), `painscape_telemetry_all_${Date.now()}.json`, 'application/json');
   }
@@ -223,6 +446,8 @@ class TelemetryService {
     localStorage.removeItem(PAINTING_KEY);
     localStorage.removeItem(QUICK_RECORD_KEY);
     localStorage.removeItem(REPORT_EVENTS_KEY);
+    localStorage.removeItem(DRAFT_ACTIONS_KEY);   // 新增
+    localStorage.removeItem(HISTORY_ACTIONS_KEY); // 新增
   }
 }
 

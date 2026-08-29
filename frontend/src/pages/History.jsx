@@ -1,9 +1,10 @@
 // src/pages/HistoryPage.jsx
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { useI18n } from '../i18n/i18nContext';
 import { deleteRecordFromCloud } from '../services/painRecordService';
 import RecordDetailModal from '../Components/modals/RecordDetailModal';
 import PublishPostModal from '../Components/modals/PublishPostModal';
+import { telemetry } from '../services/telemetry';
 
 // ============================================================
 // 常量
@@ -11,7 +12,7 @@ import PublishPostModal from '../Components/modals/PublishPostModal';
 const EN_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const WEEKDAYS_ZH = ['日', '一', '二', '三', '四', '五', '六'];
 const WEEKDAYS_EN = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-// 删除上面的 import，直接在文件中定义：
+
 const CHINESE_TO_KEY_MAP = {
   '绞痛': 'twist', '刺痛': 'pierce', '坠胀': 'heavy',
   '坠胀重压': 'heavy', '坠痛': 'heavy', '酸胀': 'wave',
@@ -45,9 +46,8 @@ const PAIN_ICON_MAP = {
   '撕裂痛': '🔪',
 };
 
-
 // ============================================================
-// 工具函数（补零修复）
+// 工具函数
 // ============================================================
 const normalizeDateStr = (dateStr) => {
   if (!dateStr) return '';
@@ -279,7 +279,7 @@ const PainTypeDistribution = ({ history, t }) => {
 };
 
 // ============================================================
-// 子组件：对比视图（增强版 - 支持多维度对比）
+// 子组件：对比视图
 // ============================================================
 const ComparisonView = ({ source, target, t, isEn, onClear }) => {
   if (!source || !target) {
@@ -308,29 +308,25 @@ const ComparisonView = ({ source, target, t, isEn, onClear }) => {
   const sourceTime = source.time || '';
   const targetTime = target.time || '';
 
-  // 判断类型是否相同
   const sameType = (source.dominantPain || CHINESE_TO_KEY_MAP[source.painName]) ===
     (target.dominantPain || CHINESE_TO_KEY_MAP[target.painName]);
   const sameDay = sourceDate === targetDate;
 
-  // 🌟 新增：计算间隔天数
   const getDaysDiff = () => {
     const d1 = new Date(sourceDate);
     const d2 = new Date(targetDate);
     return Math.abs(Math.round((d1 - d2) / 86400000));
   };
   const daysDiff = getDaysDiff();
-  // 🌟 修复：获取身体部位描述（支持新分区）
+
   const getLocationDesc = (record) => {
     const map = record.spatialMap || {};
     const parts = [];
 
-    // 检查是正面还是背面（通过字段判断）
     const isFront = 'head' in map || 'chest' in map || 'upperAbdomen' in map || 'lowerAbdomen' in map || 'legs' in map;
     const isBack = 'upperBack' in map || 'waist' in map || 'sacrum' in map;
 
     if (isFront) {
-      // 正面五分区
       const head = (map.head || 0) * 100;
       const chest = (map.chest || 0) * 100;
       const upperAbdomen = (map.upperAbdomen || 0) * 100;
@@ -343,7 +339,6 @@ const ComparisonView = ({ source, target, t, isEn, onClear }) => {
       if (lowerAbdomen > 3) parts.push(`${t('history.bodyLowerAbdomen')} ${Math.round(lowerAbdomen)}%`);
       if (legs > 3) parts.push(`${t('history.bodyLegs')} ${Math.round(legs)}%`);
     } else if (isBack) {
-      // 背面三分区
       const upperBack = (map.upperBack || 0) * 100;
       const waist = (map.waist || 0) * 100;
       const sacrum = (map.sacrum || 0) * 100;
@@ -353,9 +348,7 @@ const ComparisonView = ({ source, target, t, isEn, onClear }) => {
       if (sacrum > 3) parts.push(`${t('history.bodySacrum')} ${Math.round(sacrum)}%`);
     }
 
-    // 如果没有任何数据，尝试从旧的字段读取（兼容旧数据）
     if (parts.length === 0) {
-      // 兼容旧的三分区
       const abdomen = (map.abdomen || 0) * 100;
       const lowerBack = (map.lowerBack || 0) * 100;
       const upperBody = (map.upperBody || 0) * 100;
@@ -365,7 +358,6 @@ const ComparisonView = ({ source, target, t, isEn, onClear }) => {
     }
 
     if (parts.length === 0) {
-      // 如果有 bodyMode 但没有 spatialMap，显示 bodyMode 信息
       const mode = record.bodyMode || record.meta?.bodyMode;
       if (mode === 'front') return t('history.bodyFront');
       if (mode === 'back') return t('history.bodyBack');
@@ -375,7 +367,6 @@ const ComparisonView = ({ source, target, t, isEn, onClear }) => {
     return parts.join(' · ');
   };
 
-  // 🌟 新增：获取颜色描述
   const getColorDesc = (record) => {
     const colorMap = {
       crimson: { zh: t('history.colorCrimson'), en: t('history.colorCrimsonEn') },
@@ -387,7 +378,6 @@ const ComparisonView = ({ source, target, t, isEn, onClear }) => {
     return isEn ? colorMap[c]?.en || c : colorMap[c]?.zh || c;
   };
 
-  // 🌟 新增：获取伴随症状
   const getSymptoms = (record) => {
     const symptoms = record.accompanyingSymptoms || [];
     return symptoms.length > 0 ? symptoms.join('、') : t('history.symptomsNone');
@@ -410,7 +400,6 @@ const ComparisonView = ({ source, target, t, isEn, onClear }) => {
       borderRadius: '14px',
       border: '1px solid rgba(255,255,255,0.06)',
     }}>
-      {/* 标题行 */}
       <div style={{
         display: 'flex',
         justifyContent: 'space-between',
@@ -437,14 +426,12 @@ const ComparisonView = ({ source, target, t, isEn, onClear }) => {
         )}
       </div>
 
-      {/* 对比主体 - 增强版 */}
       <div style={{
         display: 'grid',
         gridTemplateColumns: '1fr auto 1fr',
         gap: '12px',
         alignItems: 'stretch',
       }}>
-        {/* 本次记录 */}
         <div style={{
           textAlign: 'center',
           padding: 'var(--space-md)',
@@ -490,7 +477,6 @@ const ComparisonView = ({ source, target, t, isEn, onClear }) => {
           )}
         </div>
 
-        {/* VS 分隔 */}
         <div style={{
           display: 'flex',
           flexDirection: 'column',
@@ -513,7 +499,6 @@ const ComparisonView = ({ source, target, t, isEn, onClear }) => {
           )}
         </div>
 
-        {/* 上次记录 */}
         <div style={{
           textAlign: 'center',
           padding: 'var(--space-md)',
@@ -560,7 +545,6 @@ const ComparisonView = ({ source, target, t, isEn, onClear }) => {
         </div>
       </div>
 
-      {/* 对比洞察 - 增强版 */}
       <div style={{
         marginTop: '14px',
         padding: '10px 14px',
@@ -571,42 +555,31 @@ const ComparisonView = ({ source, target, t, isEn, onClear }) => {
         gap: '12px',
         justifyContent: 'center',
       }}>
-        {/* 间隔天数 */}
         {daysDiff > 0 && (
           <span style={{ color: '#666', fontSize: '10px' }}>
             ⏱️ {daysDiff} {t('history.daysUnit')} {isEn ? 'apart' : '间隔'}
           </span>
         )}
-
-        {/* 同一天标记 */}
         {sameDay && (
           <span style={{ color: '#666', fontSize: '10px' }}>
             📅 {t('history.sameDay')}
           </span>
         )}
-
-        {/* 痛感类型变化 */}
         <span style={{ color: sameType ? '#81c784' : '#e8a87c', fontSize: '10px' }}>
           {sameType
             ? `🔄 ${t('history.sameType')}`
             : `🔀 ${t('history.diffType')}`}
         </span>
-
-        {/* 位置变化 */}
         {locationChanged && (
           <span style={{ color: '#64b5f6', fontSize: '10px' }}>
             📍 {t('history.locationChanged')}
           </span>
         )}
-
-        {/* 颜色/体感变化 */}
         {colorChanged && (
           <span style={{ color: '#ce93d8', fontSize: '10px' }}>
             🌡️ {t('history.sensationChanged')}
           </span>
         )}
-
-        {/* 无变化标记 */}
         {sameType && !locationChanged && !colorChanged && (
           <span style={{ color: '#555', fontSize: '10px' }}>
             {t('history.noSignificantChange')}
@@ -618,7 +591,7 @@ const ComparisonView = ({ source, target, t, isEn, onClear }) => {
 };
 
 // ============================================================
-// 子组件：记录卡片（含对比按钮）
+// 子组件：记录卡片
 // ============================================================
 const RecordCard = ({
   record, t, isEn, compact = false,
@@ -706,7 +679,6 @@ const RecordCard = ({
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
           <span style={{ color: '#444', fontSize: '10px' }}>{displayDate}</span>
-          {/* 分享按钮 */}
           {onShare && (
             <button
               onClick={(e) => { e.stopPropagation(); onShare(record); }}
@@ -747,7 +719,7 @@ const RecordCard = ({
                 borderRadius: '6px',
                 whiteSpace: 'nowrap',
                 flexShrink: 0,
-                minHeight: 'auto', // ✅ 覆盖全局 min-height
+                minHeight: 'auto',
                 minWidth: '30px',
                 transition: 'all 0.2s ease',
                 textAlign: 'center',
@@ -760,7 +732,6 @@ const RecordCard = ({
                   : (isEn ? 'Compare' : '对比')}
             </button>
           )}
-          {/* 删除按钮 */}
           <button
             onClick={(e) => { e.stopPropagation(); onDelete(); }}
             style={{
@@ -772,7 +743,7 @@ const RecordCard = ({
               padding: '3px 4px',
               flexShrink: 0,
               borderRadius: '6px',
-              minHeight: 'auto', // ✅ 覆盖全局 min-height
+              minHeight: 'auto',
               transition: 'all 0.2s ease',
             }}
             onMouseEnter={(e) => {
@@ -927,7 +898,6 @@ const RecordCard = ({
         </div>
       </div>
 
-      {/* 右侧按钮组 */}
       <div style={{
         display: 'flex',
         gap: '4px',
@@ -937,7 +907,6 @@ const RecordCard = ({
         justifyContent: 'flex-end',
         minWidth: '70px',
       }}>
-        {/* 分享按钮 */}
         {onShare && (
           <button
             onClick={(e) => { e.stopPropagation(); onShare(record); }}
@@ -952,8 +921,8 @@ const RecordCard = ({
               whiteSpace: 'nowrap',
               flexShrink: 0,
               minWidth: '30px',
-              minHeight: '24px',    // ✅ 添加固定高度
-              height: '24px',       // ✅ 固定高度
+              minHeight: '24px',
+              height: '24px',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
@@ -962,7 +931,6 @@ const RecordCard = ({
             {isEn ? 'Share' : '分享'}
           </button>
         )}
-        {/* 对比按钮 */}
         {onCompare && (
           <button
             onClick={(e) => { e.stopPropagation(); onCompare(record); }}
@@ -985,8 +953,8 @@ const RecordCard = ({
               whiteSpace: 'nowrap',
               flexShrink: 0,
               minWidth: '24px',
-              minHeight: '24px',    // ✅ 添加固定高度
-              height: '24px',       // ✅ 固定高度
+              minHeight: '24px',
+              height: '24px',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
@@ -1001,7 +969,6 @@ const RecordCard = ({
                 : (isEn ? 'Cmp' : '对比')}
           </button>
         )}
-        {/* 删除按钮 */}
         <button
           onClick={(e) => { e.stopPropagation(); onDelete(); }}
           style={{
@@ -1013,8 +980,8 @@ const RecordCard = ({
             padding: '2px 4px',
             flexShrink: 0,
             borderRadius: '6px',
-            minHeight: '24px',      // ✅ 添加固定高度
-            height: '24px',         // ✅ 固定高度
+            minHeight: '24px',
+            height: '24px',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -1035,16 +1002,16 @@ const RecordCard = ({
     </div>
   );
 };
+
 // ============================================================
-// 新增：搜索过滤钩子
+// 搜索过滤钩子
 // ============================================================
-const useSearchFilter = (history, searchQuery, painTypeFilter) => {
+const useSearchFilter = (history, searchQuery, painTypeFilter, translate) => {
   return useMemo(() => {
     if (!history || history.length === 0) return [];
 
     let filtered = history;
 
-    // 按疼痛类型筛选
     if (painTypeFilter && painTypeFilter !== 'all') {
       filtered = filtered.filter(h => {
         const key = h.dominantPain || CHINESE_TO_KEY_MAP[h.painName] || 'twist';
@@ -1052,11 +1019,10 @@ const useSearchFilter = (history, searchQuery, painTypeFilter) => {
       });
     }
 
-    // 按搜索关键词筛选
     if (searchQuery && searchQuery.trim()) {
       const query = searchQuery.trim().toLowerCase();
       filtered = filtered.filter(h => {
-        const painName = getPainNameDisplay(h, () => '') || '';
+        const painName = getPainNameDisplay(h, translate) || '';
         const date = normalizeDateStr(h.date) || '';
         const key = h.dominantPain || CHINESE_TO_KEY_MAP[h.painName] || '';
         const symptoms = (h.accompanyingSymptoms || []).join(' ').toLowerCase();
@@ -1071,11 +1037,11 @@ const useSearchFilter = (history, searchQuery, painTypeFilter) => {
     }
 
     return filtered;
-  }, [history, searchQuery, painTypeFilter]);
+  }, [history, searchQuery, painTypeFilter, translate]);
 };
 
 // ============================================================
-// 新增：时间线可视化组件
+// 时间线可视化组件
 // ============================================================
 const TimelineView = ({ records, t, isEn, onRecordClick }) => {
   if (!records || records.length === 0) {
@@ -1091,14 +1057,12 @@ const TimelineView = ({ records, t, isEn, onRecordClick }) => {
     );
   }
 
-  // 按日期排序（从旧到新）
   const sorted = [...records].sort((a, b) => {
     const dateA = new Date(normalizeDateStr(a.date) || 0);
     const dateB = new Date(normalizeDateStr(b.date) || 0);
     return dateA - dateB;
   });
 
-  // 计算总跨度用于归一化
   const firstDate = new Date(normalizeDateStr(sorted[0]?.date) || 0);
   const lastDate = new Date(normalizeDateStr(sorted[sorted.length - 1]?.date) || 0);
   const totalDays = Math.max(1, Math.round((lastDate - firstDate) / 86400000));
@@ -1108,7 +1072,6 @@ const TimelineView = ({ records, t, isEn, onRecordClick }) => {
       padding: 'var(--space-lg) 0',
       position: 'relative',
     }}>
-      {/* 时间线轴线 */}
       <div style={{
         position: 'absolute',
         left: '20px',
@@ -1119,7 +1082,7 @@ const TimelineView = ({ records, t, isEn, onRecordClick }) => {
         borderRadius: '2px',
       }} />
 
-      {sorted.map((record, index) => {
+      {sorted.map((record) => {
         const recordDate = new Date(normalizeDateStr(record.date) || 0);
         const painKey = record.dominantPain || CHINESE_TO_KEY_MAP[record.painName] || 'twist';
         const painColor = PAIN_COLORS[painKey] || '#888';
@@ -1127,7 +1090,6 @@ const TimelineView = ({ records, t, isEn, onRecordClick }) => {
         const painIcon = getPainIcon(record);
         const isQuickLog = record.isQuickLog;
 
-        // 计算在时间线上的位置（百分比）
         let position = 0;
         if (totalDays > 0) {
           const diff = (recordDate - firstDate) / 86400000;
@@ -1156,7 +1118,6 @@ const TimelineView = ({ records, t, isEn, onRecordClick }) => {
               e.currentTarget.style.background = 'transparent';
             }}
           >
-            {/* 时间线节点 */}
             <div style={{
               position: 'absolute',
               left: '18px',
@@ -1169,7 +1130,6 @@ const TimelineView = ({ records, t, isEn, onRecordClick }) => {
               transform: 'translateX(-2px)',
             }} />
 
-            {/* 日期标签 */}
             <div style={{
               minWidth: '80px',
               color: '#666',
@@ -1184,7 +1144,6 @@ const TimelineView = ({ records, t, isEn, onRecordClick }) => {
               )}
             </div>
 
-            {/* 内容 */}
             <div style={{
               flex: 1,
               display: 'flex',
@@ -1211,7 +1170,6 @@ const TimelineView = ({ records, t, isEn, onRecordClick }) => {
                   ⚡
                 </span>
               )}
-              {/* 颜色标记 */}
               {record.colorPalette && (
                 <span style={{
                   fontSize: '9px',
@@ -1225,7 +1183,6 @@ const TimelineView = ({ records, t, isEn, onRecordClick }) => {
               )}
             </div>
 
-            {/* 进度指示 */}
             <div style={{
               fontSize: '9px',
               color: '#333',
@@ -1241,7 +1198,7 @@ const TimelineView = ({ records, t, isEn, onRecordClick }) => {
 };
 
 // ============================================================
-// 新增：搜索栏组件
+// 搜索栏组件
 // ============================================================
 const SearchBar = ({
   searchQuery,
@@ -1254,13 +1211,26 @@ const SearchBar = ({
   onClear,
   resultCount,
 }) => {
-  const [isExpanded, setIsExpanded] = useState(false);
+  const [debounceTimer, setDebounceTimer] = useState(null);
+
+  const handleSearchInput = (value) => {
+    setSearchQuery(value);
+
+    if (debounceTimer) clearTimeout(debounceTimer);
+    const timer = setTimeout(() => {
+      // 搜索埋点在父组件中通过 setSearchQuery 的 useEffect 触发
+    }, 500);
+    setDebounceTimer(timer);
+  };
+
+  const handleFilterChange = (value) => {
+    setPainTypeFilter(value);
+  };
 
   return (
     <div style={{
       marginBottom: '16px',
     }}>
-      {/* 搜索输入行 */}
       <div style={{
         display: 'flex',
         alignItems: 'center',
@@ -1282,7 +1252,7 @@ const SearchBar = ({
           <input
             type="text"
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onChange={(e) => handleSearchInput(e.target.value)}
             placeholder={t('history.searchPlaceholder')}
             style={{
               flex: 1,
@@ -1312,14 +1282,13 @@ const SearchBar = ({
           )}
         </div>
 
-        {/* 疼痛类型筛选下拉 */}
         <div style={{
           position: 'relative',
           minWidth: '100px',
         }}>
           <select
             value={painTypeFilter}
-            onChange={(e) => setPainTypeFilter(e.target.value)}
+            onChange={(e) => handleFilterChange(e.target.value)}
             style={{
               background: 'rgba(255,255,255,0.03)',
               border: '1px solid rgba(255,255,255,0.06)',
@@ -1355,7 +1324,6 @@ const SearchBar = ({
         </div>
       </div>
 
-      {/* 结果统计 */}
       {(searchQuery || painTypeFilter !== 'all') && (
         <div style={{
           marginTop: '8px',
@@ -1399,6 +1367,7 @@ const SearchBar = ({
     </div>
   );
 };
+
 // ============================================================
 // 主组件
 // ============================================================
@@ -1434,7 +1403,6 @@ export default function HistoryPage({
   const [exportMode, setExportMode] = useState(false);
   const [selectedForExport, setSelectedForExport] = useState(new Set());
   const [publishConfirm, setPublishConfirm] = useState(null);
-  // 任意两条记录对比
   const [compareSource, setCompareSource] = useState(null);
   const [compareTarget, setCompareTarget] = useState(null);
   const [compareMode, setCompareMode] = useState(false);
@@ -1442,12 +1410,121 @@ export default function HistoryPage({
   const [showPublishModal, setShowPublishModal] = useState(false);
   const [publishTarget, setPublishTarget] = useState(null);
   const [publishCustomText, setPublishCustomText] = useState('');
-  // ===== 新增：搜索和筛选状态 =====
   const [searchQuery, setSearchQuery] = useState('');
   const [painTypeFilter, setPainTypeFilter] = useState('all');
-  const [viewMode, setViewMode] = useState('calendar'); // 'calendar' | 'timeline'
+  const [viewMode, setViewMode] = useState('calendar');
 
-  // ===== 获取所有疼痛类型 =====
+  // 新增：经期标注相关状态
+  const [longPressTimer, setLongPressTimer] = useState(null);
+  const [selectedDayForMenstrual, setSelectedDayForMenstrual] = useState(null);
+  const [showMenstrualMenu, setShowMenstrualMenu] = useState(false);
+  const [menuPosition, setMenuPosition] = useState({ x: 0, y: 0 });
+  // 新增：经期标注相关函数
+  // ============================================================
+
+  // 长按开始
+  const handleTouchStart = (day, e) => {
+    const timer = setTimeout(() => {
+      const touch = e.touches?.[0];
+      setSelectedDayForMenstrual(day);
+      setMenuPosition({
+        x: touch?.clientX || e.clientX || window.innerWidth / 2,
+        y: touch?.clientY || e.clientY || window.innerHeight / 2
+      });
+      setShowMenstrualMenu(true);
+    }, 600); // 长按 600ms 触发
+    setLongPressTimer(timer);
+  };
+
+  // 长按取消
+  const handleTouchEnd = () => {
+    if (longPressTimer) {
+      clearTimeout(longPressTimer);
+      setLongPressTimer(null);
+    }
+  };
+
+  // 鼠标长按（PC端支持）
+  const handleMouseDown = (day, e) => {
+    const timer = setTimeout(() => {
+      setSelectedDayForMenstrual(day);
+      setMenuPosition({
+        x: e.clientX || window.innerWidth / 2,
+        y: e.clientY || window.innerHeight / 2
+      });
+      setShowMenstrualMenu(true);
+    }, 600);
+    setLongPressTimer(timer);
+  };
+
+  const handleMouseUp = () => {
+    if (longPressTimer) {
+      clearTimeout(longPressTimer);
+      setLongPressTimer(null);
+    }
+  };
+
+  // 标记为经期
+  const markAsMenstrual = () => {
+    if (selectedDayForMenstrual === null) return;
+
+    const dateStr = formatDateKey(year, month, selectedDayForMenstrual);
+
+    // 检查是否已经标记
+    if (menstrualDates.includes(dateStr)) {
+      showToast?.('alreadyMenstrual');
+      setShowMenstrualMenu(false);
+      setSelectedDayForMenstrual(null);
+      return;
+    }
+
+    // 添加经期标记
+    const updated = [...menstrualDates, dateStr];
+    setMenstrualDates(updated);
+
+    // 保存到 localStorage
+    try {
+      localStorage.setItem('painscape_menstrual_dates', JSON.stringify(updated));
+    } catch (e) { }
+
+    showToast?.('menstrualMarked');
+    setShowMenstrualMenu(false);
+    setSelectedDayForMenstrual(null);
+  };
+
+  // 取消经期标记
+  const unmarkMenstrual = () => {
+    if (selectedDayForMenstrual === null) return;
+
+    const dateStr = formatDateKey(year, month, selectedDayForMenstrual);
+
+    const updated = menstrualDates.filter(d => d !== dateStr);
+    setMenstrualDates(updated);
+
+    try {
+      localStorage.setItem('painscape_menstrual_dates', JSON.stringify(updated));
+    } catch (e) { }
+
+    showToast?.('menstrualUnmarked');
+    setShowMenstrualMenu(false);
+    setSelectedDayForMenstrual(null);
+  };
+
+  // 加载保存的经期数据
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('painscape_menstrual_dates');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          setMenstrualDates(parsed);
+        }
+      }
+    } catch (e) {
+      console.warn('加载经期数据失败:', e);
+    }
+  }, []);
+
   const painTypes = useMemo(() => {
     const types = new Set();
     history.forEach(h => {
@@ -1457,33 +1534,8 @@ export default function HistoryPage({
     return Array.from(types).map(key => [key, t(`painNames.${key}`) || key]);
   }, [history, t]);
 
-  // ===== 应用搜索和筛选 =====
-  const filteredHistory = useSearchFilter(history, searchQuery, painTypeFilter);
+  const filteredHistory = useSearchFilter(history, searchQuery, painTypeFilter, t);
 
-  // ===== 清除搜索 =====
-  const handleClearSearch = useCallback(() => {
-    setSearchQuery('');
-    setPainTypeFilter('all');
-  }, []);
-
-  // ===== 根据当前视图渲染内容 =====
-  const renderViewContent = () => {
-    const displayRecords = filteredHistory;
-
-    if (viewMode === 'timeline') {
-      return (
-        <TimelineView
-          records={displayRecords}
-          t={t}
-          isEn={isEn}
-          onRecordClick={(record) => handleViewRecord(record)}
-        />
-      );
-    }
-
-    // 日历视图 - 使用现有的日历逻辑
-    return renderCalendarView(displayRecords);
-  };
   const weekdays = isEn ? WEEKDAYS_EN : WEEKDAYS_ZH;
 
   const year = calendarDate.getFullYear();
@@ -1494,88 +1546,81 @@ export default function HistoryPage({
   const today = new Date();
   const todayStr = formatDateKey(today.getFullYear(), today.getMonth(), today.getDate());
 
-  const hasRecordOnDate = (day) => {
-    const targetStr = formatDateKey(year, month, day);
-    return history.some(h => normalizeDateStr(h.date) === targetStr);
-  };
+  // ===== 页面访问埋点 =====
+  useEffect(() => {
+    telemetry.logHistoryViewed({
+      recordCount: history.length
+    });
+  }, []);
 
-  const getRecordsOnDate = (day) => {
-    const targetStr = formatDateKey(year, month, day);
-    return history.filter(h => normalizeDateStr(h.date) === targetStr);
-  };
+  // ===== 搜索埋点（防抖处理） =====
+  const searchTimerRef = React.useRef(null);
 
-  const changeMonth = (delta) => {
-    setCalendarDate(new Date(year, month + delta, 1));
-  };
+  useEffect(() => {
+    if (searchQuery.trim()) {
+      if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+      searchTimerRef.current = setTimeout(() => {
+        const filtered = history.filter(h => {
+          const painName = getPainNameDisplay(h, t) || '';
+          const date = normalizeDateStr(h.date) || '';
+          return painName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            date.includes(searchQuery);
+        });
+        telemetry.logHistorySearched({
+          query: searchQuery,
+          resultCount: filtered.length
+        });
+      }, 600);
+    }
+    return () => {
+      if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+    };
+  }, [searchQuery, history, t]);
 
-  const handleDateClick = (day) => {
+  // ===== 筛选埋点 =====
+  useEffect(() => {
+    if (painTypeFilter && painTypeFilter !== 'all') {
+      const filtered = history.filter(h => {
+        const key = h.dominantPain || CHINESE_TO_KEY_MAP[h.painName] || 'twist';
+        return key === painTypeFilter;
+      });
+      telemetry.logHistoryFiltered({
+        painType: painTypeFilter,
+        resultCount: filtered.length
+      });
+    }
+  }, [painTypeFilter, history]);
+
+  // ===== 清除搜索埋点 =====
+  const handleClearSearch = useCallback(() => {
+    setSearchQuery('');
+    setPainTypeFilter('all');
+    telemetry.logHistoryClearedSearch();
+  }, []);
+
+  // ===== 视图切换埋点 =====
+  const handleViewSwitch = useCallback((mode) => {
+    setViewMode(mode);
+    telemetry.logHistoryViewSwitched({
+      viewMode: mode,
+      recordCount: filteredHistory.length
+    });
+  }, [filteredHistory]);
+
+  // ===== 日期选择埋点 =====
+  const handleDateClick = useCallback((day) => {
     const dateStr = formatDateKey(year, month, day);
     setSelectedDate(dateStr);
     const records = getRecordsOnDate(day);
     setSelectedDateRecords(records);
-  };
+    telemetry.logHistoryDateSelected({
+      selectedDate: dateStr,
+      recordCount: records.length
+    });
+  }, [year, month]);
 
-  const handleDeleteRecord = async (recordId) => {
-    // 1. 找到目标记录
-    const recordToDelete = history.find(h => h.id === recordId);
-    if (!recordToDelete) return;
-
-    // 2. 权限校验：已登录用户不能删除其他用户的记录
-    if (
-      currentUserId &&
-      !currentUserId.startsWith('guest_') &&
-      recordToDelete.userId &&
-      !recordToDelete.userId.startsWith('guest_') &&
-      recordToDelete.userId !== currentUserId
-    ) {
-      showToast?.('noPermission');
-      return;
-    }
-
-    // 3. 用户确认删除
-    if (window.confirm(t('history.deleteConfirm') || '确定要删除这条记录吗？')) {
-      // 本地状态与缓存优先移除，保证界面响应毫无卡顿
-      const updated = history.filter(h => h.id !== recordId);
-      setHistory(updated);
-      try {
-        localStorage.setItem('painscape_history', JSON.stringify(updated));
-      } catch (e) { }
-
-      setSelectedDateRecords(prev => prev.filter(h => h.id !== recordId));
-      if (viewingDiary?.id === recordId) setViewingDiary(null);
-
-      // 清除对比视图中关联的记录
-      if (compareSource?.id === recordId) {
-        setCompareSource(null);
-        setCompareTarget(null);
-        setCompareMode(false);
-      }
-      if (compareTarget?.id === recordId) {
-        setCompareTarget(null);
-        setCompareMode(false);
-      }
-
-      showToast?.('recordDeleted');
-
-      // 4. 🌟 若为正式登录用户，静默同步删除云端记录
-      if (currentUserId && !currentUserId.startsWith('guest_') && currentUserId !== 'user_guest') {
-        try {
-          await deleteRecordFromCloud(recordId, currentUserId);
-        } catch (err) {
-          console.warn('⚠️ 云端记录删除失败:', err);
-        }
-      }
-    }
-  };
-
-  // 查看详情：过滤 painScore
-  const handleViewRecord = (record) => {
-    const { painScore, ...cleanRecord } = record;
-    setViewingDiary(cleanRecord);
-  };
-
-  // 对比选择
-  const handleCompareSelect = (record) => {
+  // ===== 对比记录埋点 =====
+  const handleCompareSelect = useCallback((record) => {
     const { painScore, ...cleanRecord } = record;
 
     if (!compareSource) {
@@ -1589,13 +1634,144 @@ export default function HistoryPage({
     } else {
       setCompareTarget(cleanRecord);
       setCompareMode(true);
-    }
-  };
 
-  const handleClearCompare = () => {
+      const sameType = (compareSource.dominantPain || CHINESE_TO_KEY_MAP[compareSource.painName]) ===
+        (cleanRecord.dominantPain || CHINESE_TO_KEY_MAP[cleanRecord.painName]);
+      const sourceDate = normalizeDateStr(compareSource.date);
+      const targetDate = normalizeDateStr(cleanRecord.date);
+      const sameDay = sourceDate === targetDate;
+      const daysDiff = Math.abs(Math.round((new Date(sourceDate) - new Date(targetDate)) / 86400000));
+
+      telemetry.logHistoryCompared({
+        sourceId: compareSource.id,
+        targetId: cleanRecord.id,
+        sameType,
+        sameDay,
+        daysDiff
+      });
+    }
+  }, [compareSource]);
+
+  // ===== 清除对比埋点 =====
+  const handleClearCompare = useCallback(() => {
     setCompareSource(null);
     setCompareTarget(null);
     setCompareMode(false);
+    telemetry.logHistoryClearedCompare();
+  }, []);
+
+  // ===== 查看记录详情埋点 =====
+  const handleViewRecord = useCallback((record) => {
+    const { painScore, ...cleanRecord } = record;
+    setViewingDiary(cleanRecord);
+    telemetry.logHistoryRecordViewed({
+      recordId: record.id,
+      hasReport: !!record.reportData && !record.isSavedOnly,
+      isQuickLog: record.isQuickLog || false
+    });
+  }, []);
+
+  // ===== 删除记录埋点 =====
+  const handleDeleteRecord = async (recordId) => {
+    const recordToDelete = history.find(h => h.id === recordId);
+    if (!recordToDelete) return;
+
+    if (
+      currentUserId &&
+      !currentUserId.startsWith('guest_') &&
+      recordToDelete.userId &&
+      !recordToDelete.userId.startsWith('guest_') &&
+      recordToDelete.userId !== currentUserId
+    ) {
+      showToast?.('noPermission');
+      return;
+    }
+
+    if (window.confirm(t('history.deleteConfirm') || '确定要删除这条记录吗？')) {
+      const updated = history.filter(h => h.id !== recordId);
+      setHistory(updated);
+      try {
+        localStorage.setItem('painscape_history', JSON.stringify(updated));
+      } catch (e) { }
+
+      setSelectedDateRecords(prev => prev.filter(h => h.id !== recordId));
+      if (viewingDiary?.id === recordId) setViewingDiary(null);
+
+      if (compareSource?.id === recordId) {
+        setCompareSource(null);
+        setCompareTarget(null);
+        setCompareMode(false);
+      }
+      if (compareTarget?.id === recordId) {
+        setCompareTarget(null);
+        setCompareMode(false);
+      }
+
+      showToast?.('recordDeleted');
+
+      telemetry.logHistoryRecordDeleted({
+        recordId: recordId
+      });
+
+      if (currentUserId && !currentUserId.startsWith('guest_') && currentUserId !== 'user_guest') {
+        try {
+          await deleteRecordFromCloud(recordId, currentUserId);
+        } catch (err) {
+          console.warn('⚠️ 云端记录删除失败:', err);
+        }
+      }
+    }
+  };
+
+  // ===== 导出记录埋点 =====
+  const handleExport = useCallback(() => {
+    if (exportMode) {
+      const recordsToExport = history.filter(h => selectedForExport.has(h.id));
+      if (recordsToExport.length === 0) {
+        showToast?.('noExportSelected');
+        return;
+      }
+      telemetry.logHistoryExported({
+        count: recordsToExport.length
+      });
+      exportHistoryPDF(recordsToExport);
+      setExportMode(false);
+      setSelectedForExport(new Set());
+    } else {
+      setExportMode(true);
+      setSelectedForExport(new Set());
+    }
+  }, [exportMode, history, selectedForExport, showToast, exportHistoryPDF]);
+
+  // ===== 分享记录埋点 =====
+  const handleShareRecord = useCallback((record) => {
+    telemetry.logHistoryRecordShared({
+      recordId: record.id
+    });
+    onShareRecord?.(record);
+  }, [onShareRecord]);
+
+  // ===== 发布记录埋点 =====
+  const handlePublishRecord = useCallback((record, customText) => {
+    telemetry.logHistoryRecordPublished({
+      recordId: record.id,
+      hasCustomText: !!customText?.trim()
+    });
+    onPublishRecord?.(record, customText);
+  }, [onPublishRecord]);
+
+  const hasRecordOnDate = (day) => {
+    const targetStr = formatDateKey(year, month, day);
+    return history.some(h => normalizeDateStr(h.date) === targetStr);
+  };
+
+  const getRecordsOnDate = (day) => {
+    const targetStr = formatDateKey(year, month, day);
+    return history.filter(h => normalizeDateStr(h.date) === targetStr);
+  };
+
+  const changeMonth = (delta) => {
+    setCalendarDate(new Date(year, month + delta, 1));
   };
 
   const groupedHistory = useMemo(() => {
@@ -1685,9 +1861,8 @@ export default function HistoryPage({
           {t('history.title')}
         </h2>
         <div style={{ display: 'flex', gap: '4px', alignItems: 'center', flexWrap: 'wrap' }}>
-          {/* 视图切换 */}
           <button
-            onClick={() => setViewMode(viewMode === 'calendar' ? 'timeline' : 'calendar')}
+            onClick={() => handleViewSwitch(viewMode === 'calendar' ? 'timeline' : 'calendar')}
             style={{
               padding: '3px 10px',
               background: viewMode === 'timeline' ? 'rgba(230,126,34,0.15)' : 'rgba(255,255,255,0.05)',
@@ -1706,7 +1881,6 @@ export default function HistoryPage({
             {viewMode === 'calendar' ? '📊 ' + t('history.showTimeline') : '📅 ' + t('history.showCalendar')}
           </button>
 
-          {/* 语言切换 */}
           {setTargetLanguage && (
             <button
               onClick={() => setTargetLanguage(isEn ? 'zh' : 'en')}
@@ -1730,10 +1904,15 @@ export default function HistoryPage({
             </button>
           )}
 
-          {/* 草稿箱入口 */}
           {onViewDraftBox && (
             <button
-              onClick={onViewDraftBox}
+              onClick={() => {
+                telemetry.logDraftBoxViewedWithCount?.({
+                  fromPage: 'history',
+                  draftCount: draftCount || 0
+                });
+                onViewDraftBox();
+              }}
               style={{
                 display: 'flex',
                 alignItems: 'center',
@@ -1768,23 +1947,8 @@ export default function HistoryPage({
             </button>
           )}
 
-          {/* 导出按钮 */}
           <button
-            onClick={() => {
-              if (exportMode) {
-                const recordsToExport = history.filter(h => selectedForExport.has(h.id));
-                if (recordsToExport.length === 0) {
-                  showToast?.('noExportSelected');
-                  return;
-                }
-                exportHistoryPDF(recordsToExport);
-                setExportMode(false);
-                setSelectedForExport(new Set());
-              } else {
-                setExportMode(true);
-                setSelectedForExport(new Set());
-              }
-            }}
+            onClick={handleExport}
             style={{
               padding: '3px 10px',
               background: exportMode ? 'rgba(230,126,34,0.15)' : 'rgba(255,255,255,0.05)',
@@ -1805,7 +1969,6 @@ export default function HistoryPage({
               : t('history.export')}
           </button>
 
-          {/* 取消导出按钮 */}
           {exportMode && (
             <button
               onClick={() => {
@@ -1831,7 +1994,6 @@ export default function HistoryPage({
             </button>
           )}
 
-          {/* 返回按钮 */}
           <button
             onClick={onBack}
             style={{
@@ -1867,13 +2029,9 @@ export default function HistoryPage({
         resultCount={filteredHistory.length}
       />
 
-      {/* ===== 趋势摘要 ===== */}
       <TrendSummary history={filteredHistory} t={t} isEn={isEn} />
-
-      {/* ===== 疼痛类型分布 ===== */}
       <PainTypeDistribution history={filteredHistory} t={t} />
 
-      {/* ===== 对比视图 ===== */}
       {(compareMode || compareSource) && (
         <ComparisonView
           source={compareSource}
@@ -1884,7 +2042,6 @@ export default function HistoryPage({
         />
       )}
 
-      {/* ===== 视图内容 ===== */}
       {filteredHistory.length === 0 ? (
         <div style={{
           textAlign: 'center',
@@ -1911,7 +2068,6 @@ export default function HistoryPage({
                 : '倾听身体的旅程，从这里开始'}
             </p>
           )}
-          {/* 清除搜索按钮 */}
           {(searchQuery || painTypeFilter !== 'all') && (
             <button
               onClick={handleClearSearch}
@@ -1935,7 +2091,7 @@ export default function HistoryPage({
           records={filteredHistory}
           t={t}
           isEn={isEn}
-          onRecordClick={(record) => handleViewRecord(record)}
+          onRecordClick={handleViewRecord}
         />
       ) : (
         // ===== 日历视图 =====
@@ -1950,6 +2106,7 @@ export default function HistoryPage({
               marginBottom: '20px',
             }}
           >
+            {/* 月份切换 */}
             <div
               style={{
                 display: 'flex',
@@ -1989,6 +2146,32 @@ export default function HistoryPage({
               </button>
             </div>
 
+            {/* ✅ 新增：图例提示 */}
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'center',
+                gap: '16px',
+                marginBottom: '12px',
+                fontSize: '10px',
+                color: '#444',
+                flexWrap: 'wrap',
+              }}
+            >
+              <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <span style={{ display: 'inline-block', width: '8px', height: '8px', borderRadius: '50%', background: '#e67e22' }} />
+                {t('history.painDay') || '疼痛日'}
+              </span>
+              <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <span style={{ display: 'inline-block', width: '8px', height: '8px', borderRadius: '50%', background: '#e91e63' }} />
+                {t('history.menstrualDay') || '经期日'}
+              </span>
+              <span style={{ color: '#555' }}>
+                📌 {t('history.menstrualHint') || '长按日期标记经期'}
+              </span>
+            </div>
+
+            {/* 星期行 */}
             <div style={{ display: 'flex', marginBottom: '12px' }}>
               {getWeekDays().map((day) => {
                 const isWeekend = day === t('history.sun') || day === t('history.sat');
@@ -2010,6 +2193,7 @@ export default function HistoryPage({
               })}
             </div>
 
+            {/* 日期网格 */}
             <div style={{ display: 'flex', flexWrap: 'wrap' }}>
               {Array.from({ length: firstDay }).map((_, i) => (
                 <div key={`empty-${i}`} style={{ width: '14.28%', padding: '6px', boxSizing: 'border-box' }} />
@@ -2028,6 +2212,13 @@ export default function HistoryPage({
                   <div
                     key={day}
                     onClick={() => handleDateClick(day)}
+                    // ✅ 新增：长按事件支持（移动端 + PC端）
+                    onTouchStart={(e) => handleTouchStart(day, e)}
+                    onTouchEnd={handleTouchEnd}
+                    onTouchMove={handleTouchEnd}
+                    onMouseDown={(e) => handleMouseDown(day, e)}
+                    onMouseUp={handleMouseUp}
+                    onMouseLeave={handleMouseUp}
                     style={{
                       width: '14.28%',
                       padding: '6px',
@@ -2035,8 +2226,27 @@ export default function HistoryPage({
                       cursor: 'pointer',
                       position: 'relative',
                       boxSizing: 'border-box',
+                      touchAction: 'none',
                     }}
                   >
+                    {/* ✅ 新增：经期标记点（右上角粉色圆点） */}
+                    {isMenstrual && (
+                      <div
+                        style={{
+                          position: 'absolute',
+                          top: '4px',
+                          right: '4px',
+                          width: '8px',
+                          height: '8px',
+                          borderRadius: '50%',
+                          background: '#e91e63',
+                          boxShadow: '0 0 8px rgba(233,30,99,0.4)',
+                          zIndex: 2,
+                        }}
+                      />
+                    )}
+
+                    {/* 日期数字 */}
                     <div
                       style={{
                         width: '38px',
@@ -2046,30 +2256,36 @@ export default function HistoryPage({
                         alignItems: 'center',
                         justifyContent: 'center',
                         borderRadius: '50%',
+                        // ✅ 修改：经期使用粉色，疼痛使用橙色
                         background: isSelected
                           ? 'rgba(230,126,34,0.25)'
-                          : hasRecord
-                            ? 'rgba(230,126,34,0.12)'
-                            : isToday
-                              ? 'rgba(255,255,255,0.05)'
-                              : 'transparent',
+                          : isMenstrual
+                            ? 'rgba(233,30,99,0.12)'
+                            : hasRecord
+                              ? 'rgba(230,126,34,0.12)'
+                              : isToday
+                                ? 'rgba(255,255,255,0.05)'
+                                : 'transparent',
                         border: isSelected
                           ? '2px solid rgba(230,126,34,0.5)'
-                          : hasRecord
-                            ? '1.5px solid rgba(230,126,34,0.25)'
-                            : isToday
-                              ? '1px solid rgba(255,255,255,0.08)'
-                              : '1px solid transparent',
+                          : isMenstrual
+                            ? '1.5px solid rgba(233,30,99,0.3)'
+                            : hasRecord
+                              ? '1.5px solid rgba(230,126,34,0.25)'
+                              : isToday
+                                ? '1px solid rgba(255,255,255,0.08)'
+                                : '1px solid transparent',
+                        // ✅ 修改：经期文字粉色
                         color: isSelected
                           ? '#f0d0b0'
-                          : hasRecord
-                            ? '#e8c8a8'
-                            : isMenstrual
-                              ? '#ffcdd2'
+                          : isMenstrual
+                            ? '#f48fb1'
+                            : hasRecord
+                              ? '#e8c8a8'
                               : isToday
                                 ? '#aaa'
                                 : '#444',
-                        fontWeight: isSelected || hasRecord ? '500' : '300',
+                        fontWeight: isSelected || hasRecord || isMenstrual ? '500' : '300',
                         fontSize: 'var(--text-base)',
                         transition: 'all 0.2s ease',
                         position: 'relative',
@@ -2077,20 +2293,23 @@ export default function HistoryPage({
                     >
                       {day}
                       {hasRecord && !isSelected && recordCount > 0 && (
-                        <span style={{
-                          position: 'absolute',
-                          top: '-2px',
-                          right: '-2px',
-                          fontSize: '8px',
-                          color: 'rgba(230,126,34,0.5)',
-                          fontWeight: '400',
-                        }}>
+                        <span
+                          style={{
+                            position: 'absolute',
+                            top: '-2px',
+                            right: '-2px',
+                            fontSize: '8px',
+                            color: 'rgba(230,126,34,0.5)',
+                            fontWeight: '400',
+                          }}
+                        >
                           {recordCount}
                         </span>
                       )}
                     </div>
-                    {/* 疼痛标记点 */}
-                    {hasRecord && (
+
+                    {/* ✅ 修改：经期日期不显示疼痛标记点（避免视觉冲突） */}
+                    {hasRecord && !isMenstrual && (
                       <div
                         style={{
                           display: 'flex',
@@ -2121,7 +2340,7 @@ export default function HistoryPage({
                         )}
                       </div>
                     )}
-                    {!hasRecord && (
+                    {(!hasRecord || isMenstrual) && (
                       <div style={{ height: '9px' }} />
                     )}
                   </div>
@@ -2133,12 +2352,14 @@ export default function HistoryPage({
           {/* ===== 选中日期记录列表 ===== */}
           {selectedDate && (
             <div style={{ marginTop: '18px' }}>
-              <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                marginBottom: '12px',
-              }}>
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  marginBottom: '12px',
+                }}
+              >
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <span style={{ color: '#666', fontSize: 'var(--text-base)' }}>📅</span>
                   <span style={{ color: '#888', fontSize: 'var(--text-base)', fontWeight: '300' }}>
@@ -2151,14 +2372,18 @@ export default function HistoryPage({
               </div>
 
               {selectedDateRecords.length === 0 ? (
-                <div style={{
-                  background: 'rgba(255,255,255,0.01)',
-                  padding: '32px 20px',
-                  borderRadius: 'var(--radius-sm)',
-                  textAlign: 'center',
-                  border: '1px dashed rgba(255,255,255,0.04)',
-                }}>
-                  <span style={{ color: '#444', fontSize: 'var(--text-base)' }}>{t('history.noRecordThisDay')}</span>
+                <div
+                  style={{
+                    background: 'rgba(255,255,255,0.01)',
+                    padding: '32px 20px',
+                    borderRadius: 'var(--radius-sm)',
+                    textAlign: 'center',
+                    border: '1px dashed rgba(255,255,255,0.04)',
+                  }}
+                >
+                  <span style={{ color: '#444', fontSize: 'var(--text-base)' }}>
+                    {t('history.noRecordThisDay')}
+                  </span>
                 </div>
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
@@ -2184,7 +2409,7 @@ export default function HistoryPage({
                         }
                         setSelectedForExport(newSet);
                       }}
-                      onShare={(record) => onShareRecord?.(record)}
+                      onShare={handleShareRecord}
                     />
                   ))}
                 </div>
@@ -2223,98 +2448,100 @@ export default function HistoryPage({
                     cursor: 'pointer',
                   }}
                 >
-                  {showGroupedView
-                    ? t('history.collapseLabel')
-                    : t('history.expandLabel')}
+                  {showGroupedView ? t('history.collapseLabel') : t('history.expandLabel')}
                 </button>
               </div>
 
-              {showGroupedView && Object.entries(groupedHistory)
-                .sort((a, b) => b[0].localeCompare(a[0]))
-                .map(([monthKey, records]) => {
-                  // 检查这个月是否有匹配的记录
-                  const monthRecords = records.filter(r => filteredHistory.some(f => f.id === r.id));
-                  if (monthRecords.length === 0 && (searchQuery || painTypeFilter !== 'all')) return null;
+              {showGroupedView &&
+                Object.entries(groupedHistory)
+                  .sort((a, b) => b[0].localeCompare(a[0]))
+                  .map(([monthKey, records]) => {
+                    const monthRecords = records.filter((r) =>
+                      filteredHistory.some((f) => f.id === r.id)
+                    );
+                    if (monthRecords.length === 0 && (searchQuery || painTypeFilter !== 'all'))
+                      return null;
 
-                  const isCollapsed = collapsedMonths[monthKey] || false;
-                  const displayRecords = searchQuery || painTypeFilter !== 'all' ? monthRecords : records;
+                    const isCollapsed = collapsedMonths[monthKey] || false;
+                    const displayRecords =
+                      searchQuery || painTypeFilter !== 'all' ? monthRecords : records;
 
-                  return (
-                    <div key={monthKey} style={{ marginBottom: '8px' }}>
-                      <div
-                        onClick={() => toggleMonth(monthKey)}
-                        style={{
-                          display: 'flex',
-                          justifyContent: 'space-between',
-                          alignItems: 'center',
-                          padding: '10px 14px',
-                          background: 'rgba(255,255,255,0.015)',
-                          borderRadius: '10px',
-                          cursor: 'pointer',
-                          transition: 'background 0.2s ease',
-                        }}
-                      >
-                        <span style={{ color: '#888', fontSize: '13px' }}>
-                          {monthKey}
-                          {(searchQuery || painTypeFilter !== 'all') && monthRecords.length !== records.length && (
-                            <span style={{ color: '#e8a87c', fontSize: '11px', marginLeft: '8px' }}>
-                              ({monthRecords.length}/{records.length})
-                            </span>
-                          )}
-                        </span>
-                        <span style={{ color: '#555', fontSize: '11px' }}>
-                          {t('history.recordsCount', { count: displayRecords.length })}
-                          <span style={{ marginLeft: '6px', color: '#444' }}>
-                            {isCollapsed ? '▶' : '▼'}
+                    return (
+                      <div key={monthKey} style={{ marginBottom: '8px' }}>
+                        <div
+                          onClick={() => toggleMonth(monthKey)}
+                          style={{
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            padding: '10px 14px',
+                            background: 'rgba(255,255,255,0.015)',
+                            borderRadius: '10px',
+                            cursor: 'pointer',
+                            transition: 'background 0.2s ease',
+                          }}
+                        >
+                          <span style={{ color: '#888', fontSize: '13px' }}>
+                            {monthKey}
+                            {(searchQuery || painTypeFilter !== 'all') &&
+                              monthRecords.length !== records.length && (
+                                <span style={{ color: '#e8a87c', fontSize: '11px', marginLeft: '8px' }}>
+                                  ({monthRecords.length}/{records.length})
+                                </span>
+                              )}
                           </span>
-                        </span>
-                      </div>
-
-                      {!isCollapsed && (
-                        <div style={{ padding: '4px 0 0 4px' }}>
-                          {displayRecords.map((record) => (
-                            <RecordCard
-                              key={record.id}
-                              record={record}
-                              t={t}
-                              isEn={isEn}
-                              compact
-                              onView={() => handleViewRecord(record)}
-                              onDelete={() => handleDeleteRecord(record.id)}
-                              onCompare={handleCompareSelect}
-                              isCompareSelected={compareSource?.id === record.id}
-                              isCompareTarget={compareTarget?.id === record.id}
-                              exportMode={exportMode}
-                              isExportSelected={selectedForExport.has(record.id)}
-                              onToggleExport={(id) => {
-                                const newSet = new Set(selectedForExport);
-                                if (newSet.has(id)) {
-                                  newSet.delete(id);
-                                } else {
-                                  newSet.add(id);
-                                }
-                                setSelectedForExport(newSet);
-                              }}
-                              onShare={(record) => onShareRecord?.(record)}
-                            />
-                          ))}
+                          <span style={{ color: '#555', fontSize: '11px' }}>
+                            {t('history.recordsCount', { count: displayRecords.length })}
+                            <span style={{ marginLeft: '6px', color: '#444' }}>
+                              {isCollapsed ? '▶' : '▼'}
+                            </span>
+                          </span>
                         </div>
-                      )}
-                    </div>
-                  );
-                })}
+
+                        {!isCollapsed && (
+                          <div style={{ padding: '4px 0 0 4px' }}>
+                            {displayRecords.map((record) => (
+                              <RecordCard
+                                key={record.id}
+                                record={record}
+                                t={t}
+                                isEn={isEn}
+                                compact
+                                onView={() => handleViewRecord(record)}
+                                onDelete={() => handleDeleteRecord(record.id)}
+                                onCompare={handleCompareSelect}
+                                isCompareSelected={compareSource?.id === record.id}
+                                isCompareTarget={compareTarget?.id === record.id}
+                                exportMode={exportMode}
+                                isExportSelected={selectedForExport.has(record.id)}
+                                onToggleExport={(id) => {
+                                  const newSet = new Set(selectedForExport);
+                                  if (newSet.has(id)) {
+                                    newSet.delete(id);
+                                  } else {
+                                    newSet.add(id);
+                                  }
+                                  setSelectedForExport(newSet);
+                                }}
+                                onShare={handleShareRecord}
+                              />
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
             </div>
           )}
         </>
       )}
 
-      {/* ===== 记录详情弹窗 ===== */}
       <RecordDetailModal
         viewingDiary={viewingDiary}
         mode="history"
         onClose={() => setViewingDiary(null)}
         onDelete={handleDeleteRecord}
-        onShare={(record) => onShareRecord?.(record)}
+        onShare={handleShareRecord}
         onPublish={(record, customText) => {
           setPublishTarget(record);
           setPublishCustomText(customText || '');
@@ -2323,7 +2550,6 @@ export default function HistoryPage({
         lang={lang}
       />
 
-      {/* ===== 发布确认弹窗 ===== */}
       {publishConfirm && (
         <div
           style={{
@@ -2375,7 +2601,7 @@ export default function HistoryPage({
               </button>
               <button
                 onClick={() => {
-                  onPublishRecord?.(publishConfirm.record, '');
+                  handlePublishRecord(publishConfirm.record, '');
                   setPublishConfirm(null);
                 }}
                 style={{
@@ -2397,7 +2623,6 @@ export default function HistoryPage({
         </div>
       )}
 
-      {/* ===== 发布弹窗 ===== */}
       <PublishPostModal
         isOpen={showPublishModal}
         imgUrl={publishTarget?.img}
@@ -2410,7 +2635,7 @@ export default function HistoryPage({
         }}
         onSubmit={(submitData) => {
           if (publishTarget) {
-            onPublishRecord?.(publishTarget, submitData.text);
+            handlePublishRecord(publishTarget, submitData.text);
           }
           setShowPublishModal(false);
           setPublishTarget(null);

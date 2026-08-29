@@ -107,7 +107,7 @@ export async function savePainRecord(userId, record) {
     .from('pain_records')
     .insert({
       user_id: userId,
-      pain_data: record,
+      record_data: record,
       created_at: new Date().toISOString(),
     })
     .select()
