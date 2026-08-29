@@ -40,19 +40,37 @@ CREATE TRIGGER set_profiles_updated_at
 
 -- 2. 创建 pain_records 表（疼痛记录）
 CREATE TABLE IF NOT EXISTS pain_records (
-  id          BIGSERIAL PRIMARY KEY,
-  user_id     UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
-  pain_data   JSONB NOT NULL DEFAULT '{}',
-  created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  id TEXT PRIMARY KEY,  -- ✅ 改为 TEXT，支持 "draft_xxx" 格式
+  user_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+  status TEXT DEFAULT 'generated',
+  draft_data JSONB DEFAULT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  -- 前端字段
+  date TEXT,
+  time TEXT,
+  img TEXT,
+  pain_name TEXT,
+  dominant_pain TEXT,
+  pain_score INTEGER,
+  app_mode TEXT,
+  report_data JSONB,
+  medical_background JSONB,
+  user_prefs JSONB,
+  tone_preference TEXT,
+  cycle_day TEXT,
+  spatial_map JSONB,
+  color_palette TEXT,
+  accompanying_symptoms JSONB,
+  is_quick_log BOOLEAN DEFAULT FALSE,
+  is_saved_only BOOLEAN DEFAULT FALSE
 );
 
--- 索引：按用户查询疼痛记录
-CREATE INDEX IF NOT EXISTS idx_pain_records_user_id
-  ON pain_records (user_id);
-
--- 索引：按时间排序
-CREATE INDEX IF NOT EXISTS idx_pain_records_created_at
-  ON pain_records (created_at DESC);
+-- 索引
+CREATE INDEX IF NOT EXISTS idx_pain_records_user_id ON pain_records (user_id);
+CREATE INDEX IF NOT EXISTS idx_pain_records_status ON pain_records (status);
+CREATE INDEX IF NOT EXISTS idx_pain_records_user_status ON pain_records (user_id, status);
+CREATE INDEX IF NOT EXISTS idx_pain_records_created_at ON pain_records (created_at DESC);
 
 -- 3. 创建 posts 表（社区帖子）
 CREATE TABLE IF NOT EXISTS posts (
