@@ -2622,7 +2622,105 @@ export default function HistoryPage({
           </div>
         </div>
       )}
+      {/* ===== 经期标注菜单 ===== */}
+      {showMenstrualMenu && (
+        <div
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            width: '100vw',
+            height: '100vh',
+            zIndex: 200,
+            background: 'rgba(0,0,0,0.5)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+          onClick={() => {
+            setShowMenstrualMenu(false);
+            setSelectedDayForMenstrual(null);
+          }}
+        >
+          <div
+            style={{
+              background: '#1a1a1a',
+              border: '1px solid #333',
+              borderRadius: 'var(--radius-md)',
+              padding: '24px',
+              minWidth: '200px',
+              boxShadow: '0 8px 32px rgba(0,0,0,0.6)',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ textAlign: 'center', marginBottom: '16px', color: '#888', fontSize: '13px' }}>
+              📅 {selectedDayForMenstrual !== null &&
+                formatDateKey(year, month, selectedDayForMenstrual)
+              }
+            </div>
 
+            {selectedDayForMenstrual !== null &&
+              isMenstrualDate(selectedDayForMenstrual) ? (
+              <button
+                onClick={unmarkMenstrual}
+                style={{
+                  width: '100%',
+                  padding: '12px',
+                  background: 'rgba(244,67,54,0.1)',
+                  border: '1px solid rgba(244,67,54,0.2)',
+                  borderRadius: 'var(--radius-sm)',
+                  color: '#ef5350',
+                  cursor: 'pointer',
+                  fontSize: 'var(--text-sm)',
+                  fontWeight: '500',
+                  minHeight: '44px',
+                }}
+              >
+                ❌ {t('history.unmarkMenstrual') || '取消经期标记'}
+              </button>
+            ) : (
+              <button
+                onClick={markAsMenstrual}
+                style={{
+                  width: '100%',
+                  padding: '12px',
+                  background: 'rgba(233,30,99,0.1)',
+                  border: '1px solid rgba(233,30,99,0.2)',
+                  borderRadius: 'var(--radius-sm)',
+                  color: '#ec407a',
+                  cursor: 'pointer',
+                  fontSize: 'var(--text-sm)',
+                  fontWeight: '500',
+                  minHeight: '44px',
+                }}
+              >
+                🌸 {t('history.markMenstrual') || '标记为经期'}
+              </button>
+            )}
+
+            <button
+              onClick={() => {
+                setShowMenstrualMenu(false);
+                setSelectedDayForMenstrual(null);
+              }}
+              style={{
+                width: '100%',
+                marginTop: '10px',
+                padding: '10px',
+                background: 'transparent',
+                border: '1px solid #333',
+                borderRadius: 'var(--radius-sm)',
+                color: '#666',
+                cursor: 'pointer',
+                fontSize: 'var(--text-xs)',
+                minHeight: '40px',
+              }}
+            >
+              {t('common.cancel') || '取消'}
+            </button>
+          </div>
+        </div>
+      )}
       <PublishPostModal
         isOpen={showPublishModal}
         imgUrl={publishTarget?.img}
