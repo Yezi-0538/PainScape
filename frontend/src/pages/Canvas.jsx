@@ -67,6 +67,8 @@ export default function CanvasPage({
   particlePositions,
   speedHistory,
   pressureHistory,
+  contactAreaHistory,      // ✅ 新增
+  intensitySourceRef,      // ✅ 新增
 
   // 相机
   camRef,
@@ -195,6 +197,8 @@ export default function CanvasPage({
       particlePositions: [...particlePositions.current],
       speedHistory: [...speedHistory.current],
       pressureHistory: [...pressureHistory.current],
+      contactAreaHistory: [...contactAreaHistory.current],  // ✅ 新增
+      intensitySource: intensitySourceRef.current,          // ✅ 新增
       activeColor: activeColor,
       bodyMode: bodyMode,
       bgScale: bgScale,
@@ -540,44 +544,40 @@ export default function CanvasPage({
 
         const spawnRate = ['wave', 'twist', 'heavy'].includes(activeBrush) ? 6 : 2;
         if (p5.frameCount % spawnRate === 0 || speed > 10) {
-          // let pressure = 0.5;
-          // if (p5.touches && p5.touches.length > 0) {
-          //   // 移动端：使用 touch.force（iOS支持，Android部分支持）
-          //   pressure = p5.touches[0].force || 0.5;
-          // } else if (p5._curElement?.pointer) {
-          //   // 桌面端：模拟压力（基于速度）
-          //   pressure = p5._curElement.pointer.pressure || 0.5;
-          // }
 
-          // // ✅ 如果 pressure 一直是 0.5，基于速度模拟
-          // if (pressure === 0.5 && speed > 0) {
-          //   // 速度越快，压力越大（模拟）
-          //   pressure = Math.min(1.0, 0.3 + speed / 100);
-          // }
+          let intensity = 0.5;
+          let source = 'unknown';
 
-          let pressure = 0.5;
+          // 获取原生 PointerEvent（如果有）
+          const pointerEvent = p5._curElement?.pointer || p5.touches?.[0];
 
-          // 1. 如果有真实压感数据，优先使用
-          if (p5.touches && p5.touches.length > 0) {
-            pressure = p5.touches[0].force || 0.5;
-          } else if (p5._curElement?.pointer) {
-            pressure = p5._curElement.pointer.pressure || 0.5;
+          if (pointerEvent) {
+            // 优先级1：手写笔 - 真实压感
+            if (pointerEvent.pointerType === 'pen' && pointerEvent.pressure > 0 && pointerEvent.pressure !== 0.5) {
+              intensity = pointerEvent.pressure;
+              source = 'stylus_pressure';
+            }
+            // 优先级2：手指 - 接触面积
+            else if (pointerEvent.width && pointerEvent.height && (pointerEvent.width > 0 || pointerEvent.height > 0)) {
+              const diam = Math.max(pointerEvent.width, pointerEvent.height);
+              // 参考直径 12px → 0.2，40px 封顶 → 1.0
+              intensity = Math.min(1.0, Math.max(0.2, 0.2 + (diam - 12) / (40 - 12) * 0.8));
+              contactAreaHistory.current.push(diam);
+              source = 'contact_area';
+            }
           }
 
-          // 2. ✅ 如果真实压感无效（0.5），用速度 + 驻留时间模拟
-          if (pressure === 0.5) {
+          // 优先级3：兜底 - 速度 + 驻留时间模拟（保留你原有的精细逻辑）
+          if (source === 'unknown' || intensity === 0.5) {
             // 2a. 速度因素：速度越慢，压力越大
-            //    速度范围：0-50，映射到 0.3-0.8
             let speedFactor = 0.3 + (1 - Math.min(1, speed / 30)) * 0.5;
 
             // 2b. 驻留时间因素：在同一区域停留越久，压力越大
-            //    将当前位置离散化到 20x20 网格
             const gridSize = 20;
             const gridX = Math.floor(realX / gridSize);
             const gridY = Math.floor(realY / gridSize);
             const gridKey = `${gridX},${gridY}`;
 
-            // 获取或初始化该网格的驻留数据
             if (!particleDwellTimeRef.current[gridKey]) {
               particleDwellTimeRef.current[gridKey] = {
                 startTime: Date.now(),
@@ -589,30 +589,41 @@ export default function CanvasPage({
             const dwellData = particleDwellTimeRef.current[gridKey];
             dwellData.count += 1;
 
-            // 驻留时间因素：连续在同一网格超过 5 帧，压力逐渐增大
             let dwellFactor = 0;
             if (dwellData.count > 5) {
               dwellFactor = Math.min(0.3, (dwellData.count - 5) * 0.005);
             }
 
-            // 2c. 如果速度非常快，说明是快速划过，压力低
             if (speed > 40) {
-              pressure = 0.3;
+              intensity = 0.3;
             } else {
-              // 综合计算：速度因子 + 驻留因子，范围 0.3-1.0
-              pressure = Math.min(1.0, Math.max(0.2, speedFactor + dwellFactor));
+              intensity = Math.min(1.0, Math.max(0.2, speedFactor + dwellFactor));
             }
 
-            // 2d. 如果笔触数量很多（反复涂抹），增加压力
+            // 笔触数量加成
             const totalStrokes = Object.values(brushCounts.current || {}).reduce((a, b) => a + b, 0);
             if (totalStrokes > 20) {
               const strokeBonus = Math.min(0.15, totalStrokes * 0.001);
-              pressure = Math.min(1.0, pressure + strokeBonus);
+              intensity = Math.min(1.0, intensity + strokeBonus);
             }
+
+            // 如果 intensity 仍为 0.5，用速度简单推算
+            if (intensity === 0.5 && speed > 0) {
+              intensity = Math.min(1.0, 0.3 + speed / 100);
+            }
+
+            source = 'velocity_proxy';
           }
 
-          // ✅ 确保 pressure 在合理范围内
-          pressure = Math.max(0.2, Math.min(1.0, pressure));
+          // 确保在合理范围内
+          intensity = Math.max(0.2, Math.min(1.0, intensity));
+
+          // 记录来源
+          intensitySourceRef.current = source;
+
+          // 继续 push 到 pressureHistory（保持业务逻辑不变）
+          if (pressureHistory.current.length > 200) pressureHistory.current.shift();
+          pressureHistory.current.push(intensity);
 
 
           const pObj = new PainParticle(

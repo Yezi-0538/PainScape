@@ -348,6 +348,8 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
   const particlePositions = useRef([]);
   const speedHistory = useRef([]);
   const pressureHistory = useRef([]);
+  const contactAreaHistory = useRef([]);
+  const intensitySourceRef = useRef(null);
 
   const getDominantPain = useCallback(() => {
     const counts = brushCounts.current;
@@ -592,6 +594,9 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
 
   const [healingState, setHealingState] = useState({ isOpen: false, activeTab: 'breathing' });
   const [randomPartnerTips, setRandomPartnerTips] = useState([]);
+
+  const generationSourceRef = useRef('canvas');
+
   const [showGuide, setShowGuide] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
 
@@ -1712,10 +1717,10 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
       : new Date(Date.now() - 30000).toISOString();
     const endTimeStr = new Date().toISOString();
 
-    // ✅ 恢复 durationMs 的计算
-    const durationMs = canvasStartTimeRef.current
-      ? Math.max(1000, Date.now() - canvasStartTimeRef.current)
-      : 30000;
+    // // ✅ 恢复 durationMs 的计算
+    // const durationMs = canvasStartTimeRef.current
+    //   ? Math.max(1000, Date.now() - canvasStartTimeRef.current)
+    //   : 30000;
 
     const prHist = pressureHistory.current || [];
     const avgPressure = prHist.length > 0 ? prHist.reduce((a, b) => a + b, 0) / prHist.length : 0.5;
@@ -1855,22 +1860,32 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
   }, []);
 
   useEffect(() => {
-    // ✅ 确保会话已初始化
     if (authReady && currentUserId) {
-      // 如果当前没有活跃会话，创建一个
-      const sessionId = telemetry.getSessionId();
-      // 确保 sessions 表中有记录
-      const sessions = JSON.parse(localStorage.getItem('painscape_telemetry_sessions') || '[]');
-      const exists = sessions.some(s => s.session_id === sessionId);
-      if (!exists) {
-        telemetry.startSession({
-          userId: currentUserId,
-          mode: appMode || 'clinical',
-          entryPoint: 'canvas'
-        });
-      }
+      const sessionId = telemetry.getSessionId(); // 已保证 sessions 表有行
+      telemetry.updateSession({
+        user_id: currentUserId,
+        mode: appMode === 'medical' ? 'clinical' : 'daily',
+      });
     }
   }, [authReady, currentUserId, appMode]);
+  // useEffect(() => {
+  //   // ✅ 确保会话已初始化
+  //   if (authReady && currentUserId) {
+  //     // 如果当前没有活跃会话，创建一个
+  //     const sessionId = telemetry.getSessionId();
+  //     // 确保 sessions 表中有记录
+  //     const sessions = JSON.parse(localStorage.getItem('painscape_telemetry_sessions') || '[]');
+  //     const exists = sessions.some(s => s.session_id === sessionId);
+  //     if (!exists) {
+  //       telemetry.startSession({
+  //         userId: currentUserId,
+  //         mode: appMode || 'clinical',
+  //         entryPoint: 'canvas'
+  //       });
+  //     }
+  //   }
+  // }, [authReady, currentUserId, appMode]);
+
   const handleRedo = useCallback(() => {
     if (redoStackRef.current.length === 0) return;
     if (!pgFrontRef.current || !pgBackRef.current) return;
@@ -2190,6 +2205,7 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
   // 从草稿生成报告
   const handleGenerateFromDraft = useCallback(async (draft) => {
     setIsLoading(true);
+    generationSourceRef.current = 'draft_box';
     try {
       // 将草稿数据加载到画布状态
       const data = draft.draft_data;
@@ -2215,6 +2231,17 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
         if (data.pressureHistory) {
           pressureHistory.current = data.pressureHistory;
         }
+
+        // ✅ 新增：恢复接触面积历史
+        if (data.contactAreaHistory) {
+          contactAreaHistory.current = data.contactAreaHistory;
+        }
+
+        // ✅ 新增：恢复强度来源
+        if (data.intensitySource) {
+          intensitySourceRef.current = data.intensitySource;
+        }
+
 
         // 恢复颜色和身体模式
         if (data.activeColor) setActiveColor(data.activeColor);
@@ -2246,7 +2273,7 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
           setImgUrl(data.canvasImage);
         }
       }
-
+      canvasStartTimeRef.current = Date.now(); // 本次进入画布的计时从现在开始
       // 切换到画布页面
       setPage('canvas');
       // 自动触发生成
@@ -2293,6 +2320,16 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
         pressureHistory.current = data.pressureHistory;
       }
 
+      // ✅ 新增：恢复接触面积历史
+      if (data.contactAreaHistory) {
+        contactAreaHistory.current = data.contactAreaHistory;
+      }
+
+      // ✅ 新增：恢复强度来源
+      if (data.intensitySource) {
+        intensitySourceRef.current = data.intensitySource;
+      }
+
       // 恢复颜色和身体模式
       if (data.activeColor) setActiveColor(data.activeColor);
       if (data.bodyMode) setBodyMode(data.bodyMode);
@@ -2324,6 +2361,7 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
     }
 
     setDraftToEdit(draft);
+    canvasStartTimeRef.current = Date.now(); // 本次进入画布的计时从现在开始
     setPage('canvas');
   }, [setActiveColor, setBodyMode, setBgScale, pgFrontRef, pgBackRef, setImgUrl]);
 
@@ -2479,6 +2517,7 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
             onStartDrawing={() => {
               telemetry.updateSession({ profile_completed: true, entry_point: 'canvas' });
               canvasStartTimeRef.current = Date.now();
+              generationSourceRef.current = 'canvas';
               setBodyMode('front');
               setPage('canvas');
             }}
@@ -2543,6 +2582,8 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
             particlePositions={particlePositions}
             speedHistory={speedHistory}
             pressureHistory={pressureHistory}
+            contactAreaHistory={contactAreaHistory}    // ✅ 新增
+            intensitySourceRef={intensitySourceRef}    // ✅ 新增
             appMode={appMode}
             onBack={() => setPage('onboarding')}
             draftCount={getDraftCount()}
@@ -2690,10 +2731,16 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
                   totalStrokes: totalBrushes,
                   avgPressure: avgPressure,
                   maxPressure: maxPressure,
+                  // ✅ 新增：接触面积和强度来源
+                  avgContactArea: contactAreaHistory.current?.length
+                    ? contactAreaHistory.current.reduce((a, b) => a + b, 0) / contactAreaHistory.current.length
+                    : null,
+                  intensitySource: intensitySourceRef.current || 'unknown',
                   colorsUsed: Array.from(colorsUsedRef.current || ['crimson']),
                   canvasView: bodyMode === 'none' ? 'blind' : bodyMode,
                   undoCount: undoCountRef.current || 0,
                   clearCount: clearCountRef.current || 0,
+                  generationSource: generationSourceRef.current || 'canvas',
                   dominantPainType: mappedDominant,
                   painScore: painScore,
                   savedOnly: false
