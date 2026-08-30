@@ -1159,7 +1159,9 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
         return {
           pain: painName,
           analogy: getLocalizedText(activeLlm.analogy, defaultAnalogy),
-          workText: getLocalizedText(activeLlm.workText || activeLlm.work, defaultWorkText),
+          // workText: getLocalizedText(activeLlm.workText || activeLlm.work, defaultWorkText),
+          // ✅ workText 强制使用动态生成的，不依赖 LLM
+          workText: defaultWorkText,
           action: getLocalizedText(activeLlm.action, defaultAction),
           selfCare: getLocalizedText(activeLlm.selfCare, defaultSelfCare),
           chief_complaint: getLocalizedText(activeLlm.chief_complaint || activeLlm.med_complaint, chiefComplaintText),
