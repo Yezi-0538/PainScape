@@ -10,8 +10,7 @@ const CanvasGuide = ({ onComplete }) => {
   const [targetRect, setTargetRect] = useState(null);
   const [tooltipPosition, setTooltipPosition] = useState('bottom');
   
-  const totalSteps = 5;  // ✅ 改为 5 步
-  const guideShownRef = useRef(false);
+  const totalSteps = 5;
 
   // 各步骤对应的目标元素选择器
   const stepTargets = [
@@ -19,14 +18,13 @@ const CanvasGuide = ({ onComplete }) => {
     '.brush-section',         // Step 2: 画笔选择
     '.color-section',         // Step 3: 颜色选择
     '.top-bar-actions',       // Step 4: 顶部操作按钮
-    '.side-tools',            // Step 5: 右侧工具栏（新增）
+    '.side-tools',            // Step 5: 右侧工具栏
   ];
 
   // 各步骤的 tooltip 位置
   const tooltipPositions = ['center', 'top', 'top', 'bottom', 'left'];
 
   useEffect(() => {
-    // 检查是否已看过引导
     const hasSeen = localStorage.getItem('paintScape_canvas_guide_shown') === 'true';
     if (hasSeen) {
       setIsVisible(false);
@@ -34,7 +32,6 @@ const CanvasGuide = ({ onComplete }) => {
       return;
     }
 
-    // 延迟执行，等待 DOM 渲染完成
     const timer = setTimeout(() => {
       updateTargetPosition();
     }, 400);
@@ -58,7 +55,6 @@ const CanvasGuide = ({ onComplete }) => {
       setTargetRect(rect);
       setTooltipPosition(tooltipPositions[currentStep] || 'bottom');
     } else {
-      // 如果元素不存在，尝试再次查找
       setTimeout(() => {
         const el = document.querySelector(selector);
         if (el) {
@@ -198,7 +194,7 @@ const CanvasGuide = ({ onComplete }) => {
     const base = {
       position: 'fixed',
       zIndex: 9999,
-      maxWidth: '360px',
+      maxWidth: '320px',
       width: '90%',
       background: '#1a1a1a',
       border: '1px solid #333',
@@ -214,26 +210,45 @@ const CanvasGuide = ({ onComplete }) => {
     const screenHeight = window.innerHeight;
     let top, left, transform;
 
+    // ===== Step 5: 右侧工具栏特殊处理 =====
+    if (currentStep === 4) {
+      // ✅ 右侧工具栏：始终显示在工具栏的左侧（因为右侧空间不足）
+      const tooltipWidth = Math.min(320, screenWidth * 0.85);
+      left = targetRect.left - gap - tooltipWidth;
+      top = targetRect.top + targetRect.height / 2;
+      transform = 'translateY(-50%)';
+      
+      // 如果左侧空间不足（屏幕太窄），显示在下方
+      if (left < 10) {
+        left = Math.max(10, (screenWidth - tooltipWidth) / 2);
+        top = targetRect.bottom + gap;
+        transform = 'none';
+      }
+      
+      // 如果下方空间也不足，显示在上方
+      if (top + 250 > screenHeight && transform === 'none') {
+        top = targetRect.top - 200;
+        if (top < 10) {
+          top = 10;
+        }
+      }
+      
+      // 确保不超出左右边界
+      if (left + tooltipWidth > screenWidth - 10) {
+        left = screenWidth - tooltipWidth - 10;
+      }
+      if (left < 10) {
+        left = 10;
+      }
+      
+      return { ...base, top, left, transform, maxWidth: tooltipWidth };
+    }
+
+    // ===== 其他步骤 =====
     if (tooltipPosition === 'center') {
       top = '50%';
       left = '50%';
       transform = 'translate(-50%, -50%)';
-    } else if (tooltipPosition === 'left') {
-      // 右侧工具栏：显示在左边（屏幕右侧空间小）
-      left = targetRect.left - gap - 320;
-      top = targetRect.top + targetRect.height / 2;
-      transform = 'translateY(-50%)';
-      
-      if (left < 20) {
-        left = targetRect.right + gap;
-        transform = 'translateY(-50%)';
-      }
-      if (top + 200 > screenHeight) {
-        top = screenHeight - 220;
-      }
-      if (top < 20) {
-        top = 20;
-      }
     } else if (tooltipPosition === 'top') {
       top = targetRect.top - gap - 200;
       left = targetRect.left + targetRect.width / 2;
@@ -254,10 +269,14 @@ const CanvasGuide = ({ onComplete }) => {
       }
     }
 
-    if (left < 20) left = 20;
-    if (left > screenWidth - 20) left = screenWidth - 20;
+    // 防止左右溢出
+    const tooltipWidth = Math.min(320, screenWidth * 0.85);
+    if (left < 10) left = 10;
+    if (left + tooltipWidth > screenWidth - 10) {
+      left = screenWidth - tooltipWidth - 10;
+    }
 
-    return { ...base, top, left, transform };
+    return { ...base, top, left, transform, maxWidth: tooltipWidth };
   };
 
   const tooltipStyle = getTooltipStyle();
@@ -288,10 +307,10 @@ const CanvasGuide = ({ onComplete }) => {
         <div style={{ fontSize: '10px', color: '#888', letterSpacing: '1px', marginBottom: '6px', fontWeight: '500' }}>
           {stepLabel}
         </div>
-        <h4 style={{ color: '#fff', fontSize: '16px', fontWeight: '600', margin: '0 0 6px 0', lineHeight: '1.3' }}>
+        <h4 style={{ color: '#fff', fontSize: '15px', fontWeight: '600', margin: '0 0 6px 0', lineHeight: '1.3' }}>
           {title}
         </h4>
-        <p style={{ color: '#aaa', fontSize: '13px', lineHeight: '1.6', margin: '0 0 16px 0', whiteSpace: 'pre-line' }}>
+        <p style={{ color: '#aaa', fontSize: '12px', lineHeight: '1.6', margin: '0 0 16px 0', whiteSpace: 'pre-line' }}>
           {description}
         </p>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', flexWrap: 'wrap' }}>
@@ -300,12 +319,12 @@ const CanvasGuide = ({ onComplete }) => {
               <button
                 onClick={handlePrev}
                 style={{
-                  padding: '6px 14px',
+                  padding: '6px 12px',
                   background: 'rgba(255,255,255,0.04)',
                   border: '1px solid #333',
                   borderRadius: '8px',
                   color: '#888',
-                  fontSize: '12px',
+                  fontSize: '11px',
                   cursor: 'pointer',
                   transition: 'all 0.2s',
                 }}
@@ -318,11 +337,11 @@ const CanvasGuide = ({ onComplete }) => {
             <button
               onClick={handleSkip}
               style={{
-                padding: '6px 12px',
+                padding: '6px 10px',
                 background: 'transparent',
                 border: 'none',
                 color: '#555',
-                fontSize: '11px',
+                fontSize: '10px',
                 cursor: 'pointer',
                 transition: 'all 0.2s',
               }}
@@ -335,20 +354,21 @@ const CanvasGuide = ({ onComplete }) => {
           <button
             onClick={handleNext}
             style={{
-              padding: '8px 20px',
+              padding: '8px 18px',
               background: isLastStep 
                 ? 'linear-gradient(135deg, #4caf50, #388e3c)' 
                 : 'linear-gradient(135deg, #d32f2f, #c62828)',
               border: 'none',
               borderRadius: '8px',
               color: '#fff',
-              fontSize: '13px',
+              fontSize: '12px',
               fontWeight: '600',
               cursor: 'pointer',
               transition: 'all 0.2s',
               boxShadow: isLastStep 
                 ? '0 2px 12px rgba(76,175,80,0.3)' 
                 : '0 2px 12px rgba(211,47,47,0.25)',
+              whiteSpace: 'nowrap',
             }}
             onMouseEnter={(e) => { e.currentTarget.style.transform = 'scale(1.02)'; }}
             onMouseLeave={(e) => { e.currentTarget.style.transform = 'scale(1)'; }}
