@@ -85,6 +85,7 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
     Toast.init({ show });
   }, [show]);
 
+
   // 实验员快捷调用
   useEffect(() => {
     window.__exportTelemetryCSV = () => telemetry.exportAllAsCSV();
@@ -533,7 +534,11 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
   const [cycleDay, setCycleDay] = useState('');
   const [leaveRecipient, setLeaveRecipient] = useState('manager');
   const [leaveTone, setLeaveTone] = useState('polite');
-
+  useEffect(() => {
+    // 收件人或语气变化时，清除旧的 LLM 缓存
+    setCurrentReportData(null);
+    setLlmData(null);
+  }, [leaveRecipient, leaveTone]);
   const [medicalBackground, setMedicalBackground] = useState(() => {
     const cached = loadFromStorage('painscape_med_bg', {});
     return {
@@ -632,6 +637,8 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
     return '';
   };
 
+  // src/App.jsx - generateContent 函数（完整修改版）
+
   const generateContent = useCallback((overrideType, externalLlm = null, externalReportData = null) => {
     try {
       const isEn = targetLanguage === 'en';
@@ -704,9 +711,8 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
 
       const painLocation = buildPainLocation(currentSpatialMap, isEn);
 
-      // ---- 伴随症状 ----
+      // ---- 伴随症状（修复：翻译症状 key） ----
       const symptomsArr = mb.accompanyingSymptomsArr || [];
-      // ✅ 修复：翻译症状 key 为显示文本
       const symptomsText = Array.isArray(symptomsArr) && symptomsArr.length > 0
         ? symptomsArr
           .map(s => t(`onboarding.accompanyingOptions.${s}`, { defaultValue: s }))
@@ -972,7 +978,7 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
         .replace(/{{reassurance}}/g, reassurance);
 
       // ============================================================
-      // 临床建议 - 动态构建
+      // 临床建议 - 动态构建（修复：症状翻译）
       // ============================================================
       const buildSelfCareItems = (dominant, symptomsArr, mb, isEn) => {
         const items = [];
@@ -987,7 +993,6 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
           : '• 静卧休养，采取侧卧胎儿位减轻盆腔张力'
         );
 
-        // ✅ 修复：使用翻译后的症状进行比较
         const hasNausea = symptomsArr?.some(s => s === 'nausea' || s === '恶心');
         if (hasNausea) {
           items.push(isEn
@@ -1011,6 +1016,7 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
 
         return items.join('\n');
       };
+
       const buildDiscussionItems = (symptomsArr, isEn) => {
         const items = [];
 
@@ -1028,20 +1034,15 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
 
         // ✅ 修复：将症状 key 翻译为显示文本
         if (symptomsArr && symptomsArr.length > 0) {
-          // 使用 t() 函数将每个症状 key 翻译为显示文本
           const translatedSymptoms = symptomsArr.map(s => {
-            // 尝试从 onboarding.accompanyingOptions 获取翻译
-            const translated = t(`onboarding.accompanyingOptions.${s}`, { defaultValue: s });
-            return translated;
+            return t(`onboarding.accompanyingOptions.${s}`, { defaultValue: s });
           });
-
           const symptomsDisplay = translatedSymptoms.join(isEn ? ', ' : '、');
           items.push(isEn
             ? `• Do you experience any other symptoms like ${symptomsDisplay}?`
             : `• 是否伴有${symptomsDisplay}等其他症状？`
           );
         } else {
-          // 如果没有症状，仍然保留这个问题但用通用表述
           items.push(isEn
             ? '• Do you experience any other symptoms like constipation, diarrhea, or nausea?'
             : '• 是否伴有便秘、腹泻、恶心等其他症状？'
@@ -1079,143 +1080,55 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
         .replace(/{{reassurance}}/g, reassurance)
         .replace(/{{examInfo}}/g, examInfo);
 
-      // ---- 默认值 ----
-      const defaultAnalogy = t(`painTemplates.${dominant}.analogy`) || '';
-      const defaultSelfCare = t(`painTemplates.${dominant}.selfCare`) || '';
-      // const getWorkTextByScenario = (recipient, tone, painName, isEn) => {
-      //   const validRecipients = ['manager', 'teacher', 'client', 'friend', 'partner'];
-      //   const recipientKey = validRecipients.includes(recipient) ? recipient : 'manager';
-
-      //   const validTones = ['polite', 'objective'];
-      //   const toneKey = validTones.includes(tone) ? tone : 'objective';
-
-      //   // ✅ 修正路径：从翻译文件中获取 result.work.templates
-      //   const workTemplates = t('result.work.templates', { returnObjects: true, defaultValue: {} });
-
-      //   // 根据语言选择对应的模板（t() 已经根据当前语言返回了对应的 zh/en 内容）
-      //   // 所以直接取 workTemplates[recipientKey][toneKey]
-      //   let template = workTemplates?.[recipientKey]?.[toneKey];
-
-      //   // 如果找不到，尝试用 manager 的对应语气
-      //   if (!template) {
-      //     template = workTemplates?.manager?.[toneKey];
-      //   }
-
-      //   if (template && typeof template === 'string') {
-      //     return template.replace(/{{pain}}/g, painName);
-      //   }
-
-      //   // 最终降级
-      //   const fallback = t('defaultTemplates.workTemplateFallback', {
-      //     defaultValue: '因身体不适，申请休息一天。'
-      //   });
-      //   return fallback;
-      // };
-
-      // src/App.jsx - generateContent 中
-
       // ============================================================
-      // ✅ 直接在代码中定义请假模板（不依赖 i18n）
+      // ✅ 修复：根据 leaveRecipient 和 leaveTone 动态生成请假文本
       // ============================================================
       const getWorkTextByScenario = (recipient, tone, painName, isEn) => {
-        // 中文模板
-        const zhTemplates = {
-          manager: {
-            polite: `领导您好：因生理期突发严重身体不适，今天无法正常到岗工作，特申请休假一天。紧急工作已妥善交接，感谢您的理解与批准。`,
-            neutral: `今天身体不适，申请休假一天。工作已安排妥当，请批准。`,
-            casual: `领导好，今天身体实在扛不住了，请一天假休息下。工作交代好了，抱歉。`,
-          },
-          teacher: {
-            polite: `老师您好：因生理期突发严重身体不适，今天无法到课，已请同学代为记录课堂内容，我会及时补上学习进度。望批准。`,
-            neutral: `老师好，今天身体不适，请假一天缺课。后续会补上笔记和进度。`,
-            casual: `老师，今天身体实在不舒服，请一天假。回头找同学补笔记，谢谢！`,
-          },
-          client: {
-            polite: `X总/X老师您好：因突发身体不适，今天原定的会议/对接需要改期，已安排同事代为对接。给您带来不便，深表歉意。`,
-            neutral: `您好，今天身体不适，需要将会面改期。已安排同事跟进，抱歉。`,
-            casual: `临时身体不适，今天会议改天约。相关事已同步同事，抱歉哈。`,
-          },
-          friend: {
-            polite: `小A，今天我经期身体不适，约见需要改期了，非常抱歉！我们改天再约。`,
-            neutral: `今天不太舒服，改天再约吧。不好意思。`,
-            casual: `今天身体扛不住了，先鸽了！回头约！抱歉抱歉。`,
-          },
-          partner: {
-            polite: `今天身体很不舒服，需要安静休息一天。家里的事务要辛苦你多担待了，谢谢你。`,
-            neutral: `宝，今天不太舒服，想好好休息一下。家里的事麻烦你。`,
-            casual: `今天疼得厉害，想躺平一天。辛苦你照顾啦~`,
-          },
-        };
+        console.log('🔍 [getWorkTextByScenario] 调用参数:', { recipient, tone, painName, isEn });
 
-        // 英文模板
-        const enTemplates = {
-          manager: {
-            polite: `Dear Manager: Due to a sudden health condition related to my menstrual cycle, I am unable to work today and request a sick leave. Urgent matters have been delegated. Thank you for your understanding and approval.`,
-            neutral: `Requesting a sick day today due to a health condition. Work has been arranged. Please approve.`,
-            casual: `Manager — not feeling well today and need to take the day off. Work is covered. Sorry for the inconvenience.`,
-          },
-          teacher: {
-            polite: `Dear Professor: Unable to attend class today due to a sudden health issue. I have arranged for a classmate to take notes and will catch up promptly. Thank you for your understanding.`,
-            neutral: `Professor, I need to take a sick day today. Will catch up on the materials.`,
-            casual: `Professor — not feeling well today. Will get notes from a classmate. Thanks!`,
-          },
-          client: {
-            polite: `Dear Client: Due to a sudden health condition, I need to reschedule today's meeting. A colleague has been briefed and will assist. Apologies for the inconvenience.`,
-            neutral: `Need to reschedule today's meeting due to health. A colleague is up to speed. Apologies.`,
-            casual: `Not feeling well today — need to push our meeting. Colleague is briefed. Sorry!`,
-          },
-          friend: {
-            polite: `I'm so sorry to cancel on short notice — a sudden health issue came up today. Let's reschedule soon!`,
-            neutral: `Not feeling great today — let's reschedule. Sorry!`,
-            casual: `Feeling rough today — gonna have to rain check. Catch up soon!`,
-          },
-          partner: {
-            polite: `Not feeling well today and need to rest quietly. I would really appreciate your help with things around the house. Thank you.`,
-            neutral: `Not feeling great today — need some quiet rest. Could use your help at home.`,
-            casual: `Feeling awful today — going to be horizontal. Thanks for taking care of things! 💕`,
-          },
-        };
-
-        // 选择语言
-        const templates = isEn ? enTemplates : zhTemplates;
-
-        // 获取收件人和语气
         const validRecipients = ['manager', 'teacher', 'client', 'friend', 'partner'];
         const recipientKey = validRecipients.includes(recipient) ? recipient : 'manager';
 
         const validTones = ['polite', 'neutral', 'casual'];
         const toneKey = validTones.includes(tone) ? tone : 'neutral';
 
-        // 获取模板
-        let template = templates[recipientKey]?.[toneKey];
+        console.log('🔍 [getWorkTextByScenario] 映射后:', { recipientKey, toneKey });
 
-        // 如果找不到，降级到 manager + neutral
+        // ✅ 获取 workTemplates
+        const workTemplates = t('workTemplates', { returnObjects: true, defaultValue: {} });
+        console.log('🔍 [getWorkTextByScenario] workTemplates:', workTemplates);
+        console.log('🔍 [getWorkTextByScenario] workTemplates keys:', Object.keys(workTemplates));
+
+        let template = workTemplates?.[recipientKey]?.[toneKey];
+        console.log('🔍 [getWorkTextByScenario] 找到的模板 (精确):', template);
+
         if (!template) {
-          template = templates.manager?.neutral;
+          template = workTemplates?.manager?.[toneKey];
+          console.log('🔍 [getWorkTextByScenario] 降级到 manager:', template);
         }
 
-        // 如果还找不到，使用兜底
         if (!template) {
-          template = isEn
-            ? `Requesting a sick day today due to a health condition.`
-            : `因身体不适，申请休息一天。`;
+          template = workTemplates?.manager?.neutral;
+          console.log('🔍 [getWorkTextByScenario] 降级到 manager.neutral:', template);
         }
 
-        // 替换疼痛名称
-        return template.replace(/{{pain}}/g, painName);
+        if (template && typeof template === 'string') {
+          const result = template.replace(/{{pain}}/g, painName);
+          console.log('🔍 [getWorkTextByScenario] 最终结果:', result);
+          return result;
+        }
+
+        const fallback = t('defaultTemplates.workTemplateFallback', {
+          defaultValue: '因身体不适，申请休息一天。'
+        });
+        console.log('🔍 [getWorkTextByScenario] 使用 fallback:', fallback);
+        return fallback;
       };
+      // ---- 默认值 ----
+      const defaultAnalogy = t(`painTemplates.${dominant}.analogy`) || '';
+      const defaultSelfCare = t(`painTemplates.${dominant}.selfCare`) || '';
 
-      // ---- 使用 ----
-      const defaultWorkText = getWorkTextByScenario(
-        leaveRecipient || 'manager',
-        leaveTone || 'neutral',
-        painName,
-        isEn
-      );
-
-      // ============================================================
-      // ✅ 修复2：根据 userPrefs 选择 partnerActions，并确保有兜底
-      // ============================================================
+      // ✅ 修复：根据 userPrefs 选择 partnerActions，并确保有兜底
       const prefKey = (Array.isArray(userPrefs) && userPrefs[0]) ? userPrefs[0] : 'care';
       const validPrefKeys = ['alone', 'care', 'comfort'];
       const safePrefKey = validPrefKeys.includes(prefKey) ? prefKey : 'care';
@@ -1227,21 +1140,22 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
           .map(act => String(act).replace(/{{med}}/g, t('defaultTemplates.medication') || '布洛芬'))
           .join('\n');
       } else {
-        // 兜底：使用 defaultTemplates.defaultActions
         defaultAction = t('defaultTemplates.defaultActions') || '☑️ 帮她热敷小腹并准备好止痛药。\n☑️ 给她倒杯温水，陪伴在她身边。\n☑️ 调暗灯光，让她安静休息。';
       }
 
-      // ============================================================
-      // ✅ 修复3：动态生成请假文本（使用收件人和语气）
-      // ============================================================
+      // ✅ 修复：动态生成请假文本
       const recipient = leaveRecipient || 'manager';
       const tone = leaveTone || 'neutral';
-      // const defaultWorkText = getWorkTextByScenario(recipient, tone, painName, isEn);
+      const defaultWorkText = getWorkTextByScenario(recipient, tone, painName, isEn);
 
       // ============================================================
       // 如果 activeLlm 存在，使用 LLM 数据
       // ============================================================
       if (activeLlm) {
+        console.log('🔍 [generateContent] activeLlm 存在，activeLlm.workText:', activeLlm.workText);
+        console.log('🔍 [generateContent] activeLlm 存在，defaultWorkText:', defaultWorkText);
+        const finalWorkText = getLocalizedText(activeLlm.workText || activeLlm.work, defaultWorkText);
+        console.log('🔍 [generateContent] finalWorkText:', finalWorkText);
         return {
           pain: painName,
           analogy: getLocalizedText(activeLlm.analogy, defaultAnalogy),
@@ -1280,8 +1194,8 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
       return {
         pain: painName,
         analogy: defaultAnalogy,
-        workText: defaultWorkText,  // ✅ 使用动态生成的模板
-        action: defaultAction,       // ✅ 使用动态选择的 partnerActions
+        workText: defaultWorkText,
+        action: defaultAction,
         selfCare: defaultSelfCare,
         chief_complaint: chiefComplaintText,
         present_illness: presentIllnessText,
@@ -1311,13 +1225,12 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
       console.warn('⚠️ generateContent 降级兜底:', err);
       const fallbackPain = t('painNames.twist') || '痛经';
 
-      // 兜底用的默认值
       const fallbackSelfCare = '• 温敷小腹\n• 静卧休养';
       const fallbackDiscussion = '• 疼痛是否与月经周期相关？';
       const fallbackReassurance = '请不必过度焦虑。';
       const fallbackExamInfo = '妇科超声是常规检查，无辐射，约10-15分钟。';
 
-      // ✅ 兜底时也尝试动态生成请假文本
+      // 兜底时也动态生成请假文本
       const fallbackWorkText = getWorkTextByScenario(
         leaveRecipient || 'manager',
         leaveTone || 'neutral',
@@ -1328,7 +1241,7 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
       return {
         pain: fallbackPain,
         analogy: t(`painTemplates.twist.analogy`) || '',
-        workText: fallbackWorkText,  // ✅ 使用动态生成的兜底
+        workText: fallbackWorkText,
         action: t('defaultTemplates.defaultActions') || '',
         selfCare: t(`painTemplates.twist.selfCare`) || '',
         chief_complaint: t('defaultTemplates.chiefComplaint')
@@ -1383,6 +1296,7 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
       };
     }
   }, [currentReportData, llmData, getDominantPain, t, medicalBackground, cycleDay, userPrefs, targetLanguage, leaveRecipient, leaveTone, spatialMap]);
+
   const getEditedOrDefault = useCallback((key, defaultVal) => {
     return editedContents[key] !== undefined ? editedContents[key] : defaultVal;
   }, [editedContents]);
@@ -2538,7 +2452,7 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
             setTonePreference={setTonePreference}
             cycleDay={cycleDay}
             setCycleDay={setCycleDay}
-            leaveRecipient={leaveRecipient}
+            l leaveRecipient={leaveRecipient}
             setLeaveRecipient={setLeaveRecipient}
             leaveTone={leaveTone}
             setLeaveTone={setLeaveTone}
@@ -2885,6 +2799,7 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
             setIdentity={setIdentity}
             appMode={appMode}
             editedContents={editedContents}
+            content={generateContent()}
             setEditedContents={setEditedContents}
             editingField={editingField}
             spatialMap={spatialMap}
@@ -2915,7 +2830,6 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
             setIsLoading={setIsLoading}
             currentReportData={currentReportData}
             llmData={llmData}
-            content={generateContent()}
             getEditedOrDefault={getEditedOrDefault}
             getContextTitle={getContextTitle}
             isSideEmpty={isSideEmpty}

@@ -432,21 +432,29 @@ export default function ResultPage({
   randomPartnerTips = [],
   handleCopy = () => { },
 }) {
-  console.log('🔍 ResultPage content:', content);
-  console.log('🔍 content.clinical_suggestions:', content.clinical_suggestions);
-  console.log('🔍 content.full_content:', content.full_content);
   const { t, lang, toggleLang } = useI18n();
   const [viewMode, setViewMode] = useState('user'); // 'user' | 'doctor'
   const [showPublishModal, setShowPublishModal] = useState(false);
   const [publishTitleText, setPublishTitleText] = useState('');
+  // 当收件人或语气变化时，清除 workText 的编辑缓存
+  useEffect(() => {
+    if (editedContents?.workText !== undefined) {
+      const { workText, ...rest } = editedContents;
+      setEditedContents(rest);
+    }
+  }, [leaveRecipient, leaveTone]);
 
   const getFieldValue = (fieldKey) => {
+    console.log('🔍 [ResultPage] getFieldValue:', fieldKey, editedContents?.[fieldKey], content?.[fieldKey]);
+    if (fieldKey === 'workText') {
+      return content.workText || '';
+    }
+
     if (editedContents && editedContents[fieldKey] !== undefined) {
       return editedContents[fieldKey];
     }
     return content[fieldKey] || '';
   };
-
 
   const handleFieldSave = (fieldKey, value) => {
     const originalText = content[fieldKey] || '';
@@ -486,154 +494,18 @@ export default function ResultPage({
     return content[fieldKey] || '';
   };
 
-  // const getWorkText = useCallback(() => {
-  //   // 如果有编辑内容，优先使用
-  //   if (editedContents?.workText !== undefined) return editedContents.workText;
+  const getWorkText = useCallback(() => {
+    console.log('🔍 [ResultPage] content.workText:', content?.workText);
+    console.log('🔍 [ResultPage] editedContents?.workText:', editedContents?.workText);
 
-  //   // 如果 content 中有 workText，优先使用（来自 App.jsx 的动态生成）
-  //   if (content.workText) return content.workText;
-
-  //   // ============================================================
-  //   // ✅ 直接从翻译文件获取 workTemplates
-  //   // ============================================================
-  //   const langKey = lang === 'en' ? 'en' : 'zh';
-  //   const recipient = leaveRecipient || 'manager';
-  //   const rawTone = leaveTone || 'neutral';
-
-  //   // 语气映射
-  //   const toneMap = {
-  //     polite: 'polite',
-  //     objective: 'neutral',
-  //     formal: 'polite',
-  //     neutral: 'neutral',
-  //     casual: 'casual',
-  //   };
-  //   const tone = toneMap[rawTone] || 'neutral';
-
-  //   // ✅ 从 workTemplates 获取对应模板
-  //   const workTemplates = t('workTemplates', { returnObjects: true, defaultValue: {} });
-  //   const langTemplates = workTemplates?.[langKey] || {};
-  //   let template = langTemplates?.[recipient]?.[tone];
-
-  //   // 降级1：尝试用 manager + 当前语气
-  //   if (!template) {
-  //     template = langTemplates?.manager?.[tone];
-  //   }
-
-  //   // 降级2：尝试用 manager + neutral
-  //   if (!template) {
-  //     template = langTemplates?.manager?.neutral;
-  //   }
-
-  //   // 降级3：使用 defaultTemplates.workTemplateFallback
-  //   if (!template) {
-  //     template = t('defaultTemplates.workTemplateFallback', {
-  //       defaultValue: '因身体不适，申请休息一天。'
-  //     });
-  //   }
-
-  //   // 替换疼痛名称
-  //   const painName = content.pain || t('painNames.twist') || '痛经';
-  //   return template.replace(/\{\{pain\}\}/g, painName);
-  // }, [leaveRecipient, leaveTone, lang, editedContents?.workText, content.pain, content.workText, t]);
-
-  // src/pages/ResultPage.jsx - 硬编码模板版本
-
-const getWorkText = useCallback(() => {
-  // 如果有编辑内容，优先使用
-  if (editedContents?.workText !== undefined) return editedContents.workText;
-  
-  // 如果 content 中有 workText，优先使用
-  if (content.workText) return content.workText;
-
-  // ============================================================
-  // ✅ 硬编码模板（最可靠）
-  // ============================================================
-  const recipient = leaveRecipient || 'manager';
-  const rawTone = leaveTone || 'neutral';
-  
-  const toneMap = {
-    polite: 'polite',
-    objective: 'neutral',
-    formal: 'polite',
-    neutral: 'neutral',
-    casual: 'casual',
-  };
-  const tone = toneMap[rawTone] || 'neutral';
-  const isEn = lang === 'en';
-  
-  // 中文模板
-  const zhTemplates = {
-    manager: {
-      polite: '领导您好：因生理期突发严重身体不适，今天无法正常到岗工作，特申请休假一天。紧急工作已妥善交接，感谢您的理解与批准。',
-      neutral: '今天身体不适，申请休假一天。工作已安排妥当，请批准。',
-      casual: '领导好，今天身体实在扛不住了，请一天假休息下。工作交代好了，抱歉。',
-    },
-    teacher: {
-      polite: '老师您好：因生理期突发严重身体不适，今天无法到课，已请同学代为记录课堂内容，我会及时补上学习进度。望批准。',
-      neutral: '老师好，今天身体不适，请假一天缺课。后续会补上笔记和进度。',
-      casual: '老师，今天身体实在不舒服，请一天假。回头找同学补笔记，谢谢！',
-    },
-    client: {
-      polite: 'X总您好：因突发身体不适，今天原定的会议需要改期，已安排同事代为对接。给您带来不便，深表歉意。',
-      neutral: '您好，今天身体不适，需要将会面改期。已安排同事跟进，抱歉。',
-      casual: '临时身体不适，今天会议改天约。相关事已同步同事，抱歉哈。',
-    },
-    friend: {
-      polite: '小A，今天我经期身体不适，约见需要改期了，非常抱歉！我们改天再约。',
-      neutral: '今天不太舒服，改天再约吧。不好意思。',
-      casual: '今天身体扛不住了，先鸽了！回头约！抱歉抱歉。',
-    },
-    partner: {
-      polite: '今天身体很不舒服，需要安静休息一天。家里的事务要辛苦你多担待了，谢谢你。',
-      neutral: '宝，今天不太舒服，想好好休息一下。家里的事麻烦你。',
-      casual: '今天疼得厉害，想躺平一天。辛苦你照顾啦~',
-    },
-  };
-  
-  // 英文模板
-  const enTemplates = {
-    manager: {
-      polite: 'Dear Manager: Due to a sudden health condition related to my menstrual cycle, I am unable to work today and request a sick leave. Urgent matters have been delegated. Thank you for your understanding and approval.',
-      neutral: 'Requesting a sick day today due to a health condition. Work has been arranged. Please approve.',
-      casual: 'Manager — not feeling well today and need to take the day off. Work is covered. Sorry for the inconvenience.',
-    },
-    teacher: {
-      polite: 'Dear Professor: Unable to attend class today due to a sudden health issue. I have arranged for a classmate to take notes and will catch up promptly. Thank you for your understanding.',
-      neutral: 'Professor, I need to take a sick day today. Will catch up on the materials.',
-      casual: 'Professor — not feeling well today. Will get notes from a classmate. Thanks!',
-    },
-    client: {
-      polite: 'Dear Client: Due to a sudden health condition, I need to reschedule today\'s meeting. A colleague has been briefed and will assist. Apologies for the inconvenience.',
-      neutral: 'Need to reschedule today\'s meeting due to health. A colleague is up to speed. Apologies.',
-      casual: 'Not feeling well today — need to push our meeting. Colleague is briefed. Sorry!',
-    },
-    friend: {
-      polite: 'I\'m so sorry to cancel on short notice — a sudden health issue came up today. Let\'s reschedule soon!',
-      neutral: 'Not feeling great today — let\'s reschedule. Sorry!',
-      casual: 'Feeling rough today — gonna have to rain check. Catch up soon!',
-    },
-    partner: {
-      polite: 'Not feeling well today and need to rest quietly. I would really appreciate your help with things around the house. Thank you.',
-      neutral: 'Not feeling great today — need some quiet rest. Could use your help at home.',
-      casual: 'Feeling awful today — going to be horizontal. Thanks for taking care of things! 💕',
-    },
-  };
-  
-  const templates = isEn ? enTemplates : zhTemplates;
-  const recipientTemplates = templates[recipient] || templates.manager;
-  let template = recipientTemplates[tone] || recipientTemplates.neutral;
-  
-  // 最终兜底
-  if (!template) {
-    template = isEn 
-      ? 'Requesting a sick day today due to a health condition.' 
+    if (editedContents?.workText !== undefined) return editedContents.workText;
+    if (content.workText) return content.workText;
+    // 如果 content.workText 不存在（极少情况），使用兜底
+    const fallback = lang === 'en'
+      ? 'Requesting a sick day today due to a health condition.'
       : '因身体不适，申请休息一天。';
-  }
-  
-  const painName = content.pain || t('painNames.twist') || '痛经';
-  return template.replace(/\{\{pain\}\}/g, painName);
-}, [leaveRecipient, leaveTone, lang, editedContents?.workText, content.workText, content.pain, t]);
+    return fallback;
+  }, [editedContents?.workText, content.workText, lang]);
 
   const getRefinePlaceholder = (tabIdentity) => {
     const map = {
@@ -986,7 +858,7 @@ const getWorkText = useCallback(() => {
 
             <EditableCard
               fieldKey="workText"
-              value={getFieldValue('workText') || getWorkText()}
+              value={getWorkText() || getFieldValue('workText')}
               onSave={handleFieldSave}
               title={t('resultLabels.sendTarget')}
               icon="📨"
