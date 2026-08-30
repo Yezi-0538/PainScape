@@ -1719,29 +1719,47 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
       : new Date(Date.now() - 30000).toISOString();
     const endTimeStr = new Date().toISOString();
 
-    // const durationMs = canvasStartTimeRef.current ? Date.now() - canvasStartTimeRef.current : 0;
+    // ✅ 恢复 durationMs 的计算
+    const durationMs = canvasStartTimeRef.current
+      ? Math.max(1000, Date.now() - canvasStartTimeRef.current)
+      : 30000;
 
     const prHist = pressureHistory.current || [];
     const avgPressure = prHist.length > 0 ? prHist.reduce((a, b) => a + b, 0) / prHist.length : 0.5;
     const maxPressure = prHist.length > 0 ? Math.max(...prHist) : 0.8;
     const totalStrokes = Object.values(brushCounts.current || {}).reduce((a, b) => a + b, 0);
 
-    telemetry.logPaintingData({
-      startTime: startTimeStr,   // ✅ 传递 ISO 字符串
-      endTime: endTimeStr,       // ✅ 传递 ISO 字符串
-      durationMs,
-      brushesUsed: { ...brushCounts.current },
-      totalStrokes,
-      avgPressure,
-      maxPressure,
-      colorsUsed: Array.from(colorsUsedRef.current),
-      canvasView: bodyMode === 'none' ? 'blind' : bodyMode,
-      undoCount: undoCountRef.current,
-      clearCount: clearCountRef.current,
-      dominantPainType: getDominantPain(),
-      painScore: null,
-      savedOnly: true
-    });
+    // ✅ 修复：使用 brushNameMap 映射，与 onGenerate 保持一致
+    const bc = brushCounts.current || {};
+    const brushNameMap = { heavy: 'sink', wave: 'swell' };
+    const dominant = getDominantPain() || 'twist';
+    const mappedDominant = brushNameMap[dominant] || dominant;
+    const mappedBc = Object.fromEntries(
+      Object.entries(bc).map(([k, v]) => [brushNameMap[k] || k, v])
+    );
+
+    // ✅ 修复：使用 try-catch 保护埋点调用
+    try {
+      telemetry.logPaintingData({
+        startTime: startTimeStr,
+        endTime: endTimeStr,
+        // ✅ durationMs 使用计算后的值
+        durationMs: durationMs,
+        brushesUsed: mappedBc,
+        totalStrokes: totalStrokes,
+        avgPressure: Number(avgPressure.toFixed(2)),
+        maxPressure: Number(maxPressure.toFixed(2)),
+        colorsUsed: Array.from(colorsUsedRef.current || ['crimson']),
+        canvasView: bodyMode === 'none' ? 'blind' : bodyMode,
+        undoCount: undoCountRef.current || 0,
+        clearCount: clearCountRef.current || 0,
+        dominantPainType: mappedDominant,
+        painScore: null,
+        savedOnly: true
+      });
+    } catch (err) {
+      console.error('❌ handleSaveOnly 埋点失败:', err);
+    }
 
     saveSnapshot();
 
@@ -1771,7 +1789,6 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
       saveRecordToCloud(currentUserId, paintingData);
     }
   };
-
   const handleClear = useCallback(() => {
     saveSnapshot();
     clearCountRef.current += 1;
@@ -2248,6 +2265,7 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
 
   // 打开草稿编辑
   const handleOpenDraft = useCallback((draft) => {
+    canvasStartTimeRef.current = Date.now(); // 🌟 补上计时
     const data = draft.draft_data;
     if (data) {
       // 恢复画笔计数
@@ -2474,6 +2492,7 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
               setPage('quickLog')
             }}
             onSkip={() => {
+              canvasStartTimeRef.current = Date.now(); // 🌟 补上计时
               setBodyMode('front');
               setPage('canvas');
             }}
@@ -2545,6 +2564,46 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
                 const canvasImg = generateCompositeCanvas() || getFallbackImgUrl();
                 setImgUrl(canvasImg);
 
+                // ============================================================
+                // ✅ 第1步：声明所有从 refs 读取的数据（放在最前面）
+                // ============================================================
+                const bc = brushCounts.current || {};
+                const positions = particlePositions.current || [];
+                const spHist = speedHistory.current || [];
+                const prHist = pressureHistory.current || [];
+                const p5 = p5Ref.current;
+
+                // ============================================================
+                // ✅ 第2步：计算所有派生数据
+                // ============================================================
+                const dominant = getDominantPain() || 'twist';
+                const brushNameMap = { heavy: 'sink', wave: 'swell' };
+                const mappedDominant = brushNameMap[dominant] || dominant;
+                const mappedBc = Object.fromEntries(
+                  Object.entries(bc).map(([k, v]) => [brushNameMap[k] || k, v])
+                );
+
+                const totalBrushes = Object.values(bc).reduce((a, b) => a + b, 0);
+
+                const avgSpeed = spHist.length > 0 ? spHist.reduce((a, b) => a + b, 0) / spHist.length : 5.0;
+                const peakSpeed = spHist.length > 0 ? Math.max(...spHist) : 10.0;
+                const avgPressure = prHist.length > 0
+                  ? prHist.reduce((a, b) => a + b, 0) / prHist.length
+                  : 0.5;
+                const maxPressure = prHist.length > 0 ? Math.max(...prHist) : 1.0;
+
+                // 计算 painScore
+                let painScore = 0;
+                if (totalBrushes > 0) {
+                  const brushScore = Math.min(50, Math.round(totalBrushes * 0.5));
+                  const pressureScore = Math.max(0, Math.min(30, Math.round((avgPressure - 0.2) / 0.8 * 30)));
+                  const speedScore = Math.max(0, Math.min(20, Math.round(20 - (avgSpeed / 50) * 20)));
+                  painScore = Math.min(100, Math.max(10, brushScore + pressureScore + speedScore));
+                }
+
+                // ============================================================
+                // ✅ 第3步：计算 spatialMap
+                // ============================================================
                 const BODY_ZONES = {
                   front: {
                     head: { x: [0.35, 0.65], y: [0.00, 0.08] },
@@ -2624,68 +2683,11 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
                   return result;
                 };
 
-                const dominant = getDominantPain() || 'twist';
-                const brushNameMap = { heavy: 'sink', wave: 'swell' };
-                const mappedDominant = brushNameMap[dominant] || dominant;
-                const mappedBc = Object.fromEntries(
-                  Object.entries(bc).map(([k, v]) => [brushNameMap[k] || k, v])
-                );
-
-                const startTimeStr = canvasStartTimeRef.current
-                  ? new Date(canvasStartTimeRef.current).toISOString()
-                  : new Date(Date.now() - 30000).toISOString();
-                const endTimeStr = new Date().toISOString();
-
-                const toneMap = { polite: 'neutral', objective: 'formal' };
-                const mappedWorkTone = toneMap[leaveTone] || leaveTone || 'neutral';
-
-                const bc = brushCounts.current || {};
-                const totalBrushes = Object.values(bc).reduce((a, b) => a + b, 0);
-
-                // 1. 先获取速度历史
-                const spHist = speedHistory.current || [];
-                const avgSpeed = spHist.length > 0 ? spHist.reduce((a, b) => a + b, 0) / spHist.length : 5.0;
-                const peakSpeed = spHist.length > 0 ? Math.max(...spHist) : 10.0;
-
-                // 2. 再获取压力历史
-                const prHist = pressureHistory.current || [];
-                const avgPressure = prHist.length > 0
-                  ? prHist.reduce((a, b) => a + b, 0) / prHist.length
-                  : 0.5;
-                const maxPressure = prHist.length > 0 ? Math.max(...prHist) : 1.0;
-
-                // 3. 然后计算 painScore（此时所有变量都已定义）
-                let painScore = 0;
-                if (totalBrushes > 0) {
-                  // 笔触数量：0-50分
-                  const brushScore = Math.min(50, Math.round(totalBrushes * 0.5));
-
-                  // 压力：0-30分（压力范围 0.2-1.0）
-                  const pressureScore = Math.max(0, Math.min(30, Math.round((avgPressure - 0.2) / 0.8 * 30)));
-
-                  // 速度：0-20分（速度越快，分数越低，因为快速划过=轻触）
-                  // 速度范围 0-50，映射到 20-0 分
-                  const speedScore = Math.max(0, Math.min(20, Math.round(20 - (avgSpeed / 50) * 20)));
-
-                  painScore = Math.min(100, Math.max(10, brushScore + pressureScore + speedScore));
-                } else {
-                  painScore = 0;
-                }
-
-                // 4. 然后计算 spatialMap
-                const positions = particlePositions.current || [];
-                const p5 = p5Ref.current;
                 const spatialMap = calculateSpatialMap(positions, bodyMode, p5);
 
-                // 5. 时间节奏（保持默认或从数据中提取）
-                const timeRhythm = {
-                  morning: 0.33,
-                  afternoon: 0.33,
-                  night: 0.34,
-                  dominantPeriod: 'morning',
-                };
-
-                // 6. 最后记录埋点
+                // ============================================================
+                // ✅ 第4步：记录埋点（所有数据已准备就绪）
+                // ============================================================
                 telemetry.logPaintingData({
                   startTime: startTimeStr,
                   endTime: endTimeStr,
@@ -2702,6 +2704,17 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
                   savedOnly: false
                 });
 
+                // ============================================================
+                // ✅ 第5步：构建请求并调用 API
+                // ============================================================
+                const toneMap = { polite: 'neutral', objective: 'formal' };
+                const mappedWorkTone = toneMap[leaveTone] || leaveTone || 'neutral';
+                const timeRhythm = {
+                  morning: 0.33,
+                  afternoon: 0.33,
+                  night: 0.34,
+                  dominantPeriod: 'morning',
+                };
 
                 const requestBody = {
                   appMode: appMode || 'medical',
