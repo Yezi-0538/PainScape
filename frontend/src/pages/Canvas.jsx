@@ -8,6 +8,7 @@ import { useAudio } from '../hooks/useAudio';
 import OnboardingGuide from '../Components/OnboardingGuide';
 import { useUser } from '../contexts/UserContext';
 import { telemetry } from '../services/telemetry';
+import CanvasGuide from '../Components/CanvasGuide';
 
 // ============================================================
 // 子组件：画笔颜色描述
@@ -33,7 +34,7 @@ export default function CanvasPage({
   onViewHistory,
   onShareSaved,
 
-  // ✅ 新增：spatialMap 回调
+  // spatialMap 回调
   onSpatialMapUpdate,
 
   // 画板状态
@@ -45,8 +46,9 @@ export default function CanvasPage({
   setActiveColor,
   bgScale,
   setBgScale,
-  onSaveDraft,           // 新增：保存草稿回调
-  onViewDraftBox,        // 新增：查看草稿箱回调
+  onSaveDraft,
+  onViewDraftBox,
+
   // 音频
   isMuted,
   setIsMuted,
@@ -85,27 +87,31 @@ export default function CanvasPage({
   const { t, lang, toggleLang } = useI18n();
   const { playBrushSound } = useAudio(isMuted);
   const [tipVisible, setTipVisible] = useState(true);
+
   const isDrawingStrokeRef = useRef(false);
-  // 【修复1】追踪鼠标是否在 canvas 上按下
   const mousePressedOnCanvasRef = useRef(false);
-  // 【修复3】追踪上一次的 bodyMode，用于切换时清除离屏画布
   const prevBodyModeRef = useRef(bodyMode);
-  // 仅保存绘画图片
+
   const [showSaveConfirm, setShowSaveConfirm] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const { userId, userInfo, setUserInfo } = useUser();
-  // const [showGuide, setShowGuide] = useState(() => {
-  //   return !localStorage.getItem('paintScape_guide_seen');
-  // });
+
+  // ===== 新手引导（OnboardingGuide）状态 =====
   const [showGuide, setShowGuide] = useState(false);
   const [guideLoading, setGuideLoading] = useState(true);
-  // 新增：保存草稿状态
-  const [showDraftSuccess, setShowDraftSuccess] = useState(false);
-  const [draftSaveMessage, setDraftSaveMessage] = useState('');
 
+  // ===== 画布功能引导（CanvasGuide）状态 =====
+  const [showCanvasGuide, setShowCanvasGuide] = useState(false);
+  const [canvasGuideLoading, setCanvasGuideLoading] = useState(true);
+
+  // ===== 保存草稿状态 =====
+  const [showDraftSuccess, setShowDraftSuccess] = useState(false);
+
+  // ============================================================
+  // 检查新手引导状态
+  // ============================================================
   useEffect(() => {
     const checkUserGuideStatus = async () => {
-      // 如果用户已登录，从 userInfo 读取
       if (userId && userInfo) {
         const hasSeen = userInfo.hasSeenGuide || false;
         setShowGuide(!hasSeen);
@@ -113,7 +119,6 @@ export default function CanvasPage({
         return;
       }
 
-      // 未登录用户使用 localStorage 存储
       const hasSeen = localStorage.getItem('paintScape_guide_seen') === 'true';
       setShowGuide(!hasSeen);
       setGuideLoading(false);
@@ -122,15 +127,27 @@ export default function CanvasPage({
     checkUserGuideStatus();
   }, [userId, userInfo]);
 
-  // ✅ 用户完成引导后更新状态
+  // ============================================================
+  // 检查画布功能引导状态
+  // ============================================================
+  useEffect(() => {
+    const hasSeen = localStorage.getItem('paintScape_canvas_guide_shown') === 'true';
+    // 只在首次访问且新手引导已关闭或不存在时显示
+    if (!hasSeen && !showGuide) {
+      setShowCanvasGuide(true);
+    }
+    setCanvasGuideLoading(false);
+  }, [showGuide]);
+
+  // ============================================================
+  // 新手引导完成
+  // ============================================================
   const handleGuideClose = async () => {
     setShowGuide(false);
     localStorage.setItem('paintScape_guide_seen', 'true');
 
-    // 如果用户已登录，同步更新到数据库
     if (userId) {
       try {
-        // 更新 userInfo 并同步到 Supabase
         await setUserInfo({ hasSeenGuide: true });
         console.log('✅ 引导状态已同步到云端');
       } catch (err) {
@@ -139,16 +156,27 @@ export default function CanvasPage({
     }
   };
 
+  // ============================================================
+  // 画布功能引导完成
+  // ============================================================
+  const handleCanvasGuideComplete = () => {
+    setShowCanvasGuide(false);
+    localStorage.setItem('paintScape_canvas_guide_shown', 'true');
+  };
+
+  // ============================================================
   // 方向提示自动消失
+  // ============================================================
   useEffect(() => {
     setTipVisible(true);
     const timer = setTimeout(() => setTipVisible(false), 1500);
     return () => clearTimeout(timer);
   }, [bodyMode]);
 
-  // 新增：保存草稿处理函数
+  // ============================================================
+  // 保存草稿处理函数
+  // ============================================================
   const handleSaveDraftOnly = useCallback(async () => {
-    // 收集画布数据
     const draftData = {
       brushCounts: { ...brushCounts.current },
       particlePositions: [...particlePositions.current],
@@ -174,13 +202,11 @@ export default function CanvasPage({
       draftData.backImage = backImg.canvas.toDataURL('image/png');
     }
 
-    // 计算画笔数量和粒子数量
     const brushCount = Object.values(brushCounts.current).reduce((a, b) => a + b, 0);
     const particleCount = particlePositions.current.length;
 
     const result = await onSaveDraft(draftData);
     if (result) {
-      // ✅ 埋点：用户点击了"保存草稿"按钮
       telemetry.logDraftSaved({
         draftId: result,
         brushCount,
@@ -188,19 +214,31 @@ export default function CanvasPage({
         fromPage: 'canvas'
       });
 
-      setDraftSaveMessage(t('canvas.draftSaved'));
       setShowDraftSuccess(true);
     }
-  }, [onSaveDraft, brushCounts, particlePositions, speedHistory, pressureHistory, activeColor, bodyMode, bgScale, p5Ref, pgFrontRef, pgBackRef, t, showToast]);
+  }, [onSaveDraft, brushCounts, particlePositions, speedHistory, pressureHistory, activeColor, bodyMode, bgScale, p5Ref, pgFrontRef, pgBackRef]);
 
+  // ============================================================
+  // 查看草稿箱
+  // ============================================================
   const handleViewDraftBox = useCallback(() => {
-    // ✅ 埋点：用户点击了草稿箱入口，使用父组件传入的真实数量
+    let count = 0;
+    try {
+      const localDrafts = JSON.parse(localStorage.getItem('paintScape_drafts') || '[]');
+      count = localDrafts.length;
+    } catch (e) {
+      count = 0;
+    }
+
     telemetry.logDraftBoxViewedWithCount({
       fromPage: 'canvas',
-      draftCount: draftCount  // ✅ 使用 props 传入的数量
+      draftCount: count
     });
-    if (onViewDraftBox) onViewDraftBox();
-  }, [onViewDraftBox, draftCount]);
+
+    if (onViewDraftBox) {
+      onViewDraftBox();  // ✅ 不传参，由父组件管理页面栈
+    }
+  }, [onViewDraftBox]);
 
   // ============================================================
   // p5.js 生命周期函数
@@ -435,14 +473,28 @@ export default function CanvasPage({
     const { x, y, zoom } = camRef.current;
     const isInteracting =
       (p5.mouseIsPressed || p5.touches.length > 0) && isClickingCanvas;
-
+  
     const realX = (p5.mouseX - x) / zoom;
     const realY = (p5.mouseY - y) / zoom;
     const realPx = (p5.pmouseX - x) / zoom;
     const realPy = (p5.pmouseY - y) / zoom;
     const speed = p5.dist(realX, realY, realPx, realPy);
     const heading = speed < 1 ? p5.PI / 2 : p5.atan2(realY - realPy, realX - realPx);
-
+     useEffect(() => {
+    const cleanupInterval = setInterval(() => {
+      const now = Date.now();
+      const keys = Object.keys(particleDwellTimeRef.current);
+      for (const key of keys) {
+        const data = particleDwellTimeRef.current[key];
+        // 如果超过 5 秒没有更新，清除该网格数据
+        if (now - data.lastTime > 5000) {
+          delete particleDwellTimeRef.current[key];
+        }
+      }
+    }, 10000);
+    
+    return () => clearInterval(cleanupInterval);
+  }, []);
     let isPanning = false;
     if (activeBrush === null) isPanning = true;
     else if (p5.mouseButton === p5.RIGHT) isPanning = true;
@@ -474,13 +526,80 @@ export default function CanvasPage({
 
         const spawnRate = ['wave', 'twist', 'heavy'].includes(activeBrush) ? 6 : 2;
         if (p5.frameCount % spawnRate === 0 || speed > 10) {
+          // let pressure = 0.5;
+          // if (p5.touches && p5.touches.length > 0) {
+          //   // 移动端：使用 touch.force（iOS支持，Android部分支持）
+          //   pressure = p5.touches[0].force || 0.5;
+          // } else if (p5._curElement?.pointer) {
+          //   // 桌面端：模拟压力（基于速度）
+          //   pressure = p5._curElement.pointer.pressure || 0.5;
+          // }
+
+          // // ✅ 如果 pressure 一直是 0.5，基于速度模拟
+          // if (pressure === 0.5 && speed > 0) {
+          //   // 速度越快，压力越大（模拟）
+          //   pressure = Math.min(1.0, 0.3 + speed / 100);
+          // }
+
           let pressure = 0.5;
-          if (p5.touches.length > 0) {
-            pressure = p5.touches[0].force ?? 0.5;
-          } else if (typeof p5.mouseX === 'number' && p5._curElement) {
-            pressure = p5._curElement?.pointer?.pressure ?? 0.5;
+
+          // 1. 如果有真实压感数据，优先使用
+          if (p5.touches && p5.touches.length > 0) {
+            pressure = p5.touches[0].force || 0.5;
+          } else if (p5._curElement?.pointer) {
+            pressure = p5._curElement.pointer.pressure || 0.5;
           }
-          pressure = Math.max(0.2, pressure);
+
+          // 2. ✅ 如果真实压感无效（0.5），用速度 + 驻留时间模拟
+          if (pressure === 0.5) {
+            // 2a. 速度因素：速度越慢，压力越大
+            //    速度范围：0-50，映射到 0.3-0.8
+            let speedFactor = 0.3 + (1 - Math.min(1, speed / 30)) * 0.5;
+
+            // 2b. 驻留时间因素：在同一区域停留越久，压力越大
+            //    将当前位置离散化到 20x20 网格
+            const gridSize = 20;
+            const gridX = Math.floor(realX / gridSize);
+            const gridY = Math.floor(realY / gridSize);
+            const gridKey = `${gridX},${gridY}`;
+
+            // 获取或初始化该网格的驻留数据
+            if (!particleDwellTimeRef.current[gridKey]) {
+              particleDwellTimeRef.current[gridKey] = {
+                startTime: Date.now(),
+                lastTime: Date.now(),
+                count: 0
+              };
+            }
+
+            const dwellData = particleDwellTimeRef.current[gridKey];
+            dwellData.count += 1;
+
+            // 驻留时间因素：连续在同一网格超过 5 帧，压力逐渐增大
+            let dwellFactor = 0;
+            if (dwellData.count > 5) {
+              dwellFactor = Math.min(0.3, (dwellData.count - 5) * 0.005);
+            }
+
+            // 2c. 如果速度非常快，说明是快速划过，压力低
+            if (speed > 40) {
+              pressure = 0.3;
+            } else {
+              // 综合计算：速度因子 + 驻留因子，范围 0.3-1.0
+              pressure = Math.min(1.0, Math.max(0.2, speedFactor + dwellFactor));
+            }
+
+            // 2d. 如果笔触数量很多（反复涂抹），增加压力
+            const totalStrokes = Object.values(brushCounts.current || {}).reduce((a, b) => a + b, 0);
+            if (totalStrokes > 20) {
+              const strokeBonus = Math.min(0.15, totalStrokes * 0.001);
+              pressure = Math.min(1.0, pressure + strokeBonus);
+            }
+          }
+
+          // ✅ 确保 pressure 在合理范围内
+          pressure = Math.max(0.2, Math.min(1.0, pressure));
+
 
           const pObj = new PainParticle(
             p5,
@@ -622,6 +741,7 @@ export default function CanvasPage({
     >
       {/* ===== p5.js Sketch - 底层 ===== */}
       <div
+        className="canvas-area"  // ✅ 添加 class 供 CanvasGuide 定位
         style={{
           position: 'absolute',
           top: 0,
@@ -652,208 +772,279 @@ export default function CanvasPage({
           pointerEvents: 'none',
         }}
       >
-        {/* 顶部导航栏 - 极简版 */}
+
+        {/* ===== 顶部导航栏 ===== */}
         <div
+          className="top-bar-actions"  // ✅ 添加 class 供 CanvasGuide 定位
           style={{
             position: 'absolute',
             top: 0,
             left: 0,
             width: '100%',
-            height: 'var(--btn-min-touch)',
-            background: 'rgba(10, 10, 10, 0.85)',
-            backdropFilter: 'blur(12px)',
-            borderBottom: '1px solid #1a1a1a',
+            minHeight: '52px',
+            background: 'rgba(10, 10, 10, 0.82)',
+            backdropFilter: 'blur(16px)',
+            borderBottom: '1px solid rgba(255,255,255,0.04)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
-            padding: '0 var(--space-md)',
+            padding: '6px 14px',
             boxSizing: 'border-box',
             pointerEvents: 'auto',
             zIndex: 100,
+            gap: '6px',
           }}
         >
-          {/* 左侧：返回 + 静音 */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
-            <button
-              onClick={onBack}
-              style={{
-                background: 'rgba(255,255,255,0.05)',
-                border: '1px solid #333',
-                color: '#fff',
-                // width: 'var(--btn-min-touch)',
-                // height: 'var(--btn-min-touch)',
-                minWidth: '24px',
-                minHeight: '24px',
-                borderRadius: '50%',
-                fontSize: 'var(--text-base)',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                flexShrink: 0,
-                padding: 0,
-                lineHeight: 1,
-              }}
-            >
-              ←
-            </button>
-            <button
-              onClick={(e) => { e.stopPropagation(); setIsMuted(!isMuted); }}
-              style={{
-                background: 'rgba(255,255,255,0.05)',
-                border: `1px solid ${isMuted ? '#444' : '#4caf50'}`,
-                borderRadius: '50%',
-                width: '32px',
-                height: '32px',
-                minWidth: '32px',
-                minHeight: '32px',
-                fontSize: 'var(--text-base)',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                color: isMuted ? '#666' : '#4caf50',
-                flexShrink: 0,
-                padding: 0,
-                lineHeight: 1,
-              }}
-            >
-              {isMuted ? '🔇' : '🔊'}
-            </button>
-            <button
-              onClick={(e) => { e.stopPropagation(); toggleLang(); }}
-              style={{
-                background: 'rgba(255,255,255,0.08)',
-                border: '1px solid #444',
-                color: '#fff',
-                padding: 'var(--space-xs) var(--space-sm)', fontSize: 'var(--text-xs)',
-                borderRadius: 'var(--radius-sm)',
-                fontWeight: 'bold',
-                cursor: 'pointer',
-                flexShrink: 0,
-                minHeight: '26px',
-                height: '26px',
-                display: 'flex',
-                alignItems: 'center',
-              }}
-            >
-              {lang === 'zh' ? 'EN' : '中'}
-            </button>
-          </div>
-
-          {/* 中间：模式切换 - 精简为图标+文字 */}
+          {/* 左侧：导航工具 */}
           <div
             style={{
               display: 'flex',
-              background: 'rgba(255,255,255,0.03)',
-              borderRadius: '14px',
-              padding: '2px',
-              border: '1px solid #222',
+              alignItems: 'center',
+              gap: '6px',
               flexShrink: 0,
             }}
           >
             <button
+              onClick={onBack}
               style={{
-                padding: '3px 8px',
-                borderRadius: 'var(--radius-sm)',
-                border: 'none',
-                cursor: 'pointer',
-                fontSize: '9px',
-                fontWeight: 'bold',
-                background: bodyMode === 'front' ? '#4caf50' : 'transparent',
-                color: bodyMode === 'front' ? '#fff' : '#888',
-                transition: 'all 0.2s',
-                minHeight: '24px',
-                whiteSpace: 'nowrap',
-              }}
-              onClick={(e) => { e.stopPropagation(); setBodyMode('front'); }}
-            >
-              {t('canvas.bodyFront')}
-            </button>
-            <button
-              style={{
-                padding: '3px 8px',
-                borderRadius: 'var(--radius-sm)',
-                border: 'none',
-                cursor: 'pointer',
-                fontSize: '9px',
-                fontWeight: 'bold',
-                background: bodyMode === 'back' ? '#4caf50' : 'transparent',
-                color: bodyMode === 'back' ? '#fff' : '#888',
-                transition: 'all 0.2s',
-                minHeight: '24px',
-                whiteSpace: 'nowrap',
-              }}
-              onClick={(e) => { e.stopPropagation(); setBodyMode('back'); }}
-            >
-              {t('canvas.bodyBack')}
-            </button>
-            {appMode === 'general' && (
-              <button
-                style={{
-                  padding: '3px 6px',
-                  borderRadius: 'var(--radius-sm)',
-                  border: 'none',
-                  cursor: 'pointer',
-                  fontSize: '9px',
-                  fontWeight: 'bold',
-                  background: bodyMode === 'none' ? '#d32f2f' : 'transparent',
-                  color: bodyMode === 'none' ? '#fff' : '#888',
-                  transition: 'all 0.2s',
-                  minHeight: '24px',
-                  whiteSpace: 'nowrap',
-                }}
-                onClick={(e) => { e.stopPropagation(); setBodyMode('none'); }}
-              >
-                {t('canvas.bodyNone')}
-              </button>
-            )}
-          </div>
-
-          {/* 右侧：仅保存 + 生成（不包含缩放） */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
-            {/* ✅ 新增：草稿箱入口按钮 */}
-            <button
-              onClick={handleViewDraftBox}
-              style={{
-                background: 'rgba(255,255,255,0.05)',
-                border: '1px solid #333',
-                borderRadius: '50%',
-                width: '32px',
-                height: '32px',
-                minWidth: '32px',
-                minHeight: '32px',
-                fontSize: 'var(--text-base)',
+                height: '34px',
+                padding: '0 14px',
+                borderRadius: '8px',
+                background: 'rgba(255,255,255,0.04)',
+                border: '1px solid rgba(255,255,255,0.06)',
+                color: '#aaa',
+                fontSize: '13px',
+                fontWeight: '500',
                 cursor: 'pointer',
                 display: 'flex',
                 alignItems: 'center',
-                justifyContent: 'center',
+                gap: '4px',
+                transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                letterSpacing: '0.3px',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = 'rgba(255,255,255,0.08)';
+                e.currentTarget.style.color = '#fff';
+                e.currentTarget.style.transform = 'scale(1.02)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = 'rgba(255,255,255,0.04)';
+                e.currentTarget.style.color = '#aaa';
+                e.currentTarget.style.transform = 'scale(1)';
+              }}
+              onMouseDown={(e) => {
+                e.currentTarget.style.transform = 'scale(0.95)';
+              }}
+              onMouseUp={(e) => {
+                e.currentTarget.style.transform = 'scale(1.02)';
+              }}
+              title={t('canvas.backToOnboarding') || '返回'}
+            >
+              ← {t('canvas.back') || '返回'}
+            </button>
+
+            <button
+              onClick={(e) => { e.stopPropagation(); setIsMuted(!isMuted); }}
+              style={{
+                height: '34px',
+                padding: '0 12px',
+                borderRadius: '8px',
+                background: isMuted ? 'rgba(255,255,255,0.03)' : 'rgba(76,175,80,0.08)',
+                border: isMuted
+                  ? '1px solid rgba(255,255,255,0.04)'
+                  : '1px solid rgba(76,175,80,0.15)',
+                color: isMuted ? '#666' : '#81c784',
+                fontSize: '12px',
+                fontWeight: '500',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px',
+                transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+              }}
+              onMouseEnter={(e) => {
+                if (!isMuted) {
+                  e.currentTarget.style.background = 'rgba(76,175,80,0.15)';
+                  e.currentTarget.style.transform = 'scale(1.02)';
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (!isMuted) {
+                  e.currentTarget.style.background = 'rgba(76,175,80,0.08)';
+                  e.currentTarget.style.transform = 'scale(1)';
+                }
+              }}
+              title={isMuted ? t('canvas.unmute') || '取消静音' : t('canvas.mute') || '静音'}
+            >
+              {isMuted ? '🔇' : '🔊'} {isMuted ? t('canvas.muted') || '静音' : t('canvas.soundOn') || '有声'}
+            </button>
+
+            <button
+              onClick={(e) => { e.stopPropagation(); toggleLang(); }}
+              style={{
+                height: '34px',
+                padding: '0 12px',
+                borderRadius: '8px',
+                background: 'rgba(255,255,255,0.04)',
+                border: '1px solid rgba(255,255,255,0.06)',
+                color: '#aaa',
+                fontSize: '12px',
+                fontWeight: '500',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                letterSpacing: '0.5px',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = 'rgba(255,255,255,0.08)';
+                e.currentTarget.style.color = '#fff';
+                e.currentTarget.style.transform = 'scale(1.02)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = 'rgba(255,255,255,0.04)';
+                e.currentTarget.style.color = '#aaa';
+                e.currentTarget.style.transform = 'scale(1)';
+              }}
+              title={t('canvas.switchLang') || '切换语言'}
+            >
+              {lang === 'zh' ? 'EN' : '中文'}
+            </button>
+          </div>
+
+          {/* 中间：身体模式切换 */}
+          <div
+            style={{
+              display: 'flex',
+              background: 'rgba(255,255,255,0.03)',
+              borderRadius: '10px',
+              padding: '3px',
+              border: '1px solid rgba(255,255,255,0.05)',
+              flexShrink: 0,
+            }}
+          >
+            {[
+              { key: 'front', label: t('canvas.bodyFront') || '正面', short: '正面' },
+              { key: 'back', label: t('canvas.bodyBack') || '背面', short: '背面' },
+              ...(appMode === 'general' ? [{ key: 'none', label: t('canvas.bodyNone') || '盲画', short: '盲画' }] : [])
+            ].map(({ key, label, short }) => {
+              const isActive = bodyMode === key;
+              const isSmallScreen = window.innerWidth < 420;
+              const displayLabel = isSmallScreen ? short : label;
+
+              return (
+                <button
+                  key={key}
+                  style={{
+                    padding: isSmallScreen ? '4px 10px' : '5px 16px',
+                    borderRadius: '8px',
+                    border: 'none',
+                    cursor: 'pointer',
+                    fontSize: isSmallScreen ? '11px' : '13px',
+                    fontWeight: isActive ? '600' : '400',
+                    background: isActive
+                      ? 'rgba(255,255,255,0.12)'
+                      : 'transparent',
+                    color: isActive ? '#fff' : '#777',
+                    transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
+                    minHeight: '28px',
+                    whiteSpace: 'nowrap',
+                    position: 'relative',
+                  }}
+                  onClick={(e) => { e.stopPropagation(); setBodyMode(key); }}
+                  onMouseEnter={(e) => {
+                    if (!isActive) {
+                      e.currentTarget.style.color = '#aaa';
+                      e.currentTarget.style.background = 'rgba(255,255,255,0.04)';
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (!isActive) {
+                      e.currentTarget.style.color = '#777';
+                      e.currentTarget.style.background = 'transparent';
+                    }
+                  }}
+                >
+                  {displayLabel}
+                  {isActive && (
+                    <span
+                      style={{
+                        position: 'absolute',
+                        bottom: '-1px',
+                        left: '50%',
+                        transform: 'translateX(-50%)',
+                        width: '16px',
+                        height: '2px',
+                        borderRadius: '2px',
+                        background: '#4caf50',
+                        animation: 'slideIn 0.3s ease',
+                      }}
+                    />
+                  )}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* 右侧：操作按钮 */}
+          <div
+            className="top-bar-actions-right"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px',
+              flexShrink: 0,
+            }}
+          >
+            <button
+              onClick={handleViewDraftBox}
+              style={{
+                height: '34px',
+                padding: '0 12px',
+                borderRadius: '8px',
+                background: 'rgba(255,255,255,0.04)',
+                border: '1px solid rgba(255,255,255,0.06)',
                 color: '#888',
-                flexShrink: 0,
-                padding: 0,
-                lineHeight: 1,
+                fontSize: '12px',
+                fontWeight: '500',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px',
                 position: 'relative',
+                transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = 'rgba(255,255,255,0.08)';
+                e.currentTarget.style.color = '#fff';
+                e.currentTarget.style.transform = 'scale(1.02)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = 'rgba(255,255,255,0.04)';
+                e.currentTarget.style.color = '#888';
+                e.currentTarget.style.transform = 'scale(1)';
               }}
               title={t('canvas.draftBox') || '草稿箱'}
             >
-              📋
-              {/* 如果有草稿，显示小红点或数量徽标 */}
+              📋 {t('canvas.draftBox') || '草稿箱'}
               {draftCount > 0 && (
                 <span
                   style={{
                     position: 'absolute',
-                    top: '-2px',
-                    right: '-2px',
-                    width: '16px',
-                    height: '16px',
+                    top: '-5px',
+                    right: '-5px',
+                    width: '18px',
+                    height: '18px',
                     borderRadius: '50%',
                     background: '#ff9800',
                     color: '#000',
                     fontSize: '9px',
-                    fontWeight: 'bold',
+                    fontWeight: '700',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
+                    boxShadow: '0 2px 8px rgba(255,152,0,0.3)',
+                    animation: 'pulse 2s infinite',
                   }}
                 >
                   {draftCount > 9 ? '9+' : draftCount}
@@ -861,69 +1052,152 @@ export default function CanvasPage({
               )}
             </button>
 
-            {/* 保存草稿按钮 */}
-            <button
+            <div
               style={{
-                background: 'rgba(255,152,0,0.15)',
-                color: '#ffb74d',
-                border: '1px solid rgba(255,152,0,0.3)',
-                padding: '3px 8px',
-                borderRadius: 'var(--radius-sm)',
-                cursor: 'pointer',
-                fontWeight: 'bold',
-                fontSize: '9px',
-                whiteSpace: 'nowrap',
-                minHeight: '24px',
+                width: '1px',
+                height: '24px',
+                background: 'rgba(255,255,255,0.06)',
+                margin: '0 4px',
               }}
+            />
+
+            <button
               onClick={handleSaveDraftOnly}
+              style={{
+                height: '34px',
+                padding: '0 14px',
+                borderRadius: '8px',
+                background: 'rgba(255,152,0,0.08)',
+                border: '1px solid rgba(255,152,0,0.12)',
+                color: '#ffb74d',
+                fontSize: '12px',
+                fontWeight: '500',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px',
+                transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                letterSpacing: '0.3px',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = 'rgba(255,152,0,0.16)';
+                e.currentTarget.style.borderColor = 'rgba(255,152,0,0.25)';
+                e.currentTarget.style.transform = 'scale(1.02)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = 'rgba(255,152,0,0.08)';
+                e.currentTarget.style.borderColor = 'rgba(255,152,0,0.12)';
+                e.currentTarget.style.transform = 'scale(1)';
+              }}
+              onMouseDown={(e) => {
+                e.currentTarget.style.transform = 'scale(0.95)';
+              }}
+              onMouseUp={(e) => {
+                e.currentTarget.style.transform = 'scale(1.02)';
+              }}
+              title={t('canvas.saveDraftHint') || '保存草稿，稍后继续编辑'}
             >
-              📝 {t('canvas.saveDraft')}
+              📝 {window.innerWidth < 450 ? t('canvas.saveDraftShort') || '存草稿' : t('canvas.saveDraft') || '保存草稿'}
             </button>
 
-            {/* 仅保存按钮 */}
             <button
-              style={{
-                background: 'rgba(76,175,80,0.15)',
-                color: '#4caf50',
-                border: '1px solid rgba(76,175,80,0.3)',
-                padding: '3px 8px',
-                borderRadius: 'var(--radius-sm)',
-                cursor: 'pointer',
-                fontWeight: 'bold',
-                fontSize: '9px',
-                whiteSpace: 'nowrap',
-                minHeight: '24px',
-              }}
               onClick={() => {
                 onSaveOnly();
                 setSaveSuccess(true);
               }}
+              style={{
+                height: '34px',
+                padding: '0 12px',
+                borderRadius: '8px',
+                background: 'rgba(76,175,80,0.06)',
+                border: '1px solid rgba(76,175,80,0.08)',
+                color: '#81c784',
+                fontSize: '12px',
+                fontWeight: '500',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px',
+                transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = 'rgba(76,175,80,0.12)';
+                e.currentTarget.style.borderColor = 'rgba(76,175,80,0.15)';
+                e.currentTarget.style.transform = 'scale(1.02)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = 'rgba(76,175,80,0.06)';
+                e.currentTarget.style.borderColor = 'rgba(76,175,80,0.08)';
+                e.currentTarget.style.transform = 'scale(1)';
+              }}
+              title={t('canvas.saveOnlyHint') || '仅保存绘画图片'}
             >
-              💾 {t('canvas.saveOnly')}
+              💾 {window.innerWidth < 450 ? t('canvas.saveOnlyShort') || '存图' : t('canvas.saveOnly') || '仅保存'}
             </button>
 
-            {/* 生成按钮 */}
             <button
-              style={{
-                background: '#d32f2f',
-                color: '#fff',
-                border: 'none',
-                padding: '3px 8px',
-                borderRadius: 'var(--radius-sm)',
-                cursor: 'pointer',
-                fontWeight: 'bold',
-                fontSize: '9px',
-                boxShadow: '0 2px 8px rgba(211,47,47,0.3)',
-                whiteSpace: 'nowrap',
-                minHeight: '24px',
-              }}
               onClick={onGenerate}
+              style={{
+                height: '36px',
+                padding: '0 20px',
+                borderRadius: '10px',
+                background: 'linear-gradient(135deg, #d32f2f, #c62828)',
+                border: 'none',
+                color: '#fff',
+                fontSize: '13px',
+                fontWeight: '600',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                boxShadow: '0 2px 12px rgba(211,47,47,0.25)',
+                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                letterSpacing: '0.5px',
+                position: 'relative',
+                overflow: 'hidden',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.boxShadow = '0 4px 20px rgba(211,47,47,0.35)';
+                e.currentTarget.style.transform = 'translateY(-1px) scale(1.02)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.boxShadow = '0 2px 12px rgba(211,47,47,0.25)';
+                e.currentTarget.style.transform = 'translateY(0) scale(1)';
+              }}
+              onMouseDown={(e) => {
+                e.currentTarget.style.transform = 'scale(0.95)';
+              }}
+              onMouseUp={(e) => {
+                e.currentTarget.style.transform = 'translateY(-1px) scale(1.02)';
+              }}
+              title={t('canvas.generateHint') || '生成疼痛报告'}
             >
-              {t('canvas.generate')}
+              <span
+                style={{
+                  position: 'absolute',
+                  top: '-50%',
+                  left: '-50%',
+                  width: '200%',
+                  height: '200%',
+                  background: 'radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 60%)',
+                  opacity: 0,
+                  transition: 'opacity 0.4s ease',
+                  pointerEvents: 'none',
+                }}
+                className="generate-shine"
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.opacity = '1';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.opacity = '0';
+                }}
+              />
+              ✨ {t('canvas.generate') || '生成报告'}
             </button>
           </div>
         </div>
-        {/* 缩放调节 - 长条扁版 */}
+
+        {/* 缩放调节 */}
         {bodyMode !== 'none' && (
           <div
             style={{
@@ -989,97 +1263,113 @@ export default function CanvasPage({
           {bodyMode === 'none' && t('canvas.bodyNone')}
         </div>
 
-
         {/* 右侧工具栏 */}
         <div
+          className="side-tools"  // ✅ 添加 class 供 CanvasGuide 定位
           style={{
             position: 'absolute',
-            right: '20px',
+            right: '16px',
             top: '50%',
             transform: 'translateY(-50%)',
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
-            gap: '15px',
+            gap: '12px',
             pointerEvents: 'auto',
+            zIndex: 50,
           }}
           onMouseDown={(e) => e.stopPropagation()}
           onTouchStart={(e) => e.stopPropagation()}
         >
           <button
             style={{
-              background: 'rgba(0,0,0,0.6)',
-              backdropFilter: 'blur(10px)',
-              border: '1px solid #444',
-              borderRadius: '30px',
-              width: '50px',
-              height: '50px',
-              fontSize: '24px',
+              width: '44px',
+              height: '44px',
+              borderRadius: '50%',
+              background: 'rgba(20,20,20,0.8)',
+              backdropFilter: 'blur(8px)',
+              border: '1px solid rgba(255,255,255,0.06)',
+              color: '#aaa',
+              fontSize: '18px',
               cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              transition: 'all 0.2s',
             }}
-            onClick={(e) => {
-              e.stopPropagation();
-              handleUndo();
-            }}
+            onClick={(e) => { e.stopPropagation(); handleUndo(); }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.08)'; e.currentTarget.style.color = '#fff'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(20,20,20,0.8)'; e.currentTarget.style.color = '#aaa'; }}
+            title={t('canvas.undo') || '撤销'}
           >
             ↩️
           </button>
           <button
             style={{
-              background: 'rgba(0,0,0,0.6)',
-              backdropFilter: 'blur(10px)',
-              border: '1px solid #444',
-              borderRadius: '30px',
-              width: '50px',
-              height: '50px',
-              fontSize: '24px',
+              width: '44px',
+              height: '44px',
+              borderRadius: '50%',
+              background: 'rgba(20,20,20,0.8)',
+              backdropFilter: 'blur(8px)',
+              border: '1px solid rgba(255,255,255,0.06)',
+              color: '#aaa',
+              fontSize: '18px',
               cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              transition: 'all 0.2s',
             }}
-            onClick={(e) => {
-              e.stopPropagation();
-              handleRedo();
-            }}
+            onClick={(e) => { e.stopPropagation(); handleRedo(); }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.08)'; e.currentTarget.style.color = '#fff'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(20,20,20,0.8)'; e.currentTarget.style.color = '#aaa'; }}
+            title={t('canvas.redo') || '重做'}
           >
             ↪️
           </button>
           <button
             style={{
-              background: 'rgba(0,0,0,0.6)',
-              backdropFilter: 'blur(10px)',
-              border: '1px solid #444',
-              borderRadius: '30px',
-              width: '50px',
-              height: '50px',
-              fontSize: '24px',
+              width: '44px',
+              height: '44px',
+              borderRadius: '50%',
+              background: 'rgba(20,20,20,0.8)',
+              backdropFilter: 'blur(8px)',
+              border: '1px solid rgba(255,255,255,0.06)',
+              color: '#aaa',
+              fontSize: '18px',
               cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              transition: 'all 0.2s',
             }}
-            onClick={(e) => {
-              e.stopPropagation();
-              handleClear();
-            }}
+            onClick={(e) => { e.stopPropagation(); handleClear(); }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.08)'; e.currentTarget.style.color = '#fff'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(20,20,20,0.8)'; e.currentTarget.style.color = '#aaa'; }}
+            title={t('canvas.clear') || '清除'}
           >
             🗑️
           </button>
           <button
-            onClick={(e) => {
-              e.stopPropagation();
-              resetView();
-            }}
             style={{
-              background: 'rgba(0,0,0,0.6)',
-              backdropFilter: 'blur(10px)',
-              border: '1px solid #444',
-              borderRadius: '30px',
-              width: '50px',
-              height: '50px',
-              fontSize: '20px',
+              width: '44px',
+              height: '44px',
+              borderRadius: '50%',
+              background: 'rgba(20,20,20,0.8)',
+              backdropFilter: 'blur(8px)',
+              border: '1px solid rgba(255,255,255,0.06)',
+              color: '#aaa',
+              fontSize: '18px',
               cursor: 'pointer',
-              color: '#fff',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
+              transition: 'all 0.2s',
             }}
-            title={t('canvas.resetView')}
+            onClick={(e) => { e.stopPropagation(); resetView(); }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.08)'; e.currentTarget.style.color = '#fff'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(20,20,20,0.8)'; e.currentTarget.style.color = '#aaa'; }}
+            title={t('canvas.resetView') || '重置视角'}
           >
             🎯
           </button>
@@ -1087,6 +1377,7 @@ export default function CanvasPage({
 
         {/* 底部工具栏 */}
         <div
+          className="brush-section"  // ✅ 添加 class 供 CanvasGuide 定位
           style={{
             position: 'absolute',
             bottom: 'max(20px, env(safe-area-inset-bottom))',
@@ -1107,7 +1398,10 @@ export default function CanvasPage({
           }}
         >
           {/* 画笔行 */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px' }}>
+          <div
+            className="brush-section-inner"  // ✅ 添加 class
+            style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px' }}
+          >
             {Object.keys(BRUSHES).map((k) => (
               <button
                 key={k}
@@ -1146,7 +1440,10 @@ export default function CanvasPage({
           </div>
 
           {/* 颜色行 */}
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+          <div
+            className="color-section"  // ✅ 添加 class 供 CanvasGuide 定位
+            style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}
+          >
             <div style={{ display: 'flex', justifyContent: 'center', gap: '20px' }}>
               {Object.keys(PALETTES).map((k) => (
                 <div
@@ -1178,7 +1475,8 @@ export default function CanvasPage({
           </div>
         </div>
       </div>
-      {/* 确认弹窗 */}
+
+      {/* ===== 确认弹窗 ===== */}
       {showSaveConfirm && (
         <div
           style={{
@@ -1247,7 +1545,8 @@ export default function CanvasPage({
           </div>
         </div>
       )}
-      {/* 保存成功提示 */}
+
+      {/* ===== 保存成功提示 ===== */}
       {saveSuccess && (
         <div
           style={{
@@ -1301,7 +1600,7 @@ export default function CanvasPage({
               >
                 💾 {t('canvas.download')}
               </button>
-              {/* 🌟 新增：分享 */}
+              {/* 分享 */}
               {onShareSaved && (
                 <button
                   style={{
@@ -1364,6 +1663,7 @@ export default function CanvasPage({
           </div>
         </div>
       )}
+      {/* ===== 草稿保存成功提示 ===== */}
       {showDraftSuccess && (
         <div
           style={{
@@ -1438,11 +1738,15 @@ export default function CanvasPage({
           </div>
         </div>
       )}
-      {/* ✅ 新手引导 - 加载完成后才显示 */}
+
+      {/* ===== 新手引导（OnboardingGuide） ===== */}
       {!guideLoading && showGuide && (
-        <OnboardingGuide
-          onClose={handleGuideClose}
-        />
+        <OnboardingGuide onClose={handleGuideClose} />
+      )}
+
+      {/* ===== 画布功能引导（CanvasGuide） ===== */}
+      {!canvasGuideLoading && showCanvasGuide && !showGuide && (
+        <CanvasGuide onComplete={handleCanvasGuideComplete} />
       )}
     </div>
   );

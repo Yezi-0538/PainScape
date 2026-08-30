@@ -77,7 +77,7 @@ class TelemetryService {
   logPaintingData({
     startTime,
     endTime = new Date().toISOString(),
-    durationMs,
+    // durationMs,
     brushesUsed,
     totalStrokes,
     avgPressure,
@@ -90,11 +90,16 @@ class TelemetryService {
     painScore,
     savedOnly = false
   }) {
+    // ✅ 从时间戳计算 duration，不单独存储
+    const start = new Date(startTime);
+    const end = new Date(endTime);
+    const durationMs = Math.max(0, end - start);
+
     const record = {
       session_id: this.getSessionId(),
       start_time: startTime,
       end_time: endTime,
-      duration_ms: durationMs,
+      duration_ms: durationMs, 
       brushes_used: brushesUsed || {},
       total_strokes: totalStrokes || 0,
       avg_pressure: parseFloat(avgPressure?.toFixed(2) || 0),

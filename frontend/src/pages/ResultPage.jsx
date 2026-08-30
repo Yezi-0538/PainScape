@@ -304,6 +304,9 @@ const EditableCard = ({
             cursor: 'pointer',
             padding: '2px 0',
             minHeight: '20px',
+            whiteSpace: 'pre-wrap',      // ✅ 支持换行
+            wordBreak: 'break-word',     // ✅ 长单词换行
+            width: '100%',
           }}
         >
           {displayValue ? (
@@ -313,6 +316,8 @@ const EditableCard = ({
                 color: textColor,
                 fontSize: fontSize,
                 lineHeight: lineHeight,
+                whiteSpace: 'pre-wrap',   // ✅ 支持换行
+                wordBreak: 'break-word',
               }}
             />
           ) : (
@@ -446,14 +451,24 @@ export default function ResultPage({
   const handleFieldSave = (fieldKey, value) => {
     const originalText = content[fieldKey] || '';
     const editedText = stripUserMarkers(value);
-    // 埋点：仅在保存时记录最终编辑文本（规则①）
+
+    // ✅ 检测编辑类型：用户手动编辑 vs AI 精调
+    const isAiRefined = refiningField === fieldKey;
+    const editType = isAiRefined ? 'ai_refined' : 'manual_edit';
+
     telemetry.logReportEvent({
       outputType: mapTabToOutputType(identity),
-      event_type: 'edited',
+      event_type: editType,  // 'ai_refined' 或 'manual_edit'
       fieldName: fieldKey,
       originalText: originalText,
-      editedText: editedText
+      editedText: editedText,
+      extra: {
+        provenance: isAiRefined ? 'ai' : 'user',  // ✅ 来源标签
+        edit_source: isAiRefined ? 'refine_button' : 'direct_edit',
+        character_count: editedText.length,
+      }
     });
+
     setEditedContents && setEditedContents({
       ...editedContents,
       [fieldKey]: value,

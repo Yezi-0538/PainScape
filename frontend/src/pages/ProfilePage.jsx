@@ -6,6 +6,7 @@ import CropModal from '../Components/CropModal';
 import { compressImage } from '../utils/imageUtils';
 import { supabase } from '../services/supabaseClient';
 import { deletePost } from '../services/postService';
+import { telemetry } from '../services/telemetry';
 
 const PRESET_BG_NAMES_EN = [
   "Obsidian Black (Default)",
@@ -28,6 +29,7 @@ export default function ProfilePage({
   setTargetLanguage,
   onBack,
   onLogout,
+  showToast,
 }) {
   const { t } = useI18n();
   const { userInfo, setUserInfo, logout } = useUser();
@@ -62,7 +64,7 @@ export default function ProfilePage({
     if (isSelf && !isGuest && (userInfo?.email || localCached?.email)) {
       return { ...localCached, ...userInfo };
     }
-  
+
     // 游客态下的展示
     if (isGuest && isSelf) {
       return {
@@ -323,7 +325,7 @@ export default function ProfilePage({
         followers: updatedFollowers,
         followings: followings
       }));
-    } catch (e) {}
+    } catch (e) { }
 
     try {
       if (willFollow) {
@@ -405,7 +407,7 @@ export default function ProfilePage({
         customAvatar: editCustomAvatar,
       };
       localStorage.setItem("painscape_simulated_profiles", JSON.stringify(simulated));
-    } catch (e) {}
+    } catch (e) { }
 
     setShowEditModal(false);
 
@@ -443,11 +445,11 @@ export default function ProfilePage({
 
     combined.forEach(p => {
       if (!p || typeof p !== 'object') return;
-      const matchesUser = 
+      const matchesUser =
         (p.userId && String(p.userId) === String(targetUserId)) ||
         (p.authorId && String(p.authorId) === String(targetUserId)) ||
         (p.user_id && String(p.user_id) === String(targetUserId));
-        
+
       if (!matchesUser) return;
 
       const pKey = String(p.id || p.img || Math.random());
@@ -459,8 +461,8 @@ export default function ProfilePage({
     return Array.from(uniqueMap.values());
   }, [userCloudPosts, posts, targetUserId]);
 
-  const totalRecords = isSelf 
-    ? Math.max(history.length, cloudPainRecordsCount, myRealPosts.length) 
+  const totalRecords = isSelf
+    ? Math.max(history.length, cloudPainRecordsCount, myRealPosts.length)
     : myRealPosts.length;
 
   const getMostFrequentPain = () => {
@@ -478,8 +480,8 @@ export default function ProfilePage({
     ? `url(${activeProfile.customBg}) center/cover no-repeat`
     : activeBg.gradient;
 
-  const displaySignature = (!activeProfile?.signature || 
-    activeProfile.signature === "让说不出的痛，换一种方式抵达。🧘" || 
+  const displaySignature = (!activeProfile?.signature ||
+    activeProfile.signature === "让说不出的痛，换一种方式抵达。🧘" ||
     activeProfile.signature === "Let the unspeakable pain find another way to be heard. 🧘")
     ? t('profile.defaultSignature')
     : activeProfile.signature;
@@ -495,7 +497,7 @@ export default function ProfilePage({
       setSelectedPostDetail(null);
     }
   };
-  
+
   if (isSelf && isGuest) return null;
   if (!activeProfile) return null;
 
@@ -802,6 +804,118 @@ export default function ProfilePage({
               <div style={{ color: '#a5d6a7', fontSize: '15px', fontWeight: 'bold' }}>{getMostFrequentPain()}</div>
               <div style={{ color: '#666', fontSize: '10px', marginTop: '4px' }}>{t('profile.latestPattern')}</div>
             </div>
+          </div>
+        </div>
+
+        {/* ===== ✅ 新增：数据工具区域 ===== */}
+        <div
+          style={{
+            background: activeBg.cardBg,
+            border: '1.5px solid rgba(255,255,255,0.05)',
+            borderRadius: 'var(--radius-lg)',
+            padding: 'var(--space-xl)',
+            marginBottom: '20px',
+          }}
+        >
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            marginBottom: '12px'
+          }}>
+            <span style={{ fontSize: '16px' }}>🔧</span>
+            <h4 style={{ color: '#888', margin: 0, fontSize: '12px', fontWeight: '600', letterSpacing: '1px' }}>
+              {t('profile.dataTools') || '数据工具'}
+            </h4>
+          </div>
+
+          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+            <button
+              onClick={() => {
+                if (window.confirm(t('profile.exportConfirm') || '确认导出所有使用数据？')) {
+                  telemetry.exportAllAsCSV();
+                  showToast?.('exportSuccess');
+                }
+              }}
+              style={{
+                padding: '8px 14px',
+                background: 'rgba(46,125,50,0.12)',
+                border: '1px solid rgba(46,125,50,0.2)',
+                borderRadius: '8px',
+                color: '#81c784',
+                cursor: 'pointer',
+                fontSize: '11px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                transition: 'all 0.2s',
+              }}
+              onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(46,125,50,0.2)'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(46,125,50,0.12)'; }}
+            >
+              📊 {t('profile.exportCSV') || '导出CSV'}
+            </button>
+
+            <button
+              onClick={() => {
+                if (window.confirm(t('profile.exportConfirm') || '确认导出所有使用数据？')) {
+                  telemetry.exportAllAsJSON();
+                  showToast?.('exportSuccess');
+                }
+              }}
+              style={{
+                padding: '8px 14px',
+                background: 'rgba(21,101,192,0.12)',
+                border: '1px solid rgba(21,101,192,0.2)',
+                borderRadius: '8px',
+                color: '#64b5f6',
+                cursor: 'pointer',
+                fontSize: '11px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                transition: 'all 0.2s',
+              }}
+              onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(21,101,192,0.2)'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(21,101,192,0.12)'; }}
+            >
+              📁 {t('profile.exportJSON') || '导出JSON'}
+            </button>
+
+            <button
+              onClick={() => {
+                if (window.confirm(t('profile.clearConfirm') || '确定清空所有本地实验数据？')) {
+                  telemetry.clearTelemetry();
+                  showToast?.('dataCleared');
+                }
+              }}
+              style={{
+                padding: '8px 14px',
+                background: 'rgba(198,40,40,0.10)',
+                border: '1px solid rgba(198,40,40,0.15)',
+                borderRadius: '8px',
+                color: '#ef9a9a',
+                cursor: 'pointer',
+                fontSize: '11px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                transition: 'all 0.2s',
+              }}
+              onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(198,40,40,0.2)'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(198,40,40,0.10)'; }}
+            >
+              🗑️ {t('profile.clearData') || '清空数据'}
+            </button>
+          </div>
+
+          <div style={{
+            color: '#444',
+            fontSize: '10px',
+            marginTop: '10px',
+            lineHeight: '1.5'
+          }}>
+            💡 {t('profile.dataHint') || '数据仅保存在本地浏览器中，导出后可用于分析'}
           </div>
         </div>
 

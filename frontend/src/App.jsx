@@ -169,6 +169,8 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
   const [page, setPage] = useState('splash');
   const [splashOpacity, setSplashOpacity] = useState(1);
 
+  // ✅ 新增：记录草稿箱是从哪个页面打开的
+  const [draftBoxReturnPage, setDraftBoxReturnPage] = useState('onboarding');
   // 核心状态初始化
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [currentUserId, setCurrentUserId] = useState(() => {
@@ -704,8 +706,11 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
 
       // ---- 伴随症状 ----
       const symptomsArr = mb.accompanyingSymptomsArr || [];
+      // ✅ 修复：翻译症状 key 为显示文本
       const symptomsText = Array.isArray(symptomsArr) && symptomsArr.length > 0
-        ? symptomsArr.map(s => t(`onboarding.accompanyingOptions.${s}`) || s).join(isEn ? ', ' : '、')
+        ? symptomsArr
+          .map(s => t(`onboarding.accompanyingOptions.${s}`, { defaultValue: s }))
+          .join(isEn ? ', ' : '、')
         : t('defaultTemplates.noSymptoms');
 
       const customSymptoms = mb.accompanyingOther || '';
@@ -982,7 +987,9 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
           : '• 静卧休养，采取侧卧胎儿位减轻盆腔张力'
         );
 
-        if (symptomsArr?.includes('nausea')) {
+        // ✅ 修复：使用翻译后的症状进行比较
+        const hasNausea = symptomsArr?.some(s => s === 'nausea' || s === '恶心');
+        if (hasNausea) {
           items.push(isEn
             ? '• Small sips of warm water or ginger tea; avoid drinking large amounts at once'
             : '• 小口慢饮温热水或姜枣茶，避免一次性大量饮水'
@@ -994,7 +1001,8 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
           );
         }
 
-        if (symptomsArr?.includes('constipation') || mb?.accompanyingOther?.includes('便秘')) {
+        const hasConstipation = symptomsArr?.some(s => s === 'constipation' || s === '便秘');
+        if (hasConstipation || mb?.accompanyingOther?.includes('便秘')) {
           items.push(isEn
             ? '• Increase dietary fiber intake (vegetables, whole grains)'
             : '• 增加膳食纤维摄入（蔬菜、粗粮）'
@@ -1003,7 +1011,6 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
 
         return items.join('\n');
       };
-
       const buildDiscussionItems = (symptomsArr, isEn) => {
         const items = [];
 
@@ -1019,10 +1026,25 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
           );
         }
 
+        // ✅ 修复：将症状 key 翻译为显示文本
         if (symptomsArr && symptomsArr.length > 0) {
+          // 使用 t() 函数将每个症状 key 翻译为显示文本
+          const translatedSymptoms = symptomsArr.map(s => {
+            // 尝试从 onboarding.accompanyingOptions 获取翻译
+            const translated = t(`onboarding.accompanyingOptions.${s}`, { defaultValue: s });
+            return translated;
+          });
+
+          const symptomsDisplay = translatedSymptoms.join(isEn ? ', ' : '、');
           items.push(isEn
-            ? `• Do you experience any other symptoms like ${symptomsArr.join(', ')}?`
-            : `• 是否伴有${symptomsArr.join('、')}等其他症状？`
+            ? `• Do you experience any other symptoms like ${symptomsDisplay}?`
+            : `• 是否伴有${symptomsDisplay}等其他症状？`
+          );
+        } else {
+          // 如果没有症状，仍然保留这个问题但用通用表述
+          items.push(isEn
+            ? '• Do you experience any other symptoms like constipation, diarrhea, or nausea?'
+            : '• 是否伴有便秘、腹泻、恶心等其他症状？'
           );
         }
 
@@ -1060,15 +1082,60 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
       // ---- 默认值 ----
       const defaultAnalogy = t(`painTemplates.${dominant}.analogy`) || '';
       const defaultSelfCare = t(`painTemplates.${dominant}.selfCare`) || '';
+      const getWorkTextByScenario = (recipient, tone, painName, isEn) => {
+        const validRecipients = ['manager', 'teacher', 'client', 'friend', 'partner'];
+        const recipientKey = validRecipients.includes(recipient) ? recipient : 'manager';
+
+        const validTones = ['polite', 'objective'];
+        const toneKey = validTones.includes(tone) ? tone : 'objective';
+
+        // ✅ 修正路径：从翻译文件中获取 result.work.templates
+        const workTemplates = t('result.work.templates', { returnObjects: true, defaultValue: {} });
+
+        // 根据语言选择对应的模板（t() 已经根据当前语言返回了对应的 zh/en 内容）
+        // 所以直接取 workTemplates[recipientKey][toneKey]
+        let template = workTemplates?.[recipientKey]?.[toneKey];
+
+        // 如果找不到，尝试用 manager 的对应语气
+        if (!template) {
+          template = workTemplates?.manager?.[toneKey];
+        }
+
+        if (template && typeof template === 'string') {
+          return template.replace(/{{pain}}/g, painName);
+        }
+
+        // 最终降级
+        const fallback = t('defaultTemplates.workTemplateFallback', {
+          defaultValue: '因身体不适，申请休息一天。'
+        });
+        return fallback;
+      };
+
+      // ============================================================
+      // ✅ 修复2：根据 userPrefs 选择 partnerActions，并确保有兜底
+      // ============================================================
       const prefKey = (Array.isArray(userPrefs) && userPrefs[0]) ? userPrefs[0] : 'care';
-      const actionsTemplates = t(`partnerActions.${prefKey}`, { returnObjects: true });
+      const validPrefKeys = ['alone', 'care', 'comfort'];
+      const safePrefKey = validPrefKeys.includes(prefKey) ? prefKey : 'care';
+
+      const actionsTemplates = t(`partnerActions.${safePrefKey}`, { returnObjects: true });
       let defaultAction = '';
       if (Array.isArray(actionsTemplates) && actionsTemplates.length > 0) {
-        defaultAction = actionsTemplates.map(act => String(act).replace(/{{med}}/g, t('defaultTemplates.medication') || '布洛芬')).join('\n');
+        defaultAction = actionsTemplates
+          .map(act => String(act).replace(/{{med}}/g, t('defaultTemplates.medication') || '布洛芬'))
+          .join('\n');
       } else {
-        defaultAction = t('defaultTemplates.defaultActions') || '';
+        // 兜底：使用 defaultTemplates.defaultActions
+        defaultAction = t('defaultTemplates.defaultActions') || '☑️ 帮她热敷小腹并准备好止痛药。\n☑️ 给她倒杯温水，陪伴在她身边。\n☑️ 调暗灯光，让她安静休息。';
       }
-      const defaultWorkText = t('defaultTemplates.workTemplate').replace(/{{pain}}/g, painName);
+
+      // ============================================================
+      // ✅ 修复3：动态生成请假文本（使用收件人和语气）
+      // ============================================================
+      const recipient = leaveRecipient || 'manager';
+      const tone = leaveTone || 'neutral';
+      const defaultWorkText = getWorkTextByScenario(recipient, tone, painName, isEn);
 
       // ============================================================
       // 如果 activeLlm 存在，使用 LLM 数据
@@ -1112,8 +1179,8 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
       return {
         pain: painName,
         analogy: defaultAnalogy,
-        workText: defaultWorkText,
-        action: defaultAction,
+        workText: defaultWorkText,  // ✅ 使用动态生成的模板
+        action: defaultAction,       // ✅ 使用动态选择的 partnerActions
         selfCare: defaultSelfCare,
         chief_complaint: chiefComplaintText,
         present_illness: presentIllnessText,
@@ -1149,10 +1216,18 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
       const fallbackReassurance = '请不必过度焦虑。';
       const fallbackExamInfo = '妇科超声是常规检查，无辐射，约10-15分钟。';
 
+      // ✅ 兜底时也尝试动态生成请假文本
+      const fallbackWorkText = getWorkTextByScenario(
+        leaveRecipient || 'manager',
+        leaveTone || 'neutral',
+        fallbackPain,
+        isEn
+      );
+
       return {
         pain: fallbackPain,
         analogy: t(`painTemplates.twist.analogy`) || '',
-        workText: t('defaultTemplates.workTemplate').replace(/{{pain}}/g, fallbackPain),
+        workText: fallbackWorkText,  // ✅ 使用动态生成的兜底
         action: t('defaultTemplates.defaultActions') || '',
         selfCare: t(`painTemplates.twist.selfCare`) || '',
         chief_complaint: t('defaultTemplates.chiefComplaint')
@@ -1622,8 +1697,12 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
   };
 
   const handleSaveOnly = () => {
-    const endTime = new Date().toISOString();
-    const durationMs = canvasStartTimeRef.current ? Date.now() - canvasStartTimeRef.current : 0;
+    const startTimeStr = canvasStartTimeRef.current
+      ? new Date(canvasStartTimeRef.current).toISOString()
+      : new Date(Date.now() - 30000).toISOString();
+    const endTimeStr = new Date().toISOString();
+
+    // const durationMs = canvasStartTimeRef.current ? Date.now() - canvasStartTimeRef.current : 0;
 
     const prHist = pressureHistory.current || [];
     const avgPressure = prHist.length > 0 ? prHist.reduce((a, b) => a + b, 0) / prHist.length : 0.5;
@@ -1631,8 +1710,8 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
     const totalStrokes = Object.values(brushCounts.current || {}).reduce((a, b) => a + b, 0);
 
     telemetry.logPaintingData({
-      startTime: new Date(canvasStartTimeRef.current || Date.now()).toISOString(),
-      endTime,
+      startTime: startTimeStr,   // ✅ 传递 ISO 字符串
+      endTime: endTimeStr,       // ✅ 传递 ISO 字符串
       durationMs,
       brushesUsed: { ...brushCounts.current },
       totalStrokes,
@@ -1726,6 +1805,45 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
     }
   }, [activeColor]);
 
+  useEffect(() => {
+    // 页面关闭/刷新时结束会话
+    const handleBeforeUnload = () => {
+      telemetry.endSession();
+    };
+
+    // 页面隐藏时结束会话（移动端切换应用）
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        telemetry.endSession();
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, []);
+
+  useEffect(() => {
+    // ✅ 确保会话已初始化
+    if (authReady && currentUserId) {
+      // 如果当前没有活跃会话，创建一个
+      const sessionId = telemetry.getSessionId();
+      // 确保 sessions 表中有记录
+      const sessions = JSON.parse(localStorage.getItem('painscape_telemetry_sessions') || '[]');
+      const exists = sessions.some(s => s.session_id === sessionId);
+      if (!exists) {
+        telemetry.startSession({
+          userId: currentUserId,
+          mode: appMode || 'clinical',
+          entryPoint: 'canvas'
+        });
+      }
+    }
+  }, [authReady, currentUserId, appMode]);
   const handleRedo = useCallback(() => {
     if (redoStackRef.current.length === 0) return;
     if (!pgFrontRef.current || !pgBackRef.current) return;
@@ -2194,20 +2312,38 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
     }
   }, [currentUserId, isGuest, showToast]);
 
+  // const getDraftCount = useCallback(() => {
+  //   try {
+  //     if (!isGuest && currentUserId && !currentUserId.startsWith('guest_')) {
+  //       // 异步获取，这里先用本地缓存估算
+  //       const cached = JSON.parse(localStorage.getItem('painscape_draft_count') || '0');
+  //       return cached;
+  //     } else {
+  //       const localDrafts = JSON.parse(localStorage.getItem('paintScape_drafts') || '[]');
+  //       return localDrafts.length;
+  //     }
+  //   } catch {
+  //     return 0;
+  //   }
+  // }, [currentUserId, isGuest]);
+
+
+  // 打开草稿箱时记录来源页面
+  const handleOpenDraftBox = useCallback((fromPage = 'canvas') => {
+    setDraftBoxReturnPage(fromPage);
+    setPage('draftBox');
+  }, []);
+
   const getDraftCount = useCallback(() => {
     try {
-      if (!isGuest && currentUserId && !currentUserId.startsWith('guest_')) {
-        // 异步获取，这里先用本地缓存估算
-        const cached = JSON.parse(localStorage.getItem('painscape_draft_count') || '0');
-        return cached;
-      } else {
-        const localDrafts = JSON.parse(localStorage.getItem('paintScape_drafts') || '[]');
-        return localDrafts.length;
-      }
+      // ✅ 统一从 localStorage 读取草稿数量
+      // 游客和登录用户都用同一个 key
+      const localDrafts = JSON.parse(localStorage.getItem('paintScape_drafts') || '[]');
+      return localDrafts.length;
     } catch {
       return 0;
     }
-  }, [currentUserId, isGuest]);
+  }, []);
 
   // 在登录/注册成功后刷新草稿数量
   const updateDraftCount = useCallback(async () => {
@@ -2272,7 +2408,10 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
       case 'draftBox':
         return (
           <DraftBox
-            onBack={() => setPage('history')}
+            onBack={() => {
+              // ✅ 返回到之前记录的页面
+              setPage(draftBoxReturnPage);
+            }}
             onOpenDraft={handleOpenDraft}
             onDeleteDraft={handleDeleteDraft}
             onGenerateFromDraft={handleGenerateFromDraft}
@@ -2345,7 +2484,10 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
             bodyMode={bodyMode}
             onSaveOnly={handleSaveOnly}
             onSaveDraft={handleSaveDraft}
-            onViewDraftBox={() => setPage('draftBox')}
+            onViewDraftBox={() => {
+              setDraftBoxReturnPage('canvas');  // ✅ 记录来源页面
+              setPage('draftBox');
+            }}
             onViewHistory={() => setPage('history')}
             setBodyMode={setBodyMode}
             activeBrush={activeBrush}
@@ -2372,7 +2514,7 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
             pressureHistory={pressureHistory}
             appMode={appMode}
             onBack={() => setPage('onboarding')}
-             draftCount={getDraftCount()}
+            draftCount={getDraftCount()}
             onGenerate={async () => {
               setIsLoading(true);
               // 记录绘画结束时间与总时长 (用于 painting_data 埋点)
@@ -2381,7 +2523,7 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
               const startTimeStr = canvasStartTimeRef.current
                 ? new Date(canvasStartTimeRef.current).toISOString()
                 : new Date(Date.now() - 30000).toISOString();
-              const durationMs = canvasStartTimeRef.current ? (Date.now() - canvasStartTimeRef.current) : 0;
+              // const durationMs = canvasStartTimeRef.current ? (Date.now() - canvasStartTimeRef.current) : 0;
               try {
                 const canvasImg = generateCompositeCanvas() || getFallbackImgUrl();
                 setImgUrl(canvasImg);
@@ -2466,53 +2608,83 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
                 };
 
                 const dominant = getDominantPain() || 'twist';
-                const bc = brushCounts.current || {};
                 const brushNameMap = { heavy: 'sink', wave: 'swell' };
                 const mappedDominant = brushNameMap[dominant] || dominant;
                 const mappedBc = Object.fromEntries(
                   Object.entries(bc).map(([k, v]) => [brushNameMap[k] || k, v])
                 );
 
+                const startTimeStr = canvasStartTimeRef.current
+                  ? new Date(canvasStartTimeRef.current).toISOString()
+                  : new Date(Date.now() - 30000).toISOString();
+                const endTimeStr = new Date().toISOString();
+
                 const toneMap = { polite: 'neutral', objective: 'formal' };
                 const mappedWorkTone = toneMap[leaveTone] || leaveTone || 'neutral';
 
+                const bc = brushCounts.current || {};
                 const totalBrushes = Object.values(bc).reduce((a, b) => a + b, 0);
-                const painScore = Math.min(100, Math.max(10, Math.round(totalBrushes * 1.5)));
 
+                // 1. 先获取速度历史
                 const spHist = speedHistory.current || [];
-                const prHist = pressureHistory.current || [];
                 const avgSpeed = spHist.length > 0 ? spHist.reduce((a, b) => a + b, 0) / spHist.length : 5.0;
                 const peakSpeed = spHist.length > 0 ? Math.max(...spHist) : 10.0;
-                const avgPressure = prHist.length > 0 ? prHist.reduce((a, b) => a + b, 0) / prHist.length : 0.5;
 
+                // 2. 再获取压力历史
+                const prHist = pressureHistory.current || [];
+                const avgPressure = prHist.length > 0
+                  ? prHist.reduce((a, b) => a + b, 0) / prHist.length
+                  : 0.5;
+                const maxPressure = prHist.length > 0 ? Math.max(...prHist) : 1.0;
+
+                // 3. 然后计算 painScore（此时所有变量都已定义）
+                let painScore = 0;
+                if (totalBrushes > 0) {
+                  // 笔触数量：0-50分
+                  const brushScore = Math.min(50, Math.round(totalBrushes * 0.5));
+
+                  // 压力：0-30分（压力范围 0.2-1.0）
+                  const pressureScore = Math.max(0, Math.min(30, Math.round((avgPressure - 0.2) / 0.8 * 30)));
+
+                  // 速度：0-20分（速度越快，分数越低，因为快速划过=轻触）
+                  // 速度范围 0-50，映射到 20-0 分
+                  const speedScore = Math.max(0, Math.min(20, Math.round(20 - (avgSpeed / 50) * 20)));
+
+                  painScore = Math.min(100, Math.max(10, brushScore + pressureScore + speedScore));
+                } else {
+                  painScore = 0;
+                }
+
+                // 4. 然后计算 spatialMap
                 const positions = particlePositions.current || [];
                 const p5 = p5Ref.current;
-
                 const spatialMap = calculateSpatialMap(positions, bodyMode, p5);
 
+                // 5. 时间节奏（保持默认或从数据中提取）
                 const timeRhythm = {
                   morning: 0.33,
                   afternoon: 0.33,
                   night: 0.34,
                   dominantPeriod: 'morning',
                 };
-                //  插入 painting_data 埋点记录（对照 PDF 表 2）
+
+                // 6. 最后记录埋点
                 telemetry.logPaintingData({
                   startTime: startTimeStr,
                   endTime: endTimeStr,
-                  durationMs: durationMs,
                   brushesUsed: mappedBc,
                   totalStrokes: totalBrushes,
                   avgPressure: avgPressure,
-                  maxPressure: prHist.length > 0 ? Math.max(...prHist) : 1.0,
+                  maxPressure: maxPressure,
                   colorsUsed: Array.from(colorsUsedRef.current || ['crimson']),
-                  canvasView: bodyMode === 'none' ? 'blind' : bodyMode, // front / back / blind
+                  canvasView: bodyMode === 'none' ? 'blind' : bodyMode,
                   undoCount: undoCountRef.current || 0,
                   clearCount: clearCountRef.current || 0,
                   dominantPainType: mappedDominant,
                   painScore: painScore,
-                  savedOnly: false // 点击生成报告，所以为 false
+                  savedOnly: false
                 });
+
 
                 const requestBody = {
                   appMode: appMode || 'medical',
@@ -2666,13 +2838,18 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
                 const toneMap = { polite: 'neutral', objective: 'formal' };
                 const mappedWorkTone = toneMap[leaveTone] || leaveTone || 'neutral';
                 const totalBrushes = Object.values(bc).reduce((a, b) => a + b, 0);
-                const painScore = Math.min(100, Math.max(10, Math.round(totalBrushes * 1.5)));
+                const avgPressure = prHist.length > 0 ? prHist.reduce((a, b) => a + b, 0) / prHist.length : 0.5;
+
+                // 基础分：笔触数量贡献 0-70 分
+                const brushScore = Math.min(70, Math.round(totalBrushes * 0.7));
+                // 压力贡献 0-30 分（压力值范围 0.2-1.0）
+                const pressureScore = Math.round((avgPressure - 0.2) / 0.8 * 30);
+                const painScore = Math.min(100, Math.max(10, brushScore + pressureScore));
 
                 const spHist = speedHistory.current || [];
                 const prHist = pressureHistory.current || [];
                 const avgSpeed = spHist.length > 0 ? spHist.reduce((a, b) => a + b, 0) / spHist.length : 5.0;
                 const peakSpeed = spHist.length > 0 ? Math.max(...spHist) : 10.0;
-                const avgPressure = prHist.length > 0 ? prHist.reduce((a, b) => a + b, 0) / prHist.length : 0.5;
 
                 const requestBody = {
                   appMode: appMode || 'medical',
@@ -2803,7 +2980,10 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
             setTargetLanguage={setTargetLanguage}
             history={history}
             setHistory={setHistory}
-            onViewDraftBox={() => setPage('draftBox')}
+            onViewDraftBox={() => {
+              setDraftBoxReturnPage('history');  // ✅ 记录来源页面
+              setPage('draftBox');
+            }}
             draftCount={getDraftCount()} // 需要实现获取草稿数量的函数
             calendarDate={calendarDate}
             setCalendarDate={setCalendarDate}
@@ -2852,6 +3032,7 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
             history={history}
             posts={posts}
             setPosts={setPosts}
+            showToast={showToast}
             lang={targetLanguage}
             setTargetLanguage={setTargetLanguage}
             onBack={() => {
@@ -2973,7 +3154,7 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
       />
 
       {/* 实验员悬浮导出工具条 */}
-      <div
+      {/* <div
         style={{
           position: 'fixed',
           bottom: 12,
@@ -3041,7 +3222,7 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
         >
           🗑️
         </button>
-      </div>
+      </div> */}
     </>
   );
 }

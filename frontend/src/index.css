@@ -366,6 +366,40 @@ canvas {
 /* ============================================================
    画布顶部导航栏
    ============================================================ */
+/* ===== 顶部导航按钮动画 ===== */
+@keyframes slideIn {
+  from {
+    width: 0;
+    opacity: 0;
+  }
+  to {
+    width: 16px;
+    opacity: 1;
+  }
+}
+
+@keyframes pulse {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.1);
+  }
+}
+
+/* 生成按钮光泽动画 */
+.generate-shine {
+  animation: shimmer 3s infinite;
+}
+
+@keyframes shimmer {
+  0% {
+    transform: translateX(-100%) rotate(25deg);
+  }
+  100% {
+    transform: translateX(100%) rotate(25deg);
+  }
+}
 
 .top-bar {
   position: absolute;

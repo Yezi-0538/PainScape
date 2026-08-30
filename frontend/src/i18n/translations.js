@@ -42,6 +42,15 @@ const translations = {
       back: "返回",
       followHer: "+ 关注她",
       followed: "✓ 已关注",
+      dataTools: '数据工具',
+      exportCSV: '导出CSV数据',
+      exportJSON: '导出JSON数据',
+      clearData: '清空数据',
+      exportConfirm: '确认导出所有使用数据？',
+      clearConfirm: '确定清空所有本地实验数据？',
+      dataHint: '数据仅保存在本地浏览器中，导出后可用于分析',
+      exportSuccess: '数据导出成功 ✅',
+      dataCleared: '数据已清空 🗑️',
     },
     // ============ 智能裁剪仓 ============
     crop: {
@@ -462,8 +471,37 @@ const translations = {
       draftSavedHint: '可在草稿箱中继续编辑或生成报告',
       viewDraftBox: '查看草稿箱',
       continueDrawing: '继续绘画',
-      draftBox: '📋 草稿箱',
+      draftBox: '草稿箱',
     },
+
+    canvasGuide: {
+      step1: {
+        title: '🎨 用画笔诉说疼痛',
+        description: '在画布上自由绘画，用身体感受表达那些难以言说的疼痛。没有对错，只有你的真实感受。'
+      },
+      step2: {
+        title: '🖌️ 选择你的疼痛类型',
+        description: '绞/拧、荆/刺、坠/压、酸/胀、刮/撕 — 每种画笔对应一种痛感，选择最能描述你此刻感受的画笔。'
+      },
+      step3: {
+        title: '🎯 选择疼痛的温度',
+        description: '深红代表温热、暗灰代表沉重、紫色代表隐痛、冰蓝代表寒战 — 用颜色表达疼痛的"温度"。'
+      },
+      step4: {
+        title: '📋 保存或生成报告',
+        description: '💾 仅保存：保存绘画图片\n📝 保存草稿：保存进度，稍后继续\n✨ 生成报告：AI 将你的绘画转译为多场景文本'
+      },
+      step5: {
+        title: '🔧 画布辅助工具',
+        description: '↩️ 撤销：回退上一步操作\n↪️ 重做：恢复已撤销的操作\n🗑️ 清除：清空所有绘画内容\n🎯 重置视角：回到初始视图位置'
+      },
+      next: '下一步 →',
+      prev: '← 上一步',
+      skip: '跳过引导',
+      finish: '开始绘画 ✨',
+      step: '第 {{current}} / {{total}} 步',
+    },
+
     draftBox: {
       title: '草稿箱',
       empty: '暂无草稿',
@@ -1125,7 +1163,7 @@ const translations = {
       wave: {
         analogy: "像肚子里有一个不断充气放气的气球一波波胀满感扩散到整个腹部，连呼吸都感到窒息。",
         med: "患者主诉腹部弥漫性胀痛，阵发性加重伴肠气感，疼痛位置不固定。建议评估盆腔水肿、肠胀气和盆腔炎症。",
-        selfCare: "✨ 穿最宽松的衣服，完全松开腰带。\n✨ 轻柔顺时针腹部按摩（用羽毛般极轻极柔的力度在皮肤上）。\n✨ 避免产气食物：豆类、奶制品、碳酸饮料、生冷食物。\n✨ 在整个腹部放置热敷包，把自己裹在温暖的毯子里。\n✨ 放慢一切当你慢下来，疼痛的感官音量就会降低。\n✨ 排气式（Pavanamuktasana）：平躺，双手抱膝紧紧贴向胸口，轻轻左右摇晃。这轻柔按摩结肠以释放积气，降低腹内压。\n✨ 穴位按压：按压按摩足三里穴（ST36）（位于外膝眼下4横指，胫骨外侧1横指处）。这调节胃肠蠕动以缓解胀气和痉挛。"
+        selfCare: "✨ 穿最宽松的衣服，完全松开腰带。\n✨ 轻柔顺时针腹部按摩（用羽毛般极轻极柔的力度在皮肤上）。\n✨ 避免产气食物：豆类、奶制品、碳酸饮料、生冷食物。\n✨ 在整个腹部放置热敷包，把自己裹在温暖的毯子里。\n✨ 放慢一切当你慢下来，疼痛的感官音量就会降低。\n✨ 排气式：平躺，双手抱膝紧紧贴向胸口，轻轻左右摇晃。这轻柔按摩结肠以释放积气，降低腹内压。\n✨ 穴位按压：按压按摩足三里穴（ST36）（位于外膝眼下4横指，胫骨外侧1横指处）。这调节胃肠蠕动以缓解胀气和痉挛。"
       },
       scrape: {
         analogy: "像一个未成熟的水果被强行剥皮那种从子宫内部向外刮擦的撕裂感。每一个动作都像砂纸在磨擦生肉。",
@@ -1215,27 +1253,68 @@ const translations = {
       }
     },
 
-    // ============ ✅ 完整修复：partnerActions 每种至少3条 ============
     partnerActions: {
+      // 独处模式 - 给她空间，减少打扰
       alone: [
-        '☑️ 给她倒杯温水，准备好{{med}}。',
-        '☑️ 调暗灯光，关上门，让她独处休息。',
-        '☑️ 准备好热水袋，放在她触手可及的地方。',
+        '☑️ 给她倒杯温水，备好止痛药（布洛芬），放在床头。',
+        '☑️ 调暗灯光，关上门，让她独处安静休息。',
+        '☑️ 准备好热水袋，放在她触手可及的地方，不打扰她。',
+        '☑️ 把手机调成静音，减少外界声音刺激。',
       ],
+      // 照顾模式 - 主动照顾，接手事务
       care: [
-        '☑️ 搓热手掌，放在她的小腹或后腰。接手家务。',
+        '☑️ 搓热手掌，用掌心温度轻轻覆盖在她的小腹或后腰。',
         '☑️ 准备热水袋或加热垫（40-45°C），用毛巾包裹后敷在她的小腹。',
         '☑️ 帮她准备温热的姜糖水或红枣茶，补充能量。',
+        '☑️ 主动接手家务，让她安心卧床休息。',
+        '☑️ 帮她调整枕头高度，找到最舒服的躺卧姿势。',
       ],
+      // 陪伴模式 - 情感支持，在场陪伴
       comfort: [
-        '☑️ 坐在她身边，握着她的手不说话用安全感陪伴。',
+        '☑️ 坐在她身边，握着她的手，安静陪伴。',
         '☑️ 轻声告诉她"我在这里陪着你"，给予情绪支持。',
         '☑️ 为她播放舒缓的白噪音或轻柔的音乐，帮助放松。',
+        '☑️ 用温热的毛巾帮她擦拭额头和颈部，缓解不适。',
+        '☑️ 轻声和她聊聊轻松的话题，转移注意力。',
       ],
     },
 
-    // ============ ✅ 通用请假模板（用于无 LLM 时的降级） ============
-    workTemplate: "领导您好：本人今日突发严重痛经（{{pain}}），身体状态无法维持正常工作，申请休假一天，望批准。紧急事务已做交接安排。感谢您的理解。",
+    // ============================================================
+    // 2. 修复请假模板 - 按收件人和语气区分
+    // ============================================================
+
+    workTemplates: {
+      // 收件人: 领导/上级
+      manager: {
+        polite: '领导您好：本人因生理期突发严重身体不适，今天无法正常到岗工作，特申请休假一天。紧急工作已妥善交接，感谢您的理解与批准。',
+        neutral: '今天身体不适，申请休假一天。工作已安排妥当，请批准。',
+        casual: '领导好，今天身体实在扛不住了，请一天假休息下。工作交代好了，抱歉。',
+      },
+      // 收件人: 老师/教授
+      teacher: {
+        polite: '老师您好：因生理期突发严重身体不适，今天无法到课，已请同学代为记录课堂内容，我会及时补上学习进度。望批准。',
+        neutral: '老师好，今天身体不适，请假一天缺课。后续会补上笔记和进度。',
+        casual: '老师，今天身体实在不舒服，请一天假。回头找同学补笔记，谢谢！',
+      },
+      // 收件人: 客户/合作伙伴
+      client: {
+        polite: 'X总/X老师您好：因突发身体不适，今天原定的会议/对接需要改期，已安排同事代为对接。给您带来不便，深表歉意。',
+        neutral: '您好，今天身体不适，需要将会面改期。已安排同事跟进，抱歉。',
+        casual: '临时身体不适，今天会议改天约。相关事已同步同事，抱歉哈。',
+      },
+      // 收件人: 朋友
+      friend: {
+        polite: '小A，今天我经期身体不适，约见需要改期了，非常抱歉！我们改天再约。',
+        neutral: '今天不太舒服，改天再约吧。不好意思。',
+        casual: '今天身体扛不住了，先鸽了！回头约！抱歉抱歉。',
+      },
+      // 收件人: 伴侣/家人
+      partner: {
+        polite: '今天身体很不舒服，需要安静休息一天。家里的事务要辛苦你多担待了，谢谢你。',
+        neutral: '宝，今天不太舒服，想好好休息一下。家里的事麻烦你。',
+        casual: '今天疼得厉害，想躺平一天。辛苦你照顾啦~',
+      },
+    },
 
     examDatabase: {
       "pelvic ultrasound": {
@@ -1386,8 +1465,9 @@ const translations = {
     defaultTemplates: {
       // 默认值
       medication: '布洛芬',
-      defaultActions: '☑️ 帮她热敷小腹并准备好止痛药。\n☑️ 给她倒杯温水，陪伴在她身边。\n☑️ 调暗灯光，让她安静休息。',
-      workTemplate: '领导您好：本人今日突发严重{{pain}}，身体状态无法维持正常工作，申请休假一天，望批准。紧急事务已做交接安排。感谢您的理解。',
+
+      // ✅ 保留兼容的通用模板（作为最终的兜底）
+      workTemplateFallback: '因身体不适，申请休息一天。',
 
       // ✅ 占位符默认值
       notProvided: "未提供",
@@ -1419,18 +1499,18 @@ const translations = {
       menstrualHistory: '月经史：{{menarche}}岁初潮，经期{{periodDuration}}天，周期{{cycleRegular}}。末次月经：{{lmp}}。',
 
       clinicalDiagnosis: '结合痛觉成像特征及周期性发作规律，需考虑以下方向：\n\n{{diagnosisItems}}\n\n建议检查：{{examSuggestions}}。\n\n{{reassurance}}',
-
       clinicalSuggestions: '【缓解期自我照护】\n{{selfCareItems}}\n\n【供您与医生讨论】\n{{discussionItems}}\n\n【给您的提醒】\n{{reassurance}}\n\n【关于检查，您可能想知道的】\n{{examInfo}}',
-
       clinicalDiagnosisStructured: '结合痛觉成像特征及周期性发作规律，需考虑以下方向：\n\n{{diagnosisItems}}\n\n建议检查：{{examSuggestions}}。',
-
       clinicalSuggestionsStructured: '缓解措施：\n{{selfCareItems}}',
 
-      // ✅ 新增：各模块标题（用于分开展示时）
+      // 各模块标题
       moduleSelfCare: '缓解期自我照护',
       moduleDiscussion: '供您与医生讨论',
       moduleReminder: '给您的提醒',
       moduleExamInfo: '关于检查，您可能想知道的',
+
+      // ✅ 新增：默认的 defaultActions（当 partnerActions 找不到时使用）
+      defaultActions: '☑️ 帮她热敷小腹并准备好止痛药。\n☑️ 给她倒杯温水，陪伴在她身边。\n☑️ 调暗灯光，让她安静休息。',
     },
     doctorTab: {
       chiefComplaint: "主诉",
@@ -1527,6 +1607,15 @@ const translations = {
       back: "Back",
       followHer: "+ Follow",
       followed: "✓ Following",
+      dataTools: 'Data Tools',
+      exportCSV: 'Export CSV',
+      exportJSON: 'Export JSON',
+      clearData: 'Clear Data',
+      exportConfirm: 'Confirm to export all usage data?',
+      clearConfirm: 'Confirm to clear all local experimental data?',
+      dataHint: 'Data is stored locally in your browser, export for analysis',
+      exportSuccess: 'Data exported successfully ✅',
+      dataCleared: 'Data cleared 🗑️',
     },
     // ============ Crop Chamber ============
     crop: {
@@ -1585,8 +1674,37 @@ const translations = {
       draftSavedHint: 'Continue editing or generate report in Draft Box',
       viewDraftBox: 'View Draft Box',
       continueDrawing: 'Continue Drawing',
-      draftBox: '📋 Draft Box',
+      draftBox: 'Draft Box',
     },
+
+    canvasGuide: {
+      step1: {
+        title: '🎨 Express Pain Through Drawing',
+        description: 'Draw freely on the canvas to express those unspeakable pains. No right or wrong, just your true feelings.'
+      },
+      step2: {
+        title: '🖌️ Choose Your Pain Type',
+        description: 'Twist, Pierce, Heavy, Wave, Scrape — each brush corresponds to a pain sensation. Pick the one that best describes how you feel.'
+      },
+      step3: {
+        title: '🎯 Choose the Temperature of Pain',
+        description: 'Crimson for warmth, Dark for heaviness, Purple for dull pain, Ice Blue for chills — express the "temperature" of your pain through color.'
+      },
+      step4: {
+        title: '📋 Save or Generate Report',
+        description: '💾 Save Only: Save the painting image\n📝 Save Draft: Save progress, continue later\n✨ Generate Report: AI transforms your painting into multi-scenario text'
+      },
+      step5: {
+        title: '🔧 Canvas Tools',
+        description: '↩️ Undo: Revert the last action\n↪️ Redo: Restore an undone action\n🗑️ Clear: Erase all painting content\n🎯 Reset View: Return to the initial view position'
+      },
+      next: 'Next →',
+      prev: '← Previous',
+      skip: 'Skip Guide',
+      finish: 'Start Drawing ✨',
+      step: 'Step {{current}} / {{total}}',
+    },
+
     draftBox: {
       title: 'Draft Box',
       empty: 'No drafts',
@@ -2602,7 +2720,7 @@ const translations = {
       wave: {
         analogy: "Like having a balloon inside your belly that keeps inflating and deflating—waves of swell spreading through your entire abdomen, making even breathing feel suffocating.",
         med: "Patient reports diffuse bloating pain in the abdomen, episodic exacerbation with gas sensation, pain location not fixed. Recommend evaluation for pelvic edema, intestinal gas, and pelvic inflammation.",
-        selfCare: "✨ Wear the loosest clothes possible, completely loosen your belt.\n✨ Gentle clockwise abdominal massage (with feather-light, extremely gentle pressure on the skin).\n✨ Avoid gas-producing foods: beans, dairy, carbonated drinks, cold foods.\n✨ Place a heat pack over the entire abdomen, wrap yourself in a warm blanket.\n✨ Slow everything down—when you slow down, the sensory volume of pain decreases.\n✨ Wind-Relieving Pose (Pavanamuktasana): lie flat, hug both knees tightly to your chest, gently rock side to side. This gently massages the colon to release trapped gas, reducing intra-abdominal pressure.\n✨ Acupressure: Press and massage the ST36 (Zusanli) acupoint (located 4 finger-widths below the kneecap, 1 finger-width lateral to the shin bone). This regulates gastrointestinal motility to relieve bloating and cramps."
+        selfCare: "✨ Wear the loosest clothes possible, completely loosen your belt.\n✨ Gentle clockwise abdominal massage (with feather-light, extremely gentle pressure on the skin).\n✨ Avoid gas-producing foods: beans, dairy, carbonated drinks, cold foods.\n✨ Place a heat pack over the entire abdomen, wrap yourself in a warm blanket.\n✨ Slow everything down—when you slow down, the sensory volume of pain decreases.\n✨ Wind-Relieving Pose: lie flat, hug both knees tightly to your chest, gently rock side to side. This gently massages the colon to release trapped gas, reducing intra-abdominal pressure.\n✨ Acupressure: Press and massage the ST36 (Zusanli) acupoint (located 4 finger-widths below the kneecap, 1 finger-width lateral to the shin bone). This regulates gastrointestinal motility to relieve bloating and cramps."
       },
       scrape: {
         analogy: "Like an unripe fruit being forcibly peeled—that scraping, tearing sensation from the inside of your uterus outward. Every movement feels like sandpaper rubbing against raw flesh.",
@@ -2692,27 +2810,68 @@ const translations = {
       }
     },
 
-    // ============ ✅ 完整修复：partnerActions 每种至少3条 ============
     partnerActions: {
+      // Alone mode - give her space, minimize disturbance
       alone: [
-        '☑️ Pour her a glass of warm water and prepare {{med}}.',
-        '☑️ Dim the lights, close the door, and let her rest alone.',
-        '☑️ Prepare a hot water bottle and place it within her reach.',
+        '☑️ Get her a glass of warm water and prepare pain relief (ibuprofen), place it by the bedside.',
+        '☑️ Dim the lights and close the door — let her rest in peace and quiet.',
+        '☑️ Prepare a heating pad and leave it within her reach without disturbing her.',
+        '☑️ Put your phone on silent to minimize noise and stimulation.',
       ],
+      // Care mode - active care, take over household tasks
       care: [
-        '☑️ Warm your palms and place them on her lower belly or back. Take over household chores.',
-        '☑️ Prepare a heating pad (40-45°C), wrap it in a towel, and apply to her lower abdomen.',
-        '☑️ Prepare warm ginger tea or red date tea to help her regain energy.',
+        '☑️ Warm your palms and gently place them on her lower abdomen or lower back.',
+        '☑️ Prepare a heating pad or hot water bottle (40-45°C), wrap it in a towel and place it on her abdomen.',
+        '☑️ Make her a warm ginger tea or red date tea to replenish her energy.',
+        '☑️ Take over household chores so she can rest comfortably in bed.',
+        '☑️ Adjust her pillow height to help her find the most comfortable resting position.',
       ],
+      // Comfort mode - emotional support, being present
       comfort: [
-        '☑️ Sit beside her, hold her hand without speaking—accompany her with a sense of safety.',
-        '☑️ Gently tell her "I\'m here with you" to provide emotional support.',
-        '☑️ Play soothing white noise or soft music to help her relax.',
+        '☑️ Sit beside her, hold her hand, and keep her company in silence.',
+        '☑️ Gently tell her "I\'m here with you" to offer emotional support.',
+        '☑️ Play soft white noise or calming music to help her relax.',
+        '☑️ Use a warm towel to gently wipe her forehead and neck to soothe discomfort.',
+        '☑️ Chat with her about lighthearted topics to help distract her from the pain.',
       ],
     },
 
-    // ============ ✅ Generic work leave template (fallback when no LLM) ============
-    workTemplate: "Dear Manager, I am experiencing severe acute cramps ({{pain}}) today and am unable to work. I kindly request a day off. Urgent matters have been handed over. Thank you for your understanding.",
+    // ============================================================
+    // 2. workTemplates - 英文版（按收件人和语气区分）
+    // ============================================================
+
+    workTemplates: {
+      // Recipient: Manager/Supervisor
+      manager: {
+        polite: 'Dear Manager: Due to a sudden health condition related to my menstrual cycle, I am unable to work today and request a sick leave. Urgent matters have been delegated. Thank you for your understanding and approval.',
+        neutral: 'Requesting a sick day today due to a health condition. Work has been arranged. Please approve.',
+        casual: 'Manager — not feeling well today and need to take the day off. Work is covered. Sorry for the inconvenience.',
+      },
+      // Recipient: Teacher/Professor
+      teacher: {
+        polite: 'Dear Professor: Unable to attend class today due to a sudden health issue. I have arranged for a classmate to take notes and will catch up promptly. Thank you for your understanding.',
+        neutral: 'Professor, I need to take a sick day today. Will catch up on the materials.',
+        casual: 'Professor — not feeling well today. Will get notes from a classmate. Thanks!',
+      },
+      // Recipient: Client/Partner
+      client: {
+        polite: 'Dear Client: Due to a sudden health condition, I need to reschedule today\'s meeting. A colleague has been briefed and will assist. Apologies for the inconvenience.',
+        neutral: 'Need to reschedule today\'s meeting due to health. A colleague is up to speed. Apologies.',
+        casual: 'Not feeling well today — need to push our meeting. Colleague is briefed. Sorry!',
+      },
+      // Recipient: Friend
+      friend: {
+        polite: 'I\'m so sorry to cancel on short notice — a sudden health issue came up today. Let\'s reschedule soon!',
+        neutral: 'Not feeling great today — let\'s reschedule. Sorry!',
+        casual: 'Feeling rough today — gonna have to rain check. Catch up soon!',
+      },
+      // Recipient: Partner/Family
+      partner: {
+        polite: 'Not feeling well today and need to rest quietly. I would really appreciate your help with things around the house. Thank you.',
+        neutral: 'Not feeling great today — need some quiet rest. Could use your help at home.',
+        casual: 'Feeling awful today — going to be horizontal. Thanks for taking care of things! 💕',
+      },
+    },
 
     examDatabase: {
       "pelvic ultrasound": {
@@ -2771,73 +2930,55 @@ const translations = {
       footer: "PainScape - Generated Report",
     },
 
-    // ============ ✅ 新增：默认模板（用于 generateContent 后备） ============
     defaultTemplates: {
+      // Default values
       medication: 'Ibuprofen',
-      defaultActions: '☑️ Apply warm compress to her lower abdomen and prepare pain medication.\n☑️ Bring her a glass of warm water and stay by her side.\n☑️ Dim the lights and let her rest quietly.',
-      workTemplate: 'Dear Manager, I am experiencing severe {{pain}} today and am unable to work. I kindly request a day off. Urgent matters have been handed over. Thank you for your understanding.',
 
-      // ✅ Placeholder defaults
+      // Fallback work template (ultimate fallback)
+      workTemplateFallback: 'Requesting a sick day today due to a health condition.',
+
+      // Placeholder default values
       notProvided: "Not provided",
       noSymptoms: "No significant accompanying symptoms",
       noDiagnosis: "No confirmed gynecological conditions",
-      noSurgery: "No surgery",
+      noSurgery: "No surgical history",
       noAllergy: "No known drug allergies",
       noLifestyle: "No significant lifestyle factors",
       noFamilyHistory: "No family history",
-      noReproductive: "Not specified",
-      noPsychosocial: "Not specified",
+      noReproductive: "Not provided",
+      noPsychosocial: "Not provided",
 
-      // ✅ Variable substitution templates
-      chiefComplaint: '{{timing}} {{location}} {{pain}}, accompanied by {{symptoms}}.',
-
-      presentillness: 'Patient is {{age}}, {{heightWeight}}. Reports {{cycleRegular}} menstrual cycles. {{timing}} developed {{location}} {{pain}}, accompanied by {{symptoms}}. Activity level: {{activityLevel}}.',
-
+      // Templates with variable placeholders
+      chiefComplaint: '{{timing}} {{location}} {{pain}}, with {{symptoms}}.',
+      presentillness: 'Patient {{age}}, {{heightWeight}}. Reports menstrual cycles are {{cycleRegular}}. {{timing}} developed {{location}} {{pain}}, accompanied by {{symptoms}}. Activity level: {{activityLevel}}.',
       pastHistoryDiagnosis: 'Patient has a history of {{diagnosed}}.',
-      pastHistorySurgery: 'Surgical history: {{surgery}}.',
-      pastHistoryAllergy: 'Allergies: {{allergy}}.',
+      pastHistorySurgery: 'Has undergone {{surgery}}.',
+      pastHistoryAllergy: 'Allergic to {{allergy}}.',
       pastHistoryLifestyle: 'Lifestyle: {{lifestyle}}.',
       pastHistoryFamily: 'Family history: {{familyHistory}}.',
       pastHistoryReproductive: 'Obstetric history: {{reproductiveHistory}}.',
       pastHistoryPsychosocial: 'Psychosocial assessment: {{psychosocial}}.',
-      pastHistoryNone: 'No significant medical history reported.',
-
-      presentIllnessAge: 'Patient is {{age}}, {{heightWeight}}.',
-      presentIllnessCycle: 'Reports {{cycleRegular}} menstrual cycles.',
-      presentIllnessOnset: 'Developed {{pain}} during {{cycleDay}}.',
+      pastHistoryNone: 'No significant past medical history reported.',
+      presentIllnessAge: 'Patient {{age}}, {{heightWeight}}.',
+      presentIllnessCycle: 'Reports menstrual cycles are {{cycleRegular}}.',
+      presentIllnessOnset: 'Developed sudden {{pain}} on {{cycleDay}}.',
       presentIllnessSymptoms: 'Accompanied by {{symptoms}}.',
       presentIllnessActivity: 'Activity level: {{activityLevel}}.',
-
       menstrualHistory: 'Menstrual history: Menarche at {{menarche}}, {{periodDuration}}-day cycles, {{cycleRegular}}. LMP: {{lmp}}.',
 
-      clinicalDiagnosis: 'Based on pain imaging characteristics and cyclical patterns, the following should be considered:\n\n{{diagnosisItems}}\n\nRecommended examinations: {{examSuggestions}}.\n\n{{reassurance}}',
-
+      clinicalDiagnosis: 'Based on the pain characteristics and cyclical patterns, the following should be considered:\n\n{{diagnosisItems}}\n\nRecommended examinations: {{examSuggestions}}.\n\n{{reassurance}}',
       clinicalSuggestions: '【Self-Care During Recovery】\n{{selfCareItems}}\n\n【Questions for Your Doctor】\n{{discussionItems}}\n\n【A Note to You】\n{{reassurance}}\n\n【What You May Want to Know About the Exam】\n{{examInfo}}',
+      clinicalDiagnosisStructured: 'Based on the pain characteristics and cyclical patterns, the following should be considered:\n\n{{diagnosisItems}}\n\nRecommended examinations: {{examSuggestions}}.',
+      clinicalSuggestionsStructured: 'Relief measures:\n{{selfCareItems}}',
 
-      clinicalDiagnosisStructured: 'Based on pain imaging characteristics and cyclical patterns, the following should be considered:\n\n{{diagnosisItems}}\n\nRecommended examinations: {{examSuggestions}}.',
-
-      clinicalSuggestionsStructured: 'Recommended measures:\n{{selfCareItems}}',
-
-      // ✅ 新增：各模块标题（用于分开展示时）
+      // Module titles
       moduleSelfCare: 'Self-Care During Recovery',
       moduleDiscussion: 'Questions for Your Doctor',
       moduleReminder: 'A Note to You',
       moduleExamInfo: 'What You May Want to Know About the Exam',
-    },
-    doctorTab: {
-      chiefComplaint: "Chief Complaint",
-      presentIllness: "Present Illness & Pain Description",
-      pastHistory: "Past History & Personal Habits",
-      menstrualObstetricHistory: "Menstrual & Obstetric History",
-      clinicalDiagnosis: "Clinical Diagnosis & Screening Recommendations",
-      clinicalAdvice: "Self-Care During Remission",
-      discussionPoints: "Points for Discussion with Your Doctor",
-      reminder: "Reminders for You",
-      aboutExam: "About Examinations: What You May Want to Know",
-      selfCareTitle: "Self-Care During Recovery",
-      discussionTitle: "Questions for Your Doctor",
-      reminderTitle: "A Note to You",
-      examInfoTitle: "What You May Want to Know About the Exam",
+
+      // Default actions (fallback when partnerActions is not found)
+      defaultActions: '☑️ Apply heat to her lower abdomen and prepare pain relief.\n☑️ Get her a glass of warm water and stay with her.\n☑️ Dim the lights and let her rest quietly.',
     },
     // ============ Result page labels ============
     resultLabels: {
