@@ -446,6 +446,22 @@ export default function CanvasPage({
     };
   }, []);
 
+  useEffect(() => {
+    const cleanupInterval = setInterval(() => {
+      const now = Date.now();
+      const keys = Object.keys(particleDwellTimeRef.current);
+      for (const key of keys) {
+        const data = particleDwellTimeRef.current[key];
+        // 如果超过 5 秒没有更新，清除该网格数据
+        if (now - data.lastTime > 5000) {
+          delete particleDwellTimeRef.current[key];
+        }
+      }
+    }, 10000);
+    
+    return () => clearInterval(cleanupInterval);
+  }, []);
+  
   // ============================================================
   // 用 ref 追踪粒子数量变化，避免每帧都触发更新
   // ============================================================
@@ -480,21 +496,6 @@ export default function CanvasPage({
     const realPy = (p5.pmouseY - y) / zoom;
     const speed = p5.dist(realX, realY, realPx, realPy);
     const heading = speed < 1 ? p5.PI / 2 : p5.atan2(realY - realPy, realX - realPx);
-     useEffect(() => {
-    const cleanupInterval = setInterval(() => {
-      const now = Date.now();
-      const keys = Object.keys(particleDwellTimeRef.current);
-      for (const key of keys) {
-        const data = particleDwellTimeRef.current[key];
-        // 如果超过 5 秒没有更新，清除该网格数据
-        if (now - data.lastTime > 5000) {
-          delete particleDwellTimeRef.current[key];
-        }
-      }
-    }, 10000);
-    
-    return () => clearInterval(cleanupInterval);
-  }, []);
     let isPanning = false;
     if (activeBrush === null) isPanning = true;
     else if (p5.mouseButton === p5.RIGHT) isPanning = true;
