@@ -1,5 +1,5 @@
-// SomaticHealingSpace.jsx
-import React, { useState, useRef, useEffect } from 'react';
+// src/Components/SomaticHealingSpace.jsx
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useI18n } from '../i18n/i18nContext';
 
 const SomaticHealingSpace = ({
@@ -9,7 +9,7 @@ const SomaticHealingSpace = ({
   language,
   aiSelfCareTips = [],
   dominantPainName,
-  onPublishSharedTip // 🌟 闭环：一键分享至共鸣广场的回调函数
+  onPublishSharedTip
 }) => {
   const { t: tFn, language: currentLang } = useI18n();
   const effectiveLang = language || currentLang;
@@ -18,59 +18,57 @@ const SomaticHealingSpace = ({
   const [circleSize, setCircleSize] = useState(120);
   const [timerCount, setTimerCount] = useState(0);
 
-  // 1. 呼吸法多模态切换（4-4-6, 4-7-8, 4-4-4-4）
+  // 1. 呼吸法模式
   const [breathMode, setBreathMode] = useState('slow');
 
   // 2. 步骤滑动卡索引
   const [activeStep, setActiveStep] = useState(0);
 
-  // 3. 出舱自我微评估与分享状态机
+  // 3. 微评估与分享状态
   const [showEvaluation, setShowEvaluation] = useState(false);
-  const [evaluationResult, setEvaluationResult] = useState(null); // null | 'helped' | 'shared'
+  const [evaluationResult, setEvaluationResult] = useState(null);
 
   const audioRef = useRef(null);
   const animationRef = useRef(null);
   const timerIntervalRef = useRef(null);
   const cycleTimeoutRef = useRef(null);
 
-
-
-  // 使用 i18n 系统的翻译
+  // 国际化文案
   const t = {
-    breathing: tFn('somaticHealing.breathing'),
-    posture: tFn('somaticHealing.posture'),
-    acupressure: tFn('somaticHealing.acupressure'),
-    thermal: tFn('somaticHealing.thermal'),
-    disclaimer: tFn('somaticHealing.disclaimer'),
-    inhale: tFn('somaticHealing.inhale'),
-    hold: tFn('somaticHealing.hold'),
-    exhale: tFn('somaticHealing.exhale'),
-    start: tFn('somaticHealing.start'),
-    stop: tFn('somaticHealing.stop'),
-    close: tFn('somaticHealing.close'),
-    somaticTipsTitle: tFn('somaticHealing.somaticTipsTitle'),
-    evalTitle: tFn('somaticHealing.evalTitle'),
-    evalQuestion: tFn('somaticHealing.evalQuestion'),
-    evalHelped: tFn('somaticHealing.evalHelped'),
-    evalNoChange: tFn('somaticHealing.evalNoChange'),
-    sharePrompt: tFn('somaticHealing.sharePrompt'),
-    shareBtn: tFn('somaticHealing.shareBtn'),
-    shareSuccess: tFn('somaticHealing.shareSuccess'),
-    stepPrev: tFn('somaticHealing.stepPrev'),
-    stepNext: tFn('somaticHealing.stepNext'),
-    holdingTip: tFn('somaticHealing.holdingTip'),
-    pressingTip: tFn('somaticHealing.pressingTip'),
-    thermalTip: tFn('somaticHealing.thermalTip'),
+    breathing: tFn('somaticHealing.breathing') || '骨盆释压呼吸调理',
+    posture: tFn('somaticHealing.posture') || '骨盆拉伸与体位松弛',
+    acupressure: tFn('somaticHealing.acupressure') || '特异穴位物理按揉',
+    thermal: tFn('somaticHealing.thermal') || '局部热敷与食疗温补',
+    disclaimer: tFn('somaticHealing.disclaimer') || '⚠️ 任何自愈方案或体位调节若引起您额外的不适或强烈痛感，请立即停止！回归您觉得最舒服的姿势并保持静卧。',
+    inhale: tFn('somaticHealing.inhale') || '🌬️ 吸气... 感受腹腔扩张',
+    hold: tFn('somaticHealing.hold') || '🧘 屏息... 骨盆彻底沉降松弛',
+    exhale: tFn('somaticHealing.exhale') || '🍃 呼气... 吐出所有张力与酸楚',
+    start: tFn('somaticHealing.start') || '开启体感音频疗愈',
+    stop: tFn('somaticHealing.stop') || '暂停静疗',
+    close: tFn('somaticHealing.close') || '退出静疗舱',
+    somaticTipsTitle: tFn('somaticHealing.somaticTipsTitle') || '💡 本次发作·特调自愈方案',
+    evalTitle: tFn('somaticHealing.evalTitle') || '🌸 骨盆释压微评估',
+    evalQuestion: tFn('somaticHealing.evalQuestion') || '刚才的调理对你的痛感缓解有帮助吗？',
+    evalHelped: tFn('somaticHealing.evalHelped') || '👍 感觉好多了',
+    evalNoChange: tFn('somaticHealing.evalNoChange') || '😐 无明显变化',
+    sharePrompt: tFn('somaticHealing.sharePrompt') || '太好了！亲历的经验最为珍贵。你愿意将这次非常有用的自愈方法"一键发布"到共鸣广场吗？',
+    shareBtn: tFn('somaticHealing.shareBtn') || '✨ 一键分享经验到共鸣广场',
+    shareSuccess: tFn('somaticHealing.shareSuccess') || '🌸 你的缓解经验已送达广场，微光已汇聚！',
+    stepPrev: tFn('somaticHealing.stepPrev') || '上一步',
+    stepNext: tFn('somaticHealing.stepNext') || '下一步',
+    holdingTip: tFn('somaticHealing.holdingTip') || '请维持当前拉伸姿势，保持深长均缓呼吸',
+    pressingTip: tFn('somaticHealing.pressingTip') || '💆 跟着脉冲闪烁节奏：一下、一下地稳重揉按（1s 一次）',
+    thermalTip: tFn('somaticHealing.thermalTip') || '🔥 暖橙色呼吸光晕暗示：热力理疗放松中...',
     breathModes: {
-      slow: tFn('somaticHealing.breathModes.slow'),
-      deep: tFn('somaticHealing.breathModes.deep'),
-      box: tFn('somaticHealing.breathModes.box')
+      slow: tFn('somaticHealing.breathModes.slow') || '🌊 4-4-6 盆腔慢调息 (基础释压)',
+      deep: tFn('somaticHealing.breathModes.deep') || '🍃 4-7-8 深度镇痛息 (强力镇静)',
+      box: tFn('somaticHealing.breathModes.box') || '📦 4-4-4-4 箱式平缓息 (稳定心率)'
     },
-    syncTips: tFn('somaticHealing.syncTips'),
-    shareDecline: tFn('somaticHealing.shareDecline'),
+    syncTips: tFn('somaticHealing.syncTips') || '正在同步调谐本次痛觉自愈方案...',
+    shareDecline: tFn('somaticHealing.shareDecline') || '暂不分享，默默退出',
+    offlineTips: tFn('somaticHealing.offlineTips', { returnObjects: true }) || {},
   };
 
-  // 几十秒高保真循环声音资源词典（指向 /public/ 静态资源路径）
   const SOUND_PATHS = {
     breathing: '/sounds/wave.mp3',
     posture: '/sounds/forest.mp3',
@@ -78,21 +76,67 @@ const SomaticHealingSpace = ({
     thermal: '/sounds/fireplace.mp3'
   };
 
-  // 使用 i18n 系统的步骤数据库
   const STEP_DATABASES = {
     posture: tFn('somaticHealing.stepDatabase.posture') || [],
     acupressure: tFn('somaticHealing.stepDatabase.acupressure') || [],
     thermal: tFn('somaticHealing.stepDatabase.thermal') || [],
   };
 
-  const startHealing = () => {
-    setIsPlaying(true);
-    if (!audioRef.current) {
-      audioRef.current = new Audio(SOUND_PATHS[activeTab]);
-      audioRef.current.loop = true;
-    }
-    audioRef.current.play().catch(e => console.warn("移动端音频拦截触发，需点击按钮播放:", e));
+  // 停止所有音频与动画
+  const stopHealing = useCallback(() => {
+    setIsPlaying(false);
 
+    if (audioRef.current) {
+      try {
+        audioRef.current.pause();
+        audioRef.current.currentTime = 0;
+      } catch (e) {
+        console.warn('音频停止异常:', e);
+      }
+      audioRef.current = null;
+    }
+
+    if (timerIntervalRef.current) {
+      clearInterval(timerIntervalRef.current);
+      timerIntervalRef.current = null;
+    }
+    if (cycleTimeoutRef.current) {
+      clearTimeout(cycleTimeoutRef.current);
+      cycleTimeoutRef.current = null;
+    }
+    if (animationRef.current) {
+      cancelAnimationFrame(animationRef.current);
+      animationRef.current = null;
+    }
+
+    setPhase('inhale');
+    setCircleSize(120);
+    setTimerCount(0);
+  }, []);
+
+  // 平滑启动音频与对应流程
+  const startHealing = () => {
+    // 1. 如果已有旧音频，先停止
+    stopHealing();
+    setIsPlaying(true);
+
+    // 2. 创建并加载当前 Tab 对应的音频
+    const soundPath = SOUND_PATHS[activeTab];
+    if (soundPath) {
+      const audio = new Audio(soundPath);
+      audio.loop = true;
+      audio.preload = 'auto';
+      audioRef.current = audio;
+
+      const playPromise = audio.play();
+      if (playPromise !== undefined) {
+        playPromise.catch(err => {
+          console.warn("⚠️ [SomaticHealing] 播放被拦截（需用户手势）或音频文件缺失:", err);
+        });
+      }
+    }
+
+    // 3. 开启呼吸循环或计时器
     if (activeTab === 'breathing') {
       runBreathingLoop();
     } else {
@@ -103,40 +147,22 @@ const SomaticHealingSpace = ({
     }
   };
 
-  const stopHealing = () => {
-    setIsPlaying(false);
-    if (audioRef.current) {
-      audioRef.current.pause();
-      audioRef.current.currentTime = 0;
-      audioRef.current = null;
-    }
-    if (timerIntervalRef.current) {
-      clearInterval(timerIntervalRef.current);
-      timerIntervalRef.current = null;
-    }
-    if (cycleTimeoutRef.current) clearTimeout(cycleTimeoutRef.current);
-    if (animationRef.current) cancelAnimationFrame(animationRef.current);
-    setPhase('inhale');
-    setCircleSize(120);
-    setTimerCount(0);
-  };
-
-  // 基于选择的呼吸法模式，动态跑 4-4-6、4-7-8、4-4-4-4 循环
+  // 呼吸动画循环
   const runBreathingLoop = () => {
     const runCycle = () => {
       setPhase('inhale');
-      animateCircle(120, 200, 4000); // 吸气（4s）
+      animateCircle(120, 200, 4000);
 
       const holdDuration = breathMode === 'deep' ? 7000 : (breathMode === 'box' ? 4000 : 4000);
       const exhaleDuration = breathMode === 'deep' ? 8000 : (breathMode === 'box' ? 4000 : 6000);
 
       cycleTimeoutRef.current = setTimeout(() => {
         setPhase('hold');
-        animateCircle(200, 200, holdDuration); // 屏息
+        animateCircle(200, 200, holdDuration);
 
         cycleTimeoutRef.current = setTimeout(() => {
           setPhase('exhale');
-          animateCircle(200, 100, exhaleDuration); // 呼气
+          animateCircle(200, 100, exhaleDuration);
 
           cycleTimeoutRef.current = setTimeout(runCycle, exhaleDuration);
         }, holdDuration);
@@ -145,13 +171,11 @@ const SomaticHealingSpace = ({
     runCycle();
   };
 
-  // 🌟 保留并升华您最喜欢的流畅正弦呼吸律动曲线
   const animateCircle = (start, end, duration) => {
     const startTime = Date.now();
     const anim = () => {
       const elapsed = Date.now() - startTime;
       const progress = Math.min(1, elapsed / duration);
-      // 正弦平滑曲线：呈现极其有弹性和气场支撑感的动态呼吸律动
       const easeProgress = Math.sin((progress * Math.PI) / 2);
       setCircleSize(start + (end - start) * easeProgress);
       if (progress < 1) {
@@ -169,16 +193,15 @@ const SomaticHealingSpace = ({
   };
 
   const handleExitRequest = () => {
-    // 只有调理时间较长的用户在退出时才会启动微评估，避免误触直接关闭
     if (timerCount > 5 || isPlaying) {
       stopHealing();
       setShowEvaluation(true);
     } else {
+      stopHealing();
       onClose();
     }
   };
 
-  // 🌟 闭环：一键分享成功的经验发布到共鸣广场
   const handleShareToSquare = () => {
     if (onPublishSharedTip) {
       const activeTipsText = aiSelfCareTips[0] || (STEP_DATABASES[activeTab]?.[0]?.desc) || "";
@@ -197,19 +220,23 @@ const SomaticHealingSpace = ({
     }, 1500);
   };
 
+  // 当关闭弹窗 (isOpen=false) 或切换 Tab 时，100% 自动安全停播并清理
   useEffect(() => {
+    if (!isOpen) {
+      stopHealing();
+    }
     return () => {
       stopHealing();
     };
-  }, [activeTab, breathMode]);
+  }, [isOpen, activeTab, breathMode, stopHealing]);
 
   if (!isOpen) return null;
 
-  // 滑动步骤卡渲染器
+  // 滑动步骤卡渲染
   const renderStepCard = (type) => {
     const steps = STEP_DATABASES[type];
-    if (!steps) return null;
-    const current = steps[activeStep];
+    if (!steps || !steps.length) return null;
+    const current = steps[activeStep] || steps[0];
     return (
       <div style={{ background: '#1c1c1c', border: '1px solid #2d2d2d', borderRadius: 'var(--radius-md)', padding: '16px 20px', boxSizing: 'border-box' }}>
         <span style={{ fontSize: '10px', background: '#2196f3', color: '#fff', padding: '2px 8px', borderRadius: '10px', fontWeight: 'bold' }}>
@@ -221,14 +248,14 @@ const SomaticHealingSpace = ({
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: '10px' }}>
           <button
             disabled={activeStep === 0}
-            onClick={() => setActiveStep(prev => prev - 1)}
+            onClick={() => setActiveStep(prev => Math.max(0, prev - 1))}
             style={{ flex: 1, padding: '8px', background: '#2c2c2c', border: 'none', borderRadius: '6px', color: activeStep === 0 ? '#444' : '#888', fontSize: '11px', cursor: activeStep === 0 ? 'not-allowed' : 'pointer', fontWeight: 'bold' }}
           >
             {t.stepPrev}
           </button>
           <button
             disabled={activeStep === steps.length - 1}
-            onClick={() => setActiveStep(prev => prev + 1)}
+            onClick={() => setActiveStep(prev => Math.min(steps.length - 1, prev + 1))}
             style={{ flex: 1, padding: '8px', background: '#2c2c2c', border: 'none', borderRadius: '6px', color: activeStep === steps.length - 1 ? '#444' : '#888', fontSize: '11px', cursor: activeStep === steps.length - 1 ? 'not-allowed' : 'pointer', fontWeight: 'bold' }}
           >
             {t.stepNext}
@@ -359,7 +386,7 @@ const SomaticHealingSpace = ({
         </button>
       </div>
 
-      {/* 1. 呼吸大类特殊阀门：提供多套呼吸模态选择 */}
+      {/* 呼吸模态选择 */}
       {activeTab === 'breathing' && (
         <div style={{ width: '100%', maxWidth: 'var(--container-sm)', marginBottom: '20px' }}>
           <select
@@ -374,19 +401,19 @@ const SomaticHealingSpace = ({
         </div>
       )}
 
-      {/* 多感官自适应视图 */}
+      {/* 视觉动画模块 */}
       <div style={{ width: '100%', maxWidth: '400px', marginBottom: '10px' }}>
         {renderSomaticModule()}
       </div>
 
-      {/* 如果是体位、穴位、热敷大类，在圆环下方渲染具体的操作指导步骤卡 */}
+      {/* 步骤卡片 */}
       {activeTab !== 'breathing' && (
         <div style={{ width: '100%', maxWidth: 'var(--container-sm)', marginBottom: '20px' }}>
           {renderStepCard(activeTab)}
         </div>
       )}
 
-      {/* 激活控制条 */}
+      {/* 激活控制按钮 */}
       <div style={{ width: '100%', maxWidth: 'var(--container-sm)', marginBottom: '24px' }}>
         <button
           onClick={isPlaying ? stopHealing : startHealing}
@@ -403,30 +430,52 @@ const SomaticHealingSpace = ({
         </button>
       </div>
 
-      {/* 物理安全底线免责警示 */}
+      {/* 免责警示 */}
       <p style={{ width: '100%', maxWidth: '360px', color: '#ff9800', fontSize: '11px', lineHeight: '1.6', textAlign: 'center', background: 'rgba(255,152,0,0.04)', padding: '10px 14px', borderRadius: 'var(--radius-sm)', border: '1px dashed rgba(255,152,0,0.15)', margin: '0 0 24px 0', boxSizing: 'border-box' }}>
         {t.disclaimer}
       </p>
 
-      {/* 医生端/自愈特调方案板块 */}
+      {/* 自愈方案卡片 */}
       <div style={{ width: '100%', maxWidth: 'var(--container-sm)', background: '#141414', border: '1px solid #222', borderRadius: 'var(--radius-lg)', padding: 'var(--space-xl)', boxSizing: 'border-box', marginBottom: '30px' }}>
         <h4 style={{ color: '#ab47bc', fontSize: '13px', margin: '0 0 16px 0', fontWeight: 'bold', borderBottom: '1px solid #222', paddingBottom: '10px' }}>
           {t.somaticTipsTitle}
         </h4>
-        {aiSelfCareTips && aiSelfCareTips.length > 0 ? (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-            {aiSelfCareTips.map((tip, idx) => (
-              <div key={idx} style={{ background: 'rgba(255,255,255,0.01)', border: '1px solid rgba(255,255,255,0.03)', borderRadius: 'var(--radius-sm)', padding: '12px 14px' }}>
-                <p style={{ color: '#ccc', fontSize: '12.5px', margin: 0, lineHeight: '1.65', textAlign: 'justify' }}>{tip}</p>
+        {(() => {
+          // 痛觉类型映射表
+          const PAIN_KEY_MAP = {
+            '绞痛': 'twist', 'Cramp': 'twist', 'twist': 'twist',
+            '刺痛': 'pierce', 'Pierce': 'pierce', 'pierce': 'pierce',
+            '坠胀': 'heavy', '坠胀重压': 'heavy', 'Heavy Dragging': 'heavy', 'heavy': 'heavy',
+            '酸胀': 'wave', '弥漫酸胀痛': 'wave', 'Diffuse Ache': 'wave', 'wave': 'wave',
+            '刮痛': 'scrape', '撕刮痛': 'scrape', 'Tearing Scrape': 'scrape', 'scrape': 'scrape'
+          };
+          const currentPainKey = PAIN_KEY_MAP[dominantPainName] || 'twist';
+
+          // 优先使用云端/上级传递的 aiSelfCareTips；若为空，则直接调用 translations.js 中的 offlineTips 本地特调
+          const localTips = t.offlineTips?.[currentPainKey] || t.offlineTips?.twist || [];
+          const effectiveTips = (aiSelfCareTips && aiSelfCareTips.length > 0)
+            ? aiSelfCareTips
+            : localTips;
+
+          if (effectiveTips && effectiveTips.length > 0) {
+            return (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                {effectiveTips.map((tip, idx) => (
+                  <div key={idx} style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: 'var(--radius-sm)', padding: '12px 14px' }}>
+                    <p style={{ color: '#ccc', fontSize: '12.5px', margin: 0, lineHeight: '1.65', textAlign: 'justify' }}>{tip}</p>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
-        ) : (
-          <p style={{ color: '#666', fontSize: '12px', textAlign: 'center', margin: '20px 0' }}>{t.syncTips}</p>
-        )}
+            );
+          }
+
+          return (
+            <p style={{ color: '#666', fontSize: '12px', textAlign: 'center', margin: '20px 0' }}>{t.syncTips}</p>
+          );
+        })()}
       </div>
 
-      {/* 闭环反馈自愈微评估 */}
+      {/* 出舱评估弹窗 */}
       {showEvaluation && (
         <div style={{
           position: 'fixed', zIndex: 11000, top: 0, left: 0, width: '100vw', height: '100vh',

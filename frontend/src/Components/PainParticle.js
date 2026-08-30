@@ -56,7 +56,7 @@ export class PainParticle {
   }
 
   update(p5) {
-    if (!this.isDynamic) {
+    if (!this.isDynamic && this.type !== 'pierce') {
       this.pos.add(this.vel);
     }
 
@@ -68,7 +68,7 @@ export class PainParticle {
       this.size *= 0.98;
       if (this.size < 3) this.life = 0;
     } else if (this.type === 'wave') {
-      // 【关键修复】保持原版的呼吸脉动计算方式
+      // 保持原版的呼吸脉动计算方式
       this.pulseSize = this.size + p5.sin(p5.frameCount * 0.05 + this.seed) * (this.maxSize - this.size);
     } else if (this.type === 'scrape') {
       this.life -= 20;
@@ -107,12 +107,26 @@ export class PainParticle {
 
   // ========== 1. 针刺 (Pierce) ==========
   _drawPierce(p) {
-    const endX = this.pos.x + (this.pierceVec ? this.pierceVec.x : this.vel.x);
-    const endY = this.pos.y + (this.pierceVec ? this.pierceVec.y : this.vel.y);
-    const headingAngle = this.pierceVec ? this.pierceVec.heading() : this.vel.heading();
+    // tipX, tipY 严格等于用户点击的位置（针尖扎入点）
+    const tipX = this.pos.x;
+    const tipY = this.pos.y;
+
+    // 针尾 (tail) 在外侧，刺向点击点 (tip)
+    const thrustX = this.pierceVec ? this.pierceVec.x : 25;
+    const thrustY = this.pierceVec ? this.pierceVec.y : 25;
+    
+    // 针柄尾部起点（从外侧延伸过来）
+    const tailX = tipX - thrustX;
+    const tailY = tipY - thrustY;
+
+    const headingAngle = p.atan2(thrustY, thrustX);
+    const perpAngle = headingAngle + p.PI / 2;
+    // 针尾的宽度
+    const bladeW = this.size * (0.35 + this.pressureScale * 0.4);
 
     p.drawingContext.shadowBlur = 0;
 
+    //绘制由粗到细的锐利针尖：从 tail(粗) 刺向 tip(极尖)
     p.noStroke();
     p.fill(
       Math.min(255, this.color[0] + 160),
@@ -121,44 +135,54 @@ export class PainParticle {
       250
     );
 
-    const perpAngle = headingAngle + p.PI / 2;
-    const bladeW = this.size * (0.25 + this.pressureScale * 0.3);
-
     p.beginShape();
-    p.vertex(this.pos.x - p.cos(headingAngle) * 3, this.pos.y - p.sin(headingAngle) * 3);
-    p.vertex(this.pos.x + p.cos(perpAngle) * bladeW, this.pos.y + p.sin(perpAngle) * bladeW);
-    p.vertex(endX, endY);
-    p.vertex(this.pos.x - p.cos(perpAngle) * bladeW, this.pos.y - p.sin(perpAngle) * bladeW);
+    // 针尾宽度
+    p.vertex(tailX + p.cos(perpAngle) * bladeW, tailY + p.sin(perpAngle) * bladeW);
+    // 针尖（落点就在用户点击的 tipX, tipY）
+    p.vertex(tipX, tipY);
+    // 针尾另一侧
+    p.vertex(tailX - p.cos(perpAngle) * bladeW, tailY - p.sin(perpAngle) * bladeW);
+    // 针尾后缘微收
+    p.vertex(tailX - p.cos(headingAngle) * 2, tailY - p.sin(headingAngle) * 2);
     p.endShape(p.CLOSE);
 
-    p.stroke(this.color[0] * 0.6, 0, 0, 180);
-    p.strokeWeight(0.8 * this.pressureScale);
+    //点击原点处的穿刺核心与神经放射裂纹
+    p.stroke(this.color[0] * 0.8, 0, 0, 200);
+    p.strokeWeight(1.0 * this.pressureScale);
     p.noFill();
     if (this.fissures) {
       this.fissures.forEach(fis => {
-        const fEndX = this.pos.x + p.cos(fis.angle) * fis.len;
-        const fEndY = this.pos.y + p.sin(fis.angle) * fis.len;
+        // 裂纹从点击点向外炸开
+        const fEndX = tipX + p.cos(fis.angle) * fis.len;
+        const fEndY = tipY + p.sin(fis.angle) * fis.len;
         p.beginShape();
-        p.vertex(this.pos.x, this.pos.y);
+        p.vertex(tipX, tipY);
         p.vertex(
-          p.lerp(this.pos.x, fEndX, 0.5) + p.random(-1.5, 1.5),
-          p.lerp(this.pos.y, fEndY, 0.5) + p.random(-1.5, 1.5)
+          p.lerp(tipX, fEndX, 0.5) + p.random(-1.5, 1.5),
+          p.lerp(tipY, fEndY, 0.5) + p.random(-1.5, 1.5)
         );
         p.vertex(fEndX, fEndY);
         p.endShape();
       });
     }
 
+    // 针尖刺入核心
     p.noStroke();
-    const numSplatters = Math.floor(3 + this.pressureScale * 4);
+    p.fill(255, 255, 255, 255);
+    p.ellipse(tipX, tipY, 2.5, 2.5); // 锐利白芯
+    p.fill(this.color[0], this.color[1], this.color[2], 180);
+    p.ellipse(tipX, tipY, 5 * this.pressureScale, 5 * this.pressureScale); // 边缘血色晕光
+
+    //沿针身分布的细微飞溅碎屑
+    const numSplatters = Math.floor(2 + this.pressureScale * 3);
     for (let sp = 0; sp < numSplatters; sp++) {
-      const spT = p.random(0.2, 1.0);
-      const baseX = p.lerp(this.pos.x, endX, spT);
-      const baseY = p.lerp(this.pos.y, endY, spT);
-      const spX = baseX + p.random(-8, 8) * this.pressureScale;
-      const spY = baseY + p.random(-8, 8) * this.pressureScale;
-      p.fill(this.color[0] * 0.8, 10, 10, 200 + p.random(-30, 30));
-      p.ellipse(spX, spY, p.random(0.8, 2.2), p.random(0.8, 2.2));
+      const spT = p.random(0.2, 0.8);
+      const baseX = p.lerp(tailX, tipX, spT);
+      const baseY = p.lerp(tailY, tipY, spT);
+      const spX = baseX + p.random(-4, 4) * this.pressureScale;
+      const spY = baseY + p.random(-4, 4) * this.pressureScale;
+      p.fill(this.color[0] * 0.9, 10, 10, 220);
+      p.ellipse(spX, spY, p.random(1.0, 2.0), p.random(1.0, 2.0));
     }
   }
 

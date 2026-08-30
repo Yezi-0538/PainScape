@@ -1234,6 +1234,34 @@ const translations = {
         deep: "🍃 4-7-8 深度镇痛息 (强力镇静)",
         box: "📦 4-4-4-4 箱式平缓息 (稳定心率)"
       },
+      //离线特调自愈方案
+      offlineTips: {
+        twist: [
+          "🔥 腹直肌与子宫平滑肌痉挛期：推荐 40~42°C 热水袋或发热贴敷于肚脐下三寸（关元穴），每次 20 分钟以舒缓痉挛。",
+          "🧘 推荐体位：侧卧微蜷『胎儿式』或仰卧时在双膝下垫一个厚枕头，降低腹直肌筋膜张力，减少绞榨感。",
+          "🍵 物理温饮：小口慢饮温红糖姜茶或温开水，忌生冷食物，促使盆腔血流通畅。"
+        ],
+        pierce: [
+          "💆 神经反射阻断：使用拇指稳重揉按足内踝上四指处的『三阴交穴』与足背『太冲穴』，每穴 1~2 分钟，促使内啡肽释放缓解锐痛。",
+          "🌬️ 4-7-8 深度镇痛息：吸气 4s、屏气 7s、缓慢长呼气 8s，降低交感神经兴奋性，钝化锐痛传导。",
+          "🌿 感官转移：调暗室内照明，播放白噪音或雨声音频，阻断神经系统对刺痛信号的过度放大。"
+        ],
+        heavy: [
+          "🧘 骨盆释压体位：采用『仰卧抬腿靠墙式』或『骨盆微抬臀桥位』，利用重力促进盆腔静脉回流，减轻下坠压迫。",
+          "🌸 骨盆底肌完全放松：深长呼气时，主动感受会阴部及下腹向外下方舒展松沉，切忌憋气提肛。",
+          "🚶 极慢速室内踱步：若痛感允许，缓步行走 3 分钟后静坐，避免长时间久坐造成盆腔淤血加重。"
+        ],
+        wave: [
+          "🍃 4-4-4 箱式节律呼吸：以均等平稳的节奏呼吸，跟随波浪酸胀的起伏节拍，不抗拒疼痛，顺势吐纳。",
+          "🔥 腰骶部温敷：除了下腹，将暖贴移至后腰腰骶部（次髎穴区域），缓解放射性酸沉下坠感。",
+          "🧘 蝴蝶式拉伸：坐姿双脚脚心相对，双膝自然下沉微晃，放松大腿内侧与骨盆内收肌群。"
+        ],
+        scrape: [
+          "🛋️ 零重力体位静养：仰卧并在后背及大腿下方垫上柔软靠垫，使腹部肌肉彻底处于零张力松弛状态。",
+          "💆 合谷穴揉按：用一手拇指按压另一手虎口『合谷穴』，产生酸胀感为宜，有助于提升全身痛阈。",
+          "💧 温水足浴：40°C 左右温水泡脚 15 分钟，引血下行，改善全身微循环。"
+        ]
+      },
       stepDatabase: {
         posture: [
           { step: "第 1 步：静态趴伏准备", desc: "在床头或大腿前侧垫一个高且饱满的靠枕，双膝张开微屈并跪下。上半身完全趴在枕头上，让中下腹呈悬空、无束缚状态。" },
@@ -2790,6 +2818,34 @@ const translations = {
         slow: "🌊 4-4-6 Slow Flow (Pelvic Release)",
         deep: "🍃 4-7-8 Deep Breath (Pain Relief)",
         box: "📦 4-4-4-4 Box Breath (Heart Rate Stabilization)"
+      },
+       //离线特调自愈方案 
+      offlineTips: {
+        twist: [
+          "🔥 Uterine Smooth Muscle Spasm: Apply a 40–42°C warm compress or heating pad to the lower abdomen (Guanyuan acupoint) for 20 mins to ease spasms.",
+          "🧘 Recommended Posture: Side-lying fetal position or supine with a thick pillow under knees to relieve pelvic tension.",
+          "🍵 Warm Hydration: Slowly sip warm ginger tea or warm water. Avoid cold food and drinks."
+        ],
+        pierce: [
+          "💆 Acupressure Reflex: Press 'Sanyinjiao' (4 fingers above inner ankle) and 'Taichong' for 1-2 mins to stimulate endorphin release.",
+          "🌬️ 4-7-8 Deep Breathing: Inhale 4s, hold 7s, exhale 8s to calm the sympathetic nervous system and dull sharp pain impulses.",
+          "🌿 Sensory Grounding: Dim ambient lights and use soft white noise to prevent neural hypersensitivity."
+        ],
+        heavy: [
+          "🧘 Pelvic Decongestion Posture: Legs-up-the-wall or gentle supported bridge pose to assist venous return and reduce dragging pressure.",
+          "🌸 Pelvic Floor Relaxation: On each long exhalation, consciously let the pelvic base expand and soften without bearing down.",
+          "🚶 Gentle Pacing: If comfortable, take slow 3-minute walks to avoid prolonged static pelvic blood pooling."
+        ],
+        wave: [
+          "🍃 Box Breathing (4-4-4): Inhale 4s, hold 4s, exhale 4s in harmony with the wave-like dull ache.",
+          "🔥 Lumbosacral Warmth: Place heat packs on the lower back/sacrum to soothe radiating dull soreness.",
+          "🧘 Butterfly Stretch: Seated with soles together, gently let knees sink open to relax pelvic adductor muscles."
+        ],
+        scrape: [
+          "🛋️ Zero-Gravity Resting: Lie down with cushions under back and thighs to completely unload abdominal wall tension.",
+          "💆 Hegu Acupressure: Press the web between thumb and index finger (Hegu) to elevate the systemic pain threshold.",
+          "💧 Warm Foot Bath: Soak feet in 40°C warm water for 15 mins to promote peripheral circulation."
+        ]
       },
       stepDatabase: {
         posture: [

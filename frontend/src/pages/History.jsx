@@ -1,7 +1,6 @@
 // src/pages/HistoryPage.jsx
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { useI18n } from '../i18n/i18nContext';
-import { deleteRecordFromCloud } from '../services/painRecordService';
 import RecordDetailModal from '../Components/modals/RecordDetailModal';
 import PublishPostModal from '../Components/modals/PublishPostModal';
 import { telemetry } from '../services/telemetry';
@@ -1676,17 +1675,6 @@ export default function HistoryPage({
     const recordToDelete = history.find(h => h.id === recordId);
     if (!recordToDelete) return;
 
-    if (
-      currentUserId &&
-      !currentUserId.startsWith('guest_') &&
-      recordToDelete.userId &&
-      !recordToDelete.userId.startsWith('guest_') &&
-      recordToDelete.userId !== currentUserId
-    ) {
-      showToast?.('noPermission');
-      return;
-    }
-
     if (window.confirm(t('history.deleteConfirm') || '确定要删除这条记录吗？')) {
       const updated = history.filter(h => h.id !== recordId);
       setHistory(updated);
@@ -1713,13 +1701,6 @@ export default function HistoryPage({
         recordId: recordId
       });
 
-      if (currentUserId && !currentUserId.startsWith('guest_') && currentUserId !== 'user_guest') {
-        try {
-          await deleteRecordFromCloud(recordId, currentUserId);
-        } catch (err) {
-          console.warn('⚠️ 云端记录删除失败:', err);
-        }
-      }
     }
   };
 
