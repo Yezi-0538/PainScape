@@ -459,19 +459,31 @@ export default function ResultPage({
   const handleFieldSave = (fieldKey, value) => {
     const originalText = content[fieldKey] || '';
     const editedText = stripUserMarkers(value);
-
-    // ✅ 检测编辑类型：用户手动编辑 vs AI 精调
     const isAiRefined = refiningField === fieldKey;
-    const editType = isAiRefined ? 'ai_refined' : 'manual_edit';
+
+    // ✅ 三态判定
+    // USER_FIELDS: 用户填写的原始档案字段（这些字段从一开始就是用户输入的）
+    const USER_FIELDS = ['past_history', 'menstrual_history'];
+    const hasUserMarker = typeof value === 'string' && value.includes('<user>');
+    const isUserOwned = USER_FIELDS.includes(fieldKey) || hasUserMarker;
+
+    let provenance;
+    if (isAiRefined) {
+      provenance = 'ai';                          // ✅ AI 精调按钮
+    } else if (isUserOwned) {
+      provenance = 'user';                        // ✅ 用户原始数据
+    } else {
+      provenance = 'ai_then_edited';              // ✅ 人工改写 AI 生成文本
+    }
 
     telemetry.logReportEvent({
       outputType: mapTabToOutputType(identity),
-      event_type: editType,  // 'ai_refined' 或 'manual_edit'
+      event_type: isAiRefined ? 'ai_refined' : 'manual_edit',
       fieldName: fieldKey,
-      originalText: originalText,
-      editedText: editedText,
+      originalText,
+      editedText,
       extra: {
-        provenance: isAiRefined ? 'ai' : 'user',  // ✅ 来源标签
+        provenance,
         edit_source: isAiRefined ? 'refine_button' : 'direct_edit',
         character_count: editedText.length,
       }
@@ -482,6 +494,7 @@ export default function ResultPage({
       [fieldKey]: value,
     });
   };
+
   const getDisplayContent = (fieldKey) => {
     if (viewMode === 'doctor') {
       // 医生模式：直接返回结构化字段

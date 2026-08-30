@@ -115,7 +115,23 @@ class TelemetryService {
 
   getSessionId() {
     if (!this.currentSessionId) {
-      this.startSession({ userId: 'anonymous', mode: 'clinical' });
+      const id = this.generateSessionId();
+      try {
+        const sessions = JSON.parse(localStorage.getItem(SESSIONS_KEY) || '[]');
+        if (!sessions.some(s => s.session_id === id)) {
+          this._saveItem(SESSIONS_KEY, {
+            session_id: id,
+            user_id: 'unknown',
+            start_time: new Date().toISOString(),
+            end_time: null,
+            mode: 'unknown',
+            entry_point: 'canvas',
+            profile_completed: false,
+          });
+        }
+      } catch (e) {
+        console.warn('[Telemetry] lazy session failed:', e);
+      }
     }
     return this.currentSessionId;
   }
@@ -318,8 +334,8 @@ class TelemetryService {
   // ============ 6. history_actions（历史记录用户行为） ============
   logHistoryAction({
     action,        // view_history / search / filter_by_pain / clear_search / switch_view /
-                   // select_date / compare_records / clear_compare / view_record_detail /
-                   // delete_record / export_records / share_record / publish_record
+    // select_date / compare_records / clear_compare / view_record_detail /
+    // delete_record / export_records / share_record / publish_record
     searchQuery = null,
     painTypeFilter = null,
     viewMode = null, // calendar / timeline

@@ -28,23 +28,18 @@ export default function DraftBox({
         try {
             if (!isGuest && currentUserId && !currentUserId.startsWith('guest_')) {
                 const { data, error } = await supabase
-                    .from('pain_records')
-                    .select('*')
-                    .eq('user_id', currentUserId)
-                    .eq('status', 'draft')
+                    .from('pain_records').select('*')
+                    .eq('user_id', currentUserId).eq('status', 'draft')
                     .order('updated_at', { ascending: false });
-
                 if (error) throw error;
-                setDrafts(data || []);
+                const loaded = data || [];
+                setDrafts(loaded);
+                telemetry.logDraftBoxViewed({ fromPage: 'draft_box', draftCount: loaded.length });
             } else {
                 const localDrafts = JSON.parse(localStorage.getItem('paintScape_drafts') || '[]');
                 setDrafts(localDrafts);
+                telemetry.logDraftBoxViewed({ fromPage: 'draft_box', draftCount: localDrafts.length });
             }
-            // ✅ 埋点：用户打开了草稿箱（统计页面访问次数）
-            telemetry.logDraftBoxViewed({
-                fromPage: 'draft_box',
-                draftCount: drafts.length
-            });
         } catch (err) {
             console.error('加载草稿失败:', err);
             showToast('draftBox.loadFailed');

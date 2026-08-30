@@ -1,64 +1,101 @@
 // src/hooks/useAudio.js
-import { useRef, useState, useCallback } from 'react';
+import { useRef, useState, useCallback, useEffect } from 'react';
 
-/**
- * 画笔音效 Hook
- * 管理 AudioContext 和画笔音效播放
- * @param {boolean} externalIsMuted - 外部传入的静音状态（如 App 的 isMuted），优先使用
- */
-export const useAudio = (externalIsMuted) => {
-  const audioCtx = useRef(null);
-  const [internalIsMuted, setInternalIsMuted] = useState(false);
+// ============================================================
+// 1. 全局单例 AudioContext 与 预生成白噪音缓冲池
+// ============================================================
+let globalAudioCtx = null;
+let globalNoiseBuffer = null;
 
-  // 如果外部传入了 isMuted，使用外部的；否则使用内部的
-  const isMuted = externalIsMuted !== undefined ? externalIsMuted : internalIsMuted;
+const getAudioContext = () => {
+  if (!globalAudioCtx && typeof window !== 'undefined') {
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    if (AudioContextClass) {
+      globalAudioCtx = new AudioContextClass();
+    }
+  }
+  return globalAudioCtx;
+};
 
-  /**
-   * 创建白噪音 Buffer
-   */
-  const createNoiseBuffer = useCallback((ctx, duration = 1.0) => {
-    const bufferSize = ctx.sampleRate * duration;
-    const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
-    const data = buffer.getChannelData(0);
+// 预先生成一个 2 秒的白噪音 Buffer，全局复用，杜绝每帧生成几万个随机数的卡顿
+const getNoiseBuffer = (ctx) => {
+  if (!globalNoiseBuffer && ctx) {
+    const bufferSize = ctx.sampleRate * 2.0; // 2秒
+    globalNoiseBuffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+    const data = globalNoiseBuffer.getChannelData(0);
     for (let i = 0; i < bufferSize; i++) {
       data[i] = Math.random() * 2 - 1;
     }
-    return buffer;
-  }, []);
+  }
+  return globalNoiseBuffer;
+};
+
+// 🌟 全局手势预解锁：在用户首次点击/触摸屏幕时，立即唤醒 AudioContext
+if (typeof window !== 'undefined') {
+  const unlockAudioContext = () => {
+    const ctx = getAudioContext();
+    if (ctx && ctx.state === 'suspended') {
+      ctx.resume().then(() => {
+        console.log('🔊 [WebAudio] 上下文已成功被手势激活解锁');
+      }).catch((err) => {
+        console.warn('⚠️ [WebAudio] 激活失败:', err);
+      });
+    }
+    // 解锁后移除监听器
+    window.removeEventListener('pointerdown', unlockAudioContext);
+    window.removeEventListener('touchstart', unlockAudioContext);
+    window.removeEventListener('mousedown', unlockAudioContext);
+  };
+
+  window.addEventListener('pointerdown', unlockAudioContext, { passive: true });
+  window.addEventListener('touchstart', unlockAudioContext, { passive: true });
+  window.addEventListener('mousedown', unlockAudioContext, { passive: true });
+}
+
+// ============================================================
+// 2. 主 Hook
+// ============================================================
+export const useAudio = (externalIsMuted) => {
+  const [internalIsMuted, setInternalIsMuted] = useState(false);
+  const isMuted = externalIsMuted !== undefined ? externalIsMuted : internalIsMuted;
+  
+  const isMutedRef = useRef(isMuted);
+  const lastPlayTimeRef = useRef(0); // 节流控制
+
+  useEffect(() => {
+    isMutedRef.current = isMuted;
+  }, [isMuted]);
 
   /**
    * 播放画笔音效
    * @param {string} type - 画笔类型: 'pierce' | 'heavy' | 'twist' | 'wave' | 'scrape' | 'eraser'
    */
-  const playBrushSound = useCallback(
-    (type) => {
-      if (isMuted) return;
-      
-      if (!audioCtx.current) {
-        audioCtx.current = new (window.AudioContext || window.webkitAudioContext)();
-      }
-      if (audioCtx.current.state === 'suspended') {
-        audioCtx.current.resume();
-      }
+  const playBrushSound = useCallback((type) => {
+    if (isMutedRef.current) return;
 
-      const ctx = audioCtx.current;
+    // 🌟 节流机制：两次画笔音效触发间隔至少 75ms，防止 60fps 爆音与通道耗尽
+    const nowTimestamp = Date.now();
+    if (nowTimestamp - lastPlayTimeRef.current < 75) {
+      return;
+    }
+    lastPlayTimeRef.current = nowTimestamp;
+
+    const ctx = getAudioContext();
+    if (!ctx) return;
+
+    // 如果状态仍为挂起，尝试唤醒
+    if (ctx.state === 'suspended') {
+      ctx.resume().catch(() => {});
+    }
+
+    try {
       const now = ctx.currentTime;
-
+      const noiseBuf = getNoiseBuffer(ctx);
       const SMOOTH_RELEASE_TIME = 0.8;
       const MAX_VOLUME = 0.1;
 
-      // 创建噪音 Buffer 的辅助函数（使用闭包中的 ctx）
-      const makeNoise = (duration) => {
-        const bufferSize = ctx.sampleRate * duration;
-        const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
-        const data = buffer.getChannelData(0);
-        for (let i = 0; i < bufferSize; i++) {
-          data[i] = Math.random() * 2 - 1;
-        }
-        return buffer;
-      };
-
       switch (type) {
+        // ===== 1. 刺痛 (pierce) =====
         case 'pierce': {
           const osc = ctx.createOscillator();
           const noise = ctx.createBufferSource();
@@ -72,7 +109,7 @@ export const useAudio = (externalIsMuted) => {
           osc.frequency.setValueAtTime(260, now);
           osc.frequency.exponentialRampToValueAtTime(60, now + duration);
 
-          noise.buffer = makeNoise(duration);
+          noise.buffer = noiseBuf;
           noiseFilter.type = 'bandpass';
           noiseFilter.frequency.setValueAtTime(500, now);
           noiseFilter.Q.setValueAtTime(3.0, now);
@@ -96,6 +133,7 @@ export const useAudio = (externalIsMuted) => {
           break;
         }
 
+        // ===== 2. 坠胀重压 (heavy) =====
         case 'heavy': {
           const osc = ctx.createOscillator();
           const noise = ctx.createBufferSource();
@@ -113,7 +151,7 @@ export const useAudio = (externalIsMuted) => {
           oscFilter.type = 'lowpass';
           oscFilter.frequency.setValueAtTime(150, now);
 
-          noise.buffer = makeNoise(duration);
+          noise.buffer = noiseBuf;
           noiseFilter.type = 'lowpass';
           noiseFilter.frequency.setValueAtTime(90, now);
 
@@ -139,6 +177,7 @@ export const useAudio = (externalIsMuted) => {
           break;
         }
 
+        // ===== 3. 绞痛 (twist) =====
         case 'twist': {
           const osc = ctx.createOscillator();
           const lfo = ctx.createOscillator();
@@ -170,6 +209,7 @@ export const useAudio = (externalIsMuted) => {
           break;
         }
 
+        // ===== 4. 弥漫酸胀痛 (wave) =====
         case 'wave': {
           const osc1 = ctx.createOscillator();
           const osc2 = ctx.createOscillator();
@@ -192,7 +232,7 @@ export const useAudio = (externalIsMuted) => {
           osc2.frequency.linearRampToValueAtTime(136.5, now + duration * 0.5);
           osc2.frequency.linearRampToValueAtTime(116.5, now + duration);
 
-          noise.buffer = makeNoise(duration);
+          noise.buffer = noiseBuf;
           filter1.type = 'lowpass';
           filter1.frequency.setValueAtTime(400, now);
 
@@ -228,13 +268,14 @@ export const useAudio = (externalIsMuted) => {
           break;
         }
 
+        // ===== 5. 撕裂刮痛 (scrape) =====
         case 'scrape': {
           const noise = ctx.createBufferSource();
           const noiseFilter = ctx.createBiquadFilter();
           const mainGain = ctx.createGain();
           const duration = 0.28;
 
-          noise.buffer = makeNoise(duration);
+          noise.buffer = noiseBuf;
           noiseFilter.type = 'bandpass';
           noiseFilter.frequency.setValueAtTime(180, now);
           noiseFilter.frequency.exponentialRampToValueAtTime(480, now + duration);
@@ -254,6 +295,7 @@ export const useAudio = (externalIsMuted) => {
           break;
         }
 
+        // ===== 6. 橡皮擦 (eraser) =====
         case 'eraser': {
           const osc = ctx.createOscillator();
           const filter = ctx.createBiquadFilter();
@@ -283,9 +325,10 @@ export const useAudio = (externalIsMuted) => {
         default:
           break;
       }
-    },
-    [isMuted]
-  );
+    } catch (err) {
+      console.warn('⚠️ [useAudio] 音频合成播放异常:', err);
+    }
+  }, []);
 
   const toggleMute = useCallback(() => {
     setInternalIsMuted((prev) => !prev);
