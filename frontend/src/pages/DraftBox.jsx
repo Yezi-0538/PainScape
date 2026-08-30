@@ -1,6 +1,5 @@
 // src/pages/DraftBox.jsx
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../services/supabaseClient';
 import { useI18n } from '../i18n/i18nContext';
 import { telemetry } from '../services/telemetry';
 
@@ -23,25 +22,18 @@ export default function DraftBox({
         loadDrafts();
     }, [currentUserId]);
 
-    const loadDrafts = async () => {
+    const loadDrafts = () => {
         setLoading(true);
         try {
-            if (!isGuest && currentUserId && !currentUserId.startsWith('guest_')) {
-                const { data, error } = await supabase
-                    .from('pain_records').select('*')
-                    .eq('user_id', currentUserId).eq('status', 'draft')
-                    .order('updated_at', { ascending: false });
-                if (error) throw error;
-                const loaded = data || [];
-                setDrafts(loaded);
-                telemetry.logDraftBoxViewed({ fromPage: 'draft_box', draftCount: loaded.length });
-            } else {
-                const localDrafts = JSON.parse(localStorage.getItem('paintScape_drafts') || '[]');
-                setDrafts(localDrafts);
-                telemetry.logDraftBoxViewed({ fromPage: 'draft_box', draftCount: localDrafts.length });
-            }
+            const localDrafts = JSON.parse(localStorage.getItem('paintScape_drafts') || '[]');
+            setDrafts(localDrafts);
+            
+            telemetry.logDraftBoxViewed({
+                fromPage: 'draft_box',
+                draftCount: localDrafts.length
+            });
         } catch (err) {
-            console.error('加载草稿失败:', err);
+            console.error('加载本地草稿失败:', err);
             showToast('draftBox.loadFailed');
         } finally {
             setLoading(false);

@@ -143,27 +143,13 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
     }
   }, [setUserInfo, t]);
 
-  // 登录/恢复会话后：先搬运本地游客数据，再全量拉取云端记录并写入缓存
-  const syncAndLoadUserHistory = useCallback(async (userId) => {
-    if (!userId || userId.startsWith('guest_') || userId === 'user_guest') return;
-
+  // 本地加载日记历史记录
+  const syncAndLoadUserHistory = useCallback((userId) => {
     try {
-      // 1. 搬运本地游客记录上云
-      await syncLocalHistoryToCloud(userId);
-
-      // 2. 从云端拉取最新全部记录
-      const cloudRecords = await fetchUserPainRecords(userId);
-
-      // 3. 读取本地已有的缓存并智能合并
       const currentLocal = JSON.parse(localStorage.getItem('painscape_history') || '[]');
-      const merged = mergeHistoryRecords(cloudRecords, currentLocal, userId);
-
-      // 4. 更新 state 并覆盖本地缓存（旧游客脏数据已被彻底洗掉）
-      setHistory(merged);
-      localStorage.setItem('painscape_history', JSON.stringify(merged));
-      console.log(`🟢 已成功同步并缓存 ${merged.length} 条具身日记记录！`);
+      setHistory(currentLocal);
     } catch (err) {
-      console.warn('⚠️ 同步日记记录异常:', err);
+      console.warn('读取本地日记异常:', err);
     }
   }, []);
 
@@ -1381,6 +1367,13 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
         holdDurationMs: data.holdDurationMs || 3000
       });
       const canvasImg = getFallbackImgUrl();
+      setImgUrl(canvasImg);
+      if (pgFrontRef.current && typeof pgFrontRef.current.clear === 'function') pgFrontRef.current.clear();
+      if (pgBackRef.current && typeof pgBackRef.current.clear === 'function') pgBackRef.current.clear();
+      dynamicParticles.current = [];
+      staticParticles.current = [];
+      particlePositions.current = [];
+      brushCounts.current = { twist: 0, pierce: 0, heavy: 0, wave: 0, scrape: 0 };
 
       const requestBody = {
         appMode: appMode || 'medical',
@@ -1447,7 +1440,7 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
       };
       setHistory(prev => [historyEntry, ...prev]);
       if (!isGuest && currentUserId && !currentUserId.startsWith('guest_')) {
-        saveRecordToCloud(currentUserId, historyEntry);
+        //saveRecordToCloud(currentUserId, historyEntry);
       }
       telemetry.switchTab('partner');
       setPage('result');
@@ -1791,7 +1784,7 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
 
     setHistory(prev => [paintingData, ...prev]);
     if (!isGuest && currentUserId && !currentUserId.startsWith('guest_')) {
-      saveRecordToCloud(currentUserId, paintingData);
+      //saveRecordToCloud(currentUserId, paintingData);
     }
   };
   const handleClear = useCallback(() => {
@@ -2027,9 +2020,6 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
     setIsLoading(true);
 
     try {
-      const cvs = document.createElement('canvas');
-      const ctx = cvs.getContext('2d');
-
       const activeIdentity = targetContent.identity || 'partner';
       const isZhMode = targetLanguage === 'zh';
 
@@ -2067,11 +2057,43 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
         }
       }
 
-      cvs.width = 640;
-      const textPadding = 40;
-      const maxTextWidth = cvs.width - (textPadding * 2);
+      //预加载图片
+      const activeImgSrc = targetContent.historyImg || imgUrl || getFallbackImgUrl();
+      const mainImg = new Image();
+      await new Promise((resolve) => {
+        mainImg.onload = resolve;
+        mainImg.onerror = resolve;
+        mainImg.src = activeImgSrc;
+      });
 
-      ctx.font = '16px "Microsoft YaHei", -apple-system, sans-serif';
+      const cvs = document.createElement('canvas');
+      const ctx = cvs.getContext('2d');
+      cvs.width = 640;
+
+      // 根据图片天然比例计算绘制尺寸
+      const naturalWidth = mainImg.naturalWidth || mainImg.width || 600;
+      const naturalHeight = mainImg.naturalHeight || mainImg.height || 400;
+      const imgAspect = naturalWidth / naturalHeight;
+
+      const maxImgW = 560; // 左右各留 40px 边距
+      const maxImgH = 380; // 最大图片高度限制
+
+      let drawW = maxImgW;
+      let drawH = drawW / imgAspect;
+
+      if (drawH > maxImgH) {
+        drawH = maxImgH;
+        drawW = drawH * imgAspect;
+      }
+
+      const imgX = (cvs.width - drawW) / 2;
+      const imgY = 36;
+
+      // 计算文字换行与卡片总高度
+      const textPadding = 40;
+      const maxTextWidth = cvs.width - (textPadding * 2) - 40;
+
+      ctx.font = '15px "Microsoft YaHei", -apple-system, sans-serif';
       const lines = [];
       fullText.split('\n').forEach(p => {
         let currentLine = '';
@@ -2087,27 +2109,20 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
         lines.push(currentLine);
       });
 
-      const cardBodyY = 560;
-      const cardHeight = lines.length * 28 + 140;
-      cvs.height = cardBodyY + cardHeight + 100;
+      const cardBodyY = imgY + drawH + 24; // 文字卡片紧贴在图片下方
+      const cardHeight = lines.length * 28 + 120;
+      cvs.height = cardBodyY + cardHeight + 70; // 动态计算整张卡片的总高度
 
+      // 绘制画布内容
       ctx.fillStyle = '#0a0a0a';
       ctx.fillRect(0, 0, cvs.width, cvs.height);
 
-      const activeImgSrc = targetContent.historyImg || imgUrl || getFallbackImgUrl();
-      const mainImg = new Image();
-      await new Promise((resolve) => {
-        mainImg.onload = resolve;
-        mainImg.onerror = resolve;
-        mainImg.src = activeImgSrc;
-      });
+      // 绘制等比例图片
+      ctx.drawImage(mainImg, imgX, imgY, drawW, drawH);
 
-      const imgDim = 480;
-      const imgX = (cvs.width - imgDim) / 2;
-      ctx.drawImage(mainImg, imgX, 40, imgDim, imgDim);
-
+      // 绘制下半部分文字背景圆角卡片
       ctx.fillStyle = '#141414';
-      ctx.strokeStyle = '#2d2d2d';
+      ctx.strokeStyle = '#282828';
       ctx.lineWidth = 1;
 
       const roundRect = (x, y, w, h, r) => {
@@ -2124,31 +2139,35 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
         ctx.closePath();
       };
 
-      roundRect(30, cardBodyY, cvs.width - 60, cardHeight, 20);
+      roundRect(30, cardBodyY, cvs.width - 60, cardHeight, 18);
       ctx.fill();
       ctx.stroke();
 
+      // 语境彩色侧边条
       const barColors = { partner: '#ef5350', family: '#ff9800', friend: '#2196f3', work: '#ff9800', doctor: '#2196f3', self: '#9c27b0' };
-      ctx.fillStyle = barColors[activeIdentity] || '#ff9800';
-      ctx.fillRect(45, cardBodyY + 28, 4, 22);
+      ctx.fillStyle = barColors[activeIdentity] || '#4caf50';
+      ctx.fillRect(48, cardBodyY + 26, 4, 20);
 
+      // 卡片标题
       ctx.fillStyle = '#ffffff';
-      ctx.font = 'bold 18px "Microsoft YaHei", -apple-system, sans-serif';
-      ctx.fillText(cardTitle, 60, cardBodyY + 45);
+      ctx.font = 'bold 17px "Microsoft YaHei", -apple-system, sans-serif';
+      ctx.fillText(cardTitle, 62, cardBodyY + 42);
 
+      // 卡片正文
       ctx.fillStyle = '#b0b0b0';
-      ctx.font = '15px "Microsoft YaHei", -apple-system, sans-serif';
-      let textY = cardBodyY + 85;
+      ctx.font = '14.5px "Microsoft YaHei", -apple-system, sans-serif';
+      let textY = cardBodyY + 80;
       lines.forEach(line => {
-        ctx.fillText(line, 60, textY);
+        ctx.fillText(line, 62, textY);
         textY += 28;
       });
 
-      ctx.fillStyle = '#555555';
-      ctx.font = 'bold 14px "Microsoft YaHei", -apple-system, sans-serif';
-      ctx.fillText(isZhMode ? "PainScape - 让不可见的痛苦被看见" : "PainScape - Making invisible pain visible", 60, cvs.height - 40);
+      // 底部品牌水印
+      ctx.fillStyle = '#444444';
+      ctx.font = 'bold 13px "Microsoft YaHei", -apple-system, sans-serif';
+      ctx.fillText(isZhMode ? "PainScape - 让不可见的痛苦被看见" : "PainScape - Making invisible pain visible", 62, cvs.height - 30);
 
-      const finalUrl = cvs.toDataURL('image/jpeg', 0.95);
+      const finalUrl = cvs.toDataURL('image/png');
       setGeneratedCardUrl(finalUrl);
       setShowSharePreview(false);
     } catch (e) {
@@ -2171,25 +2190,9 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
     };
 
     try {
-      if (!isGuest && currentUserId && !currentUserId.startsWith('guest_')) {
-        // 保存到 Supabase
-        const { error } = await supabase
-          .from('pain_records')
-          .insert([{
-            id: draftId,
-            user_id: currentUserId,
-            status: 'draft',
-            draft_data: draftData,
-            created_at: draft.created_at,
-            updated_at: draft.updated_at,
-          }]);
-        if (error) throw error;
-      } else {
-        // 保存到 localStorage
-        const existing = JSON.parse(localStorage.getItem('paintScape_drafts') || '[]');
-        existing.unshift(draft);
-        localStorage.setItem('paintScape_drafts', JSON.stringify(existing));
-      }
+      const existing = JSON.parse(localStorage.getItem('paintScape_drafts') || '[]');
+      existing.unshift(draft);
+      localStorage.setItem('paintScape_drafts', JSON.stringify(existing));
       showToast('draftSaved');
       return draftId;
     } catch (err) {
@@ -2197,7 +2200,7 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
       showToast('saveDraftFailed');
       return null;
     }
-  }, [currentUserId, isGuest, showToast]);
+  }, [showToast]);
 
   // 从草稿生成报告
   const handleGenerateFromDraft = useCallback(async (draft) => {
@@ -2365,17 +2368,9 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
   // 草稿箱中删除草稿
   const handleDeleteDraft = useCallback(async (draftId) => {
     try {
-      if (!isGuest && currentUserId && !currentUserId.startsWith('guest_')) {
-        await supabase
-          .from('pain_records')
-          .delete()
-          .eq('id', draftId)
-          .eq('user_id', currentUserId);
-      } else {
-        const localDrafts = JSON.parse(localStorage.getItem('paintScape_drafts') || '[]');
-        const updated = localDrafts.filter(d => d.id !== draftId);
-        localStorage.setItem('paintScape_drafts', JSON.stringify(updated));
-      }
+      const localDrafts = JSON.parse(localStorage.getItem('paintScape_drafts') || '[]');
+      const updated = localDrafts.filter(d => d.id !== draftId);
+      localStorage.setItem('paintScape_drafts', JSON.stringify(updated));
       showToast('draftDeleted');
       return true;
     } catch (err) {
@@ -2383,7 +2378,7 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
       showToast('deleteDraftFailed');
       return false;
     }
-  }, [currentUserId, isGuest, showToast]);
+  }, [showToast]);
 
   // const getDraftCount = useCallback(() => {
   //   try {
@@ -2828,7 +2823,7 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
 
                 setHistory(prev => [historyEntry, ...prev]);
                 if (!isGuest && currentUserId && !currentUserId.startsWith('guest_')) {
-                  saveRecordToCloud(currentUserId, historyEntry);
+                  //saveRecordToCloud(currentUserId, historyEntry);
                 }
                 // 切换到报告页，并记录进入第一个 Tab（partner）的 tab_viewed 事件
                 setIdentity('partner');

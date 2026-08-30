@@ -66,6 +66,7 @@ const SomaticHealingSpace = ({
     },
     syncTips: tFn('somaticHealing.syncTips') || '正在同步调谐本次痛觉自愈方案...',
     shareDecline: tFn('somaticHealing.shareDecline') || '暂不分享，默默退出',
+    offlineTips: tFn('somaticHealing.offlineTips', { returnObjects: true }) || {},
   };
 
   const SOUND_PATHS = {
@@ -81,7 +82,7 @@ const SomaticHealingSpace = ({
     thermal: tFn('somaticHealing.stepDatabase.thermal') || [],
   };
 
-  // 🌟 核心：彻底停止所有音频与动画
+  // 停止所有音频与动画
   const stopHealing = useCallback(() => {
     setIsPlaying(false);
 
@@ -113,7 +114,7 @@ const SomaticHealingSpace = ({
     setTimerCount(0);
   }, []);
 
-  // 🌟 核心：平滑启动音频与对应流程
+  // 平滑启动音频与对应流程
   const startHealing = () => {
     // 1. 如果已有旧音频，先停止
     stopHealing();
@@ -219,7 +220,7 @@ const SomaticHealingSpace = ({
     }, 1500);
   };
 
-  // 🌟 核心修复：当关闭弹窗 (isOpen=false) 或切换 Tab 时，100% 自动安全停播并清理
+  // 当关闭弹窗 (isOpen=false) 或切换 Tab 时，100% 自动安全停播并清理
   useEffect(() => {
     if (!isOpen) {
       stopHealing();
@@ -439,17 +440,39 @@ const SomaticHealingSpace = ({
         <h4 style={{ color: '#ab47bc', fontSize: '13px', margin: '0 0 16px 0', fontWeight: 'bold', borderBottom: '1px solid #222', paddingBottom: '10px' }}>
           {t.somaticTipsTitle}
         </h4>
-        {aiSelfCareTips && aiSelfCareTips.length > 0 ? (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-            {aiSelfCareTips.map((tip, idx) => (
-              <div key={idx} style={{ background: 'rgba(255,255,255,0.01)', border: '1px solid rgba(255,255,255,0.03)', borderRadius: 'var(--radius-sm)', padding: '12px 14px' }}>
-                <p style={{ color: '#ccc', fontSize: '12.5px', margin: 0, lineHeight: '1.65', textAlign: 'justify' }}>{tip}</p>
+        {(() => {
+          // 痛觉类型映射表
+          const PAIN_KEY_MAP = {
+            '绞痛': 'twist', 'Cramp': 'twist', 'twist': 'twist',
+            '刺痛': 'pierce', 'Pierce': 'pierce', 'pierce': 'pierce',
+            '坠胀': 'heavy', '坠胀重压': 'heavy', 'Heavy Dragging': 'heavy', 'heavy': 'heavy',
+            '酸胀': 'wave', '弥漫酸胀痛': 'wave', 'Diffuse Ache': 'wave', 'wave': 'wave',
+            '刮痛': 'scrape', '撕刮痛': 'scrape', 'Tearing Scrape': 'scrape', 'scrape': 'scrape'
+          };
+          const currentPainKey = PAIN_KEY_MAP[dominantPainName] || 'twist';
+
+          // 优先使用云端/上级传递的 aiSelfCareTips；若为空，则直接调用 translations.js 中的 offlineTips 本地特调
+          const localTips = t.offlineTips?.[currentPainKey] || t.offlineTips?.twist || [];
+          const effectiveTips = (aiSelfCareTips && aiSelfCareTips.length > 0)
+            ? aiSelfCareTips
+            : localTips;
+
+          if (effectiveTips && effectiveTips.length > 0) {
+            return (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                {effectiveTips.map((tip, idx) => (
+                  <div key={idx} style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: 'var(--radius-sm)', padding: '12px 14px' }}>
+                    <p style={{ color: '#ccc', fontSize: '12.5px', margin: 0, lineHeight: '1.65', textAlign: 'justify' }}>{tip}</p>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
-        ) : (
-          <p style={{ color: '#666', fontSize: '12px', textAlign: 'center', margin: '20px 0' }}>{t.syncTips}</p>
-        )}
+            );
+          }
+
+          return (
+            <p style={{ color: '#666', fontSize: '12px', textAlign: 'center', margin: '20px 0' }}>{t.syncTips}</p>
+          );
+        })()}
       </div>
 
       {/* 出舱评估弹窗 */}
