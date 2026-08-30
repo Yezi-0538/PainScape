@@ -485,29 +485,58 @@ export default function ResultPage({
     }
     return content[fieldKey] || '';
   };
+  // src/pages/ResultPage.jsx - 替换 getWorkText 函数
+
   const getWorkText = useCallback(() => {
+    // 如果有编辑内容，优先使用
     if (editedContents?.workText !== undefined) return editedContents.workText;
 
-    const toneMap = {
-      polite: 'formal',
-      objective: 'neutral',
-      formal: 'formal',
-      neutral: 'neutral',
-      casual: 'casual',
-    };
+    // 如果 content 中有 workText，优先使用（来自 App.jsx 的动态生成）
+    if (content.workText) return content.workText;
 
+    // ============================================================
+    // ✅ 直接从翻译文件获取 workTemplates
+    // ============================================================
     const langKey = lang === 'en' ? 'en' : 'zh';
     const recipient = leaveRecipient || 'manager';
     const rawTone = leaveTone || 'neutral';
+
+    // 语气映射
+    const toneMap = {
+      polite: 'polite',
+      objective: 'neutral',
+      formal: 'polite',
+      neutral: 'neutral',
+      casual: 'casual',
+    };
     const tone = toneMap[rawTone] || 'neutral';
 
-    // 使用 defaultTemplates.workTemplate 作为 fallback
-    const workTemplate = t('defaultTemplates.workTemplate');
-    // 替换 {{pain}} 占位符
-    const painName = content.pain || t('painNames.twist') || 'pain';
-    return workTemplate.replace(/\{\{pain\}\}/g, painName);
-  }, [leaveRecipient, leaveTone, lang, editedContents?.workText, content.pain, t]);
+    // ✅ 从 workTemplates 获取对应模板
+    const workTemplates = t('workTemplates', { returnObjects: true, defaultValue: {} });
+    const langTemplates = workTemplates?.[langKey] || {};
+    let template = langTemplates?.[recipient]?.[tone];
 
+    // 降级1：尝试用 manager + 当前语气
+    if (!template) {
+      template = langTemplates?.manager?.[tone];
+    }
+
+    // 降级2：尝试用 manager + neutral
+    if (!template) {
+      template = langTemplates?.manager?.neutral;
+    }
+
+    // 降级3：使用 defaultTemplates.workTemplateFallback
+    if (!template) {
+      template = t('defaultTemplates.workTemplateFallback', {
+        defaultValue: '因身体不适，申请休息一天。'
+      });
+    }
+
+    // 替换疼痛名称
+    const painName = content.pain || t('painNames.twist') || '痛经';
+    return template.replace(/\{\{pain\}\}/g, painName);
+  }, [leaveRecipient, leaveTone, lang, editedContents?.workText, content.pain, content.workText, t]);
   const getRefinePlaceholder = (tabIdentity) => {
     const map = {
       partner: t('result.refine.placeholderPartner'),
