@@ -1555,10 +1555,14 @@ const translations = {
       pastHistory: "既往史与个人习惯",
       menstrualObstetricHistory: "月经与婚育史",
       clinicalDiagnosis: "临床诊断与筛查建议",
+      clinicalAdvice: "临床建议与自我照护", 
       selfCareTitle: "缓解期自我照护",
       discussionTitle: "供您与医生讨论",
       reminderTitle: "给您的提醒",
       examInfoTitle: "关于检查，您可能想知道的",
+      discussionPoints: "供您与医生讨论",
+      reminder: "给您的提醒",
+      aboutExam: "关于检查，您可能想知道的",
     },
     // ============ 自愈弹窗标签 ============
     healingModal: {
@@ -3216,6 +3220,22 @@ const translations = {
       },
       clinicalHiddenTitle: "Clinical History Hidden",
       clinicalHiddenDesc: "You have selected the general/community sharing mode. No need to collect menstrual history or other complex background information. You can directly set your companionship and self-care preferences in the final step.",
+    },
+
+    doctorTab: {
+      chiefComplaint: "Chief Complaint",
+      presentIllness: "History of Present Illness",
+      pastHistory: "Past Medical History & Habits",
+      menstrualObstetricHistory: "Menstrual & Obstetric History",
+      clinicalDiagnosis: "Clinical Diagnosis & Screening",
+      clinicalAdvice: "Clinical Advice & Self-Care", // 👈 补全此处
+      selfCareTitle: "Self-Care During Recovery",
+      discussionTitle: "Questions for Your Doctor",
+      reminderTitle: "A Note to You",
+      examInfoTitle: "What You May Want to Know About the Exam",
+      discussionPoints: "Questions for Your Doctor",
+      reminder: "A Note to You",
+      aboutExam: "What You May Want to Know About the Exam",
     },
 
     // ============ Self-care healing modal ============
