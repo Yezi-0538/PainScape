@@ -112,6 +112,7 @@ const SomaticHealingSpace = ({
     setPhase('inhale');
     setCircleSize(120);
     setTimerCount(0);
+    setActiveStep(0);
   }, []);
 
   // 平滑启动音频与对应流程
@@ -222,7 +223,9 @@ const SomaticHealingSpace = ({
 
   // 当关闭弹窗 (isOpen=false) 或切换 Tab 时，100% 自动安全停播并清理
   useEffect(() => {
-    if (!isOpen) {
+    if (isOpen) {
+      setActiveStep(0);
+    } else {
       stopHealing();
     }
     return () => {

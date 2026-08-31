@@ -357,6 +357,79 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
     return maxVal > 0 ? Object.keys(counts).reduce((a, b) => counts[a] > counts[b] ? a : b) : 'twist';
   }, []);
 
+  // 1. 痛感标准化映射表
+  const NORMALIZE_PAIN_KEY = {
+    sink: 'heavy',
+    swell: 'wave',
+    heavy: 'heavy',
+    wave: 'wave',
+    twist: 'twist',
+    pierce: 'pierce',
+    scrape: 'scrape'
+  };
+
+  // 2. 提取前 1~3 个痛感 Key（按笔触数从多到少排序）
+  const getTopPainTypes = (countsRef) => {
+    const counts = countsRef?.current || {};
+    // 汇总重映射后的计数
+    const aggregated = { twist: 0, pierce: 0, heavy: 0, wave: 0, scrape: 0 };
+    Object.entries(counts).forEach(([k, v]) => {
+      const norm = NORMALIZE_PAIN_KEY[k] || k;
+      if (aggregated[norm] !== undefined) {
+        aggregated[norm] += (v || 0);
+      }
+    });
+
+    const sorted = Object.entries(aggregated)
+      .filter(([_, count]) => count > 0)
+      .sort((a, b) => b[1] - a[1])
+      .map(([key]) => key);
+
+    return sorted.length > 0 ? sorted.slice(0, 3) : ['twist'];
+  };
+
+  // 3. 多痛感名称自然衔接
+  const formatMultiPainName = useCallback((painKeys, t) => {
+    const names = painKeys.map(k => t(`painNames.${k}`) || k);
+    if (names.length === 1) return names[0];
+    if (names.length === 2) {
+      return (t('multiPain.names.two') || '以{{p1}}为主，伴有{{p2}}')
+        .replace(/{{p1}}/g, names[0])
+        .replace(/{{p2}}/g, names[1]);
+    }
+     return (t('multiPain.names.three') || '以{{p1}}为主，伴随{{p2}}，并夹杂{{p3}}')
+      .replace(/{{p1}}/g, names[0])
+      .replace(/{{p2}}/g, names[1])
+      .replace(/{{p3}}/g, names[2]);
+  }, []);
+
+  // 4. 多痛感比喻合成器
+  const formatMultiAnalogy = useCallback((painKeys, t) => {
+    const p1 = painKeys[0] || 'twist';
+    const m1 = t(`multiPain.metaphors.${p1}.primary`) || t(`painTemplates.${p1}.analogy`) || '';
+
+    if (painKeys.length === 1) {
+      return m1;
+    }
+
+    const p2 = painKeys[1] || 'wave';
+    const m2 = t(`multiPain.metaphors.${p2}.secondary`) || '';
+
+    if (painKeys.length === 2) {
+      return (t('multiPain.analogyTemplates.two') || '{{m1}}\n\n不仅如此，她的身体内部还{{m2}}。')
+        .replace(/{{m1}}/g, m1)
+        .replace(/{{m2}}/g, m2);
+    }
+
+    const p3 = painKeys[2] || 'pierce';
+    const m3 = t(`multiPain.metaphors.${p3}.tertiary`) || '';
+
+    return (t('multiPain.analogyTemplates.three') || '{{m1}}\n\n同时，她的骨盆深处还{{m2}}；而在每个动作间歇，还会{{m3}}。')
+      .replace(/{{m1}}/g, m1)
+      .replace(/{{m2}}/g, m2)
+      .replace(/{{m3}}/g, m3);
+  }, []);
+
   const [hasAgreedPrivacy, setHasAgreedPrivacy] = useState(() => {
     return localStorage.getItem('painscape_privacy_agreed') === 'true';
   });
@@ -628,8 +701,7 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
     return '';
   };
 
-  // src/App.jsx - generateContent 函数（完整修改版）
-
+  // generateContent 函数（完整修改版）
   const generateContent = useCallback((overrideType, externalLlm = null, externalReportData = null) => {
     try {
       const isEn = targetLanguage === 'en';
@@ -643,14 +715,25 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
         return activeText;
       };
 
-      // ✅ 兼容映射（防止快速记录传入 sink/swell 导致 key 丢失）
-      const rawDominant = overrideType || getDominantPain() || 'twist';
-      const REVERSE_MAP = { sink: 'heavy', swell: 'wave' };
-      const dominant = REVERSE_MAP[rawDominant] || rawDominant;
-      const painName = t(`painNames.${dominant}`) || (isEn ? 'Dysmenorrhea' : '痛经');
+      // ============================================================
+      // 解析前 1~3 个痛感类型
+      // ============================================================
+      let topPains = [];
+      if (Array.isArray(overrideType)) {
+        topPains = overrideType.map(k => NORMALIZE_PAIN_KEY[k] || k);
+      } else if (typeof overrideType === 'string' && overrideType) {
+        topPains = [NORMALIZE_PAIN_KEY[overrideType] || overrideType];
+      } else {
+        topPains = getTopPainTypes(brushCounts);
+      }
+      if (!topPains || topPains.length === 0) topPains = ['twist'];
+
+      const primaryPain = topPains[0];
+      const painName = formatMultiPainName(topPains, t);
+      const combinedAnalogy = formatMultiAnalogy(topPains, t);
 
       // ============================================================
-      // ✅ 从用户填写的数据中提取信息
+      // ✅ 从用户填写的数据中提取信息（完整保留）
       // ============================================================
       const mb = medicalBackground || {};
       const currentSpatialMap = spatialMap || {};
@@ -659,7 +742,6 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
         if (!spatialMap) return isEn ? 'lower abdomen' : '下腹部';
 
         const parts = [];
-
         const head = spatialMap.head || 0;
         const legs = spatialMap.legs || 0;
         const upperAbdomen = spatialMap.upperAbdomen || 0;
@@ -693,7 +775,6 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
         if (head > 0.1) {
           parts.push(isEn ? 'head' : '头部');
         }
-
         if (legs > 0.1) {
           parts.push(isEn ? 'legs' : '腿部');
         }
@@ -730,9 +811,6 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
 
       // ---- 活动水平 ----
       const activityLabel = mb.activityLevel ? t(`onboarding.activityOptions.${mb.activityLevel}`) || mb.activityLevel : t('defaultTemplates.notProvided');
-
-      // ---- 周期 ----
-      const cycleDisplay = cycleDay || t('defaultTemplates.notProvided');
 
       // ---- 周期规律 ----
       let cycleRegDisplay = t('defaultTemplates.notProvided');
@@ -792,7 +870,7 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
       // ---- 家族史 ----
       const famArr = mb.familyHistoryArr || [];
       const famText = famArr.length > 0
-        ? famArr.map(s => t(`onboarding.familyHistoryOptions.${s}`) || s).join(isEn ? ', ' : '、')
+         ? famArr.map(s => t(`onboarding.familyHistoryOptions.${s}`) || s).join(isEn ? ', ' : '、')
         : t('defaultTemplates.noFamilyHistory');
 
       // ---- 心理社会因素 ----
@@ -800,20 +878,17 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
         ? (t(`onboarding.psychosocialOptions.${mb.psychosocial}`) || mb.psychosocial)
         : t('defaultTemplates.noPsychosocial');
 
-      // ============================================================
-      // 构建疼痛时间和位置描述
-      // ============================================================
+      // ---- 发作周期 ----
       const buildPainTiming = (cycleDay, isEn) => {
         if (!cycleDay || cycleDay === '未提供' || cycleDay === 'Not provided') {
           return isEn ? 'During menstruation' : '经期';
         }
         return cycleDay;
       };
-
-      const painTiming = buildPainTiming(cycleDay, isEn);
+       const painTiming = buildPainTiming(cycleDay, isEn);
 
       // ============================================================
-      // 构建各字段文本
+      // 构建各病历字段文本 (主诉、现病史、既往史、月经史)
       // ============================================================
 
       // ---- 主诉 ----
@@ -836,49 +911,27 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
 
       // ---- 既往史 ----
       let pastHistoryParts = [];
-
       if (diagnosedText && diagnosedText !== t('defaultTemplates.noDiagnosis')) {
-        const part = t('defaultTemplates.pastHistoryDiagnosis')
-          .replace(/{{diagnosed}}/g, diagnosedText);
-        pastHistoryParts.push(part);
+        pastHistoryParts.push(t('defaultTemplates.pastHistoryDiagnosis').replace(/{{diagnosed}}/g, diagnosedText));
       }
-
       if (surgText && surgText !== t('defaultTemplates.noSurgery')) {
-        const part = t('defaultTemplates.pastHistorySurgery')
-          .replace(/{{surgery}}/g, surgText);
-        pastHistoryParts.push(part);
+        pastHistoryParts.push(t('defaultTemplates.pastHistorySurgery').replace(/{{surgery}}/g, surgText));
       }
-
       if (allergyText && allergyText !== t('defaultTemplates.noAllergy')) {
-        const part = t('defaultTemplates.pastHistoryAllergy')
-          .replace(/{{allergy}}/g, allergyText);
-        pastHistoryParts.push(part);
+        pastHistoryParts.push(t('defaultTemplates.pastHistoryAllergy').replace(/{{allergy}}/g, allergyText));
       }
-
       if (lifestyleText && lifestyleText !== t('defaultTemplates.noLifestyle')) {
-        const part = t('defaultTemplates.pastHistoryLifestyle')
-          .replace(/{{lifestyle}}/g, lifestyleText);
-        pastHistoryParts.push(part);
+        pastHistoryParts.push(t('defaultTemplates.pastHistoryLifestyle').replace(/{{lifestyle}}/g, lifestyleText));
       }
-
       if (famText && famText !== t('defaultTemplates.noFamilyHistory')) {
-        const part = t('defaultTemplates.pastHistoryFamily')
-          .replace(/{{familyHistory}}/g, famText);
-        pastHistoryParts.push(part);
+        pastHistoryParts.push(t('defaultTemplates.pastHistoryFamily').replace(/{{familyHistory}}/g, famText));
       }
-
       if (repText && repText !== t('defaultTemplates.noReproductive')) {
-        const part = t('defaultTemplates.pastHistoryReproductive')
-          .replace(/{{reproductiveHistory}}/g, repText);
-        pastHistoryParts.push(part);
+        pastHistoryParts.push(t('defaultTemplates.pastHistoryReproductive').replace(/{{reproductiveHistory}}/g, repText));
       }
-
       if (psychText && psychText !== t('defaultTemplates.noPsychosocial')) {
-        const part = t('defaultTemplates.pastHistoryPsychosocial')
-          .replace(/{{psychosocial}}/g, psychText);
-        pastHistoryParts.push(part);
+        pastHistoryParts.push(t('defaultTemplates.pastHistoryPsychosocial').replace(/{{psychosocial}}/g, psychText));
       }
-
       const pastHistoryText = pastHistoryParts.length > 0
         ? pastHistoryParts.join(' ')
         : t('defaultTemplates.pastHistoryNone');
@@ -891,20 +944,26 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
         .replace(/{{lmp}}/g, lmp);
 
       // ============================================================
-      // 临床诊断 - 动态构建
+      // 临床诊断 - 动态智能推导 (支持前 1~3 种复合痛感机制鉴别)
       // ============================================================
-      const buildDiagnosisItems = (dominant, mb, symptomsArr, isEn) => {
+      const buildDiagnosisItems = (pains, mb, symptomsArr, isEn) => {
         const items = [];
         const hasLowerBack = (currentSpatialMap?.lowerBack || 0) > 0.3;
+        const primary = pains[0];
 
+        // 1. 基础功能性痛经
         items.push(isEn
           ? '1. Primary dysmenorrhea (functional) — uterine smooth muscle spasm associated with the menstrual cycle'
           : '1. 原发性痛经（功能性）—— 与月经周期相关的子宫平滑肌痉挛'
         );
 
+        // 2. 子宫内膜异位症排查（当痛感包含刺痛/刮痛，或有腰骶/放射痛时触发）
         let endoReasons = [];
-        if (dominant === 'pierce' || dominant === 'scrape') {
-          endoReasons.push(isEn ? 'sharp/stabbing pain quality' : '刺痛/刮痛性质');
+        if (pains.includes('pierce')) {
+          endoReasons.push(isEn ? 'stabbing pain quality' : '针刺样刺痛');
+        }
+        if (pains.includes('scrape')) {
+          endoReasons.push(isEn ? 'tearing/scraping sensation' : '撕刮样锐痛');
         }
         if (hasLowerBack) {
           endoReasons.push(isEn ? 'lumbosacral involvement' : '腰骶部受累');
@@ -923,9 +982,10 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
           );
         }
 
+        // 3. 盆腔器质性充血排查（当痛感包含坠胀，或经前发作、久坐时触发）
         let congestionReasons = [];
-        if (dominant === 'heavy' || dominant === 'sink') {
-          congestionReasons.push(isEn ? 'heavy dragging sensation' : '坠胀/沉重感');
+        if (pains.includes('heavy')) {
+          congestionReasons.push(isEn ? 'heavy dragging sensation' : '坠胀/重压感');
         }
         if (cycleDay?.includes('经前') || cycleDay?.includes('pre')) {
           congestionReasons.push(isEn ? 'premenstrual timing' : '经前期');
@@ -944,13 +1004,10 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
         return items.join('\n');
       };
 
-      const buildExamSuggestions = (dominant, isEn) => {
+      const buildExamSuggestions = (pains, isEn) => {
         const suggestions = [];
-        suggestions.push(isEn
-          ? 'Routine gynecological ultrasound'
-          : '常规妇科超声'
-        );
-        if (dominant === 'pierce' || dominant === 'scrape') {
+        suggestions.push(isEn ? 'Routine gynecological ultrasound' : '常规妇科超声');
+        if (pains.includes('pierce') || pains.includes('scrape') || pains.includes('heavy')) {
           suggestions.push(isEn
             ? 'Pelvic ultrasound (preferably 3-7 days after menstruation)'
             : '盆腔超声（建议月经结束后3-7天）'
@@ -963,24 +1020,23 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
         ? 'Please do not be overly anxious. While your pain does affect your quality of life, clinical statistics show that the vast majority of similar symptoms ultimately point to benign functional dysmenorrhea rather than serious organic disease. Even if further investigation is needed, modern gynecological medicine has very well-established diagnostic and interventional pathways. Your pain is real, but it does not necessarily mean danger — the fact that you are actively recording and confronting it now is itself the most important step.'
         : '请不必过度焦虑。您描述的疼痛虽然确实影响了生活质量，但从临床统计来看，绝大多数类似症状最终都指向良性的功能性痛经，而非严重的器质性疾病。即便需要进一步排查，现代妇科医学也有非常成熟的诊断和干预路径。疼痛是真实的，但不等于危险——您现在主动记录和面对它，本身就是最重要的一步。';
 
-      const diagnosisItems = buildDiagnosisItems(dominant, mb, symptomsArr, isEn);
-      const examSuggestions = buildExamSuggestions(dominant, isEn);
+      const diagnosisItems = buildDiagnosisItems(topPains, mb, symptomsArr, isEn);
+      const examSuggestions = buildExamSuggestions(topPains, isEn);
 
-      // ---- 临床诊断 - 结构化版（无安抚） ----
+      // 临床诊断（结构化与完整版）
       const clinicalDiagnosisStructured = t('defaultTemplates.clinicalDiagnosisStructured')
         .replace(/{{diagnosisItems}}/g, diagnosisItems)
         .replace(/{{examSuggestions}}/g, examSuggestions);
 
-      // ---- 临床诊断 - 完整版（含安抚） ----
       const clinicalDiagnosisFull = t('defaultTemplates.clinicalDiagnosis')
         .replace(/{{diagnosisItems}}/g, diagnosisItems)
         .replace(/{{examSuggestions}}/g, examSuggestions)
         .replace(/{{reassurance}}/g, reassurance);
 
       // ============================================================
-      // 临床建议 - 动态构建
+      // 临床建议与自愈（根据复合痛感汇集舒缓动作）
       // ============================================================
-      const buildSelfCareItems = (dominant, symptomsArr, mb, isEn) => {
+      const buildSelfCareItems = (pains, symptomsArr, mb, isEn) => {
         const items = [];
 
         items.push(isEn
@@ -992,6 +1048,20 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
           ? '• Rest in a side-lying fetal position to reduce pelvic tension'
           : '• 静卧休养，采取侧卧胎儿位减轻盆腔张力'
         );
+
+        // 根据前三痛感注入针对性护理
+        if (pains.includes('heavy')) {
+          items.push(isEn
+            ? '• Elevate hips slightly with a soft pillow to relieve pelvic congestion'
+            : '• 臀部下方垫软枕微抬高骨盆，缓解深部坠胀重压'
+          );
+        }
+        if (pains.includes('twist')) {
+          items.push(isEn
+            ? '• Practice 4-7-8 slow rhythmic breathing to ease smooth muscle spasms'
+            : '• 进行 4-7-8 深度慢节律呼吸，缓解子宫平滑肌痉挛'
+          );
+        }
 
         const hasNausea = symptomsArr?.some(s => s === 'nausea' || s === '恶心');
         if (hasNausea) {
@@ -1017,13 +1087,20 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
         return items.join('\n');
       };
 
-      const buildDiscussionItems = (symptomsArr, isEn) => {
+      const buildDiscussionItems = (pains, symptomsArr, isEn) => {
         const items = [];
 
         items.push(isEn
           ? '• Is your pain related to your menstrual cycle? How long does each episode last?'
           : '• 疼痛是否与月经周期相关？每次持续多久？'
         );
+
+        if (pains.length > 1) {
+          items.push(isEn
+            ? `• In your composite pain pattern (${painName}), which type starts first and which is most intense?`
+            : `• 在您的复合疼痛表现（${painName}）中，哪一种痛感最先出现？哪一种程度最剧烈？`
+          );
+        }
 
         if (currentSpatialMap && (currentSpatialMap.abdomen > 0.1 || currentSpatialMap.lowerBack > 0.1)) {
           items.push(isEn
@@ -1033,9 +1110,7 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
         }
 
         if (symptomsArr && symptomsArr.length > 0) {
-          const translatedSymptoms = symptomsArr.map(s => {
-            return t(`onboarding.accompanyingOptions.${s}`, { defaultValue: s });
-          });
+          const translatedSymptoms = symptomsArr.map(s => t(`onboarding.accompanyingOptions.${s}`, { defaultValue: s }));
           const symptomsDisplay = translatedSymptoms.join(isEn ? ', ' : '、');
           items.push(isEn
             ? `• Do you experience any other symptoms like ${symptomsDisplay}?`
@@ -1065,22 +1140,23 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
         ? 'Cost: Gynecological ultrasound is a routine medical insurance item, typically covered by insurance.\nRadiation: Absolutely none. Ultrasound uses sound wave imaging — no ionizing radiation, completely non-invasive and harmless.\nProcess: Takes about 10-15 minutes. You lie flat, gel is applied, and the probe glides gently over the area — completely painless. You can resume normal activities immediately after. Transvaginal ultrasound (if needed) is performed with strict privacy protection.'
         : '费用：妇科超声属于医保常规项目，费用约100-300元，绝大多数地区均可医保报销。\n辐射：完全没有。超声检查利用声波成像，不含电离辐射，对人体无创无害。\n过程：约10-15分钟。平躺、涂耦合凝胶、探头轻轻滑动探查，全程无痛。检查结束后即可正常活动。经阴道超声（如有需要）也有严格隐私保护。';
 
-      const selfCareItems = buildSelfCareItems(dominant, symptomsArr, mb, isEn);
-      const discussionItems = buildDiscussionItems(symptomsArr, isEn);
+      const selfCareItems = buildSelfCareItems(topPains, symptomsArr, mb, isEn);
+      const discussionItems = buildDiscussionItems(topPains, symptomsArr, isEn);
 
-      // ---- 临床建议 - 结构化版（仅缓解措施） ----
+      // 临床建议（结构化与完整版）
       const clinicalSuggestionsStructured = t('defaultTemplates.clinicalSuggestionsStructured')
         .replace(/{{selfCareItems}}/g, selfCareItems);
 
-      // ---- 临床建议 - 完整版（含讨论、安抚、检查科普） ----
       const clinicalSuggestionsFull = t('defaultTemplates.clinicalSuggestions')
         .replace(/{{selfCareItems}}/g, selfCareItems)
         .replace(/{{discussionItems}}/g, discussionItems)
         .replace(/{{reassurance}}/g, reassurance)
         .replace(/{{examInfo}}/g, examInfo);
 
-      // ---- 请假文本动态生成 ----
-      const getWorkTextByScenario = (recipient, tone, painName, isEn) => {
+      // ============================================================
+      // 请假文本动态生成 (支持复合痛感名称替换)
+      // ============================================================
+      const getWorkTextByScenario = (recipient, tone, pName, isEn) => {
         const validRecipients = ['manager', 'teacher', 'client', 'friend', 'partner'];
         const recipientKey = validRecipients.includes(recipient) ? recipient : 'manager';
 
@@ -1088,23 +1164,20 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
         const toneKey = validTones.includes(tone) ? tone : 'neutral';
 
         const workTemplates = t('workTemplates', { returnObjects: true, defaultValue: {} });
-
         let template = workTemplates?.[recipientKey]?.[toneKey]
           || workTemplates?.manager?.[toneKey]
           || workTemplates?.manager?.neutral;
 
         if (template && typeof template === 'string') {
-          return template.replace(/{{pain}}/g, painName);
+          return template.replace(/{{pain}}/g, pName);
         }
-
         return t('defaultTemplates.workTemplateFallback', {
-          defaultValue: '因身体不适，申请休息一天。'
+          defaultValue: `因身体出现${pName}，申请休息一天。`
         });
       };
 
-      // ---- 默认值 ----
-      const defaultAnalogy = t(`painTemplates.${dominant}.analogy`) || '';
-      const defaultSelfCare = t(`painTemplates.${dominant}.selfCare`) || '';
+      // ---- 默认伴侣关怀行动与自愈 ----
+      const defaultSelfCare = t(`painTemplates.${primaryPain}.selfCare`) || selfCareItems;
 
       const prefKey = (Array.isArray(userPrefs) && userPrefs[0]) ? userPrefs[0] : 'care';
       const validPrefKeys = ['alone', 'care', 'comfort'];
@@ -1125,15 +1198,19 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
       const defaultWorkText = getWorkTextByScenario(recipient, tone, painName, isEn);
 
       // ============================================================
-      // ✅ 核心修复：只有当 activeLlm 的痛感与当前 dominant 一致时才采纳其比喻
-      // 避免上次残存的 LLM 刮痛比喻污染本次计算出的绞痛！
+      // LLM 校验与返回值
       // ============================================================
-      const isLlmMatchingDominant = activeLlm && (!activeLlm.dominantPain || activeLlm.dominantPain === dominant);
-
+      const isLlmMatchingDominant = activeLlm && (!activeLlm.dominantPain || activeLlm.dominantPain === primaryPain);
+      const finalAnalogy = (topPains.length > 1)
+        ? combinedAnalogy
+        : getLocalizedText(activeLlm?.analogy, combinedAnalogy);
+      
       if (isLlmMatchingDominant) {
         return {
           pain: painName,
-          analogy: getLocalizedText(activeLlm.analogy, defaultAnalogy),
+          primaryPain: primaryPain,
+          topPains: topPains,
+          analogy: finalAnalogy,
           workText: defaultWorkText,
           action: getLocalizedText(activeLlm.action, defaultAction),
           selfCare: getLocalizedText(activeLlm.selfCare, defaultSelfCare),
@@ -1163,12 +1240,12 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
         };
       }
 
-      // ============================================================
-      // 降级返回 - 严格使用与当前 dominant 一致的本地比喻与建议
-      // ============================================================
+      // 默认标准返回
       return {
         pain: painName,
-        analogy: defaultAnalogy, // 严格匹配当前 dominant
+        primaryPain: primaryPain,
+        topPains: topPains,
+        analogy: finalAnalogy,
         workText: defaultWorkText,
         action: defaultAction,
         selfCare: defaultSelfCare,
@@ -1199,25 +1276,19 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
     } catch (err) {
       console.warn('⚠️ generateContent 降级兜底:', err);
       const fallbackPain = t('painNames.twist') || '痛经';
-
       const fallbackSelfCare = '• 温敷小腹\n• 静卧休养';
       const fallbackDiscussion = '• 疼痛是否与月经周期相关？';
       const fallbackReassurance = '请不必过度焦虑。';
       const fallbackExamInfo = '妇科超声是常规检查，无辐射，约10-15分钟。';
 
-      const fallbackWorkText = getWorkTextByScenario(
-        leaveRecipient || 'manager',
-        leaveTone || 'neutral',
-        fallbackPain,
-        isEn
-      );
-
       return {
         pain: fallbackPain,
-        analogy: t(`painTemplates.twist.analogy`) || '',
-        workText: fallbackWorkText,
+        primaryPain: 'twist',
+        topPains: ['twist'],
+        analogy: t('painTemplates.twist.analogy') || '',
+        workText: '因身体不适，申请休息一天。',
         action: t('defaultTemplates.defaultActions') || '',
-        selfCare: t(`painTemplates.twist.selfCare`) || '',
+        selfCare: t('painTemplates.twist.selfCare') || fallbackSelfCare,
         chief_complaint: t('defaultTemplates.chiefComplaint')
           .replace(/{{timing}}/g, '经期')
           .replace(/{{location}}/g, '下腹部')
@@ -1236,7 +1307,7 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
         menstrual_history: t('defaultTemplates.menstrualHistory')
           .replace(/{{menarche}}/g, t('defaultTemplates.notProvided'))
           .replace(/{{periodDuration}}/g, t('defaultTemplates.notProvided'))
-          .replace(/{{cycleRegular}}/g, t('defaultTemplates.notProvided'))
+         .replace(/{{cycleRegular}}/g, t('defaultTemplates.notProvided'))
           .replace(/{{lmp}}/g, t('defaultTemplates.notProvided')),
         clinical_diagnosis: t('defaultTemplates.clinicalDiagnosisStructured')
           .replace(/{{diagnosisItems}}/g, '1. 原发性痛经（功能性）')
@@ -1269,7 +1340,7 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
         }
       };
     }
-  }, [currentReportData, llmData, getDominantPain, t, medicalBackground, cycleDay, userPrefs, targetLanguage, leaveRecipient, leaveTone, spatialMap]);
+  }, [currentReportData, llmData, getTopPainTypes, formatMultiPainName, formatMultiAnalogy, t, medicalBackground, cycleDay, userPrefs, targetLanguage, leaveRecipient, leaveTone, spatialMap]);
 
   const getEditedOrDefault = useCallback((key, defaultVal) => {
     return editedContents[key] !== undefined ? editedContents[key] : defaultVal;
@@ -1412,9 +1483,10 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
         date: dateStr,
         time: timeStr,
         img: canvasImg,
-        painName: t(`painNames.${standardPain}`) || standardPain, 
-        dominantPain: standardPain,                              
-        painScore: data.painScore || 50,                         
+        painName: formatMultiPainName(topPains, t, isEn), 
+        dominantPain: dominant,                          
+        topPains: topPains,                           
+        painScore: painScore,                         
         appMode,
         reportData: apiResult || generateContent(standardPain),
         medicalBackground,
@@ -2605,6 +2677,7 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
                 // ============================================================
                 // ✅ 第2步：计算所有派生数据
                 // ============================================================
+                const topPains = getTopPainTypes(brushCounts);
                 const dominant = getDominantPain() || 'twist';
                 const brushNameMap = { heavy: 'sink', wave: 'swell' };
                 const mappedDominant = brushNameMap[dominant] || dominant;
@@ -2754,6 +2827,7 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
                 const requestBody = {
                   appMode: appMode || 'medical',
                   dominantPain: mappedDominant,
+                  topPains: topPains,
                   userPref: userPrefs[0] || 'care',
                   painScore,
                   brushCounts: mappedBc,
@@ -2785,12 +2859,12 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
                   console.warn('⚠️ 无后端 API，启用本地模板:', apiErr.message);
                 }
 
+                const finalContent = apiResult || generateContent(topPains);
                 if (apiResult) {
                   setLlmData(apiResult);
                   setCurrentReportData(apiResult);
                 } else {
-                  const content = generateContent(dominant);
-                  setCurrentReportData(content);
+                  setCurrentReportData(finalContent);
                 }
 
                 const now = new Date();
@@ -2804,10 +2878,11 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
                   time: timeStr,
                   img: canvasImg,
                   painName: t(`painNames.${dominant}`) || dominant, 
-                  dominantPain: dominant,                          
+                  dominantPain: dominant, 
+                  topPains: topPains,        
                   painScore: painScore,                           
                   appMode,
-                  reportData: apiResult || generateContent(dominant),
+                  reportData: finalContent,
                   medicalBackground,
                   userPrefs,
                   tonePreference,
@@ -2828,8 +2903,8 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
                 setPage('result');
               } catch (e) {
                 console.error('❌ 生成失败处理:', e);
-                const dominant = getDominantPain();
-                setCurrentReportData(generateContent(dominant));
+                const topPains = getTopPainTypes(brushCounts);
+                setCurrentReportData(generateContent(topPains));
                 setIdentity('partner');
                 telemetry.switchTab('partner');
                 setPage('result');
