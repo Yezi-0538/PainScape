@@ -193,15 +193,15 @@ export default function CanvasPage({
   // ============================================================
   const handleSaveDraftOnly = useCallback(async () => {
     const draftData = {
-      brushCounts: { ...brushCounts.current },
-      particlePositions: [...particlePositions.current],
-      speedHistory: [...speedHistory.current],
-      pressureHistory: [...pressureHistory.current],
-      contactAreaHistory: [...contactAreaHistory.current],  // ✅ 新增
-      intensitySource: intensitySourceRef.current,          // ✅ 新增
-      activeColor: activeColor,
-      bodyMode: bodyMode,
-      bgScale: bgScale,
+      brushCounts: { ...(brushCounts?.current || {}) },
+      particlePositions: [...(particlePositions?.current || [])],
+      speedHistory: [...(speedHistory?.current || [])],
+      pressureHistory: [...(pressureHistory?.current || [])],
+      contactAreaHistory: [...(contactAreaHistory?.current || [])],  // ✅ 新增
+      intensitySource: intensitySourceRef?.current || 'unknown',      // ✅ 新增
+      activeColor: activeColor || 'crimson',
+      bodyMode: bodyMode || 'front',
+      bgScale: bgScale || 1.0,
       timestamp: new Date().toISOString(),
     };
 
@@ -219,8 +219,8 @@ export default function CanvasPage({
       draftData.backImage = backImg.canvas.toDataURL('image/png');
     }
 
-    const brushCount = Object.values(brushCounts.current).reduce((a, b) => a + b, 0);
-    const particleCount = particlePositions.current.length;
+    const brushCount = Object.values(brushCounts?.current || {}).reduce((a, b) => a + b, 0);
+    const particleCount = particlePositions?.current?.length || 0;
 
     const result = await onSaveDraft(draftData);
     if (result) {
@@ -233,7 +233,7 @@ export default function CanvasPage({
 
       setShowDraftSuccess(true);
     }
-  }, [onSaveDraft, brushCounts, particlePositions, speedHistory, pressureHistory, activeColor, bodyMode, bgScale, p5Ref, pgFrontRef, pgBackRef]);
+  }, [onSaveDraft, brushCounts, particlePositions, speedHistory, pressureHistory, activeColor, bodyMode, bgScale, p5Ref, pgFrontRef, pgBackRef, contactAreaHistory, intensitySourceRef]);
 
   // ============================================================
   // 查看草稿箱
@@ -371,12 +371,13 @@ export default function CanvasPage({
   };
 
   const mouseWheel = useCallback((p5, event) => {
+    if (!camRef.current) return false;
     camRef.current.zoom = Math.max(
       0.5,
       Math.min(camRef.current.zoom + (event.delta > 0 ? -0.1 : 0.1), 3.0)
     );
     return false;
-  }, []);
+  }, [camRef]);
   // 下载
   const handleDownload = () => {
     // 通过 p5Ref 获取主画布当前画面
@@ -484,264 +485,313 @@ export default function CanvasPage({
   // ============================================================
   const prevParticleCountRef = useRef(0);
   const draw = (p5) => {
-    // 【修复3】切换 bodyMode 时清除对侧离屏画布
-    if (prevBodyModeRef.current !== bodyMode) {
-      const prevPg = prevBodyModeRef.current === 'back' ? pgBackRef.current : pgFrontRef.current;
-      if (prevPg) {
-        prevPg.clear();
-      }
-      prevBodyModeRef.current = bodyMode;
-    }
-
-    p5.background(0);
-
-    let isClickingCanvas = mousePressedOnCanvasRef.current;
-    if (p5.mouseEvent && p5.mouseEvent.target) {
-      isClickingCanvas = isClickingCanvas && (p5.mouseEvent.target.tagName === 'CANVAS');
-    }
-    if (p5.touches && p5.touches.length > 0 && p5.touchEvent && p5.touchEvent.target) {
-      isClickingCanvas = isClickingCanvas && (p5.touchEvent.target.tagName === 'CANVAS');
-    }
-
-    const { x, y, zoom } = camRef.current;
-    const isInteracting =
-      (p5.mouseIsPressed || p5.touches.length > 0) && isClickingCanvas;
-
-    const realX = (p5.mouseX - x) / zoom;
-    const realY = (p5.mouseY - y) / zoom;
-    const realPx = (p5.pmouseX - x) / zoom;
-    const realPy = (p5.pmouseY - y) / zoom;
-    const speed = p5.dist(realX, realY, realPx, realPy);
-    const heading = speed < 1 ? p5.PI / 2 : p5.atan2(realY - realPy, realX - realPx);
-    let isPanning = false;
-    if (activeBrush === null) isPanning = true;
-    else if (p5.mouseButton === p5.RIGHT) isPanning = true;
-    else if (p5.touches.length >= 2) isPanning = true;
-
-    const currentPg = bodyMode === 'back' ? pgBackRef.current : pgFrontRef.current;
-
-    // ===== 交互绘制 =====
-    if (isInteracting) {
-      if (isPanning) {
-        camRef.current.x += p5.mouseX - p5.pmouseX;
-        camRef.current.y += p5.mouseY - p5.pmouseY;
-      } else if (activeBrush === 'eraser') {
-        if (currentPg) {
-          currentPg.erase();
-          currentPg.ellipse(realX, realY, 40 / zoom, 40 / zoom);
-          currentPg.noErase();
+    try {
+      // 【修复3】切换 bodyMode 时清除对侧离屏画布
+      if (prevBodyModeRef.current !== bodyMode) {
+        const prevPg = prevBodyModeRef.current === 'back' ? pgBackRef.current : pgFrontRef.current;
+        if (prevPg && typeof prevPg.clear === 'function') {
+          prevPg.clear();
         }
-        isDrawingStrokeRef.current = true;
-        dynamicParticles.current = dynamicParticles.current.filter(
-          (p) => p.bodyMode !== bodyMode || p5.dist(p.pos.x, p.pos.y, realX, realY) > 20
-        );
-      } else if (activeBrush !== null) {
-        isDrawingStrokeRef.current = true;
-        brushCounts.current[activeBrush] = (brushCounts.current[activeBrush] || 0) + 1;
+        prevBodyModeRef.current = bodyMode;
+      }
 
-        if (speedHistory.current.length > 200) speedHistory.current.shift();
-        speedHistory.current.push(speed);
+      p5.background(0);
 
-        const spawnRate = ['wave', 'twist', 'heavy'].includes(activeBrush) ? 6 : 2;
-        if (p5.frameCount % spawnRate === 0 || speed > 10) {
+      let isClickingCanvas = mousePressedOnCanvasRef.current;
+      if (p5.mouseEvent && p5.mouseEvent.target) {
+        isClickingCanvas = isClickingCanvas && (p5.mouseEvent.target.tagName === 'CANVAS');
+      }
+      if (p5.touches && p5.touches.length > 0 && p5.touchEvent && p5.touchEvent.target) {
+        isClickingCanvas = isClickingCanvas && (p5.touchEvent.target.tagName === 'CANVAS');
+      }
 
-          let intensity = 0.5;
-          let source = 'unknown';
+      // ✅ 严格防 NaN 坐标系保障
+      const cam = camRef.current || { x: 0, y: 0, zoom: 1.0 };
+      const zoom = Number.isFinite(cam.zoom) && cam.zoom > 0.1 ? cam.zoom : 1.0;
+      const x = Number.isFinite(cam.x) ? cam.x : 0;
+      const y = Number.isFinite(cam.y) ? cam.y : 0;
 
-          // 获取原生 PointerEvent（如果有）
-          const pointerEvent = p5._curElement?.pointer || p5.touches?.[0];
+      const mouseX = Number.isFinite(p5.mouseX) ? p5.mouseX : 0;
+      const mouseY = Number.isFinite(p5.mouseY) ? p5.mouseY : 0;
+      const pmouseX = Number.isFinite(p5.pmouseX) ? p5.pmouseX : mouseX;
+      const pmouseY = Number.isFinite(p5.pmouseY) ? p5.pmouseY : mouseY;
 
-          if (pointerEvent) {
-            // 优先级1：手写笔 - 真实压感
-            if (pointerEvent.pointerType === 'pen' && pointerEvent.pressure > 0 && pointerEvent.pressure !== 0.5) {
-              intensity = pointerEvent.pressure;
-              source = 'stylus_pressure';
-            }
-            // 优先级2：手指 - 接触面积
-            else if (pointerEvent.width && pointerEvent.height && (pointerEvent.width > 0 || pointerEvent.height > 0)) {
-              const diam = Math.max(pointerEvent.width, pointerEvent.height);
-              // 参考直径 12px → 0.2，40px 封顶 → 1.0
-              intensity = Math.min(1.0, Math.max(0.2, 0.2 + (diam - 12) / (40 - 12) * 0.8));
-              contactAreaHistory.current.push(diam);
-              source = 'contact_area';
-            }
+      const isInteracting =
+        (p5.mouseIsPressed || (p5.touches && p5.touches.length > 0)) && isClickingCanvas;
+
+      const realX = (mouseX - x) / zoom;
+      const realY = (mouseY - y) / zoom;
+      const realPx = (pmouseX - x) / zoom;
+      const realPy = (pmouseY - y) / zoom;
+      const speed = p5.dist(realX, realY, realPx, realPy);
+      const heading = speed < 1 ? p5.PI / 2 : p5.atan2(realY - realPy, realX - realPx);
+      let isPanning = false;
+      if (activeBrush === null) isPanning = true;
+      else if (p5.mouseButton === p5.RIGHT) isPanning = true;
+      else if (p5.touches && p5.touches.length >= 2) isPanning = true;
+
+      const currentPg = bodyMode === 'back' ? pgBackRef.current : pgFrontRef.current;
+
+      // ===== 交互绘制 =====
+      if (isInteracting) {
+        if (isPanning) {
+          camRef.current.x += mouseX - pmouseX;
+          camRef.current.y += mouseY - pmouseY;
+        } else if (activeBrush === 'eraser') {
+          if (currentPg && typeof currentPg.erase === 'function') {
+            currentPg.erase();
+            currentPg.ellipse(realX, realY, 40 / zoom, 40 / zoom);
+            currentPg.noErase();
+          }
+          isDrawingStrokeRef.current = true;
+          if (dynamicParticles.current) {
+            dynamicParticles.current = dynamicParticles.current.filter(
+              (p) => p.bodyMode !== bodyMode || p5.dist(p.pos.x, p.pos.y, realX, realY) > 20
+            );
+          }
+        } else if (activeBrush !== null && activeBrush !== undefined) {
+          isDrawingStrokeRef.current = true;
+          if (brushCounts.current) {
+            brushCounts.current[activeBrush] = (brushCounts.current[activeBrush] || 0) + 1;
           }
 
-          // 优先级3：兜底 - 速度 + 驻留时间模拟（保留你原有的精细逻辑）
-          if (source === 'unknown' || intensity === 0.5) {
-            // 2a. 速度因素：速度越慢，压力越大
-            let speedFactor = 0.3 + (1 - Math.min(1, speed / 30)) * 0.5;
-
-            // 2b. 驻留时间因素：在同一区域停留越久，压力越大
-            const gridSize = 20;
-            const gridX = Math.floor(realX / gridSize);
-            const gridY = Math.floor(realY / gridSize);
-            const gridKey = `${gridX},${gridY}`;
-
-            if (!particleDwellTimeRef.current[gridKey]) {
-              particleDwellTimeRef.current[gridKey] = {
-                startTime: Date.now(),
-                lastTime: Date.now(),
-                count: 0
-              };
-            }
-
-            const dwellData = particleDwellTimeRef.current[gridKey];
-            dwellData.count += 1;
-
-            let dwellFactor = 0;
-            if (dwellData.count > 5) {
-              dwellFactor = Math.min(0.3, (dwellData.count - 5) * 0.005);
-            }
-
-            if (speed > 40) {
-              intensity = 0.3;
-            } else {
-              intensity = Math.min(1.0, Math.max(0.2, speedFactor + dwellFactor));
-            }
-
-            // 笔触数量加成
-            const totalStrokes = Object.values(brushCounts.current || {}).reduce((a, b) => a + b, 0);
-            if (totalStrokes > 20) {
-              const strokeBonus = Math.min(0.15, totalStrokes * 0.001);
-              intensity = Math.min(1.0, intensity + strokeBonus);
-            }
-
-            // 如果 intensity 仍为 0.5，用速度简单推算
-            if (intensity === 0.5 && speed > 0) {
-              intensity = Math.min(1.0, 0.3 + speed / 100);
-            }
-
-            source = 'velocity_proxy';
+          if (speedHistory.current) {
+            if (speedHistory.current.length > 200) speedHistory.current.shift();
+            speedHistory.current.push(Number.isFinite(speed) ? speed : 5.0);
           }
 
-          // 确保在合理范围内
-          intensity = Math.max(0.2, Math.min(1.0, intensity));
+          const spawnRate = ['wave', 'twist', 'heavy'].includes(activeBrush) ? 6 : 2;
+          if (p5.frameCount % spawnRate === 0 || speed > 10) {
 
-          // 记录来源
-          intensitySourceRef.current = source;
+            let intensity = 0.5;
+            let source = 'unknown';
 
-          // 继续 push 到 pressureHistory（保持业务逻辑不变）
-          if (pressureHistory.current.length > 200) pressureHistory.current.shift();
-          pressureHistory.current.push(intensity);
+            // 获取原生 PointerEvent（如果有）
+            const pointerEvent = p5._curElement?.pointer || p5.touches?.[0];
 
+            if (pointerEvent) {
+              // 优先级1：手写笔 - 真实压感
+              if (pointerEvent.pointerType === 'pen' && pointerEvent.pressure > 0 && pointerEvent.pressure !== 0.5) {
+                intensity = pointerEvent.pressure;
+                source = 'stylus_pressure';
+              }
+              // 优先级2：手指 - 接触面积
+              else if (pointerEvent.width && pointerEvent.height && (pointerEvent.width > 0 || pointerEvent.height > 0)) {
+                const diam = Math.max(pointerEvent.width, pointerEvent.height);
+                // 参考直径 12px → 0.2，40px 封顶 → 1.0
+                intensity = Math.min(1.0, Math.max(0.2, 0.2 + (diam - 12) / (40 - 12) * 0.8));
+                if (contactAreaHistory && contactAreaHistory.current) {
+                  contactAreaHistory.current.push(diam);
+                }
+                source = 'contact_area';
+              }
+            }
 
-          const pObj = new PainParticle(
-            p5,
-            realX,
-            realY,
-            activeBrush,
-            PALETTES[activeColor].color,
-            speed,
-            heading,
-            bodyMode,
-            intensity,
-          );
+            // 优先级3：兜底 - 速度 + 驻留时间模拟
+            if (source === 'unknown' || intensity === 0.5) {
+              // 2a. 速度因素：速度越慢，压力越大
+              let speedFactor = 0.3 + (1 - Math.min(1, (Number.isFinite(speed) ? speed : 5) / 30)) * 0.5;
 
-          particlePositions.current.push({ x: realX, y: realY, bodyMode });
-          // ✅ 删除重复的 pressureHistory.push（前面已经 push 过了）
+              // 2b. 驻留时间因素：在同一区域停留越久，压力越大
+              const gridSize = 20;
+              const gridX = Math.floor(realX / gridSize);
+              const gridY = Math.floor(realY / gridSize);
+              const gridKey = `${gridX},${gridY}`;
 
-          if (pObj.isDynamic) {
-            dynamicParticles.current.push(pObj);
-            if (dynamicParticles.current.length > 500) dynamicParticles.current.shift();
-          } else {
-            staticParticles.current.push(pObj);
+              if (!particleDwellTimeRef.current[gridKey]) {
+                particleDwellTimeRef.current[gridKey] = {
+                  startTime: Date.now(),
+                  lastTime: Date.now(),
+                  count: 0
+                };
+              }
+
+              const dwellData = particleDwellTimeRef.current[gridKey];
+              dwellData.count += 1;
+              dwellData.lastTime = Date.now();
+
+              let dwellFactor = 0;
+              if (dwellData.count > 5) {
+                dwellFactor = Math.min(0.3, (dwellData.count - 5) * 0.005);
+              }
+
+              if (speed > 40) {
+                intensity = 0.3;
+              } else {
+                intensity = Math.min(1.0, Math.max(0.2, speedFactor + dwellFactor));
+              }
+
+              // 笔触数量加成
+              const totalStrokes = Object.values(brushCounts.current || {}).reduce((a, b) => a + b, 0);
+              if (totalStrokes > 20) {
+                const strokeBonus = Math.min(0.15, totalStrokes * 0.001);
+                intensity = Math.min(1.0, intensity + strokeBonus);
+              }
+
+              // 如果 intensity 仍为 0.5，用速度简单推算
+              if (intensity === 0.5 && speed > 0) {
+                intensity = Math.min(1.0, 0.3 + speed / 100);
+              }
+
+              source = 'velocity_proxy';
+            }
+
+            // 确保在合理范围内
+            intensity = Math.max(0.2, Math.min(1.0, intensity));
+
+            // 记录来源
+            if (intensitySourceRef) intensitySourceRef.current = source;
+
+            // 继续 push 到 pressureHistory
+            if (pressureHistory.current) {
+              if (pressureHistory.current.length > 200) pressureHistory.current.shift();
+              pressureHistory.current.push(intensity);
+            }
+
+            // ✅ 严格色彩兜底
+            const paletteColor = PALETTES[activeColor]?.color || [211, 47, 47];
+
+            if (Number.isFinite(realX) && Number.isFinite(realY)) {
+              const pObj = new PainParticle(
+                p5,
+                realX,
+                realY,
+                activeBrush,
+                paletteColor,
+                Number.isFinite(speed) ? speed : 5.0,
+                Number.isFinite(heading) ? heading : p5.PI / 2,
+                bodyMode,
+                intensity,
+              );
+
+              if (particlePositions.current) {
+                particlePositions.current.push({ x: realX, y: realY, bodyMode });
+              }
+
+              if (pObj.isDynamic) {
+                if (dynamicParticles.current) {
+                  dynamicParticles.current.push(pObj);
+                  if (dynamicParticles.current.length > 500) dynamicParticles.current.shift();
+                }
+              } else {
+                if (staticParticles.current) {
+                  staticParticles.current.push(pObj);
+                }
+              }
+            }
+          }
+          try {
+            playBrushSound(activeBrush);
+          } catch (e) {
+            // ignore audio play errors
           }
         }
-        try {
-          playBrushSound(activeBrush);
-        } catch (e) {
-          console.warn('Audio play failed:', e);
+      }
+
+      // ===== 更新静态粒子到离屏画布 =====
+      if (staticParticles.current) {
+        for (let i = staticParticles.current.length - 1; i >= 0; i--) {
+          const p = staticParticles.current[i];
+          if (p) {
+            p.update(p5);
+            const targetPg = p.bodyMode === 'back' ? pgBackRef.current : pgFrontRef.current;
+            if (targetPg) {
+              p.show(targetPg);
+            }
+            if (p.isDead()) staticParticles.current.splice(i, 1);
+          }
         }
       }
-    }
 
-    // ===== 更新静态粒子到离屏画布 =====
-    for (let i = staticParticles.current.length - 1; i >= 0; i--) {
-      const p = staticParticles.current[i];
-      p.update(p5);
-      const targetPg = p.bodyMode === 'back' ? pgBackRef.current : pgFrontRef.current;
-      if (targetPg) {
-        p.show(targetPg);
+      // ===== 计算 spatialMap（粒子更新后） =====
+      if (particlePositions.current) {
+        const currentCount = particlePositions.current.length;
+        // 只在粒子数量变化时更新（避免每帧都触发）
+        if (currentCount > 0 && currentCount !== prevParticleCountRef.current) {
+          prevParticleCountRef.current = currentCount;
+          if (onSpatialMapUpdate) {
+            const map = calculateSpatialMap(
+              particlePositions.current,
+              bodyMode,
+              p5.width,
+              p5.height
+            );
+            onSpatialMapUpdate(map);
+          }
+        }
+        // 如果粒子被清空（数量变为0），也要更新
+        if (currentCount === 0 && prevParticleCountRef.current !== 0) {
+          prevParticleCountRef.current = 0;
+          if (onSpatialMapUpdate) {
+            onSpatialMapUpdate({ abdomen: 0, lowerBack: 0, upperBody: 0 });
+          }
+        }
       }
-      if (p.isDead()) staticParticles.current.splice(i, 1);
-    }
-    // ===== 计算 spatialMap（粒子更新后） =====
-    const currentCount = particlePositions.current.length;
-    // 只在粒子数量变化时更新（避免每帧都触发）
-    if (currentCount > 0 && currentCount !== prevParticleCountRef.current) {
-      prevParticleCountRef.current = currentCount;
-      if (onSpatialMapUpdate) {
-        const map = calculateSpatialMap(
-          particlePositions.current,
-          bodyMode,
-          p5.width,
-          p5.height
-        );
-        onSpatialMapUpdate(map);
-      }
-    }
-    // 如果粒子被清空（数量变为0），也要更新
-    if (currentCount === 0 && prevParticleCountRef.current !== 0) {
-      prevParticleCountRef.current = 0;
-      if (onSpatialMapUpdate) {
-        onSpatialMapUpdate({ abdomen: 0, lowerBack: 0, upperBody: 0 });
-      }
-    }
 
-    // ===== 【核心修复】动态粒子只更新，不绘制到离屏画布 =====
-    for (let i = dynamicParticles.current.length - 1; i >= 0; i--) {
-      const dp = dynamicParticles.current[i];
-      dp.update(p5);
-      if (dp.isDead()) {
-        dynamicParticles.current.splice(i, 1);
+      // ===== 【核心修复】动态粒子只更新，不绘制到离屏画布 =====
+      if (dynamicParticles.current) {
+        for (let i = dynamicParticles.current.length - 1; i >= 0; i--) {
+          const dp = dynamicParticles.current[i];
+          if (dp) {
+            dp.update(p5);
+            if (dp.isDead()) {
+              dynamicParticles.current.splice(i, 1);
+            }
+          }
+        }
       }
-    }
 
-    // ===== 绘制背景图 =====
-    if (bodyMode !== 'none') {
-      const activeImg = bodyMode === 'front' ? bgFrontRef.current : bgBackRef.current;
-      if (activeImg) {
+      // ===== 绘制背景图（✅ 防除以 0 / Infinity 异常） =====
+      if (bodyMode !== 'none') {
+        const activeImg = bodyMode === 'front' ? bgFrontRef.current : bgBackRef.current;
+        if (activeImg && activeImg.width > 0 && activeImg.height > 0 && Number.isFinite(activeImg.height)) {
+          p5.push();
+          p5.translate(x, y);
+          p5.scale(zoom);
+          p5.imageMode(p5.CENTER);
+          p5.tint(255, 40);
+          const currentBgScale = Number.isFinite(bgScale) && bgScale > 0 ? bgScale : 1.0;
+          const imgScale = ((p5.height * 0.8) / activeImg.height) * currentBgScale;
+          if (Number.isFinite(imgScale) && imgScale > 0) {
+            p5.image(
+              activeImg,
+              p5.width / 2,
+              p5.height / 2,
+              activeImg.width * imgScale,
+              activeImg.height * imgScale
+            );
+          }
+          p5.pop();
+        }
+      }
+
+      // ===== 绘制离屏画布（静态粒子）到主画布 =====
+      p5.push();
+      p5.translate(x, y);
+      p5.scale(zoom);
+      p5.noTint();
+      p5.imageMode(p5.CORNER);
+      if (currentPg) {
+        p5.image(currentPg, 0, 0);
+      }
+      p5.pop();
+
+      // ===== 【核心新增】动态粒子直接绘制到主画布 =====
+      if (dynamicParticles.current && dynamicParticles.current.length > 0) {
         p5.push();
         p5.translate(x, y);
         p5.scale(zoom);
-        p5.imageMode(p5.CENTER);
-        p5.tint(255, 40);
-        const currentBgScale = bgScale || 1.0;
-        const imgScale = ((p5.height * 0.8) / activeImg.height) * currentBgScale;
-        p5.image(
-          activeImg,
-          p5.width / 2,
-          p5.height / 2,
-          activeImg.width * imgScale,
-          activeImg.height * imgScale
-        );
+        for (let i = 0; i < dynamicParticles.current.length; i++) {
+          const dp = dynamicParticles.current[i];
+          if (dp && dp.bodyMode === bodyMode) {
+            dp.show(p5);
+          }
+        }
         p5.pop();
       }
+    } catch (renderError) {
+      console.warn("⚠️ Canvas render loop recovered from exception:", renderError);
     }
-
-    // ===== 绘制离屏画布（静态粒子）到主画布 =====
-    p5.push();
-    p5.translate(x, y);
-    p5.scale(zoom);
-    p5.noTint();
-    p5.imageMode(p5.CORNER);
-    if (currentPg) {
-      p5.image(currentPg, 0, 0);
-    }
-    p5.pop();
-
-    // ===== 【核心新增】动态粒子直接绘制到主画布 =====
-    p5.push();
-    p5.translate(x, y);
-    p5.scale(zoom);
-    for (let i = 0; i < dynamicParticles.current.length; i++) {
-      const dp = dynamicParticles.current[i];
-      if (dp.bodyMode === bodyMode) {
-        dp.show(p5);
-      }
-    }
-    p5.pop();
   };
 
   // ============================================================
@@ -1179,7 +1229,7 @@ export default function CanvasPage({
           </div>
         </div>
 
-        {/* ===== 缩放调节 - 在顶部导航栏下方 ===== */}
+        {/* 缩放调节 */}
         {bodyMode !== 'none' && (
           <div
             style={{
