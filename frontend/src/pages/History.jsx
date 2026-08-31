@@ -1159,30 +1159,6 @@ const TimelineView = ({ records, t, isEn, onRecordClick }) => {
             onClick={() => handleCardClick(record)}
             onMouseEnter={() => !isMobile && setHoveredId(record.id)}
             onMouseLeave={() => !isMobile && setHoveredId(null)}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '14px',
-              padding: isMobile ? '10px 12px 10px 44px' : '14px 18px 14px 48px',
-              marginBottom: isMobile ? '4px' : '8px',
-              borderRadius: '14px',
-              cursor: 'pointer',
-              position: 'relative',
-              transition: 'all 0.35s cubic-bezier(0.34, 1.56, 0.64, 1)',
-              transform: isActive ? 'scale(1.02)' : 'scale(1)',
-              background: isActive
-                ? `rgba(${painColor.replace('#', '')}, 0.08)`
-                : 'rgba(255,255,255,0.01)',
-              border: isActive
-                ? `1px solid ${painColor}30`
-                : '1px solid transparent',
-              boxShadow: isActive
-                ? `0 4px 20px rgba(0,0,0,0.2)`
-                : 'none',
-              WebkitTapHighlightColor: 'transparent',
-              userSelect: 'none',
-              WebkitUserSelect: 'none',
-            }}
             // ✅ 解析颜色值用于背景
             style={{
               display: 'flex',

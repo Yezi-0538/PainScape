@@ -635,12 +635,11 @@ export default function CanvasPage({
             speed,
             heading,
             bodyMode,
-            pressure
+            intensity,
           );
 
           particlePositions.current.push({ x: realX, y: realY, bodyMode });
-          if (pressureHistory.current.length > 200) pressureHistory.current.shift();
-          pressureHistory.current.push(pressure);
+          // ✅ 删除重复的 pressureHistory.push（前面已经 push 过了）
 
           if (pObj.isDynamic) {
             dynamicParticles.current.push(pObj);
