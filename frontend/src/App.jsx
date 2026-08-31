@@ -643,7 +643,10 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
         return activeText;
       };
 
-      const dominant = overrideType || getDominantPain() || 'twist';
+      // ✅ 兼容映射（防止快速记录传入 sink/swell 导致 key 丢失）
+      const rawDominant = overrideType || getDominantPain() || 'twist';
+      const REVERSE_MAP = { sink: 'heavy', swell: 'wave' };
+      const dominant = REVERSE_MAP[rawDominant] || rawDominant;
       const painName = t(`painNames.${dominant}`) || (isEn ? 'Dysmenorrhea' : '痛经');
 
       // ============================================================
@@ -702,7 +705,7 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
 
       const painLocation = buildPainLocation(currentSpatialMap, isEn);
 
-      // ---- 伴随症状（修复：翻译症状 key） ----
+      // ---- 伴随症状 ----
       const symptomsArr = mb.accompanyingSymptomsArr || [];
       const symptomsText = Array.isArray(symptomsArr) && symptomsArr.length > 0
         ? symptomsArr
@@ -763,14 +766,12 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
         }
       }
 
+      // ---- 生活方式 ----
       const lifestyleArr = mb.lifestyleArr || [];
-
-      // ✅ 使用 lifestyleOptions 对象
       const lifestyleText = lifestyleArr.length > 0
         ? lifestyleArr
           .filter(s => s !== 'normal')
           .map(s => {
-            // 从 lifestyleOptions 对象中获取翻译
             const translations = t('onboarding.lifestyleOptions', { returnObjects: true });
             return translations?.[s] || s;
           })
@@ -977,7 +978,7 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
         .replace(/{{reassurance}}/g, reassurance);
 
       // ============================================================
-      // 临床建议 - 动态构建（修复：症状翻译）
+      // 临床建议 - 动态构建
       // ============================================================
       const buildSelfCareItems = (dominant, symptomsArr, mb, isEn) => {
         const items = [];
@@ -1031,7 +1032,6 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
           );
         }
 
-        // ✅ 修复：将症状 key 翻译为显示文本
         if (symptomsArr && symptomsArr.length > 0) {
           const translatedSymptoms = symptomsArr.map(s => {
             return t(`onboarding.accompanyingOptions.${s}`, { defaultValue: s });
@@ -1079,55 +1079,33 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
         .replace(/{{reassurance}}/g, reassurance)
         .replace(/{{examInfo}}/g, examInfo);
 
-      // ============================================================
-      // ✅ 修复：根据 leaveRecipient 和 leaveTone 动态生成请假文本
-      // ============================================================
+      // ---- 请假文本动态生成 ----
       const getWorkTextByScenario = (recipient, tone, painName, isEn) => {
-        console.log('🔍 [getWorkTextByScenario] 调用参数:', { recipient, tone, painName, isEn });
-
         const validRecipients = ['manager', 'teacher', 'client', 'friend', 'partner'];
         const recipientKey = validRecipients.includes(recipient) ? recipient : 'manager';
 
         const validTones = ['polite', 'neutral', 'casual'];
         const toneKey = validTones.includes(tone) ? tone : 'neutral';
 
-        console.log('🔍 [getWorkTextByScenario] 映射后:', { recipientKey, toneKey });
-
-        // ✅ 获取 workTemplates
         const workTemplates = t('workTemplates', { returnObjects: true, defaultValue: {} });
-        console.log('🔍 [getWorkTextByScenario] workTemplates:', workTemplates);
-        console.log('🔍 [getWorkTextByScenario] workTemplates keys:', Object.keys(workTemplates));
 
-        let template = workTemplates?.[recipientKey]?.[toneKey];
-        console.log('🔍 [getWorkTextByScenario] 找到的模板 (精确):', template);
-
-        if (!template) {
-          template = workTemplates?.manager?.[toneKey];
-          console.log('🔍 [getWorkTextByScenario] 降级到 manager:', template);
-        }
-
-        if (!template) {
-          template = workTemplates?.manager?.neutral;
-          console.log('🔍 [getWorkTextByScenario] 降级到 manager.neutral:', template);
-        }
+        let template = workTemplates?.[recipientKey]?.[toneKey]
+          || workTemplates?.manager?.[toneKey]
+          || workTemplates?.manager?.neutral;
 
         if (template && typeof template === 'string') {
-          const result = template.replace(/{{pain}}/g, painName);
-          console.log('🔍 [getWorkTextByScenario] 最终结果:', result);
-          return result;
+          return template.replace(/{{pain}}/g, painName);
         }
 
-        const fallback = t('defaultTemplates.workTemplateFallback', {
+        return t('defaultTemplates.workTemplateFallback', {
           defaultValue: '因身体不适，申请休息一天。'
         });
-        console.log('🔍 [getWorkTextByScenario] 使用 fallback:', fallback);
-        return fallback;
       };
+
       // ---- 默认值 ----
       const defaultAnalogy = t(`painTemplates.${dominant}.analogy`) || '';
       const defaultSelfCare = t(`painTemplates.${dominant}.selfCare`) || '';
 
-      // ✅ 修复：根据 userPrefs 选择 partnerActions，并确保有兜底
       const prefKey = (Array.isArray(userPrefs) && userPrefs[0]) ? userPrefs[0] : 'care';
       const validPrefKeys = ['alone', 'care', 'comfort'];
       const safePrefKey = validPrefKeys.includes(prefKey) ? prefKey : 'care';
@@ -1142,24 +1120,20 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
         defaultAction = t('defaultTemplates.defaultActions') || '☑️ 帮她热敷小腹并准备好止痛药。\n☑️ 给她倒杯温水，陪伴在她身边。\n☑️ 调暗灯光，让她安静休息。';
       }
 
-      // ✅ 修复：动态生成请假文本
       const recipient = leaveRecipient || 'manager';
       const tone = leaveTone || 'neutral';
       const defaultWorkText = getWorkTextByScenario(recipient, tone, painName, isEn);
 
       // ============================================================
-      // 如果 activeLlm 存在，使用 LLM 数据
+      // ✅ 核心修复：只有当 activeLlm 的痛感与当前 dominant 一致时才采纳其比喻
+      // 避免上次残存的 LLM 刮痛比喻污染本次计算出的绞痛！
       // ============================================================
-      if (activeLlm) {
-        console.log('🔍 [generateContent] activeLlm 存在，activeLlm.workText:', activeLlm.workText);
-        console.log('🔍 [generateContent] activeLlm 存在，defaultWorkText:', defaultWorkText);
-        const finalWorkText = getLocalizedText(activeLlm.workText || activeLlm.work, defaultWorkText);
-        console.log('🔍 [generateContent] finalWorkText:', finalWorkText);
+      const isLlmMatchingDominant = activeLlm && (!activeLlm.dominantPain || activeLlm.dominantPain === dominant);
+
+      if (isLlmMatchingDominant) {
         return {
           pain: painName,
           analogy: getLocalizedText(activeLlm.analogy, defaultAnalogy),
-          // workText: getLocalizedText(activeLlm.workText || activeLlm.work, defaultWorkText),
-          // ✅ workText 强制使用动态生成的，不依赖 LLM
           workText: defaultWorkText,
           action: getLocalizedText(activeLlm.action, defaultAction),
           selfCare: getLocalizedText(activeLlm.selfCare, defaultSelfCare),
@@ -1190,11 +1164,11 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
       }
 
       // ============================================================
-      // 降级返回 - 使用用户填写的真实数据
+      // 降级返回 - 严格使用与当前 dominant 一致的本地比喻与建议
       // ============================================================
       return {
         pain: painName,
-        analogy: defaultAnalogy,
+        analogy: defaultAnalogy, // 严格匹配当前 dominant
         workText: defaultWorkText,
         action: defaultAction,
         selfCare: defaultSelfCare,
@@ -1231,7 +1205,6 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
       const fallbackReassurance = '请不必过度焦虑。';
       const fallbackExamInfo = '妇科超声是常规检查，无辐射，约10-15分钟。';
 
-      // 兜底时也动态生成请假文本
       const fallbackWorkText = getWorkTextByScenario(
         leaveRecipient || 'manager',
         leaveTone || 'neutral',
@@ -1366,14 +1339,22 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
   }
   const handleGenerateFromData = async (data) => {
     setIsLoading(true);
+    setEditedContents({});      // ✅ 每次重新生成时清空旧编辑缓存
+    setCurrentReportData(null); // ✅ 清空旧报告缓存
+    setLlmData(null);
     try {
-      //埋点：记录快速记录数据
+      // 1. 标准化痛觉 key（将 sink/swell 转为标准的 heavy/wave）
+      const REVERSE_MAP = { sink: 'heavy', swell: 'wave' };
+      const standardPain = REVERSE_MAP[data.selectedPain] || data.selectedPain || 'twist';
+
+      // 2. 埋点记录
       telemetry.logQuickRecordData({
-        painTypeSelected: data.selectedPain || 'twist',
+        painTypeSelected: standardPain,
         pressureValue: data.painScore || 50,
         colorTemperature: data.colorTemperature || (data.activeColor === 'blue' ? '冷' : '暖'),
         holdDurationMs: data.holdDurationMs || 3000
       });
+
       const canvasImg = getFallbackImgUrl();
       setImgUrl(canvasImg);
       if (pgFrontRef.current && typeof pgFrontRef.current.clear === 'function') pgFrontRef.current.clear();
@@ -1385,7 +1366,7 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
 
       const requestBody = {
         appMode: appMode || 'medical',
-        dominantPain: data.selectedPain,
+        dominantPain: standardPain,
         userPref: userPrefs[0] || 'care',
         painScore: data.painScore || 50,
         brushCounts: data.brushCounts || {},
@@ -1417,13 +1398,9 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
         console.warn('No backend API, using local templates:', apiErr.message);
       }
 
-      if (apiResult) {
-        setLlmData(apiResult);
-        setCurrentReportData(apiResult);
-      } else {
-        const content = generateContent(data.selectedPain || 'twist');
-        setCurrentReportData(content);
-      }
+      const finalReport = apiResult || generateContent(standardPain);
+      setLlmData(finalReport);
+      setCurrentReportData(finalReport);
 
       const now = new Date();
       const dateStr = `${now.getFullYear()}/${String(now.getMonth() + 1).padStart(2, '0')}/${String(now.getDate()).padStart(2, '0')}`;
@@ -1435,21 +1412,22 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
         date: dateStr,
         time: timeStr,
         img: canvasImg,
-        painName: t(`painNames.${data.selectedPain}`) || data.selectedPain,
-        dominantPain: data.selectedPain,
-        painScore: data.painScore,
+        painName: t(`painNames.${standardPain}`) || standardPain, 
+        dominantPain: standardPain,                              
+        painScore: data.painScore || 50,                         
         appMode,
-        reportData: apiResult || generateContent(data.selectedPain || 'twist'),
+        reportData: apiResult || generateContent(standardPain),
         medicalBackground,
         userPrefs,
         tonePreference,
         cycleDay,
-        isQuickLog: true,
+        spatialMap: data.spatialMap || { abdomen: 0.5, lowerBack: 0.5, upperBody: 0.0 }, 
+        colorPalette: data.activeColor || 'crimson',                                      
+        accompanyingSymptoms: allSymptoms,                                               
+        isQuickLog: true,                                                       
       };
+
       setHistory(prev => [historyEntry, ...prev]);
-      if (!isGuest && currentUserId && !currentUserId.startsWith('guest_')) {
-        //saveRecordToCloud(currentUserId, historyEntry);
-      }
       telemetry.switchTab('partner');
       setPage('result');
     } catch (e) {
@@ -2526,6 +2504,9 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
               telemetry.updateSession({ profile_completed: true, entry_point: 'canvas' });
               canvasStartTimeRef.current = Date.now();
               generationSourceRef.current = 'canvas';
+              setEditedContents({});        
+              setCurrentReportData(null);    
+              setLlmData(null);
               setBodyMode('front');
               setPage('canvas');
             }}
@@ -2535,6 +2516,9 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
             }}
             onSkip={() => {
               canvasStartTimeRef.current = Date.now(); // 🌟 补上计时
+              setEditedContents({});
+              setCurrentReportData(null);
+              setLlmData(null);
               setBodyMode('front');
               setPage('canvas');
             }}
@@ -2597,6 +2581,7 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
             draftCount={getDraftCount()}
             onGenerate={async () => {
               setIsLoading(true);
+              setEditedContents({});
               // 记录绘画结束时间与总时长 (用于 painting_data 埋点)
               const nowEndTime = new Date();
               const endTimeStr = nowEndTime.toISOString();
@@ -2818,15 +2803,19 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
                   date: dateStr,
                   time: timeStr,
                   img: canvasImg,
+                  painName: t(`painNames.${dominant}`) || dominant, 
+                  dominantPain: dominant,                          
+                  painScore: painScore,                           
                   appMode,
                   reportData: apiResult || generateContent(dominant),
                   medicalBackground,
                   userPrefs,
                   tonePreference,
                   cycleDay,
-                  spatialMap,
-                  colorPalette: activeColor || 'crimson',
-                  accompanyingSymptoms: allSymptoms,
+                  spatialMap,                                     
+                  colorPalette: activeColor || 'crimson',         
+                  accompanyingSymptoms: allSymptoms,              
+                  isQuickLog: false,                               
                 };
 
                 setHistory(prev => [historyEntry, ...prev]);
