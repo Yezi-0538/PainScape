@@ -1,5 +1,5 @@
 // src/pages/OnboardingPage.jsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useI18n } from '../i18n/i18nContext';
 import OnboardingTooltip from '../Components/OnboardingTooltip';
 import PersonalProfileModal from '../Components/modals/PersonalProfileModal';
@@ -225,6 +225,7 @@ export default function OnboardingPage({
   const { t } = useI18n();
   const [tooltipStep, setTooltipStep] = useState(null);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+  const containerRef = useRef(null);
 
   useEffect(() => {
     if (['basicInfo', 'preference'].includes(showContent)) {
@@ -232,6 +233,32 @@ export default function OnboardingPage({
     }
   }, [showContent]);
 
+  // 滚动到顶部的函数
+  const scrollToTop = () => {
+    if (containerRef.current) {
+      containerRef.current.scrollTo({ top: 0, behavior: 'smooth' });
+    } else {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  };
+
+  // 切换到基础信息页
+  const goToBasicInfo = () => {
+    setShowContent('basicInfo');
+    setTimeout(scrollToTop, 100);
+  };
+
+  // 切换到偏好页
+  const goToPreference = () => {
+    setShowContent('preference');
+    setTimeout(scrollToTop, 100);
+  };
+
+  // 或者通用的切换函数
+  const switchContent = (page) => {
+    setShowContent(page);
+    setTimeout(scrollToTop, 100);
+  };
   const togglePref = (key) => {
     if (key === 'alone') {
       setUserPrefs(['alone']);
@@ -248,6 +275,7 @@ export default function OnboardingPage({
 
   return (
     <div
+      ref={containerRef}
       style={{
         pointerEvents: 'auto',
         background: '#0a0a0a',
@@ -467,6 +495,7 @@ export default function OnboardingPage({
                 <CollapsibleMultiSelect
                   label={t('onboarding.recentLifestyleTitle') || '近期习惯'}
                   options={[
+                    { value: 'normal', label: t('onboarding.lifestyleNormal') },
                     { value: 'sleepShort', label: t('onboarding.lifestyleSleepShort') },
                     { value: 'sleepIrregular', label: t('onboarding.lifestyleSleepIrregular') },
                     { value: 'smoking', label: t('onboarding.lifestyleSmoking') },
@@ -485,10 +514,10 @@ export default function OnboardingPage({
                 <CollapsibleSingleSelect
                   label={t('onboarding.recentPsychosocialLabel') || '近期压力状况 (可选)'}
                   options={[
-                    { value: 'lowStress', label: t('onboarding.psychosocialLowStress') },
-                    { value: 'moderateStress', label: t('onboarding.psychosocialModerateStress') },
-                    { value: 'highStress', label: t('onboarding.psychosocialHighStress') },
-                    { value: 'trauma', label: t('onboarding.psychosocialTrauma') },
+                    { value: 'lowStress', label: t('onboarding.psychosocialOptions.lowStress') },
+                    { value: 'moderateStress', label: t('onboarding.psychosocialOptions.moderateStress') },
+                    { value: 'highStress', label: t('onboarding.psychosocialOptions.highStress') },
+                    { value: 'trauma', label: t('onboarding.psychosocialOptions.trauma') },
                   ]}
                   selectedValue={medicalBackground.psychosocial || ''}
                   onChange={(value) =>
@@ -636,7 +665,7 @@ export default function OnboardingPage({
                 </label>
                 <input
                   type="text"
-                  placeholder={t('onboarding.accompanyingOtherPlaceholder') || '例如：头晕、心慌、背痛...'}
+                  placeholder={t('onboarding.accompanyingOtherPlaceholder') || '例如：嗜睡、心慌、背痛...'}
                   value={medicalBackground.accompanyingOther || ''}
                   onChange={(e) =>
                     setMedicalBackground({
@@ -800,117 +829,390 @@ export default function OnboardingPage({
         )}
       </div>
 
-      {/* 2 步导航指示器（医疗模式下） */}
+      {/* 2 步导航指示器（医疗模式下）- 修复椭圆 */}
       {appMode !== 'general' && (
         <div
           style={{
             display: 'flex',
             justifyContent: 'center',
-            gap: '16px',
-            marginTop: '30px',
+            alignItems: 'center',
+            gap: 'clamp(12px, 4vw, 20px)',
+            marginTop: 'clamp(16px, 3vw, 24px)',
             width: '100%',
-            borderTop: '1px solid #222',
-            paddingTop: '20px',
+            borderTop: '1px solid rgba(255,255,255,0.04)',
+            paddingTop: 'clamp(14px, 3vw, 20px)',
           }}
         >
           {[
-            { key: 'basicInfo', label: '1', title: t('onboarding.basicInfoTitle') || '基础信息' },
-            { key: 'preference', label: '2', title: t('onboarding.preferenceTitle') || '干预偏好' },
-          ].map((step) => (
-            <button
-              key={step.key}
-              onClick={() => setShowContent(step.key)}
-              style={{
-                width: '42px',
-                height: '42px',
-                borderRadius: '50%',
-                border: showContent === step.key ? '2px solid #d32f2f' : '1px solid #444',
-                background: showContent === step.key ? 'rgba(211, 47, 47, 0.15)' : 'transparent',
-                color: showContent === step.key ? '#fff' : '#666',
-                fontSize: 'var(--text-base)',
-                fontWeight: 'bold',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                transition: 'all 0.2s',
-              }}
-              title={step.title}
-            >
-              {step.label}
-            </button>
-          ))}
+            { key: 'basicInfo', label: '1' },
+            { key: 'preference', label: '2' },
+          ].map((step, index) => {
+            const isActive = showContent === step.key;
+            const isCompleted = index === 0 && showContent === 'preference';
+
+            return (
+              <button
+                key={step.key}
+                onClick={() => {
+                  setShowContent(step.key);
+                  setTimeout(scrollToTop, 50);
+                }}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  width: '38px',
+                  height: '38px',
+                  minWidth: '38px',
+                  minHeight: '38px',
+                  borderRadius: '50%',
+                  border: 'none',
+                  padding: 0,
+                  margin: 0,
+                  lineHeight: 1,
+                  background: isActive
+                    ? 'linear-gradient(135deg, #d32f2f, #c62828)'
+                    : isCompleted
+                      ? 'rgba(76, 175, 80, 0.15)'
+                      : 'rgba(255,255,255,0.04)',
+                  color: isActive ? '#fff' : isCompleted ? '#4caf50' : '#555',
+                  fontSize: '14px',
+                  fontWeight: isActive ? '700' : isCompleted ? '600' : '400',
+                  cursor: 'pointer',
+                  transition: 'all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)',
+                  boxShadow: isActive
+                    ? '0 4px 20px rgba(211, 47, 47, 0.3)'
+                    : isCompleted
+                      ? '0 0 0 2px rgba(76, 175, 80, 0.2)'
+                      : 'none',
+                  transform: isActive ? 'scale(1.05)' : 'scale(1)',
+                  position: 'relative',
+                  flexShrink: 0,
+                }}
+                onMouseEnter={(e) => {
+                  if (!isActive) {
+                    e.currentTarget.style.background = isCompleted
+                      ? 'rgba(76, 175, 80, 0.2)'
+                      : 'rgba(255,255,255,0.08)';
+                    e.currentTarget.style.color = isCompleted ? '#66bb6a' : '#aaa';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (!isActive) {
+                    e.currentTarget.style.background = isCompleted
+                      ? 'rgba(76, 175, 80, 0.15)'
+                      : 'rgba(255,255,255,0.04)';
+                    e.currentTarget.style.color = isCompleted ? '#4caf50' : '#555';
+                  }
+                }}
+                onTouchStart={(e) => {
+                  e.currentTarget.style.transform = 'scale(0.92)';
+                }}
+                onTouchEnd={(e) => {
+                  e.currentTarget.style.transform = isActive ? 'scale(1.05)' : 'scale(1)';
+                }}
+                title={step.key === 'basicInfo'
+                  ? (t('onboarding.step1') || '基础信息')
+                  : (t('onboarding.step2') || '干预偏好')
+                }
+              >
+                {isCompleted ? (
+                  // ✅ 用 SVG 代替 ✓ 字符，保证正方形
+                  <svg
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="3"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    style={{ display: 'block' }}
+                  >
+                    <polyline points="20 6 9 17 4 12" />
+                  </svg>
+                ) : (
+                  step.label
+                )}
+
+                {/* 连接线 */}
+                {index === 0 && (
+                  <span
+                    style={{
+                      position: 'absolute',
+                      right: '-18px',
+                      top: '50%',
+                      transform: 'translateY(-50%)',
+                      width: '14px',
+                      height: '2px',
+                      background: isCompleted || isActive
+                        ? 'linear-gradient(90deg, #4caf50, #d32f2f)'
+                        : 'rgba(255,255,255,0.06)',
+                      borderRadius: '2px',
+                      transition: 'all 0.5s ease',
+                      flexShrink: 0,
+                      pointerEvents: 'none',
+                    }}
+                  />
+                )}
+              </button>
+            );
+          })}
         </div>
       )}
 
-      {/* 底部主按钮区 */}
+      {/* 底部操作按钮 */}
       <div
         style={{
           display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
           gap: '12px',
           marginTop: '24px',
           width: '100%',
+          maxWidth: '480px',
+          justifyContent: 'center',
+          paddingBottom: 'calc(20px + env(safe-area-inset-bottom))',
         }}
       >
-        {appMode === 'medical' && showContent === 'basicInfo' ? (
-          <button
-            onClick={() => setShowContent('preference')}
-            style={{
-              width: '200px',
-              padding: '14px',
-              background: '#1f1f1f',
-              color: '#eee',
-              border: '1px solid #333',
-              borderRadius: '30px',
-              fontWeight: 'bold',
-              cursor: 'pointer',
-              fontSize: '15px',
-              transition: 'all 0.2s',
-            }}
-          >
-            {t('onboarding.nextStep') || '下一步'}
-          </button>
-        ) : (
-          <button
-            onClick={onStartDrawing}
-            style={{
-              width: '200px',
-              padding: '14px',
-              background: '#d32f2f',
-              color: '#fff',
-              border: 'none',
-              borderRadius: '30px',
-              fontWeight: 'bold',
-              cursor: 'pointer',
-              fontSize: '15px',
-              boxShadow: '0 4px 15px rgba(211, 47, 47, 0.3)',
-              transition: 'transform 0.1s',
-            }}
-          >
-            {t('onboarding.startDrawing')}
-          </button>
+        {appMode !== 'general' && showContent === 'basicInfo' && (
+          <>
+            <button
+              onClick={() => {
+                onBack?.();
+                setTimeout(scrollToTop, 50);
+              }}
+              style={{
+                flex: 1,
+                padding: '14px 16px',
+                borderRadius: 'var(--radius-lg)',
+                background: 'transparent',
+                border: '1px solid #444',
+                color: '#888',
+                fontSize: 'clamp(13px, 3.5vw, 16px)',
+                fontWeight: '500',
+                cursor: 'pointer',
+                minHeight: 'var(--btn-min-touch)',
+                transition: 'all 0.2s ease',
+                WebkitTapHighlightColor: 'transparent',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.borderColor = '#666';
+                e.currentTarget.style.color = '#ccc';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.borderColor = '#444';
+                e.currentTarget.style.color = '#888';
+              }}
+              onTouchStart={(e) => {
+                e.currentTarget.style.opacity = '0.7';
+              }}
+              onTouchEnd={(e) => {
+                e.currentTarget.style.opacity = '1';
+              }}
+            >
+              {t('common.back') || '返回'}
+            </button>
+            <button
+              onClick={() => {
+                setShowContent('preference');
+                setTimeout(scrollToTop, 50);
+              }}
+              style={{
+                flex: 2,
+                padding: '14px 20px',
+                borderRadius: 'var(--radius-lg)',
+                background: 'linear-gradient(135deg, #d32f2f, #c62828)',
+                border: 'none',
+                color: '#fff',
+                fontSize: 'clamp(14px, 3.8vw, 17px)',
+                fontWeight: '600',
+                cursor: 'pointer',
+                minHeight: 'var(--btn-min-touch)',
+                boxShadow: '0 4px 16px rgba(211, 47, 47, 0.25)',
+                transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
+                WebkitTapHighlightColor: 'transparent',
+                position: 'relative',
+                overflow: 'hidden',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.boxShadow = '0 6px 24px rgba(211, 47, 47, 0.35)';
+                e.currentTarget.style.transform = 'translateY(-1px)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.boxShadow = '0 4px 16px rgba(211, 47, 47, 0.25)';
+                e.currentTarget.style.transform = 'translateY(0)';
+              }}
+              onTouchStart={(e) => {
+                e.currentTarget.style.transform = 'scale(0.97)';
+              }}
+              onTouchEnd={(e) => {
+                e.currentTarget.style.transform = 'scale(1)';
+              }}
+            >
+              {t('onboarding.nextStep') || '下一步 →'}
+            </button>
+          </>
         )}
 
-        {appMode === 'medical' && showContent === 'basicInfo' && (
-          <button
-            onClick={onSkip}
-            style={{
-              background: 'transparent',
-              border: 'none',
-              color: '#555',
-              fontSize: '12px',
-              textDecoration: 'underline',
-              cursor: 'pointer',
-              marginTop: '4px',
-              transition: 'color 0.2s',
-            }}
-            onMouseEnter={(e) => (e.currentTarget.style.color = '#888')}
-            onMouseLeave={(e) => (e.currentTarget.style.color = '#555')}
-          >
-            {t('onboarding.skipAndDraw') || '跳过配置，直接绘制'}
-          </button>
+        {appMode !== 'general' && showContent === 'preference' && (
+          <>
+            <button
+              onClick={() => {
+                setShowContent('basicInfo');
+                setTimeout(scrollToTop, 50);
+              }}
+              style={{
+                flex: 1,
+                padding: '14px 16px',
+                borderRadius: 'var(--radius-lg)',
+                background: 'transparent',
+                border: '1px solid #444',
+                color: '#888',
+                fontSize: 'clamp(13px, 3.5vw, 16px)',
+                fontWeight: '500',
+                cursor: 'pointer',
+                minHeight: 'var(--btn-min-touch)',
+                transition: 'all 0.2s ease',
+                WebkitTapHighlightColor: 'transparent',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.borderColor = '#666';
+                e.currentTarget.style.color = '#ccc';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.borderColor = '#444';
+                e.currentTarget.style.color = '#888';
+              }}
+              onTouchStart={(e) => {
+                e.currentTarget.style.opacity = '0.7';
+              }}
+              onTouchEnd={(e) => {
+                e.currentTarget.style.opacity = '1';
+              }}
+            >
+              {t('common.back') || '返回'}
+            </button>
+            <button
+              onClick={() => {
+                onStartDrawing?.();
+                setTimeout(scrollToTop, 50);
+              }}
+              style={{
+                flex: 2,
+                padding: '14px 20px',
+                borderRadius: 'var(--radius-lg)',
+                background: 'linear-gradient(135deg, #43a047, #2e7d32)',
+                border: 'none',
+                color: '#fff',
+                fontSize: 'clamp(14px, 3.8vw, 17px)',
+                fontWeight: '600',
+                cursor: 'pointer',
+                minHeight: 'var(--btn-min-touch)',
+                boxShadow: '0 4px 16px rgba(76, 175, 80, 0.25)',
+                transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
+                WebkitTapHighlightColor: 'transparent',
+                position: 'relative',
+                overflow: 'hidden',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.boxShadow = '0 6px 24px rgba(76, 175, 80, 0.35)';
+                e.currentTarget.style.transform = 'translateY(-1px)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.boxShadow = '0 4px 16px rgba(76, 175, 80, 0.25)';
+                e.currentTarget.style.transform = 'translateY(0)';
+              }}
+              onTouchStart={(e) => {
+                e.currentTarget.style.transform = 'scale(0.97)';
+              }}
+              onTouchEnd={(e) => {
+                e.currentTarget.style.transform = 'scale(1)';
+              }}
+            >
+              {t('onboarding.startDrawing') || '开始绘制 ✨'}
+            </button>
+          </>
+        )}
+
+        {appMode === 'general' && (
+          <>
+            <button
+              onClick={() => {
+                setShowContent('preference');
+                setTimeout(scrollToTop, 50);
+              }}
+              style={{
+                flex: 1,
+                padding: '14px 16px',
+                borderRadius: 'var(--radius-lg)',
+                background: 'rgba(255,255,255,0.05)',
+                border: '1px solid #444',
+                color: '#888',
+                fontSize: 'clamp(13px, 3.5vw, 16px)',
+                fontWeight: '500',
+                cursor: 'pointer',
+                minHeight: 'var(--btn-min-touch)',
+                transition: 'all 0.2s ease',
+                WebkitTapHighlightColor: 'transparent',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.borderColor = '#666';
+                e.currentTarget.style.color = '#ccc';
+                e.currentTarget.style.background = 'rgba(255,255,255,0.08)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.borderColor = '#444';
+                e.currentTarget.style.color = '#888';
+                e.currentTarget.style.background = 'rgba(255,255,255,0.05)';
+              }}
+              onTouchStart={(e) => {
+                e.currentTarget.style.opacity = '0.7';
+              }}
+              onTouchEnd={(e) => {
+                e.currentTarget.style.opacity = '1';
+              }}
+            >
+              {t('common.back') || '返回'}
+            </button>
+            <button
+              onClick={() => {
+                onStartDrawing?.();
+                setTimeout(scrollToTop, 50);
+              }}
+              style={{
+                flex: 2,
+                padding: '14px 20px',
+                borderRadius: 'var(--radius-lg)',
+                background: 'linear-gradient(135deg, #43a047, #2e7d32)',
+                border: 'none',
+                color: '#fff',
+                fontSize: 'clamp(14px, 3.8vw, 17px)',
+                fontWeight: '600',
+                cursor: 'pointer',
+                minHeight: 'var(--btn-min-touch)',
+                boxShadow: '0 4px 16px rgba(76, 175, 80, 0.25)',
+                transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
+                WebkitTapHighlightColor: 'transparent',
+                position: 'relative',
+                overflow: 'hidden',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.boxShadow = '0 6px 24px rgba(76, 175, 80, 0.35)';
+                e.currentTarget.style.transform = 'translateY(-1px)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.boxShadow = '0 4px 16px rgba(76, 175, 80, 0.25)';
+                e.currentTarget.style.transform = 'translateY(0)';
+              }}
+              onTouchStart={(e) => {
+                e.currentTarget.style.transform = 'scale(0.97)';
+              }}
+              onTouchEnd={(e) => {
+                e.currentTarget.style.transform = 'scale(1)';
+              }}
+            >
+              {t('onboarding.startDrawing')}
+            </button>
+          </>
         )}
       </div>
 

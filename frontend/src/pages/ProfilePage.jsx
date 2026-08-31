@@ -14,6 +14,109 @@ const PRESET_BG_NAMES_EN = [
   "Mystic Purple (Neural/Radiating)",
   "Deep Sea Blue (Cold/Stiff)"
 ];
+const InteractionCard = ({ post, onView, actionLabel, onAction, isSelf, t, icon = '❤️' }) => (
+  <div
+    onClick={() => onView(post)}
+    style={{
+      display: 'flex',
+      alignItems: 'center',
+      gap: '12px',
+      background: 'rgba(255,255,255,0.01)',
+      border: '1px solid rgba(255,255,255,0.03)',
+      borderRadius: '14px',
+      padding: '10px',
+      cursor: 'pointer',
+      transition: 'all 0.2s',
+    }}
+    onMouseEnter={(e) => {
+      e.currentTarget.style.background = 'rgba(255,255,255,0.03)';
+      e.currentTarget.style.borderColor = 'rgba(255,255,255,0.06)';
+    }}
+    onMouseLeave={(e) => {
+      e.currentTarget.style.background = 'rgba(255,255,255,0.01)';
+      e.currentTarget.style.borderColor = 'rgba(255,255,255,0.03)';
+    }}
+  >
+    <div style={{
+      width: '48px',
+      height: '48px',
+      borderRadius: '8px',
+      overflow: 'hidden',
+      background: '#121212',
+      flexShrink: 0,
+      position: 'relative',
+    }}>
+      <img
+        src={post.img}
+        onError={(e) => { e.currentTarget.style.display = 'none'; }}
+        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+        alt=""
+      />
+      {/* 互动标记 */}
+      <span style={{
+        position: 'absolute',
+        bottom: '2px',
+        right: '2px',
+        fontSize: '10px',
+        textShadow: '0 0 4px rgba(0,0,0,0.8)',
+      }}>
+        {icon}
+      </span>
+    </div>
+    <div style={{ flex: 1, minWidth: 0 }}>
+      <p style={{
+        color: '#eee',
+        fontSize: '12px',
+        margin: '0 0 4px 0',
+        whiteSpace: 'nowrap',
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+      }}>
+        {post.text || post.painName || '具身痛觉图谱分享'}
+      </p>
+      <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+        <span style={{
+          color: '#ef5350',
+          fontSize: '9px',
+          background: 'rgba(239,83,80,0.08)',
+          padding: '1px 6px',
+          borderRadius: '6px',
+        }}>
+          {post.painName || "痛经"}
+        </span>
+        <span style={{ color: '#666', fontSize: '9px' }}>
+          {post.authorName || post.nickname || '同伴'}
+        </span>
+      </div>
+    </div>
+    {isSelf && (
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          onAction?.(post.id);
+        }}
+        style={{
+          padding: '4px 8px',
+          background: 'rgba(244,67,54,0.08)',
+          border: '1px solid rgba(244,67,54,0.15)',
+          borderRadius: '6px',
+          color: '#ef5350',
+          fontSize: '9px',
+          cursor: 'pointer',
+          transition: 'all 0.2s',
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.background = 'rgba(244,67,54,0.15)';
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.background = 'rgba(244,67,54,0.08)';
+        }}
+      >
+        {actionLabel}
+      </button>
+    )}
+  </div>
+);
 
 export default function ProfilePage({
   currentUserId = "user_guest",
@@ -30,6 +133,14 @@ export default function ProfilePage({
   onBack,
   onLogout,
   showToast,
+  onViewHistory,  // ✅ 新增：跳转历史记录的回调
+  // ✅ 新增：用户点赞列表（从父组件传入）
+  likedPosts = [],
+  huggedPosts = [],
+  helpfulPosts = [],
+  onToggleLike,
+  onToggleHug,
+  onToggleHelpful,
 }) {
   const { t } = useI18n();
   const { userInfo, setUserInfo, logout } = useUser();
@@ -46,6 +157,7 @@ export default function ProfilePage({
   const [showCropModal, setShowCropModal] = useState(false);
   const [cropSrc, setCropSrc] = useState(null);
   const [cropType, setCropType] = useState('avatar');
+  const [interactionTab, setInteractionTab] = useState('posts');
 
   // 🌟 核心拦截锁：如果游客误入自身主页，立刻弹窗并退回
   useEffect(() => {
@@ -104,6 +216,7 @@ export default function ProfilePage({
   const [showFollowingModal, setShowFollowingModal] = useState(false);
   const [showFollowersModal, setShowFollowersModal] = useState(false);
   const [selectedPostDetail, setSelectedPostDetail] = useState(null);
+  const [showLikedPosts, setShowLikedPosts] = useState(false);
 
   const socialCacheKey = `painscape_social_cache_${targetUserId}`;
   const initialSocial = useMemo(() => {
@@ -782,7 +895,7 @@ export default function ProfilePage({
           )}
         </div>
 
-        {/* ===== 痛感数字化摘要 ===== */}
+        {/* ===== 痛感数字化摘要 + 历史记录入口 ===== */}
         <div
           style={{
             background: activeBg.cardBg,
@@ -792,17 +905,96 @@ export default function ProfilePage({
             marginBottom: '20px',
           }}
         >
-          <h4 style={{ color: '#d32f2f', margin: '0 0 16px 0', fontSize: '13px', fontWeight: '600' }}>
-            {t('profile.summaryTitle')}
-          </h4>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', textAlign: 'center' }}>
-            <div>
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            marginBottom: '16px',
+          }}>
+            <h4 style={{ color: '#d32f2f', margin: 0, fontSize: '13px', fontWeight: '600' }}>
+              {t('profile.summaryTitle')}
+            </h4>
+            {/* ✅ 查看全部入口 - 右上角 */}
+            <button
+              onClick={() => {
+                if (onViewHistory) {
+                  onViewHistory();
+                }
+              }}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px',
+                padding: '4px 12px',
+                background: 'rgba(255,255,255,0.04)',
+                border: '1px solid rgba(255,255,255,0.06)',
+                borderRadius: '16px',
+                color: '#888',
+                fontSize: '10px',
+                cursor: 'pointer',
+                transition: 'all 0.2s ease',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = 'rgba(255,255,255,0.08)';
+                e.currentTarget.style.borderColor = 'rgba(255,255,255,0.12)';
+                e.currentTarget.style.color = '#fff';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = 'rgba(255,255,255,0.04)';
+                e.currentTarget.style.borderColor = 'rgba(255,255,255,0.06)';
+                e.currentTarget.style.color = '#888';
+              }}
+            >
+              <span style={{ fontSize: '12px' }}>📋</span>
+              {t('profile.viewHistory') || '查看全部'}
+              <span style={{ fontSize: '10px', color: '#555' }}>›</span>
+            </button>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', textAlign: 'center' }}>
+            <div
+              onClick={() => {
+                if (onViewHistory) {
+                  onViewHistory();
+                }
+              }}
+              style={{
+                cursor: 'pointer',
+                padding: '8px 4px',
+                borderRadius: '10px',
+                transition: 'background 0.2s ease',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = 'rgba(255,255,255,0.03)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = 'transparent';
+              }}
+            >
               <div style={{ color: '#fff', fontSize: '20px', fontWeight: 'bold' }}>{totalRecords}</div>
-              <div style={{ color: '#666', fontSize: '10px', marginTop: '4px' }}>{t('profile.totalRecords')}</div>
+              <div style={{ color: '#666', fontSize: '9px', marginTop: '2px' }}>{t('profile.totalRecords')}</div>
             </div>
-            <div>
+            <div
+              onClick={() => {
+                if (onViewHistory) {
+                  onViewHistory();
+                }
+              }}
+              style={{
+                cursor: 'pointer',
+                padding: '8px 4px',
+                borderRadius: '10px',
+                transition: 'background 0.2s ease',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = 'rgba(255,255,255,0.03)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = 'transparent';
+              }}
+            >
               <div style={{ color: '#a5d6a7', fontSize: '15px', fontWeight: 'bold' }}>{getMostFrequentPain()}</div>
-              <div style={{ color: '#666', fontSize: '10px', marginTop: '4px' }}>{t('profile.latestPattern')}</div>
+              <div style={{ color: '#666', fontSize: '9px', marginTop: '2px' }}>{t('profile.latestPattern')}</div>
             </div>
           </div>
         </div>
@@ -919,7 +1111,7 @@ export default function ProfilePage({
           </div>
         </div>
 
-        {/* ===== 已发布的具身帖子 ===== */}
+        {/* ===== 我的互动记录（发布/点赞/拥抱/有用） ===== */}
         <div
           style={{
             background: activeBg.cardBg,
@@ -929,41 +1121,225 @@ export default function ProfilePage({
             marginBottom: '24px',
           }}
         >
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', borderBottom: '1px solid rgba(255,255,255,0.05)', paddingBottom: '10px' }}>
-            <h4 style={{ color: '#fff', margin: 0, fontSize: '14px', fontWeight: '600' }}>{t('profile.publishedSomatic')}</h4>
-            <span style={{ fontSize: '11px', color: '#888' }}>{t('profile.publicArchive')}</span>
-          </div>
+          {/* 标题栏 + Tab 切换 */}
+          <div style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            marginBottom: '16px',
+            borderBottom: '1px solid rgba(255,255,255,0.05)',
+            paddingBottom: '10px',
+            flexWrap: 'wrap',
+            gap: '8px',
+          }}>
+            <h4 style={{ color: '#fff', margin: 0, fontSize: '14px', fontWeight: '600' }}>
+              {t('profile.myInteractions') || '💬 我的互动记录'}
+            </h4>
 
-          {myRealPosts.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '32px 10px', color: '#555', fontSize: '12.5px' }}>
-              {isSelf ? t('profile.noPublicPost') : t('profile.noPublicPostCompanion')}
-            </div>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              {myRealPosts.slice(0, 10).map((record, index) => (
-                <div
-                  key={record.id || index}
-                  onClick={() => setSelectedPostDetail(record)}
+            {/* Tab 切换 */}
+            <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+              {[
+                { key: 'posts', label: '📮 ' + (t('profile.publishedSomatic') || '我发布的'), count: myRealPosts.length },
+                { key: 'likes', label: '❤️ ' + (t('profile.myLikes') || '点赞'), count: likedPosts.length },
+                { key: 'hugs', label: '🫂 ' + (t('profile.myHugs') || '拥抱'), count: huggedPosts.length },
+                { key: 'helpful', label: '👍 ' + (t('profile.myHelpful') || '有用'), count: helpfulPosts.length },
+              ].map((tab) => (
+                <button
+                  key={tab.key}
+                  onClick={() => setInteractionTab(tab.key)}
                   style={{
-                    display: 'flex', alignItems: 'center', gap: '12px',
-                    background: 'rgba(255,255,255,0.01)', border: '1px solid rgba(255,255,255,0.03)',
-                    borderRadius: '14px', padding: '10px', cursor: 'pointer',
+                    padding: '4px 10px',
+                    borderRadius: '12px',
+                    fontSize: '10px',
+                    cursor: 'pointer',
+                    border: interactionTab === tab.key ? '1px solid #d32f2f' : '1px solid rgba(255,255,255,0.06)',
+                    background: interactionTab === tab.key ? 'rgba(211,47,47,0.1)' : 'rgba(255,255,255,0.03)',
+                    color: interactionTab === tab.key ? '#fff' : '#666',
+                    transition: 'all 0.2s',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '3px',
                   }}
                 >
-                  <div style={{ width: '56px', height: '56px', borderRadius: '8px', overflow: 'hidden', background: '#121212', flexShrink: 0 }}>
-                    <img src={record.img} onError={(e) => { e.target.style.display = 'none'; }} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" />
-                  </div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <p style={{ color: '#eee', fontSize: '12.5px', margin: '0 0 6px 0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                      {record.content?.chief_complaint?.replace('主诉：', '') || record.text || record.painName || '具身痛觉图谱分享'}
-                    </p>
-                    <span style={{ color: '#ef5350', fontSize: '9.5px', background: 'rgba(239,83,80,0.08)', padding: '2px 6px', borderRadius: '6px' }}>
-                      {record.painName || "痛经"}
+                  {tab.label}
+                  {tab.count > 0 && (
+                    <span style={{
+                      fontSize: '8px',
+                      color: interactionTab === tab.key ? '#e8a87c' : '#555',
+                      background: interactionTab === tab.key ? 'rgba(232,168,124,0.15)' : 'rgba(255,255,255,0.04)',
+                      padding: '0 5px',
+                      borderRadius: '8px',
+                    }}>
+                      {tab.count}
                     </span>
-                  </div>
-                </div>
+                  )}
+                </button>
               ))}
             </div>
+          </div>
+
+          {/* ===== 内容区域 ===== */}
+          {interactionTab === 'posts' && (
+            // ===== 我发布的 =====
+            myRealPosts.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '32px 10px', color: '#555', fontSize: '12.5px' }}>
+                🌱 {t('profile.noPublicPost') || '还没有发布任何帖子'}
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                {myRealPosts.slice(0, 10).map((record, index) => (
+                  <div
+                    key={record.id || index}
+                    onClick={() => setSelectedPostDetail(record)}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '12px',
+                      background: 'rgba(255,255,255,0.01)',
+                      border: '1px solid rgba(255,255,255,0.03)',
+                      borderRadius: '14px',
+                      padding: '10px',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s',
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background = 'rgba(255,255,255,0.03)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = 'rgba(255,255,255,0.01)';
+                    }}
+                  >
+                    <div style={{
+                      width: '56px',
+                      height: '56px',
+                      borderRadius: '8px',
+                      overflow: 'hidden',
+                      background: '#121212',
+                      flexShrink: 0,
+                    }}>
+                      <img
+                        src={record.img}
+                        onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                        alt=""
+                      />
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <p style={{
+                        color: '#eee',
+                        fontSize: '12.5px',
+                        margin: '0 0 6px 0',
+                        whiteSpace: 'nowrap',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                      }}>
+                        {record.content?.chief_complaint?.replace('主诉：', '') || record.text || record.painName || '具身痛觉图谱分享'}
+                      </p>
+                      <span style={{
+                        color: '#ef5350',
+                        fontSize: '9.5px',
+                        background: 'rgba(239,83,80,0.08)',
+                        padding: '2px 6px',
+                        borderRadius: '6px',
+                      }}>
+                        {record.painName || "痛经"}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+                {myRealPosts.length > 10 && (
+                  <div style={{ textAlign: 'center', color: '#555', fontSize: '10px' }}>
+                    {t('profile.onlyShowLatest', { count: 10 }) || '仅显示最近 10 条'}
+                  </div>
+                )}
+              </div>
+            )
+          )}
+
+          {interactionTab === 'likes' && (
+            // ===== 我点赞的 =====
+            likedPosts.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '32px 10px', color: '#555', fontSize: '12.5px' }}>
+                💔 {t('profile.noLikedPosts') || '还没有点赞任何帖子'}
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                {likedPosts.slice(0, 10).map((post) => (
+                  <InteractionCard
+                    key={post.id}
+                    post={post}
+                    onView={setSelectedPostDetail}
+                    actionLabel={t('profile.unlike') || '取消点赞'}
+                    onAction={(id) => onToggleLike?.(id)}
+                    isSelf={isSelf}
+                    t={t}
+                  />
+                ))}
+                {likedPosts.length > 10 && (
+                  <div style={{ textAlign: 'center', color: '#555', fontSize: '10px' }}>
+                    {t('profile.onlyShowLatest', { count: 10 }) || '仅显示最近 10 条'}
+                  </div>
+                )}
+              </div>
+            )
+          )}
+
+          {interactionTab === 'hugs' && (
+            // ===== 我拥抱的 =====
+            huggedPosts.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '32px 10px', color: '#555', fontSize: '12.5px' }}>
+                🫂 {t('profile.noHuggedPosts') || '还没有拥抱过任何帖子'}
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                {huggedPosts.slice(0, 10).map((post) => (
+                  <InteractionCard
+                    key={post.id}
+                    post={post}
+                    onView={setSelectedPostDetail}
+                    actionLabel={t('profile.unhug') || '收回拥抱'}
+                    onAction={(id) => onToggleHug?.(id)}
+                    isSelf={isSelf}
+                    t={t}
+                    icon="🫂"
+                  />
+                ))}
+                {huggedPosts.length > 10 && (
+                  <div style={{ textAlign: 'center', color: '#555', fontSize: '10px' }}>
+                    {t('profile.onlyShowLatest', { count: 10 }) || '仅显示最近 10 条'}
+                  </div>
+                )}
+              </div>
+            )
+          )}
+
+          {interactionTab === 'helpful' && (
+            // ===== 我觉得有用的 =====
+            helpfulPosts.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '32px 10px', color: '#555', fontSize: '12.5px' }}>
+                👍 {t('profile.noHelpfulPosts') || '还没有标记过有用的经验'}
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                {helpfulPosts.slice(0, 10).map((post) => (
+                  <InteractionCard
+                    key={post.id}
+                    post={post}
+                    onView={setSelectedPostDetail}
+                    actionLabel={t('profile.unhelpful') || '取消有用'}
+                    onAction={(id) => onToggleHelpful?.(id)}
+                    isSelf={isSelf}
+                    t={t}
+                    icon="👍"
+                  />
+                ))}
+                {helpfulPosts.length > 10 && (
+                  <div style={{ textAlign: 'center', color: '#555', fontSize: '10px' }}>
+                    {t('profile.onlyShowLatest', { count: 10 }) || '仅显示最近 10 条'}
+                  </div>
+                )}
+              </div>
+            )
           )}
         </div>
 
@@ -986,443 +1362,451 @@ export default function ProfilePage({
       </div>
 
       {/* ===== 编辑资料弹窗 ===== */}
-      {showEditModal && (
-        <div
-          style={{
-            position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh',
-            background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 900, padding: '16px', boxSizing: 'border-box'
-          }}
-          onClick={() => setShowEditModal(false)}
-        >
+      {
+        showEditModal && (
           <div
             style={{
-              background: '#141414', border: '1px solid #333', borderRadius: '24px',
-              padding: '24px', width: '100%', maxWidth: '420px', maxHeight: '90vh', overflowY: 'auto'
+              position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh',
+              background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 900, padding: '16px', boxSizing: 'border-box'
             }}
-            onClick={(e) => e.stopPropagation()}
+            onClick={() => setShowEditModal(false)}
           >
-            <h3 style={{ color: '#fff', margin: '0 0 20px 0', fontSize: '18px', fontWeight: 'bold', textAlign: 'center' }}>
-              {t('profile.editInfoTitle')}
-            </h3>
+            <div
+              style={{
+                background: '#141414', border: '1px solid #333', borderRadius: '24px',
+                padding: '24px', width: '100%', maxWidth: '420px', maxHeight: '90vh', overflowY: 'auto'
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h3 style={{ color: '#fff', margin: '0 0 20px 0', fontSize: '18px', fontWeight: 'bold', textAlign: 'center' }}>
+                {t('profile.editInfoTitle')}
+              </h3>
 
-            <input type="file" ref={avatarInputRef} accept="image/*" style={{ display: 'none' }} onChange={(e) => handleFileSelected(e, 'avatar')} />
-            <input type="file" ref={bgInputRef} accept="image/*" style={{ display: 'none' }} onChange={(e) => handleFileSelected(e, 'bg')} />
+              <input type="file" ref={avatarInputRef} accept="image/*" style={{ display: 'none' }} onChange={(e) => handleFileSelected(e, 'avatar')} />
+              <input type="file" ref={bgInputRef} accept="image/*" style={{ display: 'none' }} onChange={(e) => handleFileSelected(e, 'bg')} />
 
-            {/* 昵称 */}
-            <div style={{ marginBottom: '18px' }}>
-              <label style={{ color: '#888', fontSize: '12px', display: 'block', marginBottom: '8px' }}>
-                {t('profile.nicknameLabel')}
-              </label>
-              <input
-                type="text"
-                maxLength={18}
-                value={editNickname}
-                onChange={(e) => setEditNickname(e.target.value)}
-                style={{ width: '100%', background: '#0a0a0a', color: '#fff', border: '1px solid #333', borderRadius: '8px', padding: '10px', fontSize: '14px', outline: 'none' }}
-              />
-            </div>
-
-            {/* 个性签名 */}
-            <div style={{ marginBottom: '18px' }}>
-              <label style={{ color: '#888', fontSize: '12px', display: 'block', marginBottom: '8px' }}>
-                {t('profile.signatureLabel')}
-              </label>
-              <textarea
-                maxLength={60}
-                rows={2}
-                value={editSignature}
-                onChange={(e) => setEditSignature(e.target.value)}
-                placeholder={t('profile.signaturePlaceholder')}
-                style={{ width: '100%', background: '#0a0a0a', color: '#fff', border: '1px solid #333', borderRadius: '8px', padding: '10px', fontSize: '13px', outline: 'none', resize: 'none' }}
-              />
-            </div>
-
-            {/* 头像 */}
-            <div style={{ marginBottom: '18px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-                <label style={{ color: '#888', fontSize: '12px' }}>{t('profile.uploadAvatar')}</label>
-                {editCustomAvatar && (
-                  <button onClick={() => setEditCustomAvatar('')} style={{ background: 'none', border: 'none', color: '#d32f2f', fontSize: '11px', cursor: 'pointer' }}>
-                    {t('profile.restoreDefault')}
-                  </button>
-                )}
-              </div>
-
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
-                <button onClick={() => avatarInputRef.current.click()} style={{ padding: '8px 14px', background: 'rgba(255,255,255,0.05)', border: '1px dashed #444', borderRadius: '8px', color: '#ccc', fontSize: '12px', cursor: 'pointer' }}>
-                  {t('profile.albumCrop')}
-                </button>
-                {editCustomAvatar && (
-                  <img src={editCustomAvatar} style={{ width: '40px', height: '40px', borderRadius: '50%', objectFit: 'cover', border: '1px solid #d32f2f' }} alt="" />
-                )}
-              </div>
-
-              {!editCustomAvatar && (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px' }}>
-                  {PRESET_AVATARS.map((emoji) => (
-                    <button
-                      key={emoji}
-                      onClick={() => setEditAvatar(emoji)}
-                      style={{
-                        fontSize: '20px',
-                        background: editAvatar === emoji ? 'rgba(211,47,47,0.15)' : 'rgba(255,255,255,0.02)',
-                        border: editAvatar === emoji ? '1.5px solid #d32f2f' : '1px solid #2a2a2a',
-                        borderRadius: '10px', padding: '6px 0', cursor: 'pointer',
-                      }}
-                    >
-                      {emoji}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* 主题背景色彩 */}
-            <div style={{ marginBottom: '24px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-                <label style={{ color: '#888', fontSize: '12px' }}>{t('profile.uploadBg')}</label>
-                {editCustomBg && (
-                  <button onClick={() => setEditCustomBg('')} style={{ background: 'none', border: 'none', color: '#d32f2f', fontSize: '11px', cursor: 'pointer' }}>
-                    {t('profile.restoreGradient')}
-                  </button>
-                )}
-              </div>
-
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
-                <button onClick={() => bgInputRef.current.click()} style={{ padding: '8px 14px', background: 'rgba(255,255,255,0.05)', border: '1px dashed #444', borderRadius: '8px', color: '#ccc', fontSize: '12px', cursor: 'pointer' }}>
-                  {t('profile.albumCrop')}
-                </button>
-                {editCustomBg && (
-                  <div style={{ width: '50px', height: '35px', borderRadius: '6px', background: `url(${editCustomBg}) center/cover no-repeat`, border: '1px solid #d32f2f' }} />
-                )}
-              </div>
-
-              <div style={{ borderTop: '1px solid #2d2d2d', paddingTop: '16px', marginTop: '16px' }}>
+              {/* 昵称 */}
+              <div style={{ marginBottom: '18px' }}>
                 <label style={{ color: '#888', fontSize: '12px', display: 'block', marginBottom: '8px' }}>
-                  {t('profile.themeTitle')}
+                  {t('profile.nicknameLabel')}
                 </label>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                  {PRESET_BACKGROUNDS.map((bg, idx) => (
-                    <button
-                      key={idx}
-                      onClick={() => setEditBgIndex(idx)}
-                      style={{
-                        background: bg.gradient,
-                        border: editBgIndex === idx ? '2px solid #fff' : '1.5px solid #333',
-                        borderRadius: '14px', padding: '12px 6px', color: '#fff', fontSize: '11px',
-                        cursor: 'pointer', fontWeight: editBgIndex === idx ? 'bold' : 'normal',
-                      }}
-                    >
-                      {isEn ? PRESET_BG_NAMES_EN[idx] : bg.name}
+                <input
+                  type="text"
+                  maxLength={18}
+                  value={editNickname}
+                  onChange={(e) => setEditNickname(e.target.value)}
+                  style={{ width: '100%', background: '#0a0a0a', color: '#fff', border: '1px solid #333', borderRadius: '8px', padding: '10px', fontSize: '14px', outline: 'none' }}
+                />
+              </div>
+
+              {/* 个性签名 */}
+              <div style={{ marginBottom: '18px' }}>
+                <label style={{ color: '#888', fontSize: '12px', display: 'block', marginBottom: '8px' }}>
+                  {t('profile.signatureLabel')}
+                </label>
+                <textarea
+                  maxLength={60}
+                  rows={2}
+                  value={editSignature}
+                  onChange={(e) => setEditSignature(e.target.value)}
+                  placeholder={t('profile.signaturePlaceholder')}
+                  style={{ width: '100%', background: '#0a0a0a', color: '#fff', border: '1px solid #333', borderRadius: '8px', padding: '10px', fontSize: '13px', outline: 'none', resize: 'none' }}
+                />
+              </div>
+
+              {/* 头像 */}
+              <div style={{ marginBottom: '18px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                  <label style={{ color: '#888', fontSize: '12px' }}>{t('profile.uploadAvatar')}</label>
+                  {editCustomAvatar && (
+                    <button onClick={() => setEditCustomAvatar('')} style={{ background: 'none', border: 'none', color: '#d32f2f', fontSize: '11px', cursor: 'pointer' }}>
+                      {t('profile.restoreDefault')}
                     </button>
-                  ))}
+                  )}
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
+                  <button onClick={() => avatarInputRef.current.click()} style={{ padding: '8px 14px', background: 'rgba(255,255,255,0.05)', border: '1px dashed #444', borderRadius: '8px', color: '#ccc', fontSize: '12px', cursor: 'pointer' }}>
+                    {t('profile.albumCrop')}
+                  </button>
+                  {editCustomAvatar && (
+                    <img src={editCustomAvatar} style={{ width: '40px', height: '40px', borderRadius: '50%', objectFit: 'cover', border: '1px solid #d32f2f' }} alt="" />
+                  )}
+                </div>
+
+                {!editCustomAvatar && (
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px' }}>
+                    {PRESET_AVATARS.map((emoji) => (
+                      <button
+                        key={emoji}
+                        onClick={() => setEditAvatar(emoji)}
+                        style={{
+                          fontSize: '20px',
+                          background: editAvatar === emoji ? 'rgba(211,47,47,0.15)' : 'rgba(255,255,255,0.02)',
+                          border: editAvatar === emoji ? '1.5px solid #d32f2f' : '1px solid #2a2a2a',
+                          borderRadius: '10px', padding: '6px 0', cursor: 'pointer',
+                        }}
+                      >
+                        {emoji}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* 主题背景色彩 */}
+              <div style={{ marginBottom: '24px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                  <label style={{ color: '#888', fontSize: '12px' }}>{t('profile.uploadBg')}</label>
+                  {editCustomBg && (
+                    <button onClick={() => setEditCustomBg('')} style={{ background: 'none', border: 'none', color: '#d32f2f', fontSize: '11px', cursor: 'pointer' }}>
+                      {t('profile.restoreGradient')}
+                    </button>
+                  )}
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
+                  <button onClick={() => bgInputRef.current.click()} style={{ padding: '8px 14px', background: 'rgba(255,255,255,0.05)', border: '1px dashed #444', borderRadius: '8px', color: '#ccc', fontSize: '12px', cursor: 'pointer' }}>
+                    {t('profile.albumCrop')}
+                  </button>
+                  {editCustomBg && (
+                    <div style={{ width: '50px', height: '35px', borderRadius: '6px', background: `url(${editCustomBg}) center/cover no-repeat`, border: '1px solid #d32f2f' }} />
+                  )}
+                </div>
+
+                <div style={{ borderTop: '1px solid #2d2d2d', paddingTop: '16px', marginTop: '16px' }}>
+                  <label style={{ color: '#888', fontSize: '12px', display: 'block', marginBottom: '8px' }}>
+                    {t('profile.themeTitle')}
+                  </label>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                    {PRESET_BACKGROUNDS.map((bg, idx) => (
+                      <button
+                        key={idx}
+                        onClick={() => setEditBgIndex(idx)}
+                        style={{
+                          background: bg.gradient,
+                          border: editBgIndex === idx ? '2px solid #fff' : '1.5px solid #333',
+                          borderRadius: '14px', padding: '12px 6px', color: '#fff', fontSize: '11px',
+                          cursor: 'pointer', fontWeight: editBgIndex === idx ? 'bold' : 'normal',
+                        }}
+                      >
+                        {isEn ? PRESET_BG_NAMES_EN[idx] : bg.name}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
-            </div>
 
-            {/* 弹窗底部操作 */}
-            <div style={{ display: 'flex', gap: '12px' }}>
-              <button onClick={() => setShowEditModal(false)} style={{ flex: 1, padding: '12px', background: '#222', color: '#888', border: 'none', borderRadius: '8px', fontSize: '13px', cursor: 'pointer' }}>
-                {t('profile.cancel')}
-              </button>
-              <button onClick={handleSaveChanges} style={{ flex: 1, padding: '12px', background: 'linear-gradient(135deg, #ff9800, #f44336)', color: '#fff', border: 'none', borderRadius: '8px', fontSize: '13px', fontWeight: 'bold', cursor: 'pointer' }}>
-                {t('profile.saveProfile')}
-              </button>
+              {/* 弹窗底部操作 */}
+              <div style={{ display: 'flex', gap: '12px' }}>
+                <button onClick={() => setShowEditModal(false)} style={{ flex: 1, padding: '12px', background: '#222', color: '#888', border: 'none', borderRadius: '8px', fontSize: '13px', cursor: 'pointer' }}>
+                  {t('profile.cancel')}
+                </button>
+                <button onClick={handleSaveChanges} style={{ flex: 1, padding: '12px', background: 'linear-gradient(135deg, #ff9800, #f44336)', color: '#fff', border: 'none', borderRadius: '8px', fontSize: '13px', fontWeight: 'bold', cursor: 'pointer' }}>
+                  {t('profile.saveProfile')}
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )
+      }
 
       {/* 🌟 补全关注同伴列表弹窗 */}
-      {showFollowingModal && (
-        <div style={{
-          position: 'fixed', top: 0, left: 0,
-          width: '100vw', height: '100vh',
-          background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(10px)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          zIndex: 1200, padding: '16px', boxSizing: 'border-box'
-        }} onClick={() => setShowFollowingModal(false)}>
+      {
+        showFollowingModal && (
           <div style={{
-            background: '#141414', border: '1px solid #333', borderRadius: '24px',
-            padding: '24px', width: '100%', maxWidth: '420px', maxHeight: '70vh',
-            display: 'flex', flexDirection: 'column', boxSizing: 'border-box',
-            boxShadow: '0 20px 50px rgba(0,0,0,0.8)'
-          }} onClick={e => e.stopPropagation()}>
+            position: 'fixed', top: 0, left: 0,
+            width: '100vw', height: '100vh',
+            background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(10px)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            zIndex: 1200, padding: '16px', boxSizing: 'border-box'
+          }} onClick={() => setShowFollowingModal(false)}>
+            <div style={{
+              background: '#141414', border: '1px solid #333', borderRadius: '24px',
+              padding: '24px', width: '100%', maxWidth: '420px', maxHeight: '70vh',
+              display: 'flex', flexDirection: 'column', boxSizing: 'border-box',
+              boxShadow: '0 20px 50px rgba(0,0,0,0.8)'
+            }} onClick={e => e.stopPropagation()}>
 
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', borderBottom: '1px solid #2d2d2d', paddingBottom: '10px' }}>
-              <h3 style={{ color: '#fff', margin: 0, fontSize: '15px', fontWeight: 'bold' }}>
-                🤝 {isSelf ? t('profile.myFollowings') : `${activeProfile.nickname} 的同伴`} ({followingCount})
-              </h3>
-              <button
-                onClick={() => setShowFollowingModal(false)}
-                style={{ background: 'transparent', border: 'none', color: '#888', fontSize: '16px', cursor: 'pointer' }}
-              >
-                ✕
-              </button>
-            </div>
-
-            <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '10px', paddingRight: '4px' }}>
-              {followings.length === 0 ? (
-                <div style={{ color: '#555', fontSize: '12.5px', textAlign: 'center', padding: '30px 10px' }}>
-                  🌱 {t('profile.noFollowings')}
-                </div>
-              ) : (
-                followings.map(followedUser => (
-                  <div
-                    key={followedUser.id}
-                    onClick={() => handleSelectUser(followedUser.id)}
-                    style={{
-                      display: 'flex', alignItems: 'center', gap: '12px',
-                      background: 'rgba(255,255,255,0.02)',
-                      border: '1px solid rgba(255,255,255,0.04)',
-                      borderRadius: '8px', padding: '10px 12px',
-                      cursor: 'pointer', transition: 'all 0.2s ease'
-                    }}
-                  >
-                    <div style={{
-                      width: '40px', height: '40px', borderRadius: '50%',
-                      background: 'rgba(255,255,255,0.05)',
-                      border: '1px solid rgba(255,255,255,0.1)',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      fontSize: '20px', overflow: 'hidden', flexShrink: 0
-                    }}>
-                      {followedUser.customAvatar ? (
-                        <img src={followedUser.customAvatar} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" />
-                      ) : (
-                        followedUser.avatar || "🩹"
-                      )}
-                    </div>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ color: '#fff', fontSize: '13.5px', fontWeight: 'bold', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                        {followedUser.nickname}
-                      </div>
-                      <div style={{ color: '#888', fontSize: '11px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginTop: '2px' }}>
-                        {followedUser.signature || t('profile.defaultSignature')}
-                      </div>
-                    </div>
-                    <span style={{ color: '#666', fontSize: '14px' }}>›</span>
-                  </div>
-                ))
-              )}
-            </div>
-
-            <button
-              onClick={() => setShowFollowingModal(false)}
-              style={{
-                width: '100%', padding: '11px 0', marginTop: '16px',
-                background: 'transparent', border: '1px solid #333',
-                borderRadius: '30px', color: '#888', fontSize: '13px', cursor: 'pointer'
-              }}
-            >
-              {t('profile.closeList')}
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* 🌟 补全粉丝同伴列表弹窗 */}
-      {showFollowersModal && (
-        <div style={{
-          position: 'fixed', top: 0, left: 0,
-          width: '100vw', height: '100vh',
-          background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(10px)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          zIndex: 1200, padding: '16px', boxSizing: 'border-box'
-        }} onClick={() => setShowFollowersModal(false)}>
-          <div style={{
-            background: '#141414', border: '1px solid #333', borderRadius: '24px',
-            padding: '24px', width: '100%', maxWidth: '420px', maxHeight: '70vh',
-            display: 'flex', flexDirection: 'column', boxSizing: 'border-box',
-            boxShadow: '0 20px 50px rgba(0,0,0,0.8)'
-          }} onClick={e => e.stopPropagation()}>
-
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', borderBottom: '1px solid #2d2d2d', paddingBottom: '10px' }}>
-              <h3 style={{ color: '#fff', margin: 0, fontSize: '15px', fontWeight: 'bold' }}>
-                🤝 {isSelf ? t('profile.myFollowers') : `${activeProfile.nickname} 的粉丝`} ({followersCount})
-              </h3>
-              <button
-                onClick={() => setShowFollowersModal(false)}
-                style={{ background: 'transparent', border: 'none', color: '#888', fontSize: '16px', cursor: 'pointer' }}
-              >
-                ✕
-              </button>
-            </div>
-
-            <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '10px', paddingRight: '4px' }}>
-              {followers.length === 0 ? (
-                <div style={{ color: '#555', fontSize: '12.5px', textAlign: 'center', padding: '30px 10px' }}>
-                  🌱 {t('profile.noFollowers')}
-                </div>
-              ) : (
-                followers.map(followerUser => (
-                  <div
-                    key={followerUser.id}
-                    onClick={() => handleSelectUser(followerUser.id)}
-                    style={{
-                      display: 'flex', alignItems: 'center', gap: '12px',
-                      background: 'rgba(255,255,255,0.02)',
-                      border: '1px solid rgba(255,255,255,0.04)',
-                      borderRadius: '8px', padding: '10px 12px',
-                      cursor: 'pointer', transition: 'all 0.2s ease'
-                    }}
-                  >
-                    <div style={{
-                      width: '40px', height: '40px', borderRadius: '50%',
-                      background: 'rgba(255,255,255,0.05)',
-                      border: '1px solid rgba(255,255,255,0.1)',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      fontSize: '20px', overflow: 'hidden', flexShrink: 0
-                    }}>
-                      {followerUser.customAvatar ? (
-                        <img src={followerUser.customAvatar} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" />
-                      ) : (
-                        followerUser.avatar || "🩹"
-                      )}
-                    </div>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ color: '#fff', fontSize: '13.5px', fontWeight: 'bold', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                        {followerUser.nickname}
-                      </div>
-                      <div style={{ color: '#888', fontSize: '11px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginTop: '2px' }}>
-                        {followerUser.signature || t('profile.defaultSignature')}
-                      </div>
-                    </div>
-                    <span style={{ color: '#666', fontSize: '14px' }}>›</span>
-                  </div>
-                ))
-              )}
-            </div>
-
-            <button
-              onClick={() => setShowFollowersModal(false)}
-              style={{
-                width: '100%', padding: '11px 0', marginTop: '16px',
-                background: 'transparent', border: '1px solid #333',
-                borderRadius: '30px', color: '#888', fontSize: '13px', cursor: 'pointer'
-              }}
-            >
-              {t('profile.closeList')}
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* 🌟 补全帖子详情弹窗 */}
-      {selectedPostDetail && (
-        <div style={{
-          position: 'fixed', top: 0, left: 0,
-          width: '100vw', height: '100vh',
-          background: 'rgba(5, 5, 5, 0.96)', backdropFilter: 'blur(15px)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          zIndex: 1300, padding: '16px', boxSizing: 'border-box'
-        }} onClick={() => setSelectedPostDetail(null)}>
-          <div style={{
-            background: '#141414', border: '1px solid #333', borderRadius: '24px',
-            padding: '24px', width: '100%', maxWidth: '420px', maxHeight: '90vh',
-            overflowY: 'auto', boxSizing: 'border-box', boxShadow: '0 20px 50px rgba(0,0,0,0.8)'
-          }} onClick={e => e.stopPropagation()}>
-
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-              <span style={{ color: '#ef5350', fontSize: '14px', fontWeight: 'bold' }}>
-                📖 具身档案细节回顾
-              </span>
-              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                {(isSelf || (currentUserId && (String(selectedPostDetail.userId || selectedPostDetail.user_id || selectedPostDetail.authorId) === String(currentUserId)))) && (
-                  <button
-                    onClick={() => handleDeletePostInProfile(selectedPostDetail.id)}
-                    style={{
-                      background: 'rgba(239, 83, 80, 0.15)',
-                      border: '1px solid rgba(239, 83, 80, 0.3)',
-                      color: '#ef5350',
-                      padding: '4px 10px',
-                      borderRadius: '8px',
-                      fontSize: '11px',
-                      cursor: 'pointer',
-                      fontWeight: 'bold'
-                    }}
-                  >
-                    🗑️ 删除
-                  </button>
-                )}
-
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', borderBottom: '1px solid #2d2d2d', paddingBottom: '10px' }}>
+                <h3 style={{ color: '#fff', margin: 0, fontSize: '15px', fontWeight: 'bold' }}>
+                  🤝 {isSelf ? t('profile.myFollowings') : `${activeProfile.nickname} 的同伴`} ({followingCount})
+                </h3>
                 <button
-                  onClick={() => setSelectedPostDetail(null)}
-                  style={{ background: 'transparent', border: 'none', color: '#888', fontSize: '18px', cursor: 'pointer' }}
+                  onClick={() => setShowFollowingModal(false)}
+                  style={{ background: 'transparent', border: 'none', color: '#888', fontSize: '16px', cursor: 'pointer' }}
                 >
                   ✕
                 </button>
               </div>
-            </div>
 
-            <div style={{ borderRadius: '12px', overflow: 'hidden', border: '1px solid #222', background: '#000', marginBottom: '18px' }}>
-              <img
-                src={selectedPostDetail.img}
-                onError={(e) => { e.target.style.display = 'none'; }}
-                style={{ width: '100%', display: 'block', objectFit: 'contain' }}
-                alt="Embodied Paint"
-              />
-            </div>
+              <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '10px', paddingRight: '4px' }}>
+                {followings.length === 0 ? (
+                  <div style={{ color: '#555', fontSize: '12.5px', textAlign: 'center', padding: '30px 10px' }}>
+                    🌱 {t('profile.noFollowings')}
+                  </div>
+                ) : (
+                  followings.map(followedUser => (
+                    <div
+                      key={followedUser.id}
+                      onClick={() => handleSelectUser(followedUser.id)}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: '12px',
+                        background: 'rgba(255,255,255,0.02)',
+                        border: '1px solid rgba(255,255,255,0.04)',
+                        borderRadius: '8px', padding: '10px 12px',
+                        cursor: 'pointer', transition: 'all 0.2s ease'
+                      }}
+                    >
+                      <div style={{
+                        width: '40px', height: '40px', borderRadius: '50%',
+                        background: 'rgba(255,255,255,0.05)',
+                        border: '1px solid rgba(255,255,255,0.1)',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        fontSize: '20px', overflow: 'hidden', flexShrink: 0
+                      }}>
+                        {followedUser.customAvatar ? (
+                          <img src={followedUser.customAvatar} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" />
+                        ) : (
+                          followedUser.avatar || "🩹"
+                        )}
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ color: '#fff', fontSize: '13.5px', fontWeight: 'bold', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          {followedUser.nickname}
+                        </div>
+                        <div style={{ color: '#888', fontSize: '11px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginTop: '2px' }}>
+                          {followedUser.signature || t('profile.defaultSignature')}
+                        </div>
+                      </div>
+                      <span style={{ color: '#666', fontSize: '14px' }}>›</span>
+                    </div>
+                  ))
+                )}
+              </div>
 
-            <div style={{ display: 'flex', gap: '8px', marginBottom: '20px' }}>
-              <span style={{
-                color: '#ef5350',
-                fontSize: '11px',
-                background: 'rgba(239,83,80,0.08)',
-                padding: '3px 10px',
-                borderRadius: '8px',
-                fontWeight: 'bold'
-              }}>
-                {selectedPostDetail.painName || "具身痛感"}
-              </span>
-              <span style={{ color: '#555', fontSize: '11px' }}>
-                ID: #{selectedPostDetail.id ? String(selectedPostDetail.id).slice(-6) : "unknown"}
-              </span>
+              <button
+                onClick={() => setShowFollowingModal(false)}
+                style={{
+                  width: '100%', padding: '11px 0', marginTop: '16px',
+                  background: 'transparent', border: '1px solid #333',
+                  borderRadius: '30px', color: '#888', fontSize: '13px', cursor: 'pointer'
+                }}
+              >
+                {t('profile.closeList')}
+              </button>
             </div>
+          </div>
+        )
+      }
 
+      {/* 🌟 补全粉丝同伴列表弹窗 */}
+      {
+        showFollowersModal && (
+          <div style={{
+            position: 'fixed', top: 0, left: 0,
+            width: '100vw', height: '100vh',
+            background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(10px)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            zIndex: 1200, padding: '16px', boxSizing: 'border-box'
+          }} onClick={() => setShowFollowersModal(false)}>
             <div style={{
-              background: 'rgba(255,255,255,0.01)',
-              border: '1px solid rgba(255,255,255,0.03)',
-              borderLeft: '4px solid #d32f2f',
-              padding: '14px', borderRadius: '8px', marginBottom: '14px'
-            }}>
-              <h4 style={{ color: '#ef5350', fontSize: '13px', margin: '0 0 6px 0', fontWeight: 'bold' }}>患者自诉与特征</h4>
-              <p style={{ color: '#ccc', fontSize: '12.5px', lineHeight: '1.6', margin: 0 }}>
-                {selectedPostDetail.content?.chief_complaint?.replace("主诉：", "") || selectedPostDetail.text || "暂无文字自诉记录。"}
-              </p>
-            </div>
+              background: '#141414', border: '1px solid #333', borderRadius: '24px',
+              padding: '24px', width: '100%', maxWidth: '420px', maxHeight: '70vh',
+              display: 'flex', flexDirection: 'column', boxSizing: 'border-box',
+              boxShadow: '0 20px 50px rgba(0,0,0,0.8)'
+            }} onClick={e => e.stopPropagation()}>
 
-            {selectedPostDetail.content?.present_illness && (
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', borderBottom: '1px solid #2d2d2d', paddingBottom: '10px' }}>
+                <h3 style={{ color: '#fff', margin: 0, fontSize: '15px', fontWeight: 'bold' }}>
+                  🤝 {isSelf ? t('profile.myFollowers') : `${activeProfile.nickname} 的粉丝`} ({followersCount})
+                </h3>
+                <button
+                  onClick={() => setShowFollowersModal(false)}
+                  style={{ background: 'transparent', border: 'none', color: '#888', fontSize: '16px', cursor: 'pointer' }}
+                >
+                  ✕
+                </button>
+              </div>
+
+              <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '10px', paddingRight: '4px' }}>
+                {followers.length === 0 ? (
+                  <div style={{ color: '#555', fontSize: '12.5px', textAlign: 'center', padding: '30px 10px' }}>
+                    🌱 {t('profile.noFollowers')}
+                  </div>
+                ) : (
+                  followers.map(followerUser => (
+                    <div
+                      key={followerUser.id}
+                      onClick={() => handleSelectUser(followerUser.id)}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: '12px',
+                        background: 'rgba(255,255,255,0.02)',
+                        border: '1px solid rgba(255,255,255,0.04)',
+                        borderRadius: '8px', padding: '10px 12px',
+                        cursor: 'pointer', transition: 'all 0.2s ease'
+                      }}
+                    >
+                      <div style={{
+                        width: '40px', height: '40px', borderRadius: '50%',
+                        background: 'rgba(255,255,255,0.05)',
+                        border: '1px solid rgba(255,255,255,0.1)',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        fontSize: '20px', overflow: 'hidden', flexShrink: 0
+                      }}>
+                        {followerUser.customAvatar ? (
+                          <img src={followerUser.customAvatar} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" />
+                        ) : (
+                          followerUser.avatar || "🩹"
+                        )}
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ color: '#fff', fontSize: '13.5px', fontWeight: 'bold', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          {followerUser.nickname}
+                        </div>
+                        <div style={{ color: '#888', fontSize: '11px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginTop: '2px' }}>
+                          {followerUser.signature || t('profile.defaultSignature')}
+                        </div>
+                      </div>
+                      <span style={{ color: '#666', fontSize: '14px' }}>›</span>
+                    </div>
+                  ))
+                )}
+              </div>
+
+              <button
+                onClick={() => setShowFollowersModal(false)}
+                style={{
+                  width: '100%', padding: '11px 0', marginTop: '16px',
+                  background: 'transparent', border: '1px solid #333',
+                  borderRadius: '30px', color: '#888', fontSize: '13px', cursor: 'pointer'
+                }}
+              >
+                {t('profile.closeList')}
+              </button>
+            </div>
+          </div>
+        )
+      }
+
+      {/* 🌟 补全帖子详情弹窗 */}
+      {
+        selectedPostDetail && (
+          <div style={{
+            position: 'fixed', top: 0, left: 0,
+            width: '100vw', height: '100vh',
+            background: 'rgba(5, 5, 5, 0.96)', backdropFilter: 'blur(15px)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            zIndex: 1300, padding: '16px', boxSizing: 'border-box'
+          }} onClick={() => setSelectedPostDetail(null)}>
+            <div style={{
+              background: '#141414', border: '1px solid #333', borderRadius: '24px',
+              padding: '24px', width: '100%', maxWidth: '420px', maxHeight: '90vh',
+              overflowY: 'auto', boxSizing: 'border-box', boxShadow: '0 20px 50px rgba(0,0,0,0.8)'
+            }} onClick={e => e.stopPropagation()}>
+
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                <span style={{ color: '#ef5350', fontSize: '14px', fontWeight: 'bold' }}>
+                  📖 具身档案细节回顾
+                </span>
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                  {(isSelf || (currentUserId && (String(selectedPostDetail.userId || selectedPostDetail.user_id || selectedPostDetail.authorId) === String(currentUserId)))) && (
+                    <button
+                      onClick={() => handleDeletePostInProfile(selectedPostDetail.id)}
+                      style={{
+                        background: 'rgba(239, 83, 80, 0.15)',
+                        border: '1px solid rgba(239, 83, 80, 0.3)',
+                        color: '#ef5350',
+                        padding: '4px 10px',
+                        borderRadius: '8px',
+                        fontSize: '11px',
+                        cursor: 'pointer',
+                        fontWeight: 'bold'
+                      }}
+                    >
+                      🗑️ 删除
+                    </button>
+                  )}
+
+                  <button
+                    onClick={() => setSelectedPostDetail(null)}
+                    style={{ background: 'transparent', border: 'none', color: '#888', fontSize: '18px', cursor: 'pointer' }}
+                  >
+                    ✕
+                  </button>
+                </div>
+              </div>
+
+              <div style={{ borderRadius: '12px', overflow: 'hidden', border: '1px solid #222', background: '#000', marginBottom: '18px' }}>
+                <img
+                  src={selectedPostDetail.img}
+                  onError={(e) => { e.target.style.display = 'none'; }}
+                  style={{ width: '100%', display: 'block', objectFit: 'contain' }}
+                  alt="Embodied Paint"
+                />
+              </div>
+
+              <div style={{ display: 'flex', gap: '8px', marginBottom: '20px' }}>
+                <span style={{
+                  color: '#ef5350',
+                  fontSize: '11px',
+                  background: 'rgba(239,83,80,0.08)',
+                  padding: '3px 10px',
+                  borderRadius: '8px',
+                  fontWeight: 'bold'
+                }}>
+                  {selectedPostDetail.painName || "具身痛感"}
+                </span>
+                <span style={{ color: '#555', fontSize: '11px' }}>
+                  ID: #{selectedPostDetail.id ? String(selectedPostDetail.id).slice(-6) : "unknown"}
+                </span>
+              </div>
+
               <div style={{
                 background: 'rgba(255,255,255,0.01)',
                 border: '1px solid rgba(255,255,255,0.03)',
-                borderLeft: '4px solid #ab47bc',
-                padding: '14px', borderRadius: '8px', marginBottom: '20px'
+                borderLeft: '4px solid #d32f2f',
+                padding: '14px', borderRadius: '8px', marginBottom: '14px'
               }}>
-                <h4 style={{ color: '#ab47bc', fontSize: '13px', margin: '0 0 6px 0', fontWeight: 'bold' }}>现病史与诊疗参考</h4>
+                <h4 style={{ color: '#ef5350', fontSize: '13px', margin: '0 0 6px 0', fontWeight: 'bold' }}>患者自诉与特征</h4>
                 <p style={{ color: '#ccc', fontSize: '12.5px', lineHeight: '1.6', margin: 0 }}>
-                  {selectedPostDetail.content.present_illness}
+                  {selectedPostDetail.content?.chief_complaint?.replace("主诉：", "") || selectedPostDetail.text || "暂无文字自诉记录。"}
                 </p>
               </div>
-            )}
 
-            <button
-              onClick={() => setSelectedPostDetail(null)}
-              style={{
-                width: '100%', padding: '12px 0',
-                background: '#333', border: 'none', borderRadius: '30px',
-                color: '#fff', fontSize: '13px', fontWeight: 'bold', cursor: 'pointer'
-              }}
-            >
-              关闭详情
-            </button>
+              {selectedPostDetail.content?.present_illness && (
+                <div style={{
+                  background: 'rgba(255,255,255,0.01)',
+                  border: '1px solid rgba(255,255,255,0.03)',
+                  borderLeft: '4px solid #ab47bc',
+                  padding: '14px', borderRadius: '8px', marginBottom: '20px'
+                }}>
+                  <h4 style={{ color: '#ab47bc', fontSize: '13px', margin: '0 0 6px 0', fontWeight: 'bold' }}>现病史与诊疗参考</h4>
+                  <p style={{ color: '#ccc', fontSize: '12.5px', lineHeight: '1.6', margin: 0 }}>
+                    {selectedPostDetail.content.present_illness}
+                  </p>
+                </div>
+              )}
 
+              <button
+                onClick={() => setSelectedPostDetail(null)}
+                style={{
+                  width: '100%', padding: '12px 0',
+                  background: '#333', border: 'none', borderRadius: '30px',
+                  color: '#fff', fontSize: '13px', fontWeight: 'bold', cursor: 'pointer'
+                }}
+              >
+                关闭详情
+              </button>
+
+            </div>
           </div>
-        </div>
-      )}
+        )
+      }
 
       {/* 裁剪弹窗 */}
       <CropModal isOpen={showCropModal} imageSrc={cropSrc} cropType={cropType} onConfirm={handleCropConfirm} onCancel={handleCropCancel} />
-    </div>
+    </div >
   );
 }

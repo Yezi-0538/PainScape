@@ -766,7 +766,10 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
       // ---- 生活方式 ----
       const lifestyleArr = mb.lifestyleArr || [];
       const lifestyleText = lifestyleArr.length > 0
-        ? lifestyleArr.map(s => t(`onboarding.lifestyleOptions.${s}`) || s).join(isEn ? ', ' : '、')
+        ? lifestyleArr
+          .filter(s => s !== 'normal')  // ✅ 过滤掉 normal
+          .map(s => t(`onboarding.lifestyleOptions.${s}`) || s)
+          .join(isEn ? ', ' : '、')
         : t('defaultTemplates.noLifestyle');
 
       // ---- 月经史 ----
@@ -3106,6 +3109,7 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
             setPosts={setPosts}
             showToast={showToast}
             lang={targetLanguage}
+            onViewHistory={() => setPage('history')}  // ✅ 新增
             setTargetLanguage={setTargetLanguage}
             onBack={() => {
               if (currentUserId !== targetUserId) {
@@ -3115,6 +3119,19 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
               }
             }}
             onLogout={handleLogout}
+            // ✅ 传递点赞列表
+            likedPosts={userLikedPosts.map(id => posts.find(p => String(p.id) === String(id))).filter(Boolean)}
+            onToggleLike={(postId) => {
+              // 切换点赞状态
+              const newSet = new Set(userLikedPosts);
+              if (newSet.has(postId)) {
+                newSet.delete(postId);
+              } else {
+                newSet.add(postId);
+              }
+              setUserLikedPosts(Array.from(newSet));
+              localStorage.setItem('painscape_user_likes', JSON.stringify(Array.from(newSet)));
+            }}
           />
         );
 

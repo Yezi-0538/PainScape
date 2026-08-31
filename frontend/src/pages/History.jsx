@@ -1040,14 +1040,27 @@ const useSearchFilter = (history, searchQuery, painTypeFilter, translate) => {
 };
 
 // ============================================================
-// 时间线可视化组件
+// 时间线可视化组件 - 重构版（PC + 移动端优雅动画）
 // ============================================================
 const TimelineView = ({ records, t, isEn, onRecordClick }) => {
+  const [hoveredId, setHoveredId] = useState(null);
+  const [expandedId, setExpandedId] = useState(null);
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
   if (!records || records.length === 0) {
     return (
       <div style={{
         textAlign: 'center',
-        padding: '40px 20px',
+        padding: '60px 20px',
         color: '#444',
         fontSize: 'var(--text-sm)',
       }}>
@@ -1066,28 +1079,73 @@ const TimelineView = ({ records, t, isEn, onRecordClick }) => {
   const lastDate = new Date(normalizeDateStr(sorted[sorted.length - 1]?.date) || 0);
   const totalDays = Math.max(1, Math.round((lastDate - firstDate) / 86400000));
 
+  const handleCardClick = (record) => {
+    setExpandedId(expandedId === record.id ? null : record.id);
+    if (onRecordClick) {
+      onRecordClick(record);
+    }
+  };
+
+  const getTimeLabel = (dateStr) => {
+    if (!dateStr) return '';
+    const date = new Date(normalizeDateStr(dateStr) || 0);
+    const now = new Date();
+    const diff = Math.round((now - date) / 86400000);
+    if (diff === 0) return isEn ? 'Today' : '今天';
+    if (diff === 1) return isEn ? 'Yesterday' : '昨天';
+    if (diff < 7) return isEn ? `${diff}d ago` : `${diff}天前`;
+    if (diff < 30) return isEn ? `${Math.round(diff/7)}w ago` : `${Math.round(diff/7)}周前`;
+    return normalizeDateStr(dateStr);
+  };
+
+  const getColorLabel = (color) => {
+    if (isEn) {
+      const map = {
+        crimson: 'Warm',
+        dark: 'Heavy',
+        purple: 'Dull',
+        blue: 'Chill',
+      };
+      return map[color] || color;
+    }
+    const map = {
+      crimson: '温热',
+      dark: '沉重',
+      purple: '隐痛',
+      blue: '寒战',
+    };
+    return map[color] || color;
+  };
+
+  const isHovered = (id) => hoveredId === id;
+  const isExpanded = (id) => expandedId === id;
+
   return (
     <div style={{
-      padding: 'var(--space-lg) 0',
+      padding: '12px 0 8px 0',
       position: 'relative',
     }}>
+      {/* 时间线轴线 - 渐变 */}
       <div style={{
         position: 'absolute',
-        left: '20px',
-        top: '20px',
-        bottom: '20px',
-        width: '2px',
+        left: '22px',
+        top: '24px',
+        bottom: '24px',
+        width: '2.5px',
         background: 'linear-gradient(to bottom, rgba(230,126,34,0.3), rgba(230,126,34,0.05))',
         borderRadius: '2px',
       }} />
 
-      {sorted.map((record) => {
+      {sorted.map((record, index) => {
         const recordDate = new Date(normalizeDateStr(record.date) || 0);
         const painKey = record.dominantPain || CHINESE_TO_KEY_MAP[record.painName] || 'twist';
-        const painColor = PAIN_COLORS[painKey] || '#888';
+        const painColor = PAIN_COLORS[painKey] || '#666';
         const painName = getPainNameDisplay(record, t);
         const painIcon = getPainIcon(record);
         const isQuickLog = record.isQuickLog;
+        const hasReport = record.reportData && !record.isSavedOnly;
+        const isActive = isHovered(record.id) || isExpanded(record.id);
+        const isLast = index === sorted.length - 1;
 
         let position = 0;
         if (totalDays > 0) {
@@ -1098,100 +1156,307 @@ const TimelineView = ({ records, t, isEn, onRecordClick }) => {
         return (
           <div
             key={record.id}
-            onClick={() => onRecordClick?.(record)}
+            onClick={() => handleCardClick(record)}
+            onMouseEnter={() => !isMobile && setHoveredId(record.id)}
+            onMouseLeave={() => !isMobile && setHoveredId(null)}
             style={{
               display: 'flex',
-              alignItems: 'flex-start',
-              gap: '16px',
-              padding: '10px 12px 10px 40px',
-              marginBottom: '4px',
-              borderRadius: '10px',
+              alignItems: 'center',
+              gap: '14px',
+              padding: isMobile ? '10px 12px 10px 44px' : '14px 18px 14px 48px',
+              marginBottom: isMobile ? '4px' : '8px',
+              borderRadius: '14px',
               cursor: 'pointer',
-              transition: 'all 0.2s ease',
               position: 'relative',
+              transition: 'all 0.35s cubic-bezier(0.34, 1.56, 0.64, 1)',
+              transform: isActive ? 'scale(1.02)' : 'scale(1)',
+              background: isActive
+                ? `rgba(${painColor.replace('#', '')}, 0.08)`
+                : 'rgba(255,255,255,0.01)',
+              border: isActive
+                ? `1px solid ${painColor}30`
+                : '1px solid transparent',
+              boxShadow: isActive
+                ? `0 4px 20px rgba(0,0,0,0.2)`
+                : 'none',
+              WebkitTapHighlightColor: 'transparent',
+              userSelect: 'none',
+              WebkitUserSelect: 'none',
             }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.background = 'rgba(255,255,255,0.03)';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.background = 'transparent';
-            }}
-          >
-            <div style={{
-              position: 'absolute',
-              left: '18px',
-              top: '14px',
-              width: '6px',
-              height: '6px',
-              borderRadius: '50%',
-              background: painColor,
-              boxShadow: `0 0 12px ${painColor}40`,
-              transform: 'translateX(-2px)',
-            }} />
-
-            <div style={{
-              minWidth: '80px',
-              color: '#666',
-              fontSize: 'var(--text-xs)',
-              flexShrink: 0,
-            }}>
-              {normalizeDateStr(record.date)}
-              {record.time && (
-                <span style={{ color: '#444', marginLeft: '4px' }}>
-                  {record.time}
-                </span>
-              )}
-            </div>
-
-            <div style={{
-              flex: 1,
+            // ✅ 解析颜色值用于背景
+            style={{
               display: 'flex',
               alignItems: 'center',
-              gap: '8px',
-              flexWrap: 'wrap',
+              gap: '14px',
+              padding: isMobile ? '10px 12px 10px 44px' : '14px 18px 14px 48px',
+              marginBottom: isMobile ? '4px' : '8px',
+              borderRadius: '14px',
+              cursor: 'pointer',
+              position: 'relative',
+              transition: 'all 0.35s cubic-bezier(0.34, 1.56, 0.64, 1)',
+              transform: isActive ? 'translateX(6px) scale(1.01)' : 'translateX(0) scale(1)',
+              background: isActive
+                ? `rgba(${parseInt(painColor.slice(1,3), 16)}, ${parseInt(painColor.slice(3,5), 16)}, ${parseInt(painColor.slice(5,7), 16)}, 0.08)`
+                : 'rgba(255,255,255,0.01)',
+              border: isActive
+                ? `1px solid ${painColor}40`
+                : '1px solid transparent',
+              boxShadow: isActive
+                ? `0 4px 24px rgba(0,0,0,0.25)`
+                : 'none',
+              WebkitTapHighlightColor: 'transparent',
+              userSelect: 'none',
+              WebkitUserSelect: 'none',
+            }}
+          >
+            {/* 时间线节点 - 带动画光晕 */}
+            <div
+              style={{
+                position: 'absolute',
+                left: isMobile ? '20px' : '22px',
+                top: '50%',
+                transform: 'translateY(-50%)',
+                zIndex: 2,
+              }}
+            >
+              {/* 光晕环 - hover/active 时扩散 */}
+              <div
+                style={{
+                  position: 'absolute',
+                  top: '50%',
+                  left: '50%',
+                  transform: 'translate(-50%, -50%)',
+                  width: isActive ? '32px' : '20px',
+                  height: isActive ? '32px' : '20px',
+                  borderRadius: '50%',
+                  background: isActive ? `${painColor}20` : 'transparent',
+                  transition: 'all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1)',
+                }}
+              />
+              {/* 主节点 */}
+              <div
+                style={{
+                  width: isActive ? '12px' : '8px',
+                  height: isActive ? '12px' : '8px',
+                  borderRadius: '50%',
+                  background: painColor,
+                  boxShadow: isActive
+                    ? `0 0 24px ${painColor}60`
+                    : `0 0 12px ${painColor}30`,
+                  transition: 'all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)',
+                  position: 'relative',
+                  zIndex: 2,
+                }}
+              >
+                {/* 脉冲环 */}
+                <span
+                  style={{
+                    position: 'absolute',
+                    top: '-6px',
+                    left: '-6px',
+                    width: isActive ? '24px' : '20px',
+                    height: isActive ? '24px' : '20px',
+                    borderRadius: '50%',
+                    border: `2px solid ${painColor}`,
+                    opacity: isActive ? 0.6 : 0.3,
+                    animation: isActive
+                      ? 'timelinePulseActive 1.5s ease-in-out infinite'
+                      : 'timelinePulse 2.5s ease-in-out infinite',
+                    transition: 'all 0.4s ease',
+                  }}
+                />
+              </div>
+            </div>
+
+            {/* 连接线 */}
+            {!isLast && (
+              <div
+                style={{
+                  position: 'absolute',
+                  left: isMobile ? '24px' : '26px',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  width: '1.5px',
+                  height: `calc(100% + ${isMobile ? '4px' : '8px'})`,
+                  background: isActive
+                    ? `linear-gradient(to bottom, ${painColor}40, rgba(255,255,255,0.05))`
+                    : 'linear-gradient(to bottom, rgba(255,255,255,0.08), rgba(255,255,255,0.02))',
+                  zIndex: 1,
+                  transition: 'all 0.4s ease',
+                }}
+              />
+            )}
+
+            {/* 日期 */}
+            <div style={{
+              minWidth: isMobile ? '55px' : '75px',
+              flexShrink: 0,
+              paddingTop: '1px',
             }}>
-              <span style={{ fontSize: 'var(--text-lg)' }}>{painIcon}</span>
-              <span style={{
-                color: '#d0d0d0',
-                fontSize: 'var(--text-sm)',
-                fontWeight: '400',
+              <div style={{
+                color: isActive ? '#ddd' : '#888',
+                fontSize: isMobile ? '10px' : '12px',
+                fontWeight: isActive ? '600' : '400',
+                transition: 'all 0.3s ease',
+                letterSpacing: '0.3px',
               }}>
-                {painName}
-              </span>
-              {isQuickLog && (
-                <span style={{
-                  color: '#d32f2f',
-                  fontSize: '9px',
-                  background: 'rgba(211,47,47,0.08)',
-                  padding: '1px 6px',
-                  borderRadius: '6px',
-                }}>
-                  ⚡
-                </span>
-              )}
-              {record.colorPalette && (
-                <span style={{
-                  fontSize: '9px',
+                {getTimeLabel(record.date)}
+              </div>
+              {record.time && (
+                <div style={{
                   color: '#555',
-                  padding: '1px 6px',
-                  borderRadius: '6px',
-                  background: 'rgba(255,255,255,0.03)',
+                  fontSize: isMobile ? '8px' : '10px',
+                  marginTop: '1px',
                 }}>
-                  🌡️ {record.colorPalette}
-                </span>
+                  {record.time}
+                </div>
               )}
             </div>
 
+            {/* 内容 */}
             <div style={{
-              fontSize: '9px',
-              color: '#333',
+              flex: 1,
+              minWidth: 0,
+              paddingTop: '1px',
+            }}>
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: isMobile ? '6px' : '10px',
+                flexWrap: 'wrap',
+              }}>
+                {/* 图标 */}
+                <span style={{
+                  fontSize: isMobile ? '16px' : '20px',
+                  flexShrink: 0,
+                  width: isMobile ? '20px' : '28px',
+                  textAlign: 'center',
+                  transition: 'transform 0.3s ease',
+                  transform: isActive ? 'scale(1.15)' : 'scale(1)',
+                }}>
+                  {painIcon || '●'}
+                </span>
+
+                {/* 疼痛名称 */}
+                <span style={{
+                  color: isActive ? '#fff' : '#d0d0d0',
+                  fontSize: isMobile ? '13px' : '15px',
+                  fontWeight: isActive ? '600' : '400',
+                  transition: 'all 0.3s ease',
+                }}>
+                  {painName || t('history.unknownPain') || '未知疼痛'}
+                </span>
+
+                {/* 标签 */}
+                <div style={{
+                  display: 'flex',
+                  gap: '4px',
+                  flexWrap: 'wrap',
+                  marginLeft: isMobile ? '0' : '4px',
+                }}>
+                  {isQuickLog && (
+                    <span style={{
+                      color: '#d32f2f',
+                      fontSize: isMobile ? '8px' : '9px',
+                      background: 'rgba(211,47,47,0.1)',
+                      padding: '1px 8px',
+                      borderRadius: '10px',
+                      fontWeight: '500',
+                    }}>
+                      ⚡ {isEn ? 'Quick' : '快速'}
+                    </span>
+                  )}
+                  {hasReport && (
+                    <span style={{
+                      color: '#e8a87c',
+                      fontSize: isMobile ? '8px' : '9px',
+                      background: 'rgba(232,168,124,0.1)',
+                      padding: '1px 8px',
+                      borderRadius: '10px',
+                      fontWeight: '500',
+                    }}>
+                      📄 {isEn ? 'Report' : '报告'}
+                    </span>
+                  )}
+                  {record.colorPalette && (
+                    <span style={{
+                      fontSize: isMobile ? '8px' : '9px',
+                      color: '#777',
+                      padding: '1px 8px',
+                      borderRadius: '10px',
+                      background: 'rgba(255,255,255,0.03)',
+                      border: '1px solid rgba(255,255,255,0.05)',
+                      transition: 'all 0.3s ease',
+                      borderColor: isActive ? `${painColor}30` : 'rgba(255,255,255,0.05)',
+                    }}>
+                      {getColorLabel(record.colorPalette)}
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              {/* 进度条 - 更直观的视觉元素 */}
+              <div style={{
+                marginTop: isMobile ? '4px' : '6px',
+                width: '100%',
+                height: '2px',
+                background: 'rgba(255,255,255,0.04)',
+                borderRadius: '2px',
+                overflow: 'hidden',
+                position: 'relative',
+              }}>
+                <div
+                  style={{
+                    width: `${Math.min(100, Math.max(5, position))}%`,
+                    height: '100%',
+                    background: `linear-gradient(90deg, ${painColor}60, ${painColor})`,
+                    borderRadius: '2px',
+                    transition: 'width 0.6s cubic-bezier(0.34, 1.56, 0.64, 1)',
+                    opacity: isActive ? 1 : 0.6,
+                  }}
+                />
+              </div>
+            </div>
+
+            {/* 进度百分比 - 移到右侧 */}
+            <div style={{
+              fontSize: isMobile ? '10px' : '12px',
+              color: isActive ? '#aaa' : '#444',
               flexShrink: 0,
+              minWidth: isMobile ? '28px' : '36px',
+              textAlign: 'right',
+              fontVariantNumeric: 'tabular-nums',
+              fontWeight: isActive ? '500' : '300',
+              transition: 'all 0.3s ease',
             }}>
               {Math.round(position)}%
             </div>
           </div>
         );
       })}
+
+      <style>{`
+        @keyframes timelinePulse {
+          0%, 100% {
+            transform: scale(1);
+            opacity: 0.3;
+          }
+          50% {
+            transform: scale(1.4);
+            opacity: 0;
+          }
+        }
+        @keyframes timelinePulseActive {
+          0%, 100% {
+            transform: scale(1);
+            opacity: 0.5;
+          }
+          50% {
+            transform: scale(1.6);
+            opacity: 0;
+          }
+        }
+      `}</style>
     </div>
   );
 };

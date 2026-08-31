@@ -372,6 +372,7 @@ export default function PersonalProfileModal({
             <ModalMultiSelect
               label={t('onboarding.lifestyleTitle') || '日常习惯'}
               options={[
+                { value: 'normal', label: t('onboarding.lifestyleNormal') },
                 { value: 'sleepShort', label: t('onboarding.lifestyleSleepShort') },
                 { value: 'sleepIrregular', label: t('onboarding.lifestyleSleepIrregular') },
                 { value: 'smoking', label: t('onboarding.lifestyleSmoking') },

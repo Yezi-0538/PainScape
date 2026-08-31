@@ -115,7 +115,8 @@ class TelemetryService {
 
   getSessionId() {
     if (!this.currentSessionId) {
-      const id = this.generateSessionId();
+      // 修复：使用 _uid 方法生成
+      const id = this._uid('sess');
       try {
         const sessions = JSON.parse(localStorage.getItem(SESSIONS_KEY) || '[]');
         if (!sessions.some(s => s.session_id === id)) {
@@ -132,6 +133,7 @@ class TelemetryService {
       } catch (e) {
         console.warn('[Telemetry] lazy session failed:', e);
       }
+      this.currentSessionId = id;
     }
     return this.currentSessionId;
   }
