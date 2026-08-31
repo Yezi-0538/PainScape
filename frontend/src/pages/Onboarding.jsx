@@ -1214,6 +1214,46 @@ export default function OnboardingPage({
             </button>
           </>
         )}
+        {/* ✅ 新增：跳过按钮 - 在所有模式下都显示（除了偏好设置页） */}
+        {appMode !== 'general' && showContent === 'basicInfo' && (
+          <button
+            onClick={() => {
+              if (onSkip) {
+                onSkip();
+              }
+            }}
+            style={{
+              flex: 0.8,
+              padding: '14px 12px',
+              borderRadius: 'var(--radius-lg)',
+              background: 'transparent',
+              border: '1px solid rgba(255,255,255,0.06)',
+              color: '#555',
+              fontSize: 'clamp(12px, 3vw, 14px)',
+              fontWeight: '400',
+              cursor: 'pointer',
+              minHeight: 'var(--btn-min-touch)',
+              transition: 'all 0.2s ease',
+              WebkitTapHighlightColor: 'transparent',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.color = '#888';
+              e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.color = '#555';
+              e.currentTarget.style.borderColor = 'rgba(255,255,255,0.06)';
+            }}
+            onTouchStart={(e) => {
+              e.currentTarget.style.opacity = '0.7';
+            }}
+            onTouchEnd={(e) => {
+              e.currentTarget.style.opacity = '1';
+            }}
+          >
+            {t('onboarding.skipAndDraw') || '跳过 → 直接绘制'}
+          </button>
+        )}
       </div>
 
       {/* 页脚导航链接 */}

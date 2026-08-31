@@ -1179,28 +1179,29 @@ export default function CanvasPage({
           </div>
         </div>
 
-        {/* 缩放调节 */}
+        {/* ===== 缩放调节 - 在顶部导航栏下方 ===== */}
         {bodyMode !== 'none' && (
           <div
             style={{
               position: 'absolute',
-              top: '72px',
-              left: '16px',
+              top: isSmallScreen ? '100px' : '110px',
+              left: '50%',
+              transform: 'translateX(-50%)',
               display: 'flex',
               alignItems: 'center',
               gap: '8px',
-              background: 'rgba(20,20,20,0.75)',
+              background: 'rgba(20,20,20,0.8)',
               backdropFilter: 'blur(8px)',
-              padding: '0 5px',
-              borderRadius: '10px',
+              padding: '4px 14px',
+              borderRadius: '20px',
               border: '1px solid rgba(255,255,255,0.06)',
               pointerEvents: 'auto',
               zIndex: 50,
               boxShadow: '0 2px 12px rgba(0,0,0,0.3)',
             }}
           >
-            <span style={{ color: '#666', fontSize: '11px', fontWeight: '400' }}>
-              {t('canvas.scale')}
+            <span style={{ color: '#666', fontSize: '10px', fontWeight: '400' }}>
+              {t('canvas.scale') || '缩放'}
             </span>
             <input
               type="range"
@@ -1217,7 +1218,7 @@ export default function CanvasPage({
                 margin: '0 4px',
               }}
             />
-            <span style={{ color: '#aaa', fontSize: '11px', minWidth: '36px', textAlign: 'center' }}>
+            <span style={{ color: '#aaa', fontSize: '10px', minWidth: '32px', textAlign: 'center' }}>
               {Math.round(bgScale * 100)}%
             </span>
           </div>

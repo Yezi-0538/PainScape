@@ -763,12 +763,17 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
         }
       }
 
-      // ---- 生活方式 ----
       const lifestyleArr = mb.lifestyleArr || [];
+
+      // ✅ 使用 lifestyleOptions 对象
       const lifestyleText = lifestyleArr.length > 0
         ? lifestyleArr
-          .filter(s => s !== 'normal')  // ✅ 过滤掉 normal
-          .map(s => t(`onboarding.lifestyleOptions.${s}`) || s)
+          .filter(s => s !== 'normal')
+          .map(s => {
+            // 从 lifestyleOptions 对象中获取翻译
+            const translations = t('onboarding.lifestyleOptions', { returnObjects: true });
+            return translations?.[s] || s;
+          })
           .join(isEn ? ', ' : '、')
         : t('defaultTemplates.noLifestyle');
 
