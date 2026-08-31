@@ -27,17 +27,12 @@ const ColorDescription = ({ activeColor, t }) => {
 // 主组件
 // ============================================================
 export default function CanvasPage({
-  // 导航
   onBack,
   onGenerate,
   onSaveOnly,
   onViewHistory,
   onShareSaved,
-
-  // spatialMap 回调
   onSpatialMapUpdate,
-
-  // 画板状态
   bodyMode,
   setBodyMode,
   activeBrush,
@@ -48,35 +43,23 @@ export default function CanvasPage({
   setBgScale,
   onSaveDraft,
   onViewDraftBox,
-
-  // 音频
   isMuted,
   setIsMuted,
-
-  // p5 引用
   p5Ref,
   pgFrontRef,
   pgBackRef,
   bgFrontRef,
   bgBackRef,
-
-  // 粒子相关
   brushCounts,
   dynamicParticles,
   staticParticles,
   particlePositions,
   speedHistory,
   pressureHistory,
-  contactAreaHistory,      // ✅ 新增
-  intensitySourceRef,      // ✅ 新增
-
-  // 相机
+  contactAreaHistory,
+  intensitySourceRef,
   camRef,
-
-  // 应用模式
   appMode,
-
-  // 工具
   saveSnapshot,
   handleUndo,
   handleRedo,
@@ -94,22 +77,19 @@ export default function CanvasPage({
   const mousePressedOnCanvasRef = useRef(false);
   const prevBodyModeRef = useRef(bodyMode);
 
+  // 🌟 坠痛画笔单笔点迹收集器（长按静默收集，松手生成单个抛物面网）
+  const heavyStrokePointsRef = useRef([]);
+
   const [showSaveConfirm, setShowSaveConfirm] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const { userId, userInfo, setUserInfo } = useUser();
 
-  // ===== 新手引导（OnboardingGuide）状态 =====
   const [showGuide, setShowGuide] = useState(false);
   const [guideLoading, setGuideLoading] = useState(true);
-
-  // ===== 画布功能引导（CanvasGuide）状态 =====
   const [showCanvasGuide, setShowCanvasGuide] = useState(false);
   const [canvasGuideLoading, setCanvasGuideLoading] = useState(true);
-
-  // ===== 保存草稿状态 =====
   const [showDraftSuccess, setShowDraftSuccess] = useState(false);
 
-  // ===== ✅ 响应式：检测小屏设备 =====
   const [isSmallScreen, setIsSmallScreen] = useState(window.innerWidth < 480);
 
   useEffect(() => {
@@ -120,11 +100,8 @@ export default function CanvasPage({
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // ✅ 新增：追踪粒子驻留时间（用于模拟压感）
   const particleDwellTimeRef = useRef({});
-  // ============================================================
-  // 检查新手引导状态
-  // ============================================================
+
   useEffect(() => {
     const checkUserGuideStatus = async () => {
       if (userId && userInfo) {
@@ -133,72 +110,52 @@ export default function CanvasPage({
         setGuideLoading(false);
         return;
       }
-
       const hasSeen = localStorage.getItem('paintScape_guide_seen') === 'true';
       setShowGuide(!hasSeen);
       setGuideLoading(false);
     };
-
     checkUserGuideStatus();
   }, [userId, userInfo]);
 
-  // ============================================================
-  // 检查画布功能引导状态
-  // ============================================================
   useEffect(() => {
     const hasSeen = localStorage.getItem('paintScape_canvas_guide_shown') === 'true';
-    // 只在首次访问且新手引导已关闭或不存在时显示
     if (!hasSeen && !showGuide) {
       setShowCanvasGuide(true);
     }
     setCanvasGuideLoading(false);
   }, [showGuide]);
 
-  // ============================================================
-  // 新手引导完成
-  // ============================================================
   const handleGuideClose = async () => {
     setShowGuide(false);
     localStorage.setItem('paintScape_guide_seen', 'true');
-
     if (userId) {
       try {
         await setUserInfo({ hasSeenGuide: true });
-        console.log('✅ 引导状态已同步到云端');
       } catch (err) {
         console.warn('更新引导状态失败:', err);
       }
     }
   };
 
-  // ============================================================
-  // 画布功能引导完成
-  // ============================================================
   const handleCanvasGuideComplete = () => {
     setShowCanvasGuide(false);
     localStorage.setItem('paintScape_canvas_guide_shown', 'true');
   };
 
-  // ============================================================
-  // 方向提示自动消失
-  // ============================================================
   useEffect(() => {
     setTipVisible(true);
     const timer = setTimeout(() => setTipVisible(false), 1500);
     return () => clearTimeout(timer);
   }, [bodyMode]);
 
-  // ============================================================
-  // 保存草稿处理函数
-  // ============================================================
   const handleSaveDraftOnly = useCallback(async () => {
     const draftData = {
       brushCounts: { ...(brushCounts?.current || {}) },
       particlePositions: [...(particlePositions?.current || [])],
       speedHistory: [...(speedHistory?.current || [])],
       pressureHistory: [...(pressureHistory?.current || [])],
-      contactAreaHistory: [...(contactAreaHistory?.current || [])],  // ✅ 新增
-      intensitySource: intensitySourceRef?.current || 'unknown',      // ✅ 新增
+      contactAreaHistory: [...(contactAreaHistory?.current || [])],
+      intensitySource: intensitySourceRef?.current || 'unknown',
       activeColor: activeColor || 'crimson',
       bodyMode: bodyMode || 'front',
       bgScale: bgScale || 1.0,
@@ -209,7 +166,6 @@ export default function CanvasPage({
     if (canvas) {
       draftData.canvasImage = canvas.toDataURL('image/png');
     }
-
     if (pgFrontRef.current) {
       const frontImg = pgFrontRef.current.get();
       draftData.frontImage = frontImg.canvas.toDataURL('image/png');
@@ -230,14 +186,10 @@ export default function CanvasPage({
         particleCount,
         fromPage: 'canvas'
       });
-
       setShowDraftSuccess(true);
     }
   }, [onSaveDraft, brushCounts, particlePositions, speedHistory, pressureHistory, activeColor, bodyMode, bgScale, p5Ref, pgFrontRef, pgBackRef, contactAreaHistory, intensitySourceRef]);
 
-  // ============================================================
-  // 查看草稿箱
-  // ============================================================
   const handleViewDraftBox = useCallback(() => {
     let count = 0;
     try {
@@ -253,20 +205,15 @@ export default function CanvasPage({
     });
 
     if (onViewDraftBox) {
-      onViewDraftBox();  // ✅ 不传参，由父组件管理页面栈
+      onViewDraftBox();
     }
   }, [onViewDraftBox]);
-
-  // ============================================================
-  // p5.js 生命周期函数
-  // ============================================================
 
   const preload = (p5) => {
     try {
       bgFrontRef.current = p5.loadImage('body_front.png');
       bgBackRef.current = p5.loadImage('body_back.png');
     } catch (e) {
-      console.warn('Failed to load body images, using placeholders');
       const createPlaceholder = () => {
         const img = p5.createImage(100, 100);
         img.loadPixels();
@@ -283,17 +230,14 @@ export default function CanvasPage({
       bgBackRef.current = createPlaceholder();
     }
   };
-  const bgScaleRef = useRef(null);
+
   const setup = (p5, canvasParentRef) => {
     p5Ref.current = p5;
-
-    // ✅ 设置像素密度为 1，防止高 DPI 屏幕缩放问题
     p5.pixelDensity(1);
 
     const canvas = p5.createCanvas(window.innerWidth, window.innerHeight);
     canvas.parent(canvasParentRef);
 
-    // 【修复1】在 canvas 上监听原生事件，精确追踪是否在 canvas 上按下
     canvas.elt.addEventListener('mousedown', (e) => {
       if (e.target === canvas.elt) {
         mousePressedOnCanvasRef.current = true;
@@ -305,7 +249,6 @@ export default function CanvasPage({
       }
     }, { passive: false });
 
-    // 全局监听鼠标/手指松开，重置标记
     window.addEventListener('mouseup', () => {
       mousePressedOnCanvasRef.current = false;
     });
@@ -313,7 +256,6 @@ export default function CanvasPage({
       mousePressedOnCanvasRef.current = false;
     });
 
-    // 阻止 canvas 上的默认触摸行为（防止滚动）
     canvas.elt.addEventListener('touchstart', (e) => {
       if (e.touches.length === 1 && activeBrush !== null) {
         e.preventDefault();
@@ -332,37 +274,76 @@ export default function CanvasPage({
 
     camRef.current = { x: 0, y: 0, zoom: 1.0 };
 
-    // ✅ 添加窗口大小变化响应
     p5.windowResized = () => {
       const w = window.innerWidth;
       const h = window.innerHeight;
-
       p5.resizeCanvas(w, h);
 
-      // 重建离屏画布以匹配新尺寸，并保留旧内容
       const oldFront = pgFrontRef.current;
       const oldBack = pgBackRef.current;
-
       pgFrontRef.current = p5.createGraphics(w, h);
       pgBackRef.current = p5.createGraphics(w, h);
       pgFrontRef.current.clear();
       pgBackRef.current.clear();
 
-      if (oldFront) {
-        pgFrontRef.current.image(oldFront, 0, 0);
-      }
-      if (oldBack) {
-        pgBackRef.current.image(oldBack, 0, 0);
-      }
-
-      // 重置相机位置，避免偏移
+      if (oldFront) pgFrontRef.current.image(oldFront, 0, 0);
+      if (oldBack) pgBackRef.current.image(oldBack, 0, 0);
       camRef.current = { x: 0, y: 0, zoom: 1.0 };
     };
   };
 
+  // 🌟 松手结算
   const mouseReleased = (p5) => {
-    // 【修复4】松开鼠标/手指时保存快照用于撤销
     if (isDrawingStrokeRef.current) {
+      if (activeBrush === 'heavy' && heavyStrokePointsRef.current.length > 0) {
+        const pts = heavyStrokePointsRef.current;
+        let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+        let sumIntensity = 0;
+
+        pts.forEach(pt => {
+          if (pt.x < minX) minX = pt.x;
+          if (pt.x > maxX) maxX = pt.x;
+          if (pt.y < minY) minY = pt.y;
+          if (pt.y > maxY) maxY = pt.y;
+          sumIntensity += (pt.intensity || 0.5);
+        });
+
+        const centerX = (minX + maxX) / 2;
+        const centerY = (minY + maxY) / 2;
+        const spreadX = (maxX - minX) / 2;
+        const spreadY = (maxY - minY) / 2;
+        const rx = Math.max(26, spreadX + 14);
+        const ry = Math.max(15, spreadY + 10);
+        const avgIntensity = sumIntensity / pts.length;
+        const paletteColor = PALETTES[activeColor]?.color || [211, 47, 47];
+
+        const heavyParticle = new PainParticle(
+          p5,
+          centerX,
+          centerY,
+          'heavy',
+          paletteColor,
+          0,
+          0,
+          bodyMode,
+          avgIntensity,
+          { rx, ry }
+        );
+
+        if (dynamicParticles.current) {
+          dynamicParticles.current.push(heavyParticle);
+        }
+        if (particlePositions.current) {
+          particlePositions.current.push({ x: centerX, y: centerY, bodyMode });
+        }
+
+        if (brushCounts.current) {
+          brushCounts.current['heavy'] = (brushCounts.current['heavy'] || 0) + 1;
+        }
+
+        heavyStrokePointsRef.current = [];
+      }
+
       if (typeof saveSnapshot === 'function') {
         saveSnapshot();
       }
@@ -378,9 +359,8 @@ export default function CanvasPage({
     );
     return false;
   }, [camRef]);
-  // 下载
+
   const handleDownload = () => {
-    // 通过 p5Ref 获取主画布当前画面
     if (p5Ref.current && p5Ref.current.canvas) {
       const link = document.createElement('a');
       link.download = `painscape_${Date.now()}.png`;
@@ -388,20 +368,15 @@ export default function CanvasPage({
       link.click();
     }
   };
-  // ============================================================
-  // spatialMap 计算函数
-  // ============================================================
+
   const calculateSpatialMap = useCallback((positions, bodyMode, canvasWidth, canvasHeight) => {
-    // 身体分区定义（基于身体图像的比例）
     const regions = {
-      // 正面
       front: {
         head: { x: 0.5, y: 0.12, w: 0.3, h: 0.15 },
         upperAbdomen: { x: 0.5, y: 0.32, w: 0.4, h: 0.18 },
         lowerAbdomen: { x: 0.5, y: 0.52, w: 0.38, h: 0.2 },
         legs: { x: 0.5, y: 0.78, w: 0.3, h: 0.2 },
       },
-      // 背面
       back: {
         head: { x: 0.5, y: 0.12, w: 0.3, h: 0.15 },
         upperBack: { x: 0.5, y: 0.32, w: 0.42, h: 0.18 },
@@ -411,7 +386,6 @@ export default function CanvasPage({
       }
     };
 
-    // 如果 positions 为空，返回空对象
     if (!positions || positions.length === 0) {
       return { abdomen: 0, lowerBack: 0, upperBody: 0 };
     }
@@ -420,7 +394,6 @@ export default function CanvasPage({
     const canvasCenterX = canvasWidth / 2;
     const canvasCenterY = canvasHeight / 2;
 
-    // 归一化位置
     const normalizedPositions = positions.map(p => ({
       x: (p.x - canvasCenterX) / canvasWidth + 0.5,
       y: (p.y - canvasCenterY) / canvasHeight + 0.5,
@@ -448,7 +421,6 @@ export default function CanvasPage({
       result[key] = counts[key] / total;
     });
 
-    // 转换为前端需要的格式（兼容旧字段）
     return {
       head: result.head || 0,
       upperAbdomen: result.upperAbdomen || 0,
@@ -457,7 +429,6 @@ export default function CanvasPage({
       upperBack: result.upperBack || 0,
       waist: result.waist || 0,
       sacrum: result.sacrum || 0,
-      // 兼容旧字段
       abdomen: (result.upperAbdomen || 0) + (result.lowerAbdomen || 0),
       lowerBack: (result.waist || 0) + (result.sacrum || 0),
       upperBody: (result.upperBack || 0) + (result.head || 0),
@@ -470,23 +441,18 @@ export default function CanvasPage({
       const keys = Object.keys(particleDwellTimeRef.current);
       for (const key of keys) {
         const data = particleDwellTimeRef.current[key];
-        // 如果超过 5 秒没有更新，清除该网格数据
         if (now - data.lastTime > 5000) {
           delete particleDwellTimeRef.current[key];
         }
       }
     }, 10000);
-
     return () => clearInterval(cleanupInterval);
   }, []);
 
-  // ============================================================
-  // 用 ref 追踪粒子数量变化，避免每帧都触发更新
-  // ============================================================
   const prevParticleCountRef = useRef(0);
+
   const draw = (p5) => {
     try {
-      // 【修复3】切换 bodyMode 时清除对侧离屏画布
       if (prevBodyModeRef.current !== bodyMode) {
         const prevPg = prevBodyModeRef.current === 'back' ? pgBackRef.current : pgFrontRef.current;
         if (prevPg && typeof prevPg.clear === 'function') {
@@ -505,7 +471,6 @@ export default function CanvasPage({
         isClickingCanvas = isClickingCanvas && (p5.touchEvent.target.tagName === 'CANVAS');
       }
 
-      // ✅ 严格防 NaN 坐标系保障
       const cam = camRef.current || { x: 0, y: 0, zoom: 1.0 };
       const zoom = Number.isFinite(cam.zoom) && cam.zoom > 0.1 ? cam.zoom : 1.0;
       const x = Number.isFinite(cam.x) ? cam.x : 0;
@@ -524,7 +489,8 @@ export default function CanvasPage({
       const realPx = (pmouseX - x) / zoom;
       const realPy = (pmouseY - y) / zoom;
       const speed = p5.dist(realX, realY, realPx, realPy);
-      const heading = speed < 1 ? p5.PI / 2 : p5.atan2(realY - realPy, realX - realPx);
+      const heading = speed < 0.5 ? p5.PI / 2 : p5.atan2(realY - realPy, realX - realPx);
+      
       let isPanning = false;
       if (activeBrush === null) isPanning = true;
       else if (p5.mouseButton === p5.RIGHT) isPanning = true;
@@ -532,7 +498,6 @@ export default function CanvasPage({
 
       const currentPg = bodyMode === 'back' ? pgBackRef.current : pgFrontRef.current;
 
-      // ===== 交互绘制 =====
       if (isInteracting) {
         if (isPanning) {
           camRef.current.x += mouseX - pmouseX;
@@ -546,149 +511,104 @@ export default function CanvasPage({
           isDrawingStrokeRef.current = true;
           if (dynamicParticles.current) {
             dynamicParticles.current = dynamicParticles.current.filter(
-              (p) => p.bodyMode !== bodyMode || p5.dist(p.pos.x, p.pos.y, realX, realY) > 20
+              (p) => p.bodyMode !== bodyMode || p5.dist(p.pos.x, p.pos.y, realX, realY) > 25
             );
           }
         } else if (activeBrush !== null && activeBrush !== undefined) {
           isDrawingStrokeRef.current = true;
-          if (brushCounts.current) {
-            brushCounts.current[activeBrush] = (brushCounts.current[activeBrush] || 0) + 1;
+
+          let intensity = 0.5;
+          let source = 'unknown';
+
+          const pointerEvent = p5._curElement?.pointer || p5.touches?.[0];
+          if (pointerEvent) {
+            if (pointerEvent.pointerType === 'pen' && pointerEvent.pressure > 0 && pointerEvent.pressure !== 0.5) {
+              intensity = pointerEvent.pressure;
+              source = 'stylus_pressure';
+            } else if (pointerEvent.width && pointerEvent.height && (pointerEvent.width > 0 || pointerEvent.height > 0)) {
+              const diam = Math.max(pointerEvent.width, pointerEvent.height);
+              intensity = Math.min(1.0, Math.max(0.2, 0.2 + (diam - 12) / (40 - 12) * 0.8));
+              if (contactAreaHistory && contactAreaHistory.current) {
+                contactAreaHistory.current.push(diam);
+              }
+              source = 'contact_area';
+            }
           }
 
-          if (speedHistory.current) {
-            if (speedHistory.current.length > 200) speedHistory.current.shift();
-            speedHistory.current.push(Number.isFinite(speed) ? speed : 5.0);
+          if (source === 'unknown' || intensity === 0.5) {
+            let speedFactor = 0.3 + (1 - Math.min(1, (Number.isFinite(speed) ? speed : 5) / 30)) * 0.5;
+            intensity = Math.min(1.0, Math.max(0.2, speedFactor));
+            source = 'velocity_proxy';
           }
 
-          const spawnRate = ['wave', 'twist', 'heavy'].includes(activeBrush) ? 6 : 2;
-          if (p5.frameCount % spawnRate === 0 || speed > 10) {
+          intensity = Math.max(0.2, Math.min(1.0, intensity));
+          if (intensitySourceRef) intensitySourceRef.current = source;
+          if (pressureHistory.current) {
+            if (pressureHistory.current.length > 200) pressureHistory.current.shift();
+            pressureHistory.current.push(intensity);
+          }
 
-            let intensity = 0.5;
-            let source = 'unknown';
-
-            // 获取原生 PointerEvent（如果有）
-            const pointerEvent = p5._curElement?.pointer || p5.touches?.[0];
-
-            if (pointerEvent) {
-              // 优先级1：手写笔 - 真实压感
-              if (pointerEvent.pointerType === 'pen' && pointerEvent.pressure > 0 && pointerEvent.pressure !== 0.5) {
-                intensity = pointerEvent.pressure;
-                source = 'stylus_pressure';
-              }
-              // 优先级2：手指 - 接触面积
-              else if (pointerEvent.width && pointerEvent.height && (pointerEvent.width > 0 || pointerEvent.height > 0)) {
-                const diam = Math.max(pointerEvent.width, pointerEvent.height);
-                // 参考直径 12px → 0.2，40px 封顶 → 1.0
-                intensity = Math.min(1.0, Math.max(0.2, 0.2 + (diam - 12) / (40 - 12) * 0.8));
-                if (contactAreaHistory && contactAreaHistory.current) {
-                  contactAreaHistory.current.push(diam);
-                }
-                source = 'contact_area';
-              }
-            }
-
-            // 优先级3：兜底 - 速度 + 驻留时间模拟
-            if (source === 'unknown' || intensity === 0.5) {
-              // 2a. 速度因素：速度越慢，压力越大
-              let speedFactor = 0.3 + (1 - Math.min(1, (Number.isFinite(speed) ? speed : 5) / 30)) * 0.5;
-
-              // 2b. 驻留时间因素：在同一区域停留越久，压力越大
-              const gridSize = 20;
-              const gridX = Math.floor(realX / gridSize);
-              const gridY = Math.floor(realY / gridSize);
-              const gridKey = `${gridX},${gridY}`;
-
-              if (!particleDwellTimeRef.current[gridKey]) {
-                particleDwellTimeRef.current[gridKey] = {
-                  startTime: Date.now(),
-                  lastTime: Date.now(),
-                  count: 0
-                };
-              }
-
-              const dwellData = particleDwellTimeRef.current[gridKey];
-              dwellData.count += 1;
-              dwellData.lastTime = Date.now();
-
-              let dwellFactor = 0;
-              if (dwellData.count > 5) {
-                dwellFactor = Math.min(0.3, (dwellData.count - 5) * 0.005);
-              }
-
-              if (speed > 40) {
-                intensity = 0.3;
-              } else {
-                intensity = Math.min(1.0, Math.max(0.2, speedFactor + dwellFactor));
-              }
-
-              // 笔触数量加成
-              const totalStrokes = Object.values(brushCounts.current || {}).reduce((a, b) => a + b, 0);
-              if (totalStrokes > 20) {
-                const strokeBonus = Math.min(0.15, totalStrokes * 0.001);
-                intensity = Math.min(1.0, intensity + strokeBonus);
-              }
-
-              // 如果 intensity 仍为 0.5，用速度简单推算
-              if (intensity === 0.5 && speed > 0) {
-                intensity = Math.min(1.0, 0.3 + speed / 100);
-              }
-
-              source = 'velocity_proxy';
-            }
-
-            // 确保在合理范围内
-            intensity = Math.max(0.2, Math.min(1.0, intensity));
-
-            // 记录来源
-            if (intensitySourceRef) intensitySourceRef.current = source;
-
-            // 继续 push 到 pressureHistory
-            if (pressureHistory.current) {
-              if (pressureHistory.current.length > 200) pressureHistory.current.shift();
-              pressureHistory.current.push(intensity);
-            }
-
-            // ✅ 严格色彩兜底
-            const paletteColor = PALETTES[activeColor]?.color || [211, 47, 47];
-
+          // 🌟 坠痛画笔：长按涂抹期间仅记录点迹，画面保持完全隐形
+          if (activeBrush === 'heavy') {
             if (Number.isFinite(realX) && Number.isFinite(realY)) {
-              const pObj = new PainParticle(
-                p5,
-                realX,
-                realY,
-                activeBrush,
-                paletteColor,
-                Number.isFinite(speed) ? speed : 5.0,
-                Number.isFinite(heading) ? heading : p5.PI / 2,
-                bodyMode,
-                intensity,
-              );
+              heavyStrokePointsRef.current.push({ x: realX, y: realY, intensity });
+            }
+          } 
+          // 其他画笔：正常生成粒子
+          else {
+            if (brushCounts.current) {
+              brushCounts.current[activeBrush] = (brushCounts.current[activeBrush] || 0) + 1;
+            }
 
-              if (particlePositions.current) {
-                particlePositions.current.push({ x: realX, y: realY, bodyMode });
-              }
+            if (speedHistory.current) {
+              if (speedHistory.current.length > 200) speedHistory.current.shift();
+              speedHistory.current.push(Number.isFinite(speed) ? speed : 5.0);
+            }
 
-              if (pObj.isDynamic) {
-                if (dynamicParticles.current) {
-                  dynamicParticles.current.push(pObj);
-                  if (dynamicParticles.current.length > 500) dynamicParticles.current.shift();
+            const spawnRate = ['wave', 'twist'].includes(activeBrush) ? 6 : 2;
+            if (p5.frameCount % spawnRate === 0 || speed > 10) {
+              const paletteColor = PALETTES[activeColor]?.color || [211, 47, 47];
+
+              if (Number.isFinite(realX) && Number.isFinite(realY)) {
+                const pObj = new PainParticle(
+                  p5,
+                  realX,
+                  realY,
+                  activeBrush,
+                  paletteColor,
+                  Number.isFinite(speed) ? speed : 5.0,
+                  heading,
+                  bodyMode,
+                  intensity
+                );
+
+                if (particlePositions.current) {
+                  particlePositions.current.push({ x: realX, y: realY, bodyMode });
                 }
-              } else {
-                if (staticParticles.current) {
-                  staticParticles.current.push(pObj);
+
+                if (pObj.isDynamic) {
+                  if (dynamicParticles.current) {
+                    dynamicParticles.current.push(pObj);
+                    if (dynamicParticles.current.length > 500) dynamicParticles.current.shift();
+                  }
+                } else {
+                  if (staticParticles.current) {
+                    staticParticles.current.push(pObj);
+                  }
                 }
               }
             }
           }
+
           try {
             playBrushSound(activeBrush);
           } catch (e) {
-            // ignore audio play errors
+            // ignore
           }
         }
       }
 
-      // ===== 更新静态粒子到离屏画布 =====
+      // 更新静态粒子
       if (staticParticles.current) {
         for (let i = staticParticles.current.length - 1; i >= 0; i--) {
           const p = staticParticles.current[i];
@@ -703,10 +623,9 @@ export default function CanvasPage({
         }
       }
 
-      // ===== 计算 spatialMap（粒子更新后） =====
+      // 计算 spatialMap
       if (particlePositions.current) {
         const currentCount = particlePositions.current.length;
-        // 只在粒子数量变化时更新（避免每帧都触发）
         if (currentCount > 0 && currentCount !== prevParticleCountRef.current) {
           prevParticleCountRef.current = currentCount;
           if (onSpatialMapUpdate) {
@@ -719,7 +638,6 @@ export default function CanvasPage({
             onSpatialMapUpdate(map);
           }
         }
-        // 如果粒子被清空（数量变为0），也要更新
         if (currentCount === 0 && prevParticleCountRef.current !== 0) {
           prevParticleCountRef.current = 0;
           if (onSpatialMapUpdate) {
@@ -728,7 +646,7 @@ export default function CanvasPage({
         }
       }
 
-      // ===== 【核心修复】动态粒子只更新，不绘制到离屏画布 =====
+      // 更新动态粒子
       if (dynamicParticles.current) {
         for (let i = dynamicParticles.current.length - 1; i >= 0; i--) {
           const dp = dynamicParticles.current[i];
@@ -741,7 +659,7 @@ export default function CanvasPage({
         }
       }
 
-      // ===== 绘制背景图（✅ 防除以 0 / Infinity 异常） =====
+      // 绘制背景人体图
       if (bodyMode !== 'none') {
         const activeImg = bodyMode === 'front' ? bgFrontRef.current : bgBackRef.current;
         if (activeImg && activeImg.width > 0 && activeImg.height > 0 && Number.isFinite(activeImg.height)) {
@@ -765,7 +683,7 @@ export default function CanvasPage({
         }
       }
 
-      // ===== 绘制离屏画布（静态粒子）到主画布 =====
+      // 绘制离屏画布
       p5.push();
       p5.translate(x, y);
       p5.scale(zoom);
@@ -776,7 +694,7 @@ export default function CanvasPage({
       }
       p5.pop();
 
-      // ===== 【核心新增】动态粒子直接绘制到主画布 =====
+      // 绘制动态粒子（坠痛只在这里随其他动态粒子一起呈现）
       if (dynamicParticles.current && dynamicParticles.current.length > 0) {
         p5.push();
         p5.translate(x, y);
@@ -794,9 +712,6 @@ export default function CanvasPage({
     }
   };
 
-  // ============================================================
-  // 渲染
-  // ============================================================
   return (
     <div
       className="canvas-screen-wrapper"
@@ -813,9 +728,9 @@ export default function CanvasPage({
         overflow: 'hidden',
       }}
     >
-      {/* ===== p5.js Sketch - 底层 ===== */}
+      {/* ===== p5.js Sketch ===== */}
       <div
-        className="canvas-area"  // ✅ 添加 class 供 CanvasGuide 定位
+        className="canvas-area"
         style={{
           position: 'absolute',
           top: 0,
@@ -834,7 +749,7 @@ export default function CanvasPage({
         />
       </div>
 
-      {/* ===== UI 控件 - 顶层 ===== */}
+      {/* ===== UI 控件 ===== */}
       <div
         style={{
           position: 'absolute',
@@ -846,8 +761,7 @@ export default function CanvasPage({
           pointerEvents: 'none',
         }}
       >
-
-        {/* ===== 顶部导航栏 - 两行排列 ===== */}
+        {/* ===== 顶部导航栏 ===== */}
         <div
           className="top-bar-actions"
           style={{
@@ -866,7 +780,6 @@ export default function CanvasPage({
             zIndex: 100,
           }}
         >
-          {/* ===== 第一行：返回 + 静音 + 语言 | 操作按钮 ===== */}
           <div
             style={{
               display: 'flex',
@@ -904,15 +817,6 @@ export default function CanvasPage({
                   letterSpacing: '0.3px',
                   whiteSpace: 'nowrap',
                 }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.background = 'rgba(255,255,255,0.08)';
-                  e.currentTarget.style.color = '#fff';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.background = 'rgba(255,255,255,0.04)';
-                  e.currentTarget.style.color = '#aaa';
-                }}
-                title={t('canvas.backToOnboarding') || '返回'}
               >
                 ← {isSmallScreen ? '' : t('canvas.back') || '返回'}
               </button>
@@ -937,7 +841,6 @@ export default function CanvasPage({
                   justifyContent: 'center',
                   transition: 'all 0.2s',
                 }}
-                title={isMuted ? t('canvas.unmute') || '取消静音' : t('canvas.mute') || '静音'}
               >
                 {isMuted ? '🔇' : '🔊'}
               </button>
@@ -960,15 +863,6 @@ export default function CanvasPage({
                   letterSpacing: '0.3px',
                   whiteSpace: 'nowrap',
                 }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.background = 'rgba(255,255,255,0.08)';
-                  e.currentTarget.style.color = '#fff';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.background = 'rgba(255,255,255,0.04)';
-                  e.currentTarget.style.color = '#aaa';
-                }}
-                title={t('canvas.switchLang') || '切换语言'}
               >
                 {lang === 'zh' ? (isSmallScreen ? 'EN' : 'English') : (isSmallScreen ? '中' : '中文')}
               </button>
@@ -983,7 +877,6 @@ export default function CanvasPage({
                 flexShrink: 0,
               }}
             >
-              {/* 草稿箱 - 只显示图标 */}
               <button
                 onClick={handleViewDraftBox}
                 style={{
@@ -1003,15 +896,6 @@ export default function CanvasPage({
                   position: 'relative',
                   transition: 'all 0.2s',
                 }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.background = 'rgba(255,255,255,0.08)';
-                  e.currentTarget.style.color = '#fff';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.background = 'rgba(255,255,255,0.04)';
-                  e.currentTarget.style.color = '#888';
-                }}
-                title={t('canvas.draftBox') || '草稿箱'}
               >
                 📋
                 {draftCount > 0 && (
@@ -1030,7 +914,6 @@ export default function CanvasPage({
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
-                      boxShadow: '0 2px 6px rgba(255,152,0,0.3)',
                     }}
                   >
                     {draftCount > 9 ? '9+' : draftCount}
@@ -1038,7 +921,6 @@ export default function CanvasPage({
                 )}
               </button>
 
-              {/* 保存草稿 - 小屏只显示图标 */}
               <button
                 onClick={handleSaveDraftOnly}
                 style={{
@@ -1057,18 +939,10 @@ export default function CanvasPage({
                   transition: 'all 0.2s',
                   whiteSpace: 'nowrap',
                 }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.background = 'rgba(255,152,0,0.16)';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.background = 'rgba(255,152,0,0.08)';
-                }}
-                title={t('canvas.saveDraftHint') || '保存草稿，稍后继续编辑'}
               >
                 📝 {!isSmallScreen && (t('canvas.saveDraft') || '保存草稿')}
               </button>
 
-              {/* 仅保存 - 小屏隐藏 */}
               {!isSmallScreen && (
                 <button
                   onClick={() => {
@@ -1090,19 +964,11 @@ export default function CanvasPage({
                     gap: '4px',
                     transition: 'all 0.2s',
                   }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.background = 'rgba(76,175,80,0.12)';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.background = 'rgba(76,175,80,0.06)';
-                  }}
-                  title={t('canvas.saveOnlyHint') || '仅保存绘画图片'}
                 >
                   💾 {t('canvas.saveOnly') || '仅保存'}
                 </button>
               )}
 
-              {/* 生成按钮 */}
               <button
                 onClick={onGenerate}
                 style={{
@@ -1124,20 +990,13 @@ export default function CanvasPage({
                   whiteSpace: 'nowrap',
                   flexShrink: 0,
                 }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.boxShadow = '0 4px 16px rgba(211,47,47,0.35)';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.boxShadow = '0 2px 10px rgba(211,47,47,0.25)';
-                }}
-                title={t('canvas.generateHint') || '生成疼痛报告'}
               >
                 ✨ {isSmallScreen ? '生成' : t('canvas.generate') || '生成报告'}
               </button>
             </div>
           </div>
 
-          {/* ===== 第二行：身体模式切换 - 紧凑型 + 滑动动画 ===== */}
+          {/* 第二行：身体模式切换 */}
           <div
             style={{
               display: 'flex',
@@ -1163,7 +1022,6 @@ export default function CanvasPage({
                 overflow: 'hidden',
               }}
             >
-              {/* 滑动背景指示器 */}
               <div
                 style={{
                   position: 'absolute',
@@ -1175,7 +1033,6 @@ export default function CanvasPage({
                   borderRadius: '6px',
                   background: 'rgba(255,255,255,0.10)',
                   transition: 'left 0.35s cubic-bezier(0.34, 1.56, 0.64, 1)',
-                  boxShadow: '0 0 20px rgba(255,255,255,0.03)',
                 }}
               />
 
@@ -1202,24 +1059,12 @@ export default function CanvasPage({
                       fontWeight: isActive ? '600' : '400',
                       background: 'transparent',
                       color: isActive ? '#fff' : '#888',
-                      transition: 'color 0.3s ease',
                       minHeight: isSmallScreen ? '28px' : '32px',
                       whiteSpace: 'nowrap',
                       textAlign: 'center',
-                      letterSpacing: '0.3px',
                       flex: `0 0 calc(100% / ${totalModes})`,
                     }}
                     onClick={(e) => { e.stopPropagation(); setBodyMode(key); }}
-                    onMouseEnter={(e) => {
-                      if (!isActive) {
-                        e.currentTarget.style.color = '#ccc';
-                      }
-                    }}
-                    onMouseLeave={(e) => {
-                      if (!isActive) {
-                        e.currentTarget.style.color = '#888';
-                      }
-                    }}
                   >
                     {label}
                   </button>
@@ -1247,10 +1092,9 @@ export default function CanvasPage({
               border: '1px solid rgba(255,255,255,0.06)',
               pointerEvents: 'auto',
               zIndex: 50,
-              boxShadow: '0 2px 12px rgba(0,0,0,0.3)',
             }}
           >
-            <span style={{ color: '#666', fontSize: '10px', fontWeight: '400' }}>
+            <span style={{ color: '#666', fontSize: '10px' }}>
               {t('canvas.scale') || '缩放'}
             </span>
             <input
@@ -1298,7 +1142,7 @@ export default function CanvasPage({
 
         {/* 右侧工具栏 */}
         <div
-          className="side-tools"  // ✅ 添加 class 供 CanvasGuide 定位
+          className="side-tools"
           style={{
             position: 'absolute',
             right: '16px',
@@ -1328,11 +1172,8 @@ export default function CanvasPage({
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              transition: 'all 0.2s',
             }}
             onClick={(e) => { e.stopPropagation(); handleUndo(); }}
-            onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.08)'; e.currentTarget.style.color = '#fff'; }}
-            onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(20,20,20,0.8)'; e.currentTarget.style.color = '#aaa'; }}
             title={t('canvas.undo') || '撤销'}
           >
             ↩️
@@ -1351,11 +1192,8 @@ export default function CanvasPage({
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              transition: 'all 0.2s',
             }}
             onClick={(e) => { e.stopPropagation(); handleRedo(); }}
-            onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.08)'; e.currentTarget.style.color = '#fff'; }}
-            onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(20,20,20,0.8)'; e.currentTarget.style.color = '#aaa'; }}
             title={t('canvas.redo') || '重做'}
           >
             ↪️
@@ -1374,11 +1212,8 @@ export default function CanvasPage({
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              transition: 'all 0.2s',
             }}
             onClick={(e) => { e.stopPropagation(); handleClear(); }}
-            onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.08)'; e.currentTarget.style.color = '#fff'; }}
-            onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(20,20,20,0.8)'; e.currentTarget.style.color = '#aaa'; }}
             title={t('canvas.clear') || '清除'}
           >
             🗑️
@@ -1397,59 +1232,57 @@ export default function CanvasPage({
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              transition: 'all 0.2s',
             }}
             onClick={(e) => { e.stopPropagation(); resetView(); }}
-            onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.08)'; e.currentTarget.style.color = '#fff'; }}
-            onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(20,20,20,0.8)'; e.currentTarget.style.color = '#aaa'; }}
             title={t('canvas.resetView') || '重置视角'}
           >
             🎯
           </button>
         </div>
 
-        {/* 底部工具栏 */}
+        {/* ===== 底部居中工具栏（画笔 + 颜色） ===== */}
         <div
-          className="brush-section"  // ✅ 添加 class 供 CanvasGuide 定位
+          className="brush-section"
           style={{
             position: 'absolute',
             bottom: 'max(20px, env(safe-area-inset-bottom))',
             left: '50%',
             transform: 'translateX(-50%)',
             width: '92%',
-            background: 'rgba(20,20,20,0.95)',
             maxWidth: 'var(--container-sm)',
-            padding: 'var(--space-md) var(--space-lg)',
+            background: 'rgba(20,20,20,0.92)',
+            padding: '8px 14px',
             borderRadius: '24px',
             backdropFilter: 'blur(12px)',
-            border: '1px solid #2a2a2a',
+            border: '1px solid rgba(255,255,255,0.08)',
             boxShadow: '0 8px 32px rgba(0,0,0,0.6)',
             display: 'flex',
             flexDirection: 'column',
-            gap: '10px',
+            gap: '8px',
             pointerEvents: 'auto',
+            zIndex: 50,
           }}
         >
-          {/* 画笔行 */}
           <div
-            className="brush-section-inner"  // ✅ 添加 class
-            style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px' }}
+            className="brush-section-inner"
+            style={{ display: 'flex', justifyContent: 'space-between', gap: '4px' }}
           >
             {Object.keys(BRUSHES).map((k) => (
               <button
                 key={k}
                 style={{
                   flex: 1,
-                  background: activeBrush === k ? '#444' : 'transparent',
-                  border: 'none',
+                  background: activeBrush === k ? 'rgba(255,255,255,0.12)' : 'transparent',
+                  border: activeBrush === k ? '1px solid rgba(255,255,255,0.2)' : '1px solid transparent',
                   color: activeBrush === k ? '#fff' : '#888',
-                  padding: '8px 0',
+                  padding: '6px 0',
                   borderRadius: '10px',
-                  fontSize: '12px',
+                  fontSize: '11px',
                   display: 'flex',
                   flexDirection: 'column',
                   alignItems: 'center',
                   cursor: 'pointer',
+                  transition: 'all 0.15s ease',
                 }}
                 onClick={() => setActiveBrush(activeBrush === k ? null : k)}
               >
@@ -1458,37 +1291,37 @@ export default function CanvasPage({
                     src={BRUSHES[k].icon}
                     alt={BRUSHES[k].label}
                     style={{
-                      width: '24px',
-                      height: '24px',
-                      marginBottom: '4px',
+                      width: '20px',
+                      height: '20px',
+                      marginBottom: '2px',
                       opacity: activeBrush === k ? 1 : 0.7,
                     }}
                   />
                 ) : (
-                  <span style={{ fontSize: '20px', marginBottom: '4px' }}>{BRUSHES[k].icon}</span>
+                  <span style={{ fontSize: '18px', marginBottom: '2px' }}>{BRUSHES[k].icon}</span>
                 )}
-                <span>{t(`brushes.${k}.label`)}</span>
+                <span style={{ fontSize: '11px' }}>{t(`brushes.${k}.label`)}</span>
               </button>
             ))}
           </div>
 
-          {/* 颜色行 */}
           <div
-            className="color-section"  // ✅ 添加 class 供 CanvasGuide 定位
+            className="color-section"
             style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}
           >
-            <div style={{ display: 'flex', justifyContent: 'center', gap: '20px' }}>
+            <div style={{ display: 'flex', justifyContent: 'center', gap: '18px' }}>
               {Object.keys(PALETTES).map((k) => (
                 <div
                   key={k}
                   style={{
-                    width: '30px',
-                    height: '30px',
+                    width: '24px',
+                    height: '24px',
                     borderRadius: '50%',
-                    border: activeColor === k ? '2px solid #fff' : '2px solid #444',
+                    border: activeColor === k ? '2px solid #fff' : '1.5px solid #444',
                     background: `rgb(${PALETTES[k].color.join(',')})`,
                     cursor: 'pointer',
-                    transform: activeColor === k ? 'scale(1.2)' : 'none',
+                    transform: activeColor === k ? 'scale(1.18)' : 'none',
+                    transition: 'transform 0.15s ease',
                   }}
                   onClick={() => setActiveColor(k)}
                 />
@@ -1498,7 +1331,7 @@ export default function CanvasPage({
               style={{
                 color: '#888',
                 fontSize: 'var(--text-xs)',
-                marginTop: '6px',
+                marginTop: '4px',
                 textAlign: 'center',
                 display: 'block',
               }}
@@ -1509,7 +1342,7 @@ export default function CanvasPage({
         </div>
       </div>
 
-      {/* ===== 确认弹窗 ===== */}
+      {/* ===== 保存确认弹窗 ===== */}
       {showSaveConfirm && (
         <div
           style={{
@@ -1616,7 +1449,6 @@ export default function CanvasPage({
               {t('canvas.savedHint')}
             </p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              {/* 下载到本地 */}
               <button
                 style={{
                   background: '#4caf50',
@@ -1633,7 +1465,6 @@ export default function CanvasPage({
               >
                 💾 {t('canvas.download')}
               </button>
-              {/* 分享 */}
               {onShareSaved && (
                 <button
                   style={{
@@ -1655,7 +1486,6 @@ export default function CanvasPage({
                   📤 {t('canvas.share')}
                 </button>
               )}
-              {/* 查看历史记录 */}
               {onViewHistory && (
                 <button
                   style={{
@@ -1676,7 +1506,6 @@ export default function CanvasPage({
                   📋 {t('canvas.viewHistory')}
                 </button>
               )}
-              {/* 继续绘画 */}
               <button
                 style={{
                   background: 'rgba(255,255,255,0.08)',
@@ -1696,6 +1525,7 @@ export default function CanvasPage({
           </div>
         </div>
       )}
+
       {/* ===== 草稿保存成功提示 ===== */}
       {showDraftSuccess && (
         <div
@@ -1772,12 +1602,12 @@ export default function CanvasPage({
         </div>
       )}
 
-      {/* ===== 新手引导（OnboardingGuide） ===== */}
+      {/* 新手引导 */}
       {!guideLoading && showGuide && (
         <OnboardingGuide onClose={handleGuideClose} />
       )}
 
-      {/* ===== 画布功能引导（CanvasGuide） ===== */}
+      {/* 画布功能引导 */}
       {!canvasGuideLoading && showCanvasGuide && !showGuide && (
         <CanvasGuide onComplete={handleCanvasGuideComplete} />
       )}

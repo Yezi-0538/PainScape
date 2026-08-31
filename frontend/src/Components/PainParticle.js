@@ -1,57 +1,102 @@
+// src/Components/PainParticle.js
 // ============================================================
-// PainParticle - 体感画笔粒子引擎 (修复版)
-// 完整保留原版的动态呼吸感、颜色透明度和尺寸参数
+// PainParticle - 痛觉具身画笔粒子系统 (刺痛缩微 & 绞痛1/3定格版)
 // ============================================================
+
 export class PainParticle {
-  constructor(p5, x, y, type, color, speed, heading, bodyMode, pressure = 0.5) {
+  constructor(p5, x, y, type, color, speed, heading, bodyMode, pressure = 0.5, customProps = {}) {
     this.p5 = p5;
     this.pos = p5.createVector(x, y);
     this.baseY = y;
     this.type = type;
-    this.color = color;
+    this.color = color || [211, 47, 47];
     this.life = 255;
     this.seed = p5.random(1000);
     this.bodyMode = bodyMode;
-    this.pressureScale = pressure;
+    this.pressureScale = Number.isFinite(pressure) ? Math.max(0.2, Math.min(1.0, pressure)) : 0.5;
     this.isDynamic = (type === 'wave' || type === 'twist' || type === 'heavy');
 
     const now = new Date();
     this.drawnAt = now.getTime();
     this.minuteOfDay = now.getHours() * 60 + now.getMinutes();
 
+    // 1. 刺痛 (Pierce - 🌟 尺寸调整为原先的 2/3)
     if (type === 'pierce') {
-      const angle = heading + p5.random(-0.15, 0.15);
-      const thrust = p5.random(18, 36) * (0.6 + pressure);
-      this.pierceVec = p5.createVector(p5.cos(angle) * thrust, p5.sin(angle) * thrust);
-      this.vel = this.pierceVec.copy();
-      this.size = p5.random(1.8, 3.8);
+      const angle = Number.isFinite(heading) ? heading : p5.random(p5.TWO_PI);
+      // 针长缩短至 2/3
+      const thrust = p5.random(25, 37) * (0.85 + this.pressureScale * 0.3);
+      this.pierceAngle = angle;
+      this.thrustLen = thrust;
+      this.vel = p5.createVector(0, 0);
 
       this.fissures = [];
       const numFissures = p5.floor(p5.random(3, 5));
       for (let i = 0; i < numFissures; i++) {
         this.fissures.push({
-          angle: angle + p5.random(-p5.PI * 0.7, p5.PI * 0.7),
-          len: p5.random(6, 16) * pressure
+          angle: angle + p5.random(-p5.PI * 0.65, p5.PI * 0.65),
+          len: p5.random(3.5, 7.5) * this.pressureScale // 裂纹同步缩短至 2/3
         });
       }
-    } else if (type === 'heavy') {
+    } 
+    // 2. 坠痛 (Heavy - 抛物面平滑布料下凹网)
+    else if (type === 'heavy') {
       this.vel = p5.createVector(0, 0);
-      this.size = p5.random(8, 15) * (0.5 + pressure);
-    } else if (type === 'twist') {
+      this.rx = Math.max(22, customProps.rx || 32);
+      this.ry = Math.max(13, customProps.ry || 18);
+      const depthRatio = 0.38 + this.pressureScale * 0.1;
+      this.maxDepth = Math.max(10, this.rx * depthRatio);
+      this.cycleProgress = 0;
+    } 
+    // 3. 绞痛 (Twist - 🌟 记录初始尺寸，用于 1/3 处暂停)
+    else if (type === 'twist') {
       this.vel = p5.createVector(0, 0);
-      this.size = p5.random(15, 30) * (0.5 + pressure);
+      this.size = p5.random(18, 30) * (0.6 + this.pressureScale * 0.5);
+      this.initialSize = this.size; // 记录初始大小
       this.angle = p5.random(p5.TWO_PI);
-    } else if (type === 'wave') {
+    } 
+    // 4. 酸胀 (Wave)
+    else if (type === 'wave') {
       this.vel = p5.createVector(0, 0);
-      this.size = p5.random(5, 15);
-      this.maxSize = p5.random(30, 60) * (0.5 + pressure);
-      this.pulseSize = this.size; // 初始化脉冲尺寸
-    } else if (type === 'scrape') {
-      const angle = p5.PI / 4 + p5.random(-0.15, 0.15);
-      this.vel = p5.createVector(p5.cos(angle), p5.sin(angle));
-      this.vel.mult(p5.random(15, 30) * (0.5 + pressure));
-      this.size = p5.random(2, 6);
-      this.scrapeEnd = p5.createVector(this.pos.x + this.vel.x, this.pos.y + this.vel.y);
+      this.size = p5.random(8, 16);
+      this.maxSize = p5.random(40, 70) * (0.6 + this.pressureScale * 0.5);
+      this.pulseSize = this.size;
+    } 
+    // 5. 撕刮 (Scrape - 纯细点碎屑感)
+    else if (type === 'scrape') {
+      this.vel = p5.createVector(0, 0);
+      const moveSpeed = Number.isFinite(speed) ? speed : 6;
+      const angle = Number.isFinite(heading) ? heading : p5.random(p5.TWO_PI);
+
+      const strokeLen = Math.max(28, Math.min(65, moveSpeed * 2.4)) * (0.8 + this.pressureScale * 0.4);
+      const strokeWidth = Math.max(10, 15 * this.pressureScale);
+
+      this.debris = [];
+      const count = Math.floor(32 + this.pressureScale * 18);
+      const cosA = Math.cos(angle);
+      const sinA = Math.sin(angle);
+
+      for (let i = 0; i < count; i++) {
+        const longitudinal = (p5.random() - 0.5) * strokeLen;
+        const u = (p5.random() - 0.5) * 2;
+        const lateral = Math.sign(u) * Math.pow(Math.abs(u), 1.6) * strokeWidth;
+
+        const dx = longitudinal * cosA - lateral * sinA;
+        const dy = longitudinal * sinA + lateral * cosA;
+
+        const isTiny = p5.random(1) > 0.15;
+        const baseW = isTiny ? p5.random(0.6, 1.3) : p5.random(1.6, 2.4);
+        const baseH = isTiny ? baseW : baseW * p5.random(0.6, 1.2);
+
+        this.debris.push({
+          x: dx,
+          y: dy,
+          w: baseW,
+          h: baseH,
+          rot: p5.random(p5.TWO_PI),
+          alpha: isTiny ? p5.random(90, 180) : p5.random(160, 235),
+          isTiny: isTiny
+        });
+      }
     }
   }
 
@@ -61,17 +106,24 @@ export class PainParticle {
     }
 
     if (this.type === 'heavy') {
-      const drift = (p5.sin(p5.frameCount * 0.05 + this.seed) * 0.5 + 0.5);
-      this.pos.y = this.baseY + drift * this.size * 1.5;
+      this.cycleProgress += 0.009;
+      if (this.cycleProgress > 1) {
+        this.cycleProgress -= 1;
+      }
     } else if (this.type === 'twist') {
-      this.angle += 0.08;
-      this.size *= 0.98;
-      if (this.size < 3) this.life = 0;
+      // 🌟 缩小至初始尺寸的 1/3 时，暂停旋转并锁定大小，永不消失
+      const minSize = this.initialSize / 3;
+      if (this.size > minSize) {
+        this.angle += 0.08;
+        this.size *= 0.985;
+        if (this.size <= minSize) {
+          this.size = minSize; // 锁定尺寸，停止旋转
+        }
+      }
     } else if (this.type === 'wave') {
-      // 保持原版的呼吸脉动计算方式
       this.pulseSize = this.size + p5.sin(p5.frameCount * 0.05 + this.seed) * (this.maxSize - this.size);
     } else if (this.type === 'scrape') {
-      this.life -= 20;
+      this.life -= 15;
       this.vel.mult(0);
     } else if (this.type === 'pierce') {
       this.life -= 25;
@@ -81,19 +133,12 @@ export class PainParticle {
 
   show(pg) {
     const p = pg || this.p5;
-
-    // 【关键修复】动态粒子的发光阴影必须正确设置
-    if (this.isDynamic) {
-      p.drawingContext.shadowBlur = 10 * this.pressureScale;
-      p.drawingContext.shadowColor = `rgb(${this.color[0]},${this.color[1]},${this.color[2]})`;
-    } else {
-      p.drawingContext.shadowBlur = 0;
-    }
+    if (!p) return;
 
     if (this.type === 'pierce') {
       this._drawPierce(p);
     } else if (this.type === 'heavy') {
-      this._drawHeavy(p);
+      this._drawHeavyMesh(p);
     } else if (this.type === 'twist') {
       this._drawTwist(p);
     } else if (this.type === 'wave') {
@@ -101,258 +146,222 @@ export class PainParticle {
     } else if (this.type === 'scrape') {
       this._drawScrape(p);
     }
-
-    p.drawingContext.shadowBlur = 0;
   }
 
-  // ========== 1. 针刺 (Pierce) ==========
+  // ========== 1. 刺痛 (Pierce - 🌟 按 2/3 比例渲染) ==========
   _drawPierce(p) {
-    // tipX, tipY 严格等于用户点击的位置（针尖扎入点）
     const tipX = this.pos.x;
     const tipY = this.pos.y;
+    const angle = this.pierceAngle;
+    const thrust = this.thrustLen;
 
-    // 针尾 (tail) 在外侧，刺向点击点 (tip)
-    const thrustX = this.pierceVec ? this.pierceVec.x : 25;
-    const thrustY = this.pierceVec ? this.pierceVec.y : 25;
-    
-    // 针柄尾部起点（从外侧延伸过来）
-    const tailX = tipX - thrustX;
-    const tailY = tipY - thrustY;
+    const tailX = tipX - p.cos(angle) * thrust;
+    const tailY = tipY - p.sin(angle) * thrust;
+    const perpAngle = angle + p.PI / 2;
 
-    const headingAngle = p.atan2(thrustY, thrustX);
-    const perpAngle = headingAngle + p.PI / 2;
-    // 针尾的宽度
-    const bladeW = this.size * (0.35 + this.pressureScale * 0.4);
+    p.push();
 
-    p.drawingContext.shadowBlur = 0;
-
-    //绘制由粗到细的锐利针尖：从 tail(粗) 刺向 tip(极尖)
+    // 1. 针身微锥形实体 (原 1.3px -> 0.9px)
+    const tailW = 0.9;
     p.noStroke();
     p.fill(
       Math.min(255, this.color[0] + 160),
-      Math.min(255, this.color[1] + 130),
-      Math.min(255, this.color[2] + 130),
-      250
+      Math.min(255, this.color[1] + 140),
+      Math.min(255, this.color[2] + 140),
+      220
     );
-
     p.beginShape();
-    // 针尾宽度
-    p.vertex(tailX + p.cos(perpAngle) * bladeW, tailY + p.sin(perpAngle) * bladeW);
-    // 针尖（落点就在用户点击的 tipX, tipY）
+    p.vertex(tailX + p.cos(perpAngle) * tailW, tailY + p.sin(perpAngle) * tailW);
     p.vertex(tipX, tipY);
-    // 针尾另一侧
-    p.vertex(tailX - p.cos(perpAngle) * bladeW, tailY - p.sin(perpAngle) * bladeW);
-    // 针尾后缘微收
-    p.vertex(tailX - p.cos(headingAngle) * 2, tailY - p.sin(headingAngle) * 2);
+    p.vertex(tailX - p.cos(perpAngle) * tailW, tailY - p.sin(perpAngle) * tailW);
     p.endShape(p.CLOSE);
 
-    //点击原点处的穿刺核心与神经放射裂纹
-    p.stroke(this.color[0] * 0.8, 0, 0, 200);
-    p.strokeWeight(1.0 * this.pressureScale);
-    p.noFill();
+    // 2. 针身中轴高光丝 (原 0.75px -> 0.55px)
+    p.stroke(255, 255, 255, 250);
+    p.strokeWeight(0.55);
+    p.line(tailX, tailY, tipX, tipY);
+
+    // 3. 针身鞘光 (原 1.4px -> 1.0px)
+    p.stroke(this.color[0], this.color[1] * 0.3, this.color[2] * 0.3, 130);
+    p.strokeWeight(1.0);
+    p.line(tailX, tailY, tipX, tipY);
+
+    // 4. 针尾圆环 (原 2.6px -> 1.8px)
+    p.fill(this.color[0], this.color[1], this.color[2], 220);
+    p.noStroke();
+    p.ellipse(tailX, tailY, 1.8, 1.8);
+
+    // 5. 针尖落点 (原 1.8px -> 1.2px)
+    p.fill(255, 255, 255, 255);
+    p.ellipse(tipX, tipY, 1.2, 1.2);
+
     if (this.fissures) {
+      p.stroke(this.color[0], 0, 0, 180);
+      p.strokeWeight(0.5);
       this.fissures.forEach(fis => {
-        // 裂纹从点击点向外炸开
         const fEndX = tipX + p.cos(fis.angle) * fis.len;
         const fEndY = tipY + p.sin(fis.angle) * fis.len;
-        p.beginShape();
-        p.vertex(tipX, tipY);
-        p.vertex(
-          p.lerp(tipX, fEndX, 0.5) + p.random(-1.5, 1.5),
-          p.lerp(tipY, fEndY, 0.5) + p.random(-1.5, 1.5)
-        );
-        p.vertex(fEndX, fEndY);
-        p.endShape();
+        p.line(tipX, tipY, fEndX, fEndY);
       });
     }
 
-    // 针尖刺入核心
-    p.noStroke();
-    p.fill(255, 255, 255, 255);
-    p.ellipse(tipX, tipY, 2.5, 2.5); // 锐利白芯
-    p.fill(this.color[0], this.color[1], this.color[2], 180);
-    p.ellipse(tipX, tipY, 5 * this.pressureScale, 5 * this.pressureScale); // 边缘血色晕光
-
-    //沿针身分布的细微飞溅碎屑
-    const numSplatters = Math.floor(2 + this.pressureScale * 3);
-    for (let sp = 0; sp < numSplatters; sp++) {
-      const spT = p.random(0.2, 0.8);
-      const baseX = p.lerp(tailX, tipX, spT);
-      const baseY = p.lerp(tailY, tipY, spT);
-      const spX = baseX + p.random(-4, 4) * this.pressureScale;
-      const spY = baseY + p.random(-4, 4) * this.pressureScale;
-      p.fill(this.color[0] * 0.9, 10, 10, 220);
-      p.ellipse(spX, spY, p.random(1.0, 2.0), p.random(1.0, 2.0));
-    }
+    p.pop();
   }
 
   // ========== 2. 坠痛 (Heavy) ==========
-  _drawHeavy(p) {
+  _drawHeavyMesh(p) {
+    p.push();
+    p.translate(this.pos.x, this.pos.y);
+
+    const [r, g, b] = this.color;
+    const rx = this.rx;
+    const ry = this.ry;
+
+    const t = this.cycleProgress;
+    let easeFactor = 0;
+
+    if (t < 0.58) {
+      const subT = t / 0.58;
+      easeFactor = Math.sin(subT * (Math.PI / 2));
+    } else {
+      const subT = (t - 0.58) / (1 - 0.58);
+      easeFactor = 0.5 * (1 + Math.cos(subT * Math.PI));
+    }
+
+    const minDepth = this.maxDepth * 0.35;
+    const curDepth = p.lerp(minDepth, this.maxDepth, easeFactor);
+
+    // 顶层椭圆环
+    p.noFill();
+    p.stroke(r, g, b, 210);
+    p.strokeWeight(1.3);
+    p.ellipse(0, 0, rx * 2, ry * 2);
+
+    p.fill(r, g, b, 10);
+    p.ellipse(0, 0, rx * 2, ry * 2);
+
+    // 经线
+    const numRays = 12;
+    const samples = 18;
+    const rimU = 0.72;
+    const rimSlopeDepth = curDepth * 0.08;
+
+    for (let i = 0; i < numRays; i++) {
+      const angle = (Math.PI * 2 / numRays) * i;
+      const cosA = Math.cos(angle);
+      const sinA = Math.sin(angle);
+
+      p.noFill();
+      p.stroke(r, g, b, 150);
+      p.strokeWeight(1.0);
+
+      p.beginShape();
+      for (let s = 0; s <= samples; s++) {
+        const u = 1 - (s / samples);
+        let ptY_drop = 0;
+
+        if (u >= rimU) {
+          const slopeT = (1 - u) / (1 - rimU);
+          ptY_drop = rimSlopeDepth * slopeT;
+        } else {
+          const innerU = u / rimU;
+          const parabola = 1 - innerU * innerU;
+          ptY_drop = rimSlopeDepth + (curDepth - rimSlopeDepth) * parabola;
+        }
+
+        const ptX = rx * u * cosA;
+        const ptY = ry * u * sinA + ptY_drop;
+        p.vertex(ptX, ptY);
+      }
+      p.endShape();
+    }
+
+    // 纬线
+    p.noFill();
+    p.stroke(r, g, b, 130);
+    p.strokeWeight(0.9);
+    p.ellipse(0, rimSlopeDepth, (rx * rimU) * 2, (ry * rimU) * 2);
+
+    const midParabola = 0.55;
+    const midInnerU = Math.sqrt(1 - midParabola);
+    const midDepth = rimSlopeDepth + (curDepth - rimSlopeDepth) * midParabola;
+    const midRx = rx * rimU * midInnerU;
+    const midRy = ry * rimU * midInnerU;
+
+    p.stroke(r, g, b, 110);
+    p.strokeWeight(0.8);
+    p.ellipse(0, midDepth, midRx * 2, midRy * 2);
+
+    // 底部圆面
+    p.fill(r * 0.8 + 40, g * 0.2, b * 0.2, 170);
     p.noStroke();
-    const alphaVal = 160 + (90 * this.pressureScale);
+    p.ellipse(0, curDepth, rx * 0.18, ry * 0.18);
 
-    // 【关键修复】原版使用极低透明度 0.12
-    p.fill(this.color[0], this.color[1], this.color[2], alphaVal * 0.12);
-    p.beginShape();
-    p.vertex(this.pos.x - this.size * 1.6, this.pos.y - this.size * 0.5);
-    p.bezierVertex(
-      this.pos.x - this.size * 0.5, this.pos.y + this.size * 1.5,
-      this.pos.x + this.size * 0.5, this.pos.y + this.size * 1.5,
-      this.pos.x + this.size * 1.6, this.pos.y - this.size * 0.5
-    );
-    p.endShape(p.CLOSE);
-
-    // 主体 - 使用 0.35/0.25/0.25 的系数保持暗色调
-    p.fill(this.color[0] * 0.35, this.color[1] * 0.25, this.color[2] * 0.25, alphaVal);
-    p.beginShape();
-    p.vertex(this.pos.x - this.size * 0.7, this.pos.y - this.size * 0.4);
-    p.bezierVertex(
-      this.pos.x - this.size * 0.9, this.pos.y + this.size * 0.4,
-      this.pos.x - this.size * 0.4, this.pos.y + this.size * 1.8,
-      this.pos.x, this.pos.y + this.size * 2.2
-    );
-    p.bezierVertex(
-      this.pos.x + this.size * 0.4, this.pos.y + this.size * 1.8,
-      this.pos.x + this.size * 0.9, this.pos.y + this.size * 0.4,
-      this.pos.x + this.size * 0.7, this.pos.y - this.size * 0.4
-    );
-    p.bezierVertex(
-      this.pos.x + this.size * 0.3, this.pos.y - this.size * 0.8,
-      this.pos.x - this.size * 0.3, this.pos.y - this.size * 0.8,
-      this.pos.x - this.size * 0.7, this.pos.y - this.size * 0.4
-    );
-    p.endShape(p.CLOSE);
-
-    // 碎屑
-    p.fill(this.color[0] * 0.4, this.color[1] * 0.2, this.color[2] * 0.2, alphaVal * 0.8);
-    p.ellipse(this.pos.x - this.size * 0.2, this.pos.y + this.size * 2.6, this.size * 0.2, this.size * 0.4);
-    p.ellipse(this.pos.x + this.size * 0.3, this.pos.y + this.size * 2.9, this.size * 0.15, this.size * 0.3);
-
-    // 高光
-    p.fill(255, 255, 255, 45);
-    p.ellipse(this.pos.x - this.size * 0.2, this.pos.y + this.size * 0.2, this.size * 0.25, this.size * 0.2);
+    p.pop();
   }
 
-  // ========== 3. 绞拧 (Twist) ==========
+  // ========== 3. 绞拧 (Twist - 🌟 尺寸定格在 1/3) ==========
   _drawTwist(p) {
     p.push();
     p.translate(this.pos.x, this.pos.y);
     p.rotate(this.angle);
 
     p.noFill();
-    p.stroke(this.color[0], this.color[1], this.color[2], 100);
-    p.strokeWeight(1.5);
+    p.stroke(this.color[0], this.color[1], this.color[2], 110);
+    p.strokeWeight(1.2);
     p.beginShape();
-    for (let a = 0; a < p.TWO_PI * 1.2; a += 0.2) {
-      const r = p.map(a, 0, p.TWO_PI * 1.2, this.size * 1.8, this.size * 0.5);
+    for (let a = 0; a < p.TWO_PI * 1.2; a += 0.25) {
+      const r = p.map(a, 0, p.TWO_PI * 1.2, this.size * 1.6, this.size * 0.4);
       p.vertex(r * p.cos(a), r * p.sin(a));
     }
     p.endShape();
 
-    // 核心 - 使用 0.85 系数保持红色调
     p.fill(this.color[0] * 0.85, 0, 0, 160 + (65 * this.pressureScale));
     p.stroke(this.color[0] * 0.5, 0, 0, 240);
-    p.strokeWeight(1.2);
+    p.strokeWeight(1.0);
     p.beginShape();
     for (let i = 0; i < 7; i++) {
       const angle = (i * p.TWO_PI) / 7;
-      const rad = this.size * (0.35 + p.random(-0.1, 0.12));
+      const rad = this.size * (0.35 + p.random(-0.08, 0.1));
       p.vertex(rad * p.cos(angle), rad * p.sin(angle));
     }
     p.endShape(p.CLOSE);
-
     p.pop();
   }
 
-  // ========== 4. 酸胀/胀扩 (Wave) - 【关键修复】呼吸感 ==========
+  // ========== 4. 酸胀 (Wave) ==========
   _drawWave(p) {
-    // 【关键修复1】第一层：极低透明度 10，产生柔和的辉光
     p.noStroke();
     p.fill(this.color[0], this.color[1], this.color[2], 10);
     p.ellipse(this.pos.x, this.pos.y, this.pulseSize, this.pulseSize);
 
-    // 【关键修复2】第二层：透明度 5 + 15*pressureScale，动态呼吸变化
-    p.fill(this.color[0], this.color[1], this.color[2], 5 + (15 * this.pressureScale));
+    p.fill(this.color[0], this.color[1], this.color[2], 6 + (14 * this.pressureScale));
     p.ellipse(this.pos.x, this.pos.y, this.pulseSize, this.pulseSize);
-
-    // 【关键修复3】确保 pulseSize 在 update 中持续更新
-    // 注：pulseSize 在 update() 的 wave 分支中更新
   }
 
-  // ========== 5. 刮擦 (Scrape) ==========
+  // ========== 5. 撕刮 (Scrape - 纯细点碎屑感) ==========
   _drawScrape(p) {
-    const endX = this.scrapeEnd ? this.scrapeEnd.x : (this.pos.x + this.vel.x);
-    const endY = this.scrapeEnd ? this.scrapeEnd.y : (this.pos.y + this.vel.y);
+    const [r, g, b] = this.color;
 
-    const dx = endX - this.pos.x;
-    const dy = endY - this.pos.y;
-    const len = p.sqrt(dx * dx + dy * dy) || 1;
-    const normalX = -dy / len;
-    const normalY = dx / len;
+    p.push();
+    p.translate(this.pos.x, this.pos.y);
+    p.noStroke();
 
-    // 纤维丝
-    const numFibers = Math.floor(3 + this.pressureScale * 5);
-    for (let f = 0; f < numFibers; f++) {
-      const offsetDist = p.random(-10, 10);
-      const startX = this.pos.x + normalX * offsetDist + p.random(-3, 3);
-      const startY = this.pos.y + normalY * offsetDist + p.random(-3, 3);
-      const finalX = endX + normalX * offsetDist * p.random(0.9, 1.1) + p.random(-3, 3);
-      const finalY = endY + normalY * offsetDist * p.random(0.9, 1.1) + p.random(-3, 3);
+    if (this.debris && this.debris.length > 0) {
+      for (let i = 0; i < this.debris.length; i++) {
+        const d = this.debris[i];
 
-      p.stroke(
-        Math.min(255, this.color[0] * 0.8 + 50),
-        Math.min(255, this.color[1] * 0.4 + 30),
-        Math.min(255, this.color[2] * 0.4 + 30),
-        100 + p.random(-30, 30)
-      );
-      p.strokeWeight(0.5 + p.random(0.6));
-      p.line(startX, startY, finalX, finalY);
-    }
-
-    // 主刮痕
-    p.noFill();
-    const numScratches = 3;
-    for (let s = 0; s < numScratches; s++) {
-      p.stroke(this.color[0] * 0.45, this.color[1] * 0.15, this.color[2] * 0.15, 240);
-      p.strokeWeight((this.size * (0.6 + this.pressureScale * 0.6)) / numScratches);
-
-      p.beginShape();
-      const segments = 5;
-      const scratchOffset = p.map(s, 0, numScratches - 1, -this.size * 0.4, this.size * 0.4);
-
-      for (let i = 0; i <= segments; i++) {
-        const t = i / segments;
-        let currX = p.lerp(this.pos.x, endX, t) + normalX * scratchOffset;
-        let currY = p.lerp(this.pos.y, endY, t) + normalY * scratchOffset;
-        const offset = (i % 2 === 0 ? 1 : -1) * p.random(2, 5) * this.pressureScale;
-        p.vertex(currX + normalX * offset, currY + normalY * offset);
-      }
-      p.endShape();
-    }
-
-    // 血肉碎屑
-    const numDebris = Math.floor(3 + this.pressureScale * 4);
-    for (let d = 0; d < numDebris; d++) {
-      const debrisT = p.random(0.2, 1.0);
-      const basePointX = p.lerp(this.pos.x, endX, debrisT);
-      const basePointY = p.lerp(this.pos.y, endY, debrisT);
-      const debrisX = basePointX + p.random(-15, 15);
-      const debrisY = basePointY + p.random(-15, 15);
-      const debrisSize = p.random(1.2, 3.5) * this.pressureScale;
-
-      p.noStroke();
-      p.fill(this.color[0], this.color[1] * 0.3, this.color[2] * 0.3, 180 + p.random(-40, 40));
-      p.ellipse(debrisX, debrisY, debrisSize, debrisSize);
-
-      if (p.random(1) < 0.45) {
-        p.fill(this.color[0] * 0.8, 10, 10, 150 + p.random(-30, 30));
-        p.triangle(
-          debrisX, debrisY,
-          debrisX + p.random(-6, 6), debrisY + p.random(-6, 6),
-          debrisX + p.random(-6, 6), debrisY + p.random(-6, 6)
-        );
+        if (d.isTiny) {
+          p.fill(r, g * 0.28, b * 0.28, d.alpha);
+          p.ellipse(d.x, d.y, d.w, d.h);
+        } else {
+          p.fill(Math.min(255, r * 0.95 + 15), g * 0.2, b * 0.2, d.alpha);
+          p.ellipse(d.x, d.y, d.w, d.h);
+        }
       }
     }
+
+    p.pop();
   }
 
   isDead() {

@@ -1180,6 +1180,46 @@ const translations = {
         selfCare: "✨ 这是最耗竭的一种疼痛优先保证绝对静止休息。\n✨ 绝对避免任何腹部揉搓或按摩，尽量减少所有体位变化。\n✨ 小口喝温蜂蜜水补充能量（避免空腹服用止痛药）。\n✨ 用温柔、充满慈悲的内心声音安慰自己。\n✨ 疼痛强度减轻后记录疼痛动态。\n✨ 肋间（胸式）呼吸：吸气时横向扩张胸腔，保持下腹部完全静止。这减少腹腔器官的滑动摩擦，防止对敏感生组织的刺激。\n✨ 抱枕支撑婴儿式：在大腿间放置厚抱枕或枕头，将躯干完全伏在上面。双膝分开，臀部向后坐。这利用重力将腹腔器官向前悬吊，防止它们相互压迫在疼痛的盆腔粘连部位。"
       }
     },
+
+    // ============ 多痛感自然语言词典与模板 ============
+    multiPain: {
+      names: {
+        two: "以{{p1}}为主，伴有{{p2}}",
+        three: "以{{p1}}为主，伴随{{p2}}，并夹杂{{p3}}",
+      },
+      analogyTemplates: {
+        two: "{{m1}}\n\n不仅如此，她的身体内部还{{m2}}。两种疼痛交织在一起，让她难以自如活动。",
+        three: "{{m1}}\n\n同时，她的骨盆深处还{{m2}}；而在每个动作间歇，还会{{m3}}。三重复合疼痛层层叠加，正在极大消耗着她的体力和精力。",
+      },
+      metaphors: {
+        twist: {
+          primary: "像腹腔深处有一条浸透冷水的粗毛巾被两只手拼命反向用力拧紧，子宫平滑肌在经历剧烈的痉挛与抽搐。",
+          secondary: "深处如同湿毛巾被持续反向拧绞，伴随肌肉紧绷与痉挛",
+          tertiary: "冷不防地出现一阵阵毛巾拧紧般的绞缩抽痛"
+        },
+        pierce: {
+          primary: "像数根极细且冰冷的钢针毫无预警地向骨盆深处深扎，针尖所到之处伴随着神经放射样的锐利刺痛。",
+          secondary: "同时伴有细密钢针深扎入肉的锐利针刺感",
+          tertiary: "间歇期还冷不防地泛起阵阵针扎般的尖锐刺痛"
+        },
+        heavy: {
+          primary: "像骨盆深处沉甸甸地坠着一块烧红的铅铁，无休止地向下拉扯着盆底韧带与腰骶骨。",
+          secondary: "骨盆深处持续承受着铅块般沉重下坠的牵拉压迫感",
+          tertiary: "不时泛起重物下坠扯拉骨盆的深层坠胀感"
+        },
+        wave: {
+          primary: "像有沉闷的潮水在骨盆内部无休止地肿胀翻涌，深层的酸楚与胀麻感一波波向四周骨缝蔓延扩散。",
+          secondary: "深层如潮水般反复翻涌着无休止的弥漫酸楚与胀麻",
+          tertiary: "骨缝间还间歇泛起潮水般一波波扩散的酸胀感"
+        },
+        scrape: {
+          primary: "像一个未成熟的水果被强行粗暴剥皮，粗糙的砂纸在子宫内部反复摩擦娇嫩的生肉，带来鲜明火辣的撕刮感。",
+          secondary: "伴随着粗糙砂纸摩擦生肉般火辣辣的刮擦撕裂感",
+          tertiary: "隐约夹杂着内壁被粗糙边缘刮擦剥落的隐痛"
+        }
+      }
+    },
+
     healing: {
       breathing: {
         title: "呼吸疗法",
@@ -2778,6 +2818,46 @@ const translations = {
         selfCare: "✨ This is the most exhausting type of pain—prioritize absolute stillness and rest.\n✨ Absolutely avoid any abdominal rubbing or massage, minimize all position changes.\n✨ Sip warm honey water for energy (avoid taking painkillers on an empty stomach).\n✨ Comfort yourself with a gentle, compassionate inner voice.\n✨ Record pain dynamics once intensity subsides.\n✨ Intercostal (chest) breathing: expand your ribcage laterally on inhale, keeping your lower abdomen completely still. This reduces sliding friction of abdominal organs, preventing irritation of sensitive tissue.\n✨ Pillow-Supported Child's Pose: place a thick bolster or pillow between your thighs, drape your torso completely over it. Knees apart, hips sitting back. This uses gravity to suspend abdominal organs forward, preventing them from pressing against painful pelvic adhesion sites."
       }
     },
+
+    // ============ Multi-Pain Dictionary & Templates ============
+    multiPain: {
+      names: {
+        two: "{{p1}} (accompanied by {{p2}})",
+        three: "predominantly {{p1}}, accompanied by {{p2}}, along with intermittent {{p3}}",
+      },
+      analogyTemplates: {
+        two: "{{m1}}\n\nAdditionally, her body is {{m2}}. These two sensations intertwine, making it exhausting to stay upright.",
+        three: "{{m1}}\n\nMeanwhile, she is {{m2}}; on top of that, there are {{m3}}. This multi-layered composite pain is heavily draining her physical and mental energy.",
+      },
+      metaphors: {
+        twist: {
+          primary: "Like a soaked towel deep inside the abdomen being wrung tightly in opposite directions by unseen hands, with intense smooth muscle spasms.",
+          secondary: "accompanied by a deep, twisting and wringing sensation as if muscles are clamped tightly",
+          tertiary: "intermittent twisting pangs that catch her off guard"
+        },
+        pierce: {
+          primary: "Like sharp, freezing needles suddenly plunging deep into the pelvis without warning, radiating sharp nerve pain.",
+          secondary: "accompanied by sudden, sharp needle-like stabbing sensations",
+          tertiary: "occasional acute needle-sharp twinges radiating outward"
+        },
+        heavy: {
+          primary: "Like a dense block of lead sinking relentlessly in the pelvis, dragging down the pelvic ligaments and lower back.",
+          secondary: "bearing a relentless, heavy downward dragging pressure deep in the pelvic basin",
+          tertiary: "an underlying dragging weight pulling at her lower back"
+        },
+        wave: {
+          primary: "Like relentless dull tides swelling and aching inside the pelvis, sending continuous waves of deep soreness through every joint.",
+          secondary: "a pervasive, swelling ache rolling through the pelvis like continuous dull waves",
+          tertiary: "occasional waves of deep, diffuse aching spreading through her bones"
+        },
+        scrape: {
+          primary: "Like an unripened fruit being forcefully peeled from the inside, coarse sandpaper repeatedly rubbing against raw tissue.",
+          secondary: "a burning, abrasive scraping sensation as if sandpaper is rubbing raw skin",
+          tertiary: "subtle, stinging friction scraping across the internal lining"
+        }
+      }
+    },
+
     healing: {
       breathing: {
         title: "Breathing Therapy",
