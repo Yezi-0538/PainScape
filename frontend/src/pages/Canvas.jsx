@@ -160,8 +160,12 @@ export default function CanvasPage({
       bodyMode: bodyMode || 'front',
       bgScale: bgScale || 1.0,
       timestamp: new Date().toISOString(),
+      heavyStrokePoints: heavyStrokePointsRef.current,
     };
 
+    if (data.heavyStrokePoints) {
+      heavyStrokePointsRef.current = data.heavyStrokePoints;
+    }
     const canvas = p5Ref.current?.canvas;
     if (canvas) {
       draftData.canvasImage = canvas.toDataURL('image/png');
@@ -295,55 +299,70 @@ export default function CanvasPage({
   // 🌟 松手结算
   const mouseReleased = (p5) => {
     if (isDrawingStrokeRef.current) {
+      // ===== 坠痛画笔：松手时创建独立的区域粒子 =====
       if (activeBrush === 'heavy' && heavyStrokePointsRef.current.length > 0) {
         const pts = heavyStrokePointsRef.current;
-        let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
-        let sumIntensity = 0;
 
+        // 计算区域中心
+        let cx = 0, cy = 0;
+        pts.forEach(p => { cx += p.x; cy += p.y; });
+        cx /= pts.length;
+        cy /= pts.length;
+
+        // 计算区域范围
+        let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
         pts.forEach(pt => {
           if (pt.x < minX) minX = pt.x;
           if (pt.x > maxX) maxX = pt.x;
           if (pt.y < minY) minY = pt.y;
           if (pt.y > maxY) maxY = pt.y;
-          sumIntensity += (pt.intensity || 0.5);
         });
+        const width = Math.max(maxX - minX, 20);
+        const height = Math.max(maxY - minY, 20);
+        const regionSize = Math.max(width, height) * 0.8 + 20;
 
-        const centerX = (minX + maxX) / 2;
-        const centerY = (minY + maxY) / 2;
-        const spreadX = (maxX - minX) / 2;
-        const spreadY = (maxY - minY) / 2;
-        const rx = Math.max(26, spreadX + 14);
-        const ry = Math.max(15, spreadY + 10);
+        // 计算平均强度
+        let sumIntensity = 0;
+        pts.forEach(pt => { sumIntensity += (pt.intensity || 0.5); });
         const avgIntensity = sumIntensity / pts.length;
+
         const paletteColor = PALETTES[activeColor]?.color || [211, 47, 47];
 
+        // ✅ 创建一个独立的坠痛粒子
         const heavyParticle = new PainParticle(
           p5,
-          centerX,
-          centerY,
+          cx,
+          cy,
           'heavy',
           paletteColor,
           0,
           0,
           bodyMode,
           avgIntensity,
-          { rx, ry }
+          {
+            regionSize: regionSize,
+            points: pts.map(p => ({ x: p.x, y: p.y, intensity: p.intensity }))
+          }
         );
+
+        // 随机化初始进度，让每个粒子的下拉节奏不同
+        heavyParticle.pullProgress = Math.random();
 
         if (dynamicParticles.current) {
           dynamicParticles.current.push(heavyParticle);
         }
         if (particlePositions.current) {
-          particlePositions.current.push({ x: centerX, y: centerY, bodyMode });
+          particlePositions.current.push({ x: cx, y: cy, bodyMode });
         }
-
         if (brushCounts.current) {
           brushCounts.current['heavy'] = (brushCounts.current['heavy'] || 0) + 1;
         }
 
+        // ✅ 清空点集，准备下一笔
         heavyStrokePointsRef.current = [];
       }
 
+      // 其他画笔的松手逻辑（如果有）
       if (typeof saveSnapshot === 'function') {
         saveSnapshot();
       }
@@ -490,7 +509,7 @@ export default function CanvasPage({
       const realPy = (pmouseY - y) / zoom;
       const speed = p5.dist(realX, realY, realPx, realPy);
       const heading = speed < 0.5 ? p5.PI / 2 : p5.atan2(realY - realPy, realX - realPx);
-      
+
       let isPanning = false;
       if (activeBrush === null) isPanning = true;
       else if (p5.mouseButton === p5.RIGHT) isPanning = true;
@@ -552,8 +571,11 @@ export default function CanvasPage({
           if (activeBrush === 'heavy') {
             if (Number.isFinite(realX) && Number.isFinite(realY)) {
               heavyStrokePointsRef.current.push({ x: realX, y: realY, intensity });
+              if (heavyStrokePointsRef.current.length > 300) {
+                heavyStrokePointsRef.current.shift();
+              }
             }
-          } 
+          }
           // 其他画笔：正常生成粒子
           else {
             if (brushCounts.current) {
@@ -694,7 +716,7 @@ export default function CanvasPage({
       }
       p5.pop();
 
-      // 绘制动态粒子（坠痛只在这里随其他动态粒子一起呈现）
+      // 绘制动态粒子（坠痛在这里整体绘制）
       if (dynamicParticles.current && dynamicParticles.current.length > 0) {
         p5.push();
         p5.translate(x, y);

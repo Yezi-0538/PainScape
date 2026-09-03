@@ -70,6 +70,7 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
   const undoCountRef = useRef(0);
   const clearCountRef = useRef(0);
   const colorsUsedRef = useRef(new Set(['crimson']));
+  const heavyStrokePointsRef = useRef([]);
   const mapTabToOutputType = (tab) => {
     const map = { partner: 'partner', work: 'timeoff', doctor: 'medical', self: 'selfcare' };
     return map[tab] || tab;
@@ -397,7 +398,7 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
         .replace(/{{p1}}/g, names[0])
         .replace(/{{p2}}/g, names[1]);
     }
-     return (t('multiPain.names.three') || '以{{p1}}为主，伴随{{p2}}，并夹杂{{p3}}')
+    return (t('multiPain.names.three') || '以{{p1}}为主，伴随{{p2}}，并夹杂{{p3}}')
       .replace(/{{p1}}/g, names[0])
       .replace(/{{p2}}/g, names[1])
       .replace(/{{p3}}/g, names[2]);
@@ -870,7 +871,7 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
       // ---- 家族史 ----
       const famArr = mb.familyHistoryArr || [];
       const famText = famArr.length > 0
-         ? famArr.map(s => t(`onboarding.familyHistoryOptions.${s}`) || s).join(isEn ? ', ' : '、')
+        ? famArr.map(s => t(`onboarding.familyHistoryOptions.${s}`) || s).join(isEn ? ', ' : '、')
         : t('defaultTemplates.noFamilyHistory');
 
       // ---- 心理社会因素 ----
@@ -885,7 +886,7 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
         }
         return cycleDay;
       };
-       const painTiming = buildPainTiming(cycleDay, isEn);
+      const painTiming = buildPainTiming(cycleDay, isEn);
 
       // ============================================================
       // 构建各病历字段文本 (主诉、现病史、既往史、月经史)
@@ -1204,7 +1205,7 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
       const finalAnalogy = (topPains.length > 1)
         ? combinedAnalogy
         : getLocalizedText(activeLlm?.analogy, combinedAnalogy);
-      
+
       if (isLlmMatchingDominant) {
         return {
           pain: painName,
@@ -1307,7 +1308,7 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
         menstrual_history: t('defaultTemplates.menstrualHistory')
           .replace(/{{menarche}}/g, t('defaultTemplates.notProvided'))
           .replace(/{{periodDuration}}/g, t('defaultTemplates.notProvided'))
-         .replace(/{{cycleRegular}}/g, t('defaultTemplates.notProvided'))
+          .replace(/{{cycleRegular}}/g, t('defaultTemplates.notProvided'))
           .replace(/{{lmp}}/g, t('defaultTemplates.notProvided')),
         clinical_diagnosis: t('defaultTemplates.clinicalDiagnosisStructured')
           .replace(/{{diagnosisItems}}/g, '1. 原发性痛经（功能性）')
@@ -1483,20 +1484,20 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
         date: dateStr,
         time: timeStr,
         img: canvasImg,
-        painName: formatMultiPainName(topPains, t, isEn), 
-        dominantPain: dominant,                          
-        topPains: topPains,                           
-        painScore: painScore,                         
+        painName: formatMultiPainName(topPains, t, isEn),
+        dominantPain: dominant,
+        topPains: topPains,
+        painScore: painScore,
         appMode,
         reportData: apiResult || generateContent(standardPain),
         medicalBackground,
         userPrefs,
         tonePreference,
         cycleDay,
-        spatialMap: data.spatialMap || { abdomen: 0.5, lowerBack: 0.5, upperBody: 0.0 }, 
-        colorPalette: data.activeColor || 'crimson',                                      
-        accompanyingSymptoms: allSymptoms,                                               
-        isQuickLog: true,                                                       
+        spatialMap: data.spatialMap || { abdomen: 0.5, lowerBack: 0.5, upperBody: 0.0 },
+        colorPalette: data.activeColor || 'crimson',
+        accompanyingSymptoms: allSymptoms,
+        isQuickLog: true,
       };
 
       setHistory(prev => [historyEntry, ...prev]);
@@ -1854,6 +1855,7 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
     particlePositions.current = [];
     speedHistory.current = [];
     pressureHistory.current = [];
+    heavyStrokePointsRef.current = [];
 
     if (pgFrontRef.current && typeof pgFrontRef.current.clear === 'function') {
       pgFrontRef.current.clear();
@@ -2576,8 +2578,8 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
               telemetry.updateSession({ profile_completed: true, entry_point: 'canvas' });
               canvasStartTimeRef.current = Date.now();
               generationSourceRef.current = 'canvas';
-              setEditedContents({});        
-              setCurrentReportData(null);    
+              setEditedContents({});
+              setCurrentReportData(null);
               setLlmData(null);
               setBodyMode('front');
               setPage('canvas');
@@ -2877,20 +2879,20 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
                   date: dateStr,
                   time: timeStr,
                   img: canvasImg,
-                  painName: t(`painNames.${dominant}`) || dominant, 
-                  dominantPain: dominant, 
-                  topPains: topPains,        
-                  painScore: painScore,                           
+                  painName: t(`painNames.${dominant}`) || dominant,
+                  dominantPain: dominant,
+                  topPains: topPains,
+                  painScore: painScore,
                   appMode,
                   reportData: finalContent,
                   medicalBackground,
                   userPrefs,
                   tonePreference,
                   cycleDay,
-                  spatialMap,                                     
-                  colorPalette: activeColor || 'crimson',         
-                  accompanyingSymptoms: allSymptoms,              
-                  isQuickLog: false,                               
+                  spatialMap,
+                  colorPalette: activeColor || 'crimson',
+                  accompanyingSymptoms: allSymptoms,
+                  isQuickLog: false,
                 };
 
                 setHistory(prev => [historyEntry, ...prev]);
