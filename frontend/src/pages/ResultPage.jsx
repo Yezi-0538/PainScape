@@ -3,6 +3,7 @@ import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { useI18n } from '../i18n/i18nContext';
 import PublishPostModal from '../Components/modals/PublishPostModal';
 import PeriodScience from '../Components/PeriodScience';
+import PeriodScienceFullPage from '../Components/PeriodScienceFullPage';
 import { telemetry } from '../services/telemetry';
 
 // ============================================================
@@ -436,6 +437,22 @@ export default function ResultPage({
   const [viewMode, setViewMode] = useState('user'); // 'user' | 'doctor'
   const [showPublishModal, setShowPublishModal] = useState(false);
   const [publishTitleText, setPublishTitleText] = useState('');
+
+  const [showFullScience, setShowFullScience] = useState(false);
+
+  // 用户自定义科普数据持久化
+  const [userTips, setUserTips] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem('painscape_user_period_tips') || '[]');
+    } catch {
+      return [];
+    }
+  });
+
+  const handleUserTipsChange = (newTips) => {
+    setUserTips(newTips);
+    localStorage.setItem('painscape_user_period_tips', JSON.stringify(newTips));};
+
   // 当收件人或语气变化时，清除 workText 的编辑缓存
   useEffect(() => {
     if (editedContents?.workText !== undefined) {
@@ -772,7 +789,10 @@ export default function ResultPage({
               </div>
             </div>
 
-            <PeriodScience />
+            <PeriodScience
+              onOpenFull={() => setShowFullScience(true)}
+              userTips={userTips}
+            />
           </>
         )}
 
@@ -1512,6 +1532,15 @@ export default function ResultPage({
           {t('splash.switchLang')}
         </button>
       </div>
+
+      {/*跳转全屏科普新界面*/}
+      {showFullScience && (
+        <PeriodScienceFullPage
+          onBack={() => setShowFullScience(false)}
+          userTips={userTips}
+          onUserTipsChange={handleUserTipsChange}
+        />
+      )}
     </div>
   );
 }

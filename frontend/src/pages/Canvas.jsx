@@ -242,6 +242,39 @@ export default function CanvasPage({
     const canvas = p5.createCanvas(window.innerWidth, window.innerHeight);
     canvas.parent(canvasParentRef);
 
+    canvas.elt.addEventListener('wheel', (e) => {
+      e.preventDefault(); // 阻止浏览器整页滚动
+
+      const rect = canvas.elt.getBoundingClientRect();
+      const mouseScreenX = e.clientX - rect.left;
+      const mouseScreenY = e.clientY - rect.top;
+
+      const cam = camRef.current || { x: 0, y: 0, zoom: 1.0 };
+      const oldZoom = Number.isFinite(cam.zoom) && cam.zoom > 0 ? cam.zoom : 1.0;
+
+      // 缩放步长（滚轮向上放大，向下缩小）
+      const zoomFactor = e.deltaY < 0 ? 1.08 : 0.92;
+      const targetZoom = oldZoom * zoomFactor;
+
+      // 判断鼠标是否在人体及画布有效范围内
+      const isInCanvas =
+        mouseScreenX >= 0 && mouseScreenX <= canvas.elt.width &&
+        mouseScreenY >= 0 && mouseScreenY <= canvas.elt.height;
+
+      let pivotX, pivotY;
+      if (isInCanvas) {
+        // 🌟 场景一：以鼠标物理光标为中心缩放
+        pivotX = mouseScreenX;
+        pivotY = mouseScreenY;
+      } else {
+        // 🌟 场景二：默认以人体图像中心（画布中心）为中心缩放
+        pivotX = canvas.elt.width / 2;
+        pivotY = canvas.elt.height / 2;
+      }
+
+      handleZoomAtPivot(targetZoom, pivotX, pivotY);
+    }, { passive: false });
+
     canvas.elt.addEventListener('mousedown', (e) => {
       if (e.target === canvas.elt) {
         mousePressedOnCanvasRef.current = true;
@@ -370,14 +403,33 @@ export default function CanvasPage({
     }
   };
 
-  const mouseWheel = useCallback((p5, event) => {
-    if (!camRef.current) return false;
-    camRef.current.zoom = Math.max(
-      0.5,
-      Math.min(camRef.current.zoom + (event.delta > 0 ? -0.1 : 0.1), 3.0)
-    );
-    return false;
+  // ============================================================
+  // 缩放：以鼠标位置或人体图像中心为定点
+  // ============================================================
+  const handleZoomAtPivot = useCallback((newZoom, pivotX, pivotY) => {
+    if (!camRef.current) return;
+    const cam = camRef.current;
+    const oldZoom = Number.isFinite(cam.zoom) && cam.zoom > 0 ? cam.zoom : 1.0;
+    const clampedZoom = Math.max(0.4, Math.min(newZoom, 3.5));
+
+    if (Math.abs(clampedZoom - oldZoom) < 0.001) return;
+
+    // 当前平移量
+    const curX = Number.isFinite(cam.x) ? cam.x : 0;
+    const curY = Number.isFinite(cam.y) ? cam.y : 0;
+
+    // 核心几何公式：调整 cam.x / cam.y，使定点 (pivotX, pivotY) 缩放前后屏幕位置完全静止
+    const zoomRatio = clampedZoom / oldZoom;
+    cam.x = pivotX - (pivotX - curX) * zoomRatio;
+    cam.y = pivotY - (pivotY - curY) * zoomRatio;
+    cam.zoom = clampedZoom;
   }, [camRef]);
+
+  // 保留作为 react-p5 兜底
+  const mouseWheel = useCallback((p5, event) => {
+    // 优先由原生监听器接管，此处兜底防止报错
+    return false;
+  }, []);
 
   const handleDownload = () => {
     if (p5Ref.current && p5Ref.current.canvas) {
@@ -1255,7 +1307,15 @@ export default function CanvasPage({
               alignItems: 'center',
               justifyContent: 'center',
             }}
-            onClick={(e) => { e.stopPropagation(); resetView(); }}
+            onClick={(e) => {
+              e.stopPropagation();
+              // 重置镜头到画布中心 1.0 倍率
+              if (camRef.current) {
+                camRef.current = { x: 0, y: 0, zoom: 1.0 };
+              }
+              if (setBgScale) setBgScale(1.0);
+              if (typeof resetView === 'function') resetView();
+            }}
             title={t('canvas.resetView') || '重置视角'}
           >
             🎯
