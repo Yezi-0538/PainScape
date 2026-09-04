@@ -3,6 +3,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useI18n } from '../i18n/i18nContext';
 import OnboardingTooltip from '../Components/OnboardingTooltip';
 import PersonalProfileModal from '../Components/modals/PersonalProfileModal';
+import PeriodScienceFullPage from '../Components/PeriodScienceFullPage';
 
 // 子组件：可折叠多选下拉框
 const CollapsibleMultiSelect = ({ label, options, selectedValues, onChange, placeholder }) => {
@@ -186,6 +187,7 @@ export default function OnboardingPage({
   onHistory,
   onProfile,
   onQuickLog,
+  onOpenHealing,
 
   // App 模式
   appMode,
@@ -226,6 +228,20 @@ export default function OnboardingPage({
   const [tooltipStep, setTooltipStep] = useState(null);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const containerRef = useRef(null);
+  const [showFullScience, setShowFullScience] = useState(false);
+  // 用户自建科普数据持久化（与 ResultPage 共享同一缓存）
+  const [userTips, setUserTips] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem('painscape_user_period_tips') || '[]');
+    } catch {
+      return [];
+    }
+  });
+
+  const handleUserTipsChange = (newTips) => {
+    setUserTips(newTips);
+    localStorage.setItem('painscape_user_period_tips', JSON.stringify(newTips));
+  };
 
   useEffect(() => {
     if (['basicInfo', 'preference'].includes(showContent)) {
@@ -1091,6 +1107,7 @@ export default function OnboardingPage({
             >
               {t('common.back') || '返回'}
             </button>
+
             <button
               onClick={() => {
                 onStartDrawing?.();
@@ -1173,6 +1190,37 @@ export default function OnboardingPage({
             >
               {t('common.back') || '返回'}
             </button>
+            
+            {/* 进入自愈舱按钮 */}
+            <button
+              onClick={() => onOpenHealing?.()}
+              style={{
+                flex: 1.3,
+                padding: '14px 16px',
+                borderRadius: 'var(--radius-lg)',
+                background: 'linear-gradient(135deg, #1e88e5, #1565c0)',
+                border: 'none',
+                color: '#fff',
+                fontSize: 'clamp(13px, 3.5vw, 16px)',
+                fontWeight: '600',
+                cursor: 'pointer',
+                minHeight: 'var(--btn-min-touch)',
+                boxShadow: '0 4px 16px rgba(33, 150, 243, 0.25)',
+                transition: 'all 0.25s ease',
+                whiteSpace: 'nowrap',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.boxShadow = '0 6px 20px rgba(33, 150, 243, 0.35)';
+                e.currentTarget.style.transform = 'translateY(-1px)';
+              }}
+              onMouseLeave={(e) => {
+               e.currentTarget.style.boxShadow = '0 4px 16px rgba(33, 150, 243, 0.25)';
+                e.currentTarget.style.transform = 'translateY(0)';
+              }}
+            >
+              {t('onboarding.enterHealing') || '进入自愈舱'}
+            </button>
+
             <button
               onClick={() => {
                 onStartDrawing?.();
@@ -1254,6 +1302,51 @@ export default function OnboardingPage({
             {t('onboarding.skipAndDraw') || '跳过 → 直接绘制'}
           </button>
         )}
+      </div>
+
+      {/* 科普入口文字 */}
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          width: '100%',
+          marginTop: '16px',
+          marginBottom: '2px',
+        }}
+      >
+        <button
+          type="button"
+          onClick={() => setShowFullScience(true)}
+          style={{
+            background: 'none',
+            border: 'none',
+            color: '#999',
+            fontSize: '13px',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+            padding: '6px 14px',
+            borderRadius: '16px',
+            transition: 'all 0.2s ease',
+            letterSpacing: '0.3px',
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.color = '#ef5350';
+            e.currentTarget.style.background = 'rgba(239, 83, 80, 0.08)';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.color = '#999';
+            e.currentTarget.style.background = 'none';
+          }}
+        >
+          <span>💡</span>
+          <span style={{ textDecoration: 'underline', textUnderlineOffset: '3px' }}>
+            {t('onboarding.learnMyPeriod') || (targetLanguage === 'en' ? 'Learn about my period' : '了解我的经期')}
+          </span>
+          <span style={{ fontSize: '11px', opacity: 0.8 }}>›</span>
+        </button>
       </div>
 
       {/* 页脚导航链接 */}
@@ -1353,6 +1446,15 @@ export default function OnboardingPage({
         medicalBackground={medicalBackground}
         setMedicalBackground={setMedicalBackground}
       />
+
+      {/* 全屏经期科普界面 */}
+      {showFullScience && (
+        <PeriodScienceFullPage
+          onBack={() => setShowFullScience(false)}
+          userTips={userTips}
+          onUserTipsChange={handleUserTipsChange}
+        />
+      )}
     </div>
   );
 }

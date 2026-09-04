@@ -7,6 +7,7 @@ import { UserProvider, useUser } from './contexts/UserContext';
 import SplashPage from './pages/SplashPage';
 import ModeSelectionPage from './pages/ModeSelection';
 import OnboardingPage from './pages/Onboarding';
+import HealingPage from './pages/HealingPage';
 import CanvasPage from './pages/Canvas';
 import ResultPage from './pages/ResultPage';
 import CommunityPage from './pages/Community';
@@ -2574,6 +2575,7 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
             setTargetLanguage={setTargetLanguage}
             showGuide={showGuide}
             setShowGuide={setShowGuide}
+            onOpenHealing={() => setPage('healing')}
             onStartDrawing={() => {
               telemetry.updateSession({ profile_completed: true, entry_point: 'canvas' });
               canvasStartTimeRef.current = Date.now();
@@ -2600,6 +2602,17 @@ function AppContent({ targetLanguage, setTargetLanguage }) {
             onCommunity={() => setPage('community')}
             onHistory={() => setPage('history')}
             onProfile={() => handleNavigateToProfile(null)}
+          />
+        );
+      case 'healing':
+        return (
+          <HealingPage
+            onBack={() => setPage('onboarding')}
+            medicalBackground={medicalBackground}
+            dominantPain={getDominantPain()}
+            onOpenHealingSpace={(tabKey) => {
+              setHealingState({ isOpen: true, activeTab: tabKey });
+            }}
           />
         );
       case 'quickLog':

@@ -43,9 +43,9 @@ export class PainParticle {
       this.life = Infinity;
       this.regionSize = customProps?.regionSize || 40;
       this.points = customProps?.points || [];
-      this.cyclePhase = p5.random(p5.TWO_PI);
-      this.pullProgress = 0;
-      this.springStretch = 1.0 / 3.0; // 初始为 1/3 最低基线
+      this.springStretch = 1.0 / 3.0; // 初始基线 1/3
+      this.heavyPhase = 'drop'; // 'drop' | 'recover'
+      this.phaseFrame = Math.floor(p5.random(0, 20)); // 错开初始相位
     }
 
     // ===== 3. 绞痛 (Twist) =====
@@ -65,68 +65,82 @@ export class PainParticle {
     }
 
     // ===== 5. 撕刮痛 (Scrape) =====
+    // 伤口/短横/点均为深色 100% 不透明；纤维均匀细线，长度缩短为与伤口一致 (1:1)，透明度 50% -> 0%
     else if (type === 'scrape') {
       this.vel = p5.createVector(0, 0);
       const moveSpeed = Number.isFinite(speed) ? speed : 6;
       const angle = Number.isFinite(heading) ? heading : p5.random(p5.TWO_PI);
-      const tearLen = Math.max(12, Math.min(35, moveSpeed * 1.3)) * (0.5 + this.pressureScale * 0.8);
+      const woundLen = Math.max(18, Math.min(34, moveSpeed * 1.4)) * (0.7 + this.pressureScale * 0.6);
 
-      const cosA = Math.cos(angle);
-      const sinA = Math.sin(angle);
+      this.woundAngle = angle;
+      this.woundLen = woundLen;
+      // 🌟 纤维长度缩短为与伤口长度完全一致 (1:1)
+      this.fiberTargetLen = woundLen;
+      // 伤口短横宽度大概为短横的 1/10
+      this.woundThickness = Math.max(2.0, woundLen * 0.10);
 
+      // 伤口四周平行的短横（<= 1/2 长度）或点（深色，100% 透明度）
+      this.subMarks = [];
+      const numMarks = Math.floor(4 + this.pressureScale * 4);
+      for (let i = 0; i < numMarks; i++) {
+        const isDot = p5.random() < 0.45;
+        const maxSubLen = this.woundLen * 0.5;
+        const subLen = isDot ? 0 : p5.random(this.woundLen * 0.16, maxSubLen);
+
+        const latOffset = (p5.random() > 0.5 ? 1 : -1) * p5.random(4.0, 13.0 + this.pressureScale * 5);
+        const longOffset = (p5.random() - 0.5) * this.woundLen * 0.85;
+
+        this.subMarks.push({
+          isDot,
+          len: subLen,
+          latOffset,
+          longOffset,
+          weight: isDot ? Math.max(1.3, this.woundThickness * 0.5) : Math.max(1.0, this.woundThickness * 0.4)
+        });
+      }
+
+      // 纤维骨架：均匀适度线宽，向四周蔓延与伤口等长的距离
+      const numFibers = Math.floor(5 + this.pressureScale * 3);
       this.fibers = [];
-      const fiberCount = Math.floor(3 + this.pressureScale * 6);
-      for (let i = 0; i < fiberCount; i++) {
-        const t = (i / fiberCount) * 2 - 1;
-        const longPos = t * tearLen * 0.5;
-        const latOffset = (p5.random() - 0.5) * 8 * this.pressureScale;
-        const fx = longPos * cosA - latOffset * sinA;
-        const fy = longPos * sinA + latOffset * cosA;
-        const fiberLen = p5.random(2, 8) * (0.3 + this.pressureScale * 0.7);
-        const angleOffset = (p5.random() - 0.5) * 0.8;
-        const width = p5.random(0.3, 0.7);
-        const curlAmount = p5.random(0, 0.5) * this.pressureScale;
-        const curlAngle = angle + angleOffset + (p5.random() - 0.5) * 0.5;
+      this.maxSteps = 14;
+
+      for (let i = 0; i < numFibers; i++) {
+        const t = (p5.random() - 0.5) * this.woundLen * 0.85;
+        const edgeSide = (p5.random() > 0.5 ? 1 : -1) * (this.woundThickness * 0.45);
+        const perpCos = -Math.sin(angle);
+        const perpSin = Math.cos(angle);
+
+        const startX = this.pos.x + Math.cos(angle) * t + perpCos * edgeSide;
+        const startY = this.pos.y + Math.sin(angle) * t + perpSin * edgeSide;
+
+        let curAngle = p5.random(p5.TWO_PI);
+        const totalLen = this.fiberTargetLen * p5.random(0.92, 1.08);
+        const stepDist = totalLen / this.maxSteps;
+
+        const points = [{ x: startX, y: startY }];
+        let px = startX;
+        let py = startY;
+
+        for (let s = 1; s <= this.maxSteps; s++) {
+          curAngle += (p5.random() - 0.5) * 0.45;
+          px += Math.cos(curAngle) * stepDist;
+          py += Math.sin(curAngle) * stepDist;
+          points.push({ x: px, y: py });
+        }
 
         this.fibers.push({
-          x: fx, y: fy,
-          len: fiberLen,
-          width: width,
-          angleOffset: angleOffset,
-          curlAmount: curlAmount,
-          curlAngle: curlAngle,
-          alpha: p5.random(150, 230),
-          isBroken: p5.random() < 0.3,
-          phase: p5.random(p5.TWO_PI)
+          points: points,
+          weight: p5.random(1.2, 1.55),
+          rootAlpha: 128 // 50% 根部透明度
         });
       }
 
-      this.chunks = [];
-      const chunkCount = Math.floor(2 + this.pressureScale * 4);
-      for (let i = 0; i < chunkCount; i++) {
-        const t = (i / chunkCount) * 2 - 1;
-        const longPos = t * tearLen * 0.35;
-        const latOffset = (p5.random() - 0.5) * 10 * this.pressureScale;
-
-        this.chunks.push({
-          x: longPos * cosA - latOffset * sinA,
-          y: longPos * sinA + latOffset * cosA,
-          size: p5.random(1, 3.5) * (0.3 + this.pressureScale * 0.6),
-          alpha: p5.random(180, 255),
-          driftX: (p5.random() - 0.5) * 0.8,
-          driftY: (p5.random() - 0.5) * 0.8,
-          rotation: p5.random(p5.TWO_PI),
-          rotSpeed: p5.random(-0.02, 0.02),
-          life: 30 + p5.random(40)
-        });
-      }
-
-      this.life = 150 + this.pressureScale * 80;
+      this.currentStep = 0;
+      this.life = 255;
     }
   }
 
   update(p5) {
-    // 安全兜底：只允许使用 p5 实例，绝无对 pg 的非法引用
     const p = p5 || this.p5;
 
     if (!this.isDynamic && this.type !== 'pierce') {
@@ -149,83 +163,82 @@ export class PainParticle {
         this.pulseSize = this.size + Math.sin(p.frameCount * 0.05 + this.seed) * (this.maxSize - this.size);
       }
     } else if (this.type === 'scrape') {
-      this.life -= 0.8 + this.pressureScale * 0.3;
-      if (this.vel) this.vel.mult(0);
-
-      if (this.chunks) {
-        this.chunks.forEach(c => {
-          c.x += c.driftX * 0.3;
-          c.y += c.driftY * 0.3;
-          c.rotation += c.rotSpeed;
-          c.life -= 0.8;
-          c.alpha = Math.max(0, c.alpha - 2);
-        });
+      this.currentStep += 1;
+      if (this.currentStep > this.maxSteps + 1) {
+        this.life = -1;
       }
+      if (this.vel) this.vel.mult(0);
     } else if (this.type === 'pierce') {
       this.life -= 25;
       if (this.vel) this.vel.mult(0);
     }
 
-    // ===== heavy - 极速下拉 + 最小拉伸 1/3 + 梯形速度回收 =====
+    // ===== heavy - 严密运动学 =====
     else if (this.type === 'heavy') {
-      const speed = 0.0045; 
-      this.pullProgress = (this.pullProgress || 0) + speed;
-      if (this.pullProgress > 1.0) {
-        this.pullProgress = 0;
+      const minStretch = 1.0 / 3.0;          
+      const stretchRange = 1.0 - minStretch;
+
+      const dropFrames = 20;
+      const recoverFrames = 60;
+
+      if (!this.heavyPhase) {
+        this.heavyPhase = 'drop';
+        this.phaseFrame = 0;
       }
 
-      const t = this.pullProgress;
-      // 🌟 最小拉伸程度精确设为最大拉伸程度的 1/3
-      const minStretch = 1.0 / 3.0;          
-      const stretchRange = 1.0 - minStretch; // 2/3 活动行程
-      let normFactor = 0; // 0.0 (基线 1/3) ~ 1.0 (最大拉伸)
+      this.phaseFrame++;
 
-      // 🌟 加快拉伸速度：将下拉时间深度压缩至 13%（速度极大提升，瞬时向下猛扯）
-      const dropDuration = 0.13; 
-      this.isDropping = (t <= dropDuration);
+      let normFactor = 0;
+      if (this.heavyPhase === 'drop') {
+        this.isDropping = true;
+        const u = Math.min(1.0, this.phaseFrame / dropFrames);
 
-      if (this.isDropping) {
-        // ============================================================
-        // 1. 下落拉伸阶段（极速爆发）：前 3/4 加速，后 1/4 减速到 0
-        // ============================================================
-        const u = t / dropDuration; // 0.0 -> 1.0
-
-        if (u <= 0.75) {
-          const p = u / 0.75;
-          normFactor = 0.75 * (p * p);
+        if (u <= 0.5) {
+          normFactor = (16.0 / 9.0) * (u * u);
+        } else if (u <= 0.75) {
+          const w = 4.0 * (u - 0.5);
+          normFactor = (4.0 / 9.0) * (1.0 + w - 0.125 * w * w);
         } else {
-          const q = (u - 0.75) / 0.25;
-          normFactor = 1.0 - 0.25 * Math.pow(1.0 - q, 2.0);
+          const z = 4.0 * (u - 0.75);
+          normFactor = 1.0 - (1.0 / 6.0) * Math.pow(1.0 - z, 2.0);
+        }
+
+        if (this.phaseFrame >= dropFrames) {
+          this.heavyPhase = 'recover';
+          this.phaseFrame = 0;
         }
       } else {
-        // ============================================================
-        // 2. 回收阶段：加速 -> 匀速 -> 减速到 0 (稳稳停在 1/3 基线)
-        // ============================================================
-        const v = (t - dropDuration) / (1.0 - dropDuration); // 0.0 -> 1.0
-        let retDist = 0;
+        this.isDropping = false;
+        const v = Math.min(1.0, this.phaseFrame / recoverFrames);
 
-        if (v <= 0.20) {
-          // 前 20% 加速
-          retDist = (10.0 / 3.0) * (v * v);
-        } else if (v <= 0.70) {
-          // 20% ~ 70% 匀速
-          retDist = (2.0 / 15.0) + (4.0 / 3.0) * (v - 0.20);
+        let recProgress = 0;
+        if (v <= 0.25) {
+          const a = 4.0 * v;
+          recProgress = (2.0 / 9.0) * (a * a);
+        } else if (v <= 0.5) {
+          const b = 4.0 * (v - 0.25);
+          recProgress = (2.0 / 9.0) + (4.0 / 9.0) * b;
+        } else if (v <= 0.75) {
+          const c = 4.0 * (v - 0.5);
+          recProgress = (6.0 / 9.0) + (4.0 / 9.0) * (c - 0.375 * c * c);
         } else {
-          // 70% ~ 100% 减速到 0
-          const progress = (v - 0.70) / 0.30;
-          retDist = 0.80 + 0.20 * (1.0 - Math.pow(1.0 - progress, 2.0));
+          const d = 4.0 * (v - 0.75);
+          recProgress = 1.0 - (1.0 / 18.0) * Math.pow(1.0 - d, 2.0);
         }
 
-        normFactor = Math.max(0.0, Math.min(1.0, 1.0 - retDist));
+        normFactor = Math.max(0.0, 1.0 - recProgress);
+
+        if (this.phaseFrame >= recoverFrames) {
+          this.heavyPhase = 'drop';
+          this.phaseFrame = 0;
+        }
       }
 
-      // 映射到 [1/3, 1.0]
       this.springStretch = minStretch + normFactor * stretchRange;
     }
   }
 
   show(pg) {
-    // show 方法中正常使用 pg 绘制
     const p = pg || this.p5;
     if (!p) return;
 
@@ -282,14 +295,9 @@ export class PainParticle {
     }
 
     // ===== 2. 坠痛 (Heavy) =====
-    // ===== heavy - 重物颜色绑定用户画笔颜色 (无边线纯实体) =====
     else if (this.type === 'heavy') {
       if (!this.points || this.points.length < 2) return;
 
-      const p = pg || this.p5;
-      if (!p) return;
-
-      // 用户当前画笔选中的原始色彩
       const [r, g, b] = this.color;
       let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
       this.points.forEach(pt => {
@@ -304,80 +312,63 @@ export class PainParticle {
       const cx = this.pos.x;
       const cy = this.pos.y;
       const minStretch = 1.0 / 3.0;
-      const S = this.springStretch || minStretch; // 1/3 ~ 1.0
-      const isDropping = this.isDropping !== undefined ? this.isDropping : false;
+      const S = this.springStretch || minStretch;
 
       p.push();
 
-      // ============================================================
-      // 1. 骨架计算：最大椭圆长轴正比行程 (Layer 0 绝不位移变形)
-      // ============================================================
+      // 1. 骨架与行程
       const layer0W = boxW * 1.25;
       const layer0H = boxH * 1.25;
       const majorAxis = Math.max(layer0W, layer0H);
 
-      const STRETCH_RATIO = 1.05;
+      const STRETCH_RATIO = 2.4;
       const maxTotalStretch = majorAxis * STRETCH_RATIO;
-
       const normTension = Math.max(0, (S - minStretch) / (1.0 - minStretch));
 
-      // 5 级比例骨架
       const sizeScales = [1.0, 0.90, 0.74, 0.51, 0.22];
       const baseLayers = sizeScales.map(scale => ({
         w: layer0W * scale,
         h: layer0H * scale
       }));
 
-      // ============================================================
-      // 2. 长轴限制与形变补偿位移计算
-      // ============================================================
       const layerYOffsets = [0];
-      const compensationStretches = [0];
-      const stepWeights = [0.20, 0.25, 0.27, 0.28];
-      let accumulatedExcess = 0;
-
+      const stepWeights = [0.18, 0.24, 0.28, 0.30];
       for (let i = 1; i < baseLayers.length; i++) {
-        const prevH = baseLayers[i - 1].h;
-        const ratio = sizeScales[i] / sizeScales[i - 1];
-
-        const desiredDeltaY = (maxTotalStretch * stepWeights[i - 1] * S) + accumulatedExcess;
-        const limitDeltaY = (prevH * 0.5) * Math.sqrt(Math.max(0.0, 1.0 - (ratio * ratio)));
-
-        if (desiredDeltaY <= limitDeltaY) {
-          layerYOffsets.push(layerYOffsets[i - 1] + desiredDeltaY);
-          compensationStretches.push(0);
-          accumulatedExcess = 0;
-        } else {
-          layerYOffsets.push(layerYOffsets[i - 1] + limitDeltaY);
-          const excess = desiredDeltaY - limitDeltaY;
-          compensationStretches.push(excess);
-          accumulatedExcess = excess * 0.45;
-        }
+        const desiredDeltaY = maxTotalStretch * stepWeights[i - 1] * S;
+        layerYOffsets.push(layerYOffsets[i - 1] + desiredDeltaY);
       }
 
-      // 计算各层最下端探出坐标
       const bottomPoints = [];
       for (let i = 0; i < baseLayers.length; i++) {
         const h = baseLayers[i].h;
-        const extraComp = compensationStretches[i] || 0;
-        const ryBottom = (h * 0.5) * (1.0 + normTension * 0.75) + extraComp;
+        const ryBottom = (h * 0.5) * (1.0 + normTension * 1.6);
         const bottomY = cy + layerYOffsets[i] + ryBottom;
         bottomPoints.push({ bottomY });
       }
 
       const deepestY = bottomPoints[bottomPoints.length - 1].bottomY;
 
-      // ============================================================
-      // 3. 沿图形下边沿绘制光滑张力曲线
-      // ============================================================
+      // 2. 最大椭圆：透明且无描边
+      const curveAreaAlpha = 46 + S * 30;
+      const maxEllipseAlpha = 16 + S * 12;
+
+      p.push();
+      p.noStroke();
+      p.fill(r, g, b, maxEllipseAlpha);
+      p.ellipse(cx, cy, layer0W, layer0H);
+      p.pop();
+
+      // 3. 张力曲线与虚化消散
       const leftAnchorX = cx - layer0W * 0.5;
       const rightAnchorX = cx + layer0W * 0.5;
       const anchorY = cy;
+      const blurAlphaFactor = 1.0 - normTension * 0.65;
 
-      // (A) 浅色漫反射外光晕
+      // (A) 漫反射发散微光
       p.noFill();
-      p.stroke(r, g, b, 45 + S * 55);
-      p.strokeWeight(4.5);
+      const diffuseWeight = 4.0 + normTension * 8.0;
+      p.stroke(r, g, b, (35 + S * 40) * (0.6 + normTension * 0.4));
+      p.strokeWeight(diffuseWeight);
       p.beginShape();
       p.vertex(leftAnchorX, anchorY);
       p.bezierVertex(
@@ -392,9 +383,10 @@ export class PainParticle {
       );
       p.endShape();
 
-      // (B) 核心光滑紧绷线
-      p.stroke(r, g, b, 175 + S * 80);
-      p.strokeWeight(2.0 + S * 0.8);
+      // (B) 核心紧绷张力线
+      const solidLineAlpha = (180 + S * 75) * blurAlphaFactor;
+      p.stroke(r, g, b, solidLineAlpha);
+      p.strokeWeight(2.2 + S * 0.8);
       p.beginShape();
       p.vertex(leftAnchorX, anchorY);
       p.bezierVertex(
@@ -409,9 +401,9 @@ export class PainParticle {
       );
       p.endShape();
 
-      // (C) 弧线内侧轻度弥散微光
+      // (C) 曲线包围微光区域
       p.noStroke();
-      p.fill(r, g, b, 25 + S * 40);
+      p.fill(r, g, b, curveAreaAlpha * blurAlphaFactor);
       p.beginShape();
       p.vertex(leftAnchorX, anchorY);
       p.bezierVertex(
@@ -427,66 +419,53 @@ export class PainParticle {
       p.bezierVertex(cx + layer0W * 0.3, anchorY + 8, cx - layer0W * 0.3, anchorY + 8, leftAnchorX, anchorY);
       p.endShape(p.CLOSE);
 
-      // ============================================================
-      // 4. 🌟 重物：纯正画笔颜色填充 + 无边线 (回收时消失)
-      // ============================================================
-      if (isDropping && normTension > 0.02) {
-        const weightTopY = cy + layerYOffsets[1];
-        const weightTopW = baseLayers[1].w * 0.50 * (1.0 - normTension * 0.12);
+      // (D) 重物实体面
+      const isWeightVisible = (this.heavyPhase === 'drop') || 
+        (this.heavyPhase === 'recover' && (this.phaseFrame / 60.0) <= (1.0 / 6.0));
 
-        const weightBottomY = deepestY;
-        const weightBottomW = baseLayers[4].w * 0.85;
-
+      if (isWeightVisible && normTension > 0.02) {
         p.push();
-        p.noStroke(); // 保持无边线
-
-        // 🌟 纯正用户画笔色彩填充（高饱和实体重感）
+        p.noStroke();
         const solidAlpha = 220 + normTension * 35;
         p.fill(r, g, b, solidAlpha);
 
-        // 绘制无边线重物实体面
         p.beginShape();
-        p.vertex(cx - weightTopW * 0.5, weightTopY);
-        p.vertex(cx + weightTopW * 0.5, weightTopY);
-
+        p.vertex(cx - layer0W * 0.5, cy);
         p.bezierVertex(
-          cx + weightTopW * 0.65, weightTopY + (weightBottomY - weightTopY) * 0.38,
-          cx + weightBottomW * 0.75, weightBottomY - 6,
-          cx, weightBottomY
+          cx - layer0W * 0.5, cy - layer0H * 0.5,
+          cx + layer0W * 0.5, cy - layer0H * 0.5,
+          cx + layer0W * 0.5, cy
         );
-
         p.bezierVertex(
-          cx - weightBottomW * 0.75, weightBottomY - 6,
-          cx - weightTopW * 0.65, weightTopY + (weightBottomY - weightTopY) * 0.38,
-          cx - weightTopW * 0.5, weightTopY
+          cx + baseLayers[1].w * 0.5, cy + layerYOffsets[1] + baseLayers[1].h * 0.3,
+          cx + baseLayers[3].w * 0.5, cy + layerYOffsets[3] + baseLayers[3].h * 0.4,
+          cx, deepestY
+        );
+        p.bezierVertex(
+          cx - baseLayers[3].w * 0.5, cy + layerYOffsets[3] + baseLayers[3].h * 0.4,
+          cx - baseLayers[1].w * 0.5, cy + layerYOffsets[1] + baseLayers[1].h * 0.3,
+          cx - layer0W * 0.5, cy
         );
         p.endShape(p.CLOSE);
         p.pop();
       }
 
-      // ============================================================
-      // 5. 底部投影
-      // ============================================================
+      // 4. 底部投影
       p.noStroke();
-      const shadowAlpha = 25 + S * 140;
-      p.fill(0, 0, 0, shadowAlpha * 0.42);
-      p.ellipse(cx, deepestY + 8, baseLayers[4].w * 2.3, 12 + S * 18);
+      const shadowAlpha = 28 + S * 135;
+      p.fill(0, 0, 0, shadowAlpha * 0.45);
+      p.ellipse(cx, deepestY + 10, baseLayers[4].w * 2.5, 12 + S * 20);
 
-      // ============================================================
-      // 6. 手绘笔触点轻移跟随（色彩同样与画笔协同）
-      // ============================================================
-      const numDots = Math.min(this.points.length, 25);
+      // 5. 固定手绘笔触点
+      const numDots = Math.min(this.points.length, 30);
       for (let k = 0; k < numDots; k++) {
         const idx = Math.floor(k * this.points.length / numDots);
         const pt = this.points[idx];
         if (!pt) continue;
 
-        const normDistX = Math.abs(pt.x - cx) / (layer0W * 0.5);
-        const ptDrop = (deepestY - anchorY) * Math.max(0, 1 - normDistX * normDistX) * 0.28;
-
         p.noStroke();
-        p.fill(r, g, b, 120);
-        p.ellipse(pt.x, pt.y + ptDrop, 2.2, 1.8);
+        p.fill(r, g, b, 140);
+        p.ellipse(pt.x, pt.y, 2.2, 2.2);
       }
 
       p.pop();
@@ -532,91 +511,115 @@ export class PainParticle {
     }
 
     // ===== 5. 撕刮痛 (Scrape) =====
+    // 伤口/短横/点均为深色 100% 不透明；纤维均匀细线，长度缩短为与伤口一致 (1:1)，只保留 50% -> 0% 透明度衰减
     else if (this.type === 'scrape') {
       const [r, g, b] = this.color;
-      const alpha = Math.max(0, this.life / 255);
 
-      const isReddish = r > g && r > b;
-      const rCol = isReddish ? Math.min(255, r * 0.8 + 30) : Math.min(255, r * 0.8 + 30);
-      const gCol = isReddish ? Math.min(255, g * 0.4 + 20) : Math.min(255, g * 0.8 + 30);
-      const bCol = isReddish ? Math.min(255, b * 0.4 + 20) : Math.min(255, b * 0.8 + 30);
+      // 深度暗血色相
+      const darkR = Math.max(0, Math.round(r * 0.38));
+      const darkG = Math.max(0, Math.round(g * 0.18));
+      const darkB = Math.max(0, Math.round(b * 0.18));
 
-      p.push();
-      p.translate(this.pos.x, this.pos.y);
+      const cosA = Math.cos(this.woundAngle);
+      const sinA = Math.sin(this.woundAngle);
+      const perpCos = -sinA;
+      const perpSin = cosA;
 
-      if (this.fibers) {
+      const halfL = this.woundLen * 0.5;
+      const halfT = this.woundThickness * 0.5;
+
+      const tip1X = this.pos.x - cosA * halfL;
+      const tip1Y = this.pos.y - sinA * halfL;
+      const tip2X = this.pos.x + cosA * halfL;
+      const tip2Y = this.pos.y + sinA * halfL;
+
+      const step = this.currentStep;
+
+      // ============================================================
+      // 🌟【底层】纤维绘制：长度与伤口等长 (1:1)，50% (128) 递减到 0%
+      // ============================================================
+      if (step >= 1 && step <= this.maxSteps) {
+        p.push();
+        p.strokeCap(p.ROUND);
+
+        const t = step / this.maxSteps; // 0.0 -> 1.0
+
         this.fibers.forEach(f => {
-          const fAlpha = f.alpha * alpha * 0.3;
-          const len = f.len;
+          const pt0 = f.points[step - 1];
+          const pt1 = f.points[step];
+          if (pt0 && pt1) {
+            // 透明度从 50% (128) 线性衰减至 0 完全消隐
+            const curAlpha = f.rootAlpha * Math.max(0, 1.0 - t);
 
-          p.stroke(
-            Math.min(255, rCol * 0.5 + 30),
-            Math.min(255, gCol * 0.5 + 30),
-            Math.min(255, bCol * 0.5 + 30),
-            fAlpha
-          );
-          p.strokeWeight(f.width * 0.5);
-
-          const fiberAngle = (this.angle || 0) + f.angleOffset;
-          const startX = f.x - len * 0.5 * Math.cos(fiberAngle);
-          const startY = f.y - len * 0.5 * Math.sin(fiberAngle);
-          const midX = f.x;
-          const midY = f.y;
-          const endX = f.x + len * 0.5 * Math.cos(fiberAngle);
-          const endY = f.y + len * 0.5 * Math.sin(fiberAngle);
-          const curlEndX = endX + Math.cos(f.curlAngle) * f.curlAmount * 2;
-          const curlEndY = endY + Math.sin(f.curlAngle) * f.curlAmount * 2;
-
-          if (f.isBroken) {
-            p.line(startX, startY, midX, midY);
-            p.stroke(
-              Math.min(255, rCol * 0.4 + 20),
-              Math.min(255, gCol * 0.4 + 20),
-              Math.min(255, bCol * 0.4 + 20),
-              fAlpha * 0.3
-            );
-            p.strokeWeight(f.width * 0.3);
-            const scatterX = Math.sin(f.phase + this.life * 0.02) * 2;
-            const scatterY = Math.cos(f.phase * 1.3) * 2;
-            p.line(midX, midY, midX + scatterX, midY + scatterY);
-          } else {
-            p.line(startX, startY, midX, midY);
-            p.line(midX, midY, endX, endY);
-            if (f.curlAmount > 0.1) {
-              p.stroke(
-                Math.min(255, rCol * 0.4 + 20),
-                Math.min(255, gCol * 0.4 + 20),
-                Math.min(255, bCol * 0.4 + 20),
-                fAlpha * 0.4
-              );
-              p.strokeWeight(f.width * 0.4);
-              p.line(endX, endY, curlEndX, curlEndY);
+            if (curAlpha > 1.0) {
+              p.stroke(r, g, b, curAlpha);
+              p.strokeWeight(f.weight);
+              p.line(pt0.x, pt0.y, pt1.x, pt1.y);
             }
           }
         });
+        p.pop();
       }
 
-      if (this.chunks) {
-        this.chunks.forEach(c => {
-          if (c.life <= 0 || c.alpha <= 0) return;
-          const cAlpha = c.alpha * alpha * 0.3;
-          p.noStroke();
-          p.fill(
-            Math.min(255, rCol * 0.5 + 20),
-            Math.min(255, gCol * 0.5 + 20),
-            Math.min(255, bCol * 0.5 + 20),
-            cAlpha
-          );
-          p.push();
-          p.translate(c.x, c.y);
-          p.rotate(c.rotation);
-          const size = c.size * (0.8 + 0.4 * Math.sin(c.life * 0.05));
-          p.ellipse(0, 0, size * 0.6, size * 0.6 * (0.5 + 0.5 * Math.sin(c.life * 0.07 + 1)));
-          p.pop();
-        });
-      }
+      // ============================================================
+      // 🌟【顶层】伤口短横及平行短横/点：全部为深色 100% 不透明，绝不被纤维覆盖
+      // ============================================================
+      if (step === 1 || step === this.maxSteps) {
+        p.push();
 
-      p.pop();
+        // [A] 两端尖锐梭形主伤口（深色 100% 完全不透明）
+        p.noStroke();
+        p.fill(darkR, darkG, darkB, 255);
+
+        p.beginShape();
+        p.vertex(tip1X, tip1Y);
+        p.bezierVertex(
+          this.pos.x - cosA * (halfL * 0.45) + perpCos * halfT,
+          this.pos.y - sinA * (halfL * 0.45) + perpSin * halfT,
+          this.pos.x + cosA * (halfL * 0.45) + perpCos * halfT,
+          this.pos.y + sinA * (halfL * 0.45) + perpSin * halfT,
+          tip2X, tip2Y
+        );
+        p.bezierVertex(
+          this.pos.x + cosA * (halfL * 0.45) - perpCos * halfT,
+          this.pos.y + sinA * (halfL * 0.45) - perpSin * halfT,
+          this.pos.x - cosA * (halfL * 0.45) - perpCos * halfT,
+          this.pos.y - sinA * (halfL * 0.45) - perpSin * halfT,
+          tip1X, tip1Y
+        );
+        p.endShape(p.CLOSE);
+
+        // 伤口核心刀划深痕 (100% 不透明)
+        p.stroke(Math.round(darkR * 0.6), Math.round(darkG * 0.6), Math.round(darkB * 0.6), 255);
+        p.strokeWeight(Math.max(0.8, this.woundThickness * 0.25));
+        p.line(tip1X, tip1Y, tip2X, tip2Y);
+
+        // [B] 随机平行短横或散落点：全部为 100% 完全不透明 (alpha = 255)
+        if (this.subMarks && step === this.maxSteps) {
+          this.subMarks.forEach(sm => {
+            const centerX = this.pos.x + cosA * sm.longOffset + perpCos * sm.latOffset;
+            const centerY = this.pos.y + sinA * sm.longOffset + perpSin * sm.latOffset;
+
+            if (sm.isDot) {
+              p.noStroke();
+              p.fill(darkR, darkG, darkB, 255);
+              p.ellipse(centerX, centerY, sm.weight * 1.3, sm.weight * 1.3);
+            } else {
+              const subHalf = sm.len * 0.5;
+              const sx1 = centerX - cosA * subHalf;
+              const sy1 = centerY - sinA * subHalf;
+              const sx2 = centerX + cosA * subHalf;
+              const sy2 = centerY + sinA * subHalf;
+
+              p.stroke(darkR, darkG, darkB, 255);
+              p.strokeWeight(sm.weight);
+              p.line(sx1, sy1, sx2, sy2);
+            }
+          });
+        }
+
+        p.pop();
+      }
     }
   }
 
